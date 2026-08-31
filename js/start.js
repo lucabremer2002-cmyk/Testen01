@@ -170,7 +170,14 @@
 
   /* ---------- Start ---------- */
 
-  document.addEventListener('DOMContentLoaded', function () {
+  /* Laeuft das Skript erst nach dem Parsen (z. B. eingebettet in einer
+     einzelnen Datei), ist DOMContentLoaded moeglicherweise schon durch. */
+  function beiBereitschaft(fn) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
+    else fn();
+  }
+
+  beiBereitschaft(function () {
     startbildschirm();
     $('modalZu').onclick = UI.modalZu;
   });

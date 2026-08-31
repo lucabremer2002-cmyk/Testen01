@@ -1,6 +1,8 @@
 /* Fußballmanager - Gestaltung */
 
 :root {
+  /* Bewusst einthemig: eine Stadionnacht kippt nicht ins Helle. */
+  color-scheme: dark;
   --gruen-tief: #0a1410;
   --gruen-dunkel: #101d17;
   --gruen-karte: #16261e;
@@ -109,6 +111,10 @@ a { color: var(--gold); }
   border-top: 1px solid var(--gruen-rand); padding-top: 1rem;
 }
 .wahlinfo { color: var(--text-still); }
+.start__kleingedrucktes {
+  color: var(--text-schwach); font-size: .76rem; text-align: center;
+  max-width: 62ch; margin: 1.4rem auto 0; line-height: 1.6;
+}
 .wahlinfo b { color: var(--text); }
 
 .feld { display: block; margin-bottom: 1rem; max-width: 380px; }

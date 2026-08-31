@@ -14,6 +14,17 @@ python3 -m http.server 8000
 # danach http://localhost:8000 aufrufen
 ```
 
+### Als einzelne Datei
+
+`fussballmanager.html` enthält das komplette Spiel in einer Datei – ohne
+externe Verweise. Praktisch zum Verschicken oder Hochladen. Neu erzeugt wird
+sie mit:
+
+```bash
+node build-einzeldatei.js              # fussballmanager.html
+node build-einzeldatei.js --rumpflos   # nur Inhalt, ohne <html>/<head>/<body>
+```
+
 Der Spielstand wird im Browser (localStorage) gespeichert und beim nächsten
 Start zum Fortsetzen angeboten.
 
@@ -140,6 +151,7 @@ Fällt das Vorstandsvertrauen zu tief, werden Sie freigestellt.
 | `js/save.js` | Kompakter Spielstand (rund 0,9 MB statt 3,5 MB) |
 | `js/ui*.js` | Oberfläche |
 | `tetris/` | Das frühere Tetris-Spiel, unverändert erhalten |
+| `build-einzeldatei.js` | Baut das Spiel in eine einzelne HTML-Datei |
 
 ## Hinweise
 
