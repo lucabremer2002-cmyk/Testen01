@@ -1,0 +1,250 @@
+:root {
+  --bg: #070a12;
+  --bg-2: #0d1220;
+  --panel: rgba(255, 255, 255, .04);
+  --line: rgba(255, 255, 255, .09);
+  --text: #e8ecf6;
+  --muted: #8d97b0;
+  --accent: #22d3ee;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background:
+    radial-gradient(1000px 700px at 50% -10%, #16203a 0%, transparent 60%),
+    linear-gradient(180deg, var(--bg-2), var(--bg));
+  color: var(--text);
+  font: 15px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px;
+  -webkit-user-select: none;
+  user-select: none;
+  overflow-x: hidden;
+}
+
+.app {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 150px;
+}
+
+.box {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px 12px;
+  backdrop-filter: blur(6px);
+}
+
+.box h2 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+#hold, #next {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.stats { display: grid; gap: 7px; }
+
+.stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stat span {
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stat b {
+  font-variant-numeric: tabular-nums;
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.board-wrap {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .55), 0 0 0 6px rgba(255, 255, 255, .02);
+  background: #05070d;
+  line-height: 0;
+}
+
+/* Das Brett ist doppelt so hoch wie breit. Damit die Seitenspalten nie
+   abgeschnitten werden, begrenzt der letzte Term die Hoehe zusaetzlich
+   ueber die Breite, die neben den Panels uebrig bleibt. */
+#board {
+  display: block;
+  height: min(72vh, 620px, (100vw - 364px) * 2);
+  width: auto;
+  touch-action: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 7, 13, .82);
+  backdrop-filter: blur(3px);
+  transition: opacity .18s ease;
+  line-height: 1.45;
+}
+
+.overlay[hidden] { display: none; }
+
+.overlay__card { text-align: center; padding: 20px; }
+
+.overlay__card h1 {
+  margin: 0 0 6px;
+  font-size: 34px;
+  letter-spacing: .28em;
+  text-indent: .28em;
+  background: linear-gradient(90deg, #22d3ee, #c084fc, #fb923c);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.overlay__card p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  white-space: pre-line;
+  font-size: 14px;
+}
+
+.overlay__card button {
+  font: inherit;
+  font-weight: 600;
+  color: #04121a;
+  background: linear-gradient(180deg, #5ee7f5, var(--accent));
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 26px;
+  cursor: pointer;
+  transition: transform .12s ease, filter .12s ease;
+}
+
+.overlay__card button:hover { filter: brightness(1.08); }
+.overlay__card button:active { transform: translateY(1px); }
+
+.toast {
+  position: absolute;
+  left: 50%;
+  top: 26%;
+  transform: translateX(-50%);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 0 18px rgba(34, 211, 238, .85);
+  opacity: 0;
+  pointer-events: none;
+  white-space: pre-line;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.toast.show { animation: pop 1s ease forwards; }
+
+@keyframes pop {
+  0%   { opacity: 0; transform: translate(-50%, 10px) scale(.9); }
+  18%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -14px) scale(1); }
+}
+
+.help {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 16px;
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 640px;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 20px;
+  text-align: center;
+  padding: 1px 6px;
+  margin-right: 3px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, .05);
+  color: var(--text);
+  font: 11px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.touch { display: none; }
+
+@media (pointer: coarse) {
+  .touch {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    width: min(420px, 100%);
+  }
+
+  .touch button {
+    font: 600 18px/1 system-ui, sans-serif;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 0;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .touch button:active { background: rgba(34, 211, 238, .22); }
+  .touch button[data-act="hold"] { font-size: 12px; letter-spacing: .1em; }
+  .help { display: none; }
+}
+
+@media (max-width: 620px) {
+  body { justify-content: flex-start; gap: 10px; padding: 8px; }
+  .app { gap: 6px; width: 100%; justify-content: center; }
+  .panel { width: 68px; }
+  .box { padding: 7px 6px 8px; border-radius: 10px; }
+  .box h2 { font-size: 9px; letter-spacing: .08em; margin-bottom: 5px; }
+  .stats { gap: 4px; }
+  .stat { flex-direction: column; gap: 0; }
+  .stat span { font-size: 9px; letter-spacing: .06em; }
+  .stat b { font-size: 15px; }
+  #board { height: min(58vh, 520px, (100vw - 160px) * 2); }
+}
