@@ -3,71 +3,108 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Tetris</title>
-<link rel="stylesheet" href="style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0f1a'/><rect x='2' y='6' width='4' height='4' fill='%2322d3ee'/><rect x='6' y='6' width='4' height='4' fill='%23c084fc'/><rect x='10' y='6' width='4' height='4' fill='%23facc15'/></svg>">
+<title>Fußballmanager – Bundesliga bis Regionalliga West</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%230d1b12'/><circle cx='8' cy='8' r='5' fill='%23f5f5f0'/><path d='M8 4l1.6 1.2-.6 1.9h-2l-.6-1.9z' fill='%23111'/></svg>">
 </head>
 <body>
-  <div class="app">
-    <aside class="panel panel--left">
-      <section class="box">
-        <h2>Halten</h2>
-        <canvas id="hold" width="176" height="128" aria-label="Gehaltener Stein"></canvas>
-      </section>
 
-      <section class="box stats">
-        <div class="stat"><span>Punkte</span><b id="score">0</b></div>
-        <div class="stat"><span>Bestwert</span><b id="best">0</b></div>
-        <div class="stat"><span>Level</span><b id="level">1</b></div>
-        <div class="stat"><span>Reihen</span><b id="lines">0</b></div>
-        <div class="stat"><span>Zeit</span><b id="time">0:00</b></div>
-      </section>
-    </aside>
+<div id="start" class="start">
+  <div class="start__inner">
+    <header class="start__kopf">
+      <h1>Fußballmanager</h1>
+      <p class="start__unter">Bundesliga · 2. Bundesliga · 3. Liga · Regionalliga West</p>
+    </header>
 
-    <main class="board-wrap">
-      <canvas id="board" width="600" height="1200" aria-label="Spielfeld"></canvas>
-
-      <div id="overlay" class="overlay">
-        <div class="overlay__card">
-          <h1 id="ov-title">TETRIS</h1>
-          <p id="ov-text">Enter oder Leertaste zum Starten</p>
-          <button id="ov-btn" type="button">Spiel starten</button>
-        </div>
+    <div id="startLaden" class="start__laden" hidden>
+      <h2>Gespeicherte Karriere</h2>
+      <p id="startLadenInfo"></p>
+      <div class="knopfreihe">
+        <button class="knopf knopf--gross" id="btnWeiterspielen">Karriere fortsetzen</button>
+        <button class="knopf knopf--still" id="btnSpielstandLoeschen">Spielstand löschen</button>
       </div>
+    </div>
 
-      <div id="toast" class="toast" aria-live="polite"></div>
-    </main>
+    <section class="start__neu">
+      <h2>Neue Karriere</h2>
+      <label class="feld">
+        <span>Ihr Name</span>
+        <input type="text" id="managerName" maxlength="28" placeholder="z. B. Luca Bremer" autocomplete="off">
+      </label>
 
-    <aside class="panel panel--right">
-      <section class="box">
-        <h2>Als N&auml;chstes</h2>
-        <canvas id="next" width="176" height="560" aria-label="N&auml;chste Steine"></canvas>
-      </section>
-    </aside>
+      <div class="ligawahl" id="ligaWahl"></div>
+      <div class="vereinsgitter" id="vereinsGitter"></div>
+
+      <div class="start__fuss">
+        <div id="wahlInfo" class="wahlinfo">Wählen Sie einen Verein aus.</div>
+        <button class="knopf knopf--gross" id="btnStarten" disabled>Karriere starten</button>
+      </div>
+    </section>
   </div>
+</div>
 
-  <div class="touch" id="touch">
-    <button type="button" data-act="left" aria-label="Links">&#9664;</button>
-    <button type="button" data-act="rotateCCW" aria-label="Gegen den Uhrzeigersinn drehen">&#8630;</button>
-    <button type="button" data-act="rotateCW" aria-label="Im Uhrzeigersinn drehen">&#8631;</button>
-    <button type="button" data-act="right" aria-label="Rechts">&#9654;</button>
-    <button type="button" data-act="hold" aria-label="Halten">HOLD</button>
-    <button type="button" data-act="softDrop" aria-label="Sanft fallen">&#9660;</button>
-    <button type="button" data-act="hardDrop" aria-label="Hart fallen">&#8681;</button>
+<div id="app" class="app" hidden>
+  <aside class="seitenleiste" id="seitenleiste">
+    <div class="seitenleiste__klub" id="seitenKlub"></div>
+    <nav class="menue" id="menue"></nav>
+    <div class="seitenleiste__fuss">
+      <button class="knopf knopf--still knopf--klein" id="btnSpeichern">Speichern</button>
+      <button class="knopf knopf--still knopf--klein" id="btnHauptmenue">Hauptmenü</button>
+    </div>
+  </aside>
+
+  <div class="hauptbereich">
+    <header class="kopfzeile">
+      <button class="menueknopf" id="btnMenue" aria-label="Menü">☰</button>
+      <div class="kopf__datum">
+        <strong id="kopfDatum">–</strong>
+        <span id="kopfSaison"></span>
+      </div>
+      <div class="kopf__werte">
+        <div class="kopfwert"><span>Kontostand</span><b id="kopfKonto">–</b></div>
+        <div class="kopfwert"><span>Transferbudget</span><b id="kopfBudget">–</b></div>
+        <div class="kopfwert kopfwert--post"><span>Postfach</span><b id="kopfPost">0</b></div>
+      </div>
+      <button class="knopf knopf--weiter" id="btnWeiter">Weiter</button>
+    </header>
+
+    <main class="inhalt" id="inhalt"></main>
   </div>
+</div>
 
-  <footer class="help">
-    <div><kbd>&larr;</kbd><kbd>&rarr;</kbd> Bewegen</div>
-    <div><kbd>&darr;</kbd> Sanft fallen</div>
-    <div><kbd>Leer</kbd> Hart fallen</div>
-    <div><kbd>&uarr;</kbd><kbd>X</kbd> Drehen &#8631;</div>
-    <div><kbd>Strg</kbd><kbd>Y</kbd> Drehen &#8630;</div>
-    <div><kbd>C</kbd> Halten</div>
-    <div><kbd>P</kbd> Pause</div>
-    <div><kbd>R</kbd> Neustart</div>
-    <div><kbd>M</kbd> Ton <span id="sound-state">an</span></div>
-  </footer>
+<div id="modal" class="modal" hidden>
+  <div class="modal__box" role="dialog" aria-modal="true">
+    <header class="modal__kopf">
+      <h2 id="modalTitel"></h2>
+      <button class="modal__zu" id="modalZu" aria-label="Schließen">×</button>
+    </header>
+    <div class="modal__inhalt" id="modalInhalt"></div>
+    <footer class="modal__fuss" id="modalFuss"></footer>
+  </div>
+</div>
 
-  <script src="game.js"></script>
+<div id="spielOverlay" class="spiel" hidden></div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="js/core.js"></script>
+<script src="js/data-clubs.js"></script>
+<script src="js/data-intl.js"></script>
+<script src="js/data-pool.js"></script>
+<script src="js/names.js"></script>
+<script src="js/logos.js"></script>
+<script src="js/players.js"></script>
+<script src="js/league.js"></script>
+<script src="js/match.js"></script>
+<script src="js/finance.js"></script>
+<script src="js/transfers.js"></script>
+<script src="js/game.js"></script>
+<script src="js/save.js"></script>
+<script src="js/saison.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/ui-team.js"></script>
+<script src="js/ui-transfer.js"></script>
+<script src="js/ui-verein.js"></script>
+<script src="js/ui-spiel.js"></script>
+<script src="js/start.js"></script>
 </body>
 </html>

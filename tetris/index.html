@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tetris</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0f1a'/><rect x='2' y='6' width='4' height='4' fill='%2322d3ee'/><rect x='6' y='6' width='4' height='4' fill='%23c084fc'/><rect x='10' y='6' width='4' height='4' fill='%23facc15'/></svg>">
+</head>
+<body>
+  <div class="app">
+    <aside class="panel panel--left">
+      <section class="box">
+        <h2>Halten</h2>
+        <canvas id="hold" width="176" height="128" aria-label="Gehaltener Stein"></canvas>
+      </section>
+
+      <section class="box stats">
+        <div class="stat"><span>Punkte</span><b id="score">0</b></div>
+        <div class="stat"><span>Bestwert</span><b id="best">0</b></div>
+        <div class="stat"><span>Level</span><b id="level">1</b></div>
+        <div class="stat"><span>Reihen</span><b id="lines">0</b></div>
+        <div class="stat"><span>Zeit</span><b id="time">0:00</b></div>
+      </section>
+    </aside>
+
+    <main class="board-wrap">
+      <canvas id="board" width="600" height="1200" aria-label="Spielfeld"></canvas>
+
+      <div id="overlay" class="overlay">
+        <div class="overlay__card">
+          <h1 id="ov-title">TETRIS</h1>
+          <p id="ov-text">Enter oder Leertaste zum Starten</p>
+          <button id="ov-btn" type="button">Spiel starten</button>
+        </div>
+      </div>
+
+      <div id="toast" class="toast" aria-live="polite"></div>
+    </main>
+
+    <aside class="panel panel--right">
+      <section class="box">
+        <h2>Als N&auml;chstes</h2>
+        <canvas id="next" width="176" height="560" aria-label="N&auml;chste Steine"></canvas>
+      </section>
+    </aside>
+  </div>
+
+  <div class="touch" id="touch">
+    <button type="button" data-act="left" aria-label="Links">&#9664;</button>
+    <button type="button" data-act="rotateCCW" aria-label="Gegen den Uhrzeigersinn drehen">&#8630;</button>
+    <button type="button" data-act="rotateCW" aria-label="Im Uhrzeigersinn drehen">&#8631;</button>
+    <button type="button" data-act="right" aria-label="Rechts">&#9654;</button>
+    <button type="button" data-act="hold" aria-label="Halten">HOLD</button>
+    <button type="button" data-act="softDrop" aria-label="Sanft fallen">&#9660;</button>
+    <button type="button" data-act="hardDrop" aria-label="Hart fallen">&#8681;</button>
+  </div>
+
+  <footer class="help">
+    <div><kbd>&larr;</kbd><kbd>&rarr;</kbd> Bewegen</div>
+    <div><kbd>&darr;</kbd> Sanft fallen</div>
+    <div><kbd>Leer</kbd> Hart fallen</div>
+    <div><kbd>&uarr;</kbd><kbd>X</kbd> Drehen &#8631;</div>
+    <div><kbd>Strg</kbd><kbd>Y</kbd> Drehen &#8630;</div>
+    <div><kbd>C</kbd> Halten</div>
+    <div><kbd>P</kbd> Pause</div>
+    <div><kbd>R</kbd> Neustart</div>
+    <div><kbd>M</kbd> Ton <span id="sound-state">an</span></div>
+  </footer>
+
+  <script src="game.js"></script>
+</body>
+</html>
