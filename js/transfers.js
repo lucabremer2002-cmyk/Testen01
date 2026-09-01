@@ -193,18 +193,46 @@
 
   /* ================= Angebotsbewertung ================= */
 
+  /* Was ein angebotener Tauschspieler dem anderen Verein wert ist.
+     Ein Spieler, den er sportlich braucht, zählt fast voll - einer, der
+     ihm nichts bringt, nur einen Bruchteil. */
+  function tauschwert(spieler, kaeuferKlub, kaderKaeufer, niveau) {
+    var f = 0.55;
+    if (kaderKaeufer && kaderKaeufer.length) {
+      var gruppe = kaderKaeufer.filter(function (p) {
+        return Players.GRUPPE[p.pos] === Players.GRUPPE[spieler.pos];
+      }).sort(function (a, b) { return b.staerke - a.staerke; });
+      var soll = { TW: 1, ABW: 4, MIT: 4, ANG: 2 }[Players.GRUPPE[spieler.pos]] || 3;
+      var referenz = gruppe.length >= soll ? gruppe[soll - 1] : null;
+      /* Verstärkt er die Startelf, ist er deutlich mehr wert. */
+      if (!referenz) f += 0.25;
+      else f += Util.clamp((spieler.staerke - referenz.staerke) * 0.035, -0.2, 0.28);
+      if (gruppe.length >= soll + 3) f -= 0.12;
+    }
+    if (niveau !== undefined) {
+      /* Ein Spieler weit unter dem Niveau des Vereins interessiert nicht. */
+      f += Util.clamp((spieler.staerke - niveau) * 0.02, -0.25, 0.12);
+    }
+    if (spieler.alter <= 22 && spieler.potenzial - spieler.staerke > 8) f += 0.08;
+    if (spieler.alter >= 32) f -= 0.12;
+    if (spieler.verletztBis) f -= 0.05;
+    return Math.round(spieler.marktwert * Util.clamp(f, 0.3, 0.95));
+  }
+
   /* Was ein strukturiertes Angebot dem Verkäufer wirklich wert ist. */
   function angebotsWert(angebot, marktwert) {
     return (angebot.sofort || 0) +
       (angebot.raten || 0) * 0.88 +
       (angebot.bonusEinsaetze || 0) * 0.45 +
       (angebot.bonusAufstieg || 0) * 0.30 +
+      (angebot.tauschWert || 0) +
       (angebot.weiterverkauf || 0) / 100 * marktwert * 0.35;
   }
 
   function angebotGesamt(angebot) {
     return (angebot.sofort || 0) + (angebot.raten || 0) +
-           (angebot.bonusEinsaetze || 0) + (angebot.bonusAufstieg || 0);
+           (angebot.bonusEinsaetze || 0) + (angebot.bonusAufstieg || 0) +
+           (angebot.tauschWert || 0);
   }
 
   function verhandlungStarten(state, opt) {
@@ -248,7 +276,10 @@
     v.historie.push({
       von: 'kaeufer',
       text: 'Angebot über ' + Fmt.money(angebotGesamt(angebot)) +
-        (angebot.raten ? ', davon ' + Fmt.money(angebot.sofort || 0) + ' sofort' : '') + '.'
+        (angebot.raten ? ', davon ' + Fmt.money(angebot.sofort || 0) + ' sofort' : '') +
+        (angebot.spieler && angebot.spieler.length
+          ? ' – inklusive ' + angebot.spieler.length +
+            (angebot.spieler.length === 1 ? ' Tauschspieler' : ' Tauschspielern') : '') + '.'
     });
 
     /* Das Gesprächsklima leidet unter niedrigen Angeboten. */
@@ -287,6 +318,9 @@
     } else if (anteilBar < 0.4 && angebot.raten) {
       text = 'Uns fehlen noch etwa ' + prozent + ' %. Vor allem ist uns der Sofortanteil zu klein – ' +
         'Raten sind uns weniger wert als Bargeld.';
+    } else if (angebot.tauschWert && angebot.tauschWert > (angebot.sofort || 0) && abweichung > 0.12) {
+      text = 'Die angebotenen Spieler helfen uns nur bedingt – so fehlen noch rund ' + prozent +
+        ' %. Mit mehr Bargeld ginge es schneller.';
     } else if (abweichung > 0.12) {
       text = 'Wir liegen noch rund ' + prozent + ' % auseinander. Neue Forderung: ' + Fmt.money(v.forderung) + '.';
     } else {
@@ -506,6 +540,7 @@
     dossier: dossier,
     verhandlungStarten: verhandlungStarten,
     klimaText: klimaText,
+    tauschwert: tauschwert,
     angebotsWert: angebotsWert,
     angebotGesamt: angebotGesamt,
     vereinAntwort: vereinAntwort,

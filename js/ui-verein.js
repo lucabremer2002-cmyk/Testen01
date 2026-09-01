@@ -112,6 +112,19 @@
       UI.kennzahl('Unterhalt', Fmt.money(Finance.unterhaltWoche(fin, mein.stufe)), 'pro Woche') +
       '</div>';
 
+    /* Draufsicht – sie ändert sich mit jedem Ausbau. */
+    html += '<div class="karte"><div class="karte__kopf"><h3>Ihr Stadion</h3>' +
+      '<span class="mini">' + StadionGrafik.raenge(kap) +
+      (StadionGrafik.raenge(kap) === 1 ? ' Rang' : ' Ränge') + ' · ' +
+      Fmt.num(sd.sektoren.steh.plaetze) + ' Steh · ' + Fmt.num(sd.sektoren.sitz.plaetze) +
+      ' Sitz · ' + Fmt.num(sd.sektoren.vip.plaetze) + ' VIP</span></div>' +
+      '<div id="stadionBild" class="stadionrahmen">' + StadionGrafik.svg(mein, sd, {}) + '</div>' +
+      '<div class="stadionteile">' + Finance.MODULE.map(function (m) {
+        var da = !!sd.module[m.id];
+        return '<span class="marke' + (da ? ' marke--akzent' : '') + '"' +
+          (da ? '' : ' style="opacity:.45"') + '>' + Util.esc(m.name) + '</span>';
+      }).join('') + '</div></div>';
+
     /* Laufende Baumaßnahme */
     if (sd.ausbau) {
       var a = sd.ausbau;
@@ -154,7 +167,9 @@
         UI.feldZahl('Zusätzliche Plätze', 'ausbauPlaetze', 2000, 100, 40000, 100) +
         '</div>' +
         '<p class="mini" id="ausbauInfo"></p>' +
-        '<button class="knopf knopf--haupt" id="ausbauStart">Ausbau beauftragen</button>';
+        '<button class="knopf knopf--haupt" id="ausbauStart">Ausbau beauftragen</button>' +
+        '<p class="mini" style="margin-top:.6em">Die Draufsicht oben zeigt den geplanten Zustand, ' +
+        'solange Sie hier etwas verändern.</p>';
     }
     html += '</div>';
 
@@ -197,22 +212,35 @@
       UI.zeichne();
     };
 
-    function ausbauInfo() {
+    /* Die Vorschau erscheint erst, wenn wirklich etwas eingestellt wurde -
+       beim Öffnen zeigt die Draufsicht den heutigen Zustand. */
+    function ausbauInfo(mitVorschau) {
       var sektor = $('ausbauSektor'), plaetze = $('ausbauPlaetze'), info = $('ausbauInfo');
       if (!sektor || !info) return;
       var n = Math.max(0, +plaetze.value || 0);
       var kosten = Finance.ausbauKosten(sektor.value, n);
       var dauer = Finance.ausbauDauer(n);
+      var alteKap = Finance.kapazitaet(sd);
+      var neueKap = alteKap + n;
       info.innerHTML = 'Kosten: <b>' + Fmt.money(kosten) + '</b> · Bauzeit: <b>' + dauer + ' Tage</b> · ' +
-        'Neue Kapazität: <b>' + Fmt.num(Finance.kapazitaet(sd) + n) + '</b>' +
+        'Kapazität: <b>' + Fmt.num(alteKap) + ' → ' + Fmt.num(neueKap) + '</b>' +
+        (StadionGrafik.raenge(neueKap) > StadionGrafik.raenge(alteKap)
+          ? ' <span class="akzent">– das Stadion bekommt einen weiteren Rang.</span>' : '') +
         (kosten > Game.verfuegbaresGeld(st, mein)
           ? ' <span class="schlecht">– dafür reicht das freie Guthaben nicht.</span>' : '');
+      if (!mitVorschau) return;
+      var bild = $('stadionBild');
+      if (bild) {
+        bild.innerHTML = StadionGrafik.svg(mein, sd,
+          n > 0 ? { vorschau: { sektor: sektor.value, plaetze: n } } : {});
+        bild.classList.toggle('stadionrahmen--vorschau', n > 0);
+      }
     }
     ['ausbauSektor', 'ausbauPlaetze'].forEach(function (id) {
       var el = $(id);
-      if (el) el.oninput = el.onchange = ausbauInfo;
+      if (el) el.oninput = el.onchange = function () { ausbauInfo(true); };
     });
-    ausbauInfo();
+    ausbauInfo(false);
 
     var start = $('ausbauStart');
     if (start) start.onclick = function () {

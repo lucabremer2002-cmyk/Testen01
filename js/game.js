@@ -946,12 +946,35 @@
     spieler.transferliste = false;
     spieler.wechselwunsch = false;
     spieler.moral = Util.clamp(spieler.moral + 8, 5, 100);
+    /* Tauschspieler wechseln in die Gegenrichtung. */
+    if (struktur && struktur.spieler && struktur.spieler.length && verkaeufer) {
+      struktur.spieler.forEach(function (pid) {
+        var tp = state.spieler[pid];
+        if (!tp || tp.klubId !== kaeufer.id) return;
+        kaeufer.kader = kaeufer.kader.filter(function (id) { return id !== pid; });
+        verkaeufer.kader.push(pid);
+        tp.klubId = verkaeufer.id;
+        tp.transferliste = false;
+        tp.wechselwunsch = false;
+        tp.moral = Util.clamp(tp.moral - 4, 5, 100);
+        tp.marktwert = Players.marktwert(tp, state.saison);
+        state.statistik.transfers.unshift({
+          tag: state.tag, saison: state.saison, spielerId: tp.id, name: tp.name,
+          von: kaeufer.id, zu: verkaeufer.id, abloese: 0, tausch: true
+        });
+      });
+      verkaeufer.aufstellung = null;
+    }
+
     if (kaeufer.finanzen) {
       if (sofort > 0) {
         Finance.buchen(kaeufer.finanzen, state.tag, 'Transfer', 'Verpflichtung ' + spieler.name +
           (verkaeufer ? ' von ' + verkaeufer.name : ''), -sofort, 'Transferausgaben');
       }
-      kaeufer.finanzen.transferbudget = Math.max(0, kaeufer.finanzen.transferbudget - abloese);
+      /* Nur der Bargeldanteil belastet das Transferbudget - Tauschspieler
+         kosten kein Geld. */
+      var barAnteil = abloese - (struktur && struktur.tauschWert ? struktur.tauschWert : 0);
+      kaeufer.finanzen.transferbudget = Math.max(0, kaeufer.finanzen.transferbudget - barAnteil);
       /* Ratenzahlung als laufende Verpflichtung eintragen. */
       if (struktur && struktur.raten > 0 && verkaeufer) {
         var wochen = Math.max(1, Math.round((struktur.ratenJahre || 2) * 52));

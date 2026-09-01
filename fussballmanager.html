@@ -605,7 +605,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   border-top: 1px solid var(--separator);
   position: sticky; top: 0; z-index: 5;
 }
-.spiel__koerper { flex: 1; padding: var(--s5) var(--s4) var(--s8); max-width: 1040px; margin: 0 auto; width: 100%; }
+.spiel__koerper { flex: 1; padding: var(--s5) var(--s4) var(--s8); max-width: 1240px; margin: 0 auto; width: 100%; }
 .ticker { display: flex; flex-direction: column; gap: var(--s1); }
 .ticker__zeile {
   display: grid; grid-template-columns: 3em 1fr; gap: var(--s3);
@@ -619,6 +619,21 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 .ticker__zeile.rot, .ticker__zeile.gelbrot { background: var(--schlecht-weich); }
 .ticker__zeile.wechsel { background: var(--info-weich); }
 .ticker__min { color: var(--text-3); font-weight: 550; }
+/* 2D-Spielfeld */
+.spiel__raster { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(280px, 1fr); gap: var(--s4); align-items: start; }
+.spiel__ticker { max-height: 62vh; overflow-y: auto; }
+.feldrahmen { position: relative; }
+.feld2d {
+  display: block; width: 100%; aspect-ratio: 105 / 68;
+  border-radius: var(--r-m); background: #4f9e70;
+}
+.feldlegende {
+  display: flex; gap: var(--s5); justify-content: center;
+  margin-top: var(--s3); font-size: var(--t-footnote); color: var(--text-2);
+}
+.feldlegende span { display: inline-flex; align-items: center; gap: var(--s2); }
+.feldlegende i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
 /* Aufstellungsliste im Livespiel: schmale Positionsspalte, damit Namen
    und Noten nicht auseinanderdriften. */
 .spiel__koerper table.liste td:first-child,
@@ -693,6 +708,19 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 .fortschritt { height: 6px; background: var(--fill); border-radius: var(--r-pille); overflow: hidden; }
 .fortschritt i { display: block; height: 100%; background: var(--akzent); border-radius: var(--r-pille); }
 
+/* ---------- Stadion ---------- */
+.stadionrahmen {
+  background: var(--surface-2); border-radius: var(--r-m);
+  padding: var(--s3); max-width: 560px; margin: 0 auto;
+  transition: box-shadow .2s ease;
+}
+.stadionrahmen--vorschau { box-shadow: inset 0 0 0 2px var(--warn); }
+.stadionbild { display: block; }
+.stadionteile {
+  display: flex; flex-wrap: wrap; gap: var(--s2);
+  justify-content: center; margin-top: var(--s4);
+}
+
 /* ---------- Jugendakademie ---------- */
 .talentkarte {
   background: var(--surface-2); border-radius: var(--r-m); padding: var(--s4);
@@ -726,6 +754,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   .inhalt { padding: var(--s2) var(--s4) var(--s8); }
   .taktikraster { grid-template-columns: 1fr; }
   .spiel__tore { font-size: var(--t-title1); }
+  .spiel__raster { grid-template-columns: 1fr; }
+  .spiel__ticker { max-height: none; }
   .kopf__datum span { display: none; }
   .karte { padding: var(--s4); border-radius: var(--r-m); }
   .seitentitel { font-size: var(--t-title2); }
@@ -2919,6 +2949,223 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
+/* ===== js/stadion-grafik.js ===== */
+/* stadion-grafik.js - Zeichnet das Stadion als Draufsicht.
+ *
+ * Die Darstellung liest sich direkt aus den Daten: Die Tiefe der Tribünen
+ * folgt der Kapazität, die Zahl der Ränge ebenso, die Ausstattung erscheint
+ * als eigene Bauteile, und eine laufende Baumaßnahme wird als Baustelle auf
+ * der betroffenen Seite gezeigt.
+ */
+(function (g) {
+  'use strict';
+
+  var B = 420, H = 320;               /* Zeichenfläche */
+  var RASEN_B = 176, RASEN_H = 116;   /* Spielfeld in der Mitte */
+
+  function tribuenenTiefe(kapazitaet) {
+    var k = Math.max(500, kapazitaet);
+    return Util.clamp(7 + (Math.log(k) / Math.LN10 - 3) * 25, 7, 56);
+  }
+
+  function raenge(kapazitaet) {
+    if (kapazitaet >= 60000) return 4;
+    if (kapazitaet >= 34000) return 3;
+    if (kapazitaet >= 12000) return 2;
+    return 1;
+  }
+
+  function heller(hex, f) {
+    var r = parseInt(hex.substr(1, 2), 16), gg = parseInt(hex.substr(3, 2), 16), b = parseInt(hex.substr(5, 2), 16);
+    function m(v) { return Math.round(v + (255 - v) * f); }
+    function h(v) { return ('0' + Math.min(255, v).toString(16)).slice(-2); }
+    return '#' + h(m(r)) + h(m(gg)) + h(m(b));
+  }
+  function dunkler(hex, f) {
+    var r = parseInt(hex.substr(1, 2), 16), gg = parseInt(hex.substr(3, 2), 16), b = parseInt(hex.substr(5, 2), 16);
+    function h(v) { return ('0' + Math.max(0, Math.round(v)).toString(16)).slice(-2); }
+    return '#' + h(r * f) + h(gg * f) + h(b * f);
+  }
+
+  /* Eine Tribünenseite als gestapelte Ränge. */
+  function tribuene(x, y, breite, hoehe, anzahlRaenge, farbe, richtung, extra) {
+    var teile = [];
+    var luecke = 1.5;
+    var rangHoehe = (hoehe - luecke * (anzahlRaenge - 1)) / anzahlRaenge;
+    for (var i = 0; i < anzahlRaenge; i++) {
+      /* Obere Ränge springen leicht zurück – wie eine echte Tribünenschale. */
+      var einzug = i * (richtung === 'horizontal' ? 5 : 4);
+      var rx = richtung === 'horizontal' ? x + einzug : x;
+      var rb = richtung === 'horizontal' ? breite - einzug * 2 : breite;
+      var ry = y + i * (rangHoehe + luecke);
+      var ton = i === 0 ? farbe : (i === 1 ? dunkler(farbe, 0.82) : dunkler(farbe, 0.66));
+      teile.push('<rect x="' + rx.toFixed(1) + '" y="' + ry.toFixed(1) + '" width="' + rb.toFixed(1) +
+        '" height="' + rangHoehe.toFixed(1) + '" rx="2" fill="' + ton + '"/>');
+      /* Sitzreihen andeuten */
+      if (rangHoehe > 7) {
+        var linien = Math.min(4, Math.floor(rangHoehe / 4));
+        for (var l = 1; l <= linien; l++) {
+          var ly = ry + rangHoehe * (l / (linien + 1));
+          teile.push('<line x1="' + (rx + 3).toFixed(1) + '" y1="' + ly.toFixed(1) +
+            '" x2="' + (rx + rb - 3).toFixed(1) + '" y2="' + ly.toFixed(1) +
+            '" stroke="' + heller(ton, 0.35) + '" stroke-width="0.7" opacity="0.55"/>');
+        }
+      }
+    }
+    if (extra) teile.push(extra);
+    return teile.join('');
+  }
+
+  function flutlichtmast(x, y) {
+    return '<g><line x1="' + x + '" y1="' + y + '" x2="' + x + '" y2="' + (y - 14) +
+      '" stroke="#8a8d94" stroke-width="2"/>' +
+      '<rect x="' + (x - 9) + '" y="' + (y - 21) + '" width="18" height="8" rx="1.5" fill="#c9ccd4"/>' +
+      '<circle cx="' + (x - 5) + '" cy="' + (y - 17) + '" r="1.6" fill="#fff8d8"/>' +
+      '<circle cx="' + x + '" cy="' + (y - 17) + '" r="1.6" fill="#fff8d8"/>' +
+      '<circle cx="' + (x + 5) + '" cy="' + (y - 17) + '" r="1.6" fill="#fff8d8"/></g>';
+  }
+
+  function kran(x, y) {
+    return '<g opacity="0.95">' +
+      '<line x1="' + x + '" y1="' + y + '" x2="' + x + '" y2="' + (y - 40) + '" stroke="#e8a13a" stroke-width="3"/>' +
+      '<line x1="' + (x - 22) + '" y1="' + (y - 38) + '" x2="' + (x + 30) + '" y2="' + (y - 38) + '" stroke="#e8a13a" stroke-width="3"/>' +
+      '<line x1="' + (x + 22) + '" y1="' + (y - 38) + '" x2="' + (x + 22) + '" y2="' + (y - 24) + '" stroke="#b9b9bf" stroke-width="1.2"/>' +
+      '<rect x="' + (x + 17) + '" y="' + (y - 24) + '" width="10" height="7" rx="1" fill="#c9ccd4"/></g>';
+  }
+
+  /* opt: {vorschau: {sektor, plaetze}} zeigt einen geplanten Ausbau an. */
+  function svg(klub, stadion, opt) {
+    opt = opt || {};
+    var sek = stadion.sektoren;
+    var kapazitaet = sek.steh.plaetze + sek.sitz.plaetze + sek.vip.plaetze;
+    var geplant = opt.vorschau && opt.vorschau.plaetze > 0 ? opt.vorschau.plaetze : 0;
+    var kapNeu = kapazitaet + geplant;
+
+    var tiefe = tribuenenTiefe(kapNeu);
+    var rangZahl = raenge(kapNeu);
+    var farbe = klub.c1 === '#ffffff' ? klub.c2 : klub.c1;
+    var zweit = klub.c2 === '#ffffff' ? heller(farbe, 0.55) : klub.c2;
+
+    var mx = B / 2, my = H / 2 + 6;
+    var px = mx - RASEN_B / 2, py = my - RASEN_H / 2;
+    var aussenX = px - tiefe, aussenY = py - tiefe;
+    var aussenB = RASEN_B + tiefe * 2, aussenH = RASEN_H + tiefe * 2;
+
+    var t = [];
+
+    /* Umgebung */
+    t.push('<rect x="0" y="0" width="' + B + '" height="' + H + '" fill="none"/>');
+    if (stadion.module.parkhaus) {
+      t.push('<g opacity="0.85"><rect x="8" y="' + (H - 62) + '" width="70" height="52" rx="4" fill="#d9dbe1"/>');
+      for (var pz = 0; pz < 3; pz++) {
+        t.push('<line x1="16" y1="' + (H - 52 + pz * 14) + '" x2="70" y2="' + (H - 52 + pz * 14) +
+          '" stroke="#b3b6bf" stroke-width="1.2"/>');
+      }
+      t.push('<text x="43" y="' + (H - 14) + '" text-anchor="middle" font-size="8" fill="#6f727a" ' +
+        'font-family="system-ui,sans-serif">Parkhaus</text></g>');
+    }
+    if (stadion.module.fanshop) {
+      t.push('<g><rect x="' + (B - 74) + '" y="' + (H - 50) + '" width="60" height="34" rx="4" fill="' + farbe + '"/>' +
+        '<rect x="' + (B - 70) + '" y="' + (H - 34) + '" width="52" height="14" rx="2" fill="' + heller(farbe, 0.72) + '"/>' +
+        '<text x="' + (B - 44) + '" y="' + (H - 24) + '" text-anchor="middle" font-size="8" fill="#3d3f45" ' +
+        'font-family="system-ui,sans-serif">Fanshop</text></g>');
+    }
+
+    /* Stadionschale */
+    t.push('<rect x="' + (aussenX - 6) + '" y="' + (aussenY - 6) + '" width="' + (aussenB + 12) +
+      '" height="' + (aussenH + 12) + '" rx="' + (18 + tiefe * 0.25) + '" fill="' + dunkler(farbe, 0.35) + '" opacity="0.16"/>');
+
+    /* Vier Tribünen */
+    var vip = sek.vip.plaetze > 0;
+    /* Nord (oben) */
+    t.push(tribuene(px, aussenY, RASEN_B, tiefe, rangZahl, farbe, 'horizontal'));
+    /* Süd (unten) */
+    t.push(tribuene(px, py + RASEN_H, RASEN_B, tiefe, rangZahl, farbe, 'horizontal'));
+    /* West (links) – trägt die VIP-Logen */
+    t.push(tribuene(aussenX, py, tiefe, RASEN_H, rangZahl, vip ? zweit : farbe, 'vertikal'));
+    /* Ost (rechts) */
+    t.push(tribuene(px + RASEN_B, py, tiefe, RASEN_H, rangZahl, farbe, 'vertikal'));
+    /* Ecken füllen */
+    [[aussenX, aussenY], [px + RASEN_B, aussenY], [aussenX, py + RASEN_H], [px + RASEN_B, py + RASEN_H]]
+      .forEach(function (e) {
+        t.push('<rect x="' + e[0] + '" y="' + e[1] + '" width="' + tiefe + '" height="' + tiefe +
+          '" rx="3" fill="' + dunkler(farbe, 0.72) + '" opacity="0.9"/>');
+      });
+
+    if (vip) {
+      t.push('<rect x="' + (aussenX + 1) + '" y="' + (py + RASEN_H * 0.3) + '" width="' + (tiefe - 2) +
+        '" height="' + (RASEN_H * 0.4) + '" rx="2" fill="' + heller(zweit, 0.5) + '" opacity="0.95"/>');
+      if (tiefe > 20) {
+        t.push('<text x="' + (aussenX + tiefe / 2) + '" y="' + (my + 3) + '" text-anchor="middle" ' +
+          'font-size="8" fill="#33353b" font-family="system-ui,sans-serif">VIP</text>');
+      }
+    }
+
+    /* Videowand am Nordende */
+    if (stadion.module.videowand) {
+      t.push('<rect x="' + (mx - 34) + '" y="' + (aussenY - 11) + '" width="68" height="10" rx="1.5" fill="#2a2c31"/>' +
+        '<rect x="' + (mx - 31) + '" y="' + (aussenY - 9.2) + '" width="62" height="6.4" rx="1" fill="#4e7fb5"/>');
+    }
+
+    /* Spielfeld */
+    t.push('<rect x="' + px + '" y="' + py + '" width="' + RASEN_B + '" height="' + RASEN_H +
+      '" rx="2" fill="#5fae7f"/>');
+    for (var s = 0; s < 8; s++) {
+      if (s % 2 === 0) continue;
+      t.push('<rect x="' + (px + s * (RASEN_B / 8)) + '" y="' + py + '" width="' + (RASEN_B / 8) +
+        '" height="' + RASEN_H + '" fill="#59a878"/>');
+    }
+    var w = 'stroke="rgba(255,255,255,.85)" stroke-width="1.1" fill="none"';
+    t.push('<rect x="' + (px + 4) + '" y="' + (py + 4) + '" width="' + (RASEN_B - 8) + '" height="' + (RASEN_H - 8) + '" ' + w + '/>');
+    t.push('<line x1="' + mx + '" y1="' + (py + 4) + '" x2="' + mx + '" y2="' + (py + RASEN_H - 4) + '" ' + w + '/>');
+    t.push('<circle cx="' + mx + '" cy="' + my + '" r="17" ' + w + '/>');
+    t.push('<rect x="' + (px + 4) + '" y="' + (my - 26) + '" width="26" height="52" ' + w + '/>');
+    t.push('<rect x="' + (px + RASEN_B - 30) + '" y="' + (my - 26) + '" width="26" height="52" ' + w + '/>');
+
+    /* Flutlicht */
+    if (stadion.module.flutlicht) {
+      t.push(flutlichtmast(aussenX - 2, aussenY + 2));
+      t.push(flutlichtmast(aussenX + aussenB + 2, aussenY + 2));
+      t.push(flutlichtmast(aussenX - 2, aussenY + aussenH + 20));
+      t.push(flutlichtmast(aussenX + aussenB + 2, aussenY + aussenH + 20));
+    }
+
+    /* Baustelle: laufender Ausbau oder Vorschau */
+    var bau = opt.vorschau ? { sektor: opt.vorschau.sektor, vorschau: true }
+                           : (stadion.ausbau && stadion.ausbau.art === 'sektor'
+                              ? { sektor: stadion.ausbau.sektor } : null);
+    if (bau || (stadion.ausbau && stadion.ausbau.art === 'modul')) {
+      var bx, by, bb, bh;
+      if (bau && bau.sektor === 'vip') { bx = aussenX - 8; by = py; bb = tiefe + 8; bh = RASEN_H; }
+      else if (bau && bau.sektor === 'steh') { bx = px; by = py + RASEN_H; bb = RASEN_B; bh = tiefe + 8; }
+      else { bx = px; by = aussenY - 8; bb = RASEN_B; bh = tiefe + 8; }
+      t.push('<rect x="' + bx + '" y="' + by + '" width="' + bb + '" height="' + bh +
+        '" rx="3" fill="url(#bauschraffur)" stroke="#e8a13a" stroke-width="1.5" stroke-dasharray="5 3"/>');
+      t.push(kran(bx + bb - 14, by - 4));
+    }
+
+    var beschriftung = opt.beschriftung === false ? '' :
+      '<text x="' + mx + '" y="' + (H - 6) + '" text-anchor="middle" font-size="10" ' +
+      'fill="var(--text-2, #63656b)" font-family="system-ui,sans-serif">' +
+      Util.esc(stadion.name) + ' · ' + Fmt.num(kapNeu) + ' Plätze' +
+      (geplant ? ' (geplant, +' + Fmt.num(geplant) + ')' : '') + '</text>';
+
+    return '<svg class="stadionbild" viewBox="0 0 ' + B + ' ' + H + '" width="100%" ' +
+      'role="img" aria-label="Draufsicht des Stadions" preserveAspectRatio="xMidYMid meet">' +
+      '<defs><pattern id="bauschraffur" width="8" height="8" patternUnits="userSpaceOnUse" ' +
+      'patternTransform="rotate(45)">' +
+      '<rect width="8" height="8" fill="rgba(232,161,58,.16)"/>' +
+      '<line x1="0" y1="0" x2="0" y2="8" stroke="rgba(232,161,58,.5)" stroke-width="3"/>' +
+      '</pattern></defs>' + t.join('') + beschriftung + '</svg>';
+  }
+
+  g.StadionGrafik = {
+    svg: svg,
+    tribuenenTiefe: tribuenenTiefe,
+    raenge: raenge
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
 /* ===== js/transfers.js ===== */
 /* transfers.js - Bewertungen, Transfer- und Vertragsverhandlungen, Leihgeschäfte.
  *
@@ -3115,18 +3362,46 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
   /* ================= Angebotsbewertung ================= */
 
+  /* Was ein angebotener Tauschspieler dem anderen Verein wert ist.
+     Ein Spieler, den er sportlich braucht, zählt fast voll - einer, der
+     ihm nichts bringt, nur einen Bruchteil. */
+  function tauschwert(spieler, kaeuferKlub, kaderKaeufer, niveau) {
+    var f = 0.55;
+    if (kaderKaeufer && kaderKaeufer.length) {
+      var gruppe = kaderKaeufer.filter(function (p) {
+        return Players.GRUPPE[p.pos] === Players.GRUPPE[spieler.pos];
+      }).sort(function (a, b) { return b.staerke - a.staerke; });
+      var soll = { TW: 1, ABW: 4, MIT: 4, ANG: 2 }[Players.GRUPPE[spieler.pos]] || 3;
+      var referenz = gruppe.length >= soll ? gruppe[soll - 1] : null;
+      /* Verstärkt er die Startelf, ist er deutlich mehr wert. */
+      if (!referenz) f += 0.25;
+      else f += Util.clamp((spieler.staerke - referenz.staerke) * 0.035, -0.2, 0.28);
+      if (gruppe.length >= soll + 3) f -= 0.12;
+    }
+    if (niveau !== undefined) {
+      /* Ein Spieler weit unter dem Niveau des Vereins interessiert nicht. */
+      f += Util.clamp((spieler.staerke - niveau) * 0.02, -0.25, 0.12);
+    }
+    if (spieler.alter <= 22 && spieler.potenzial - spieler.staerke > 8) f += 0.08;
+    if (spieler.alter >= 32) f -= 0.12;
+    if (spieler.verletztBis) f -= 0.05;
+    return Math.round(spieler.marktwert * Util.clamp(f, 0.3, 0.95));
+  }
+
   /* Was ein strukturiertes Angebot dem Verkäufer wirklich wert ist. */
   function angebotsWert(angebot, marktwert) {
     return (angebot.sofort || 0) +
       (angebot.raten || 0) * 0.88 +
       (angebot.bonusEinsaetze || 0) * 0.45 +
       (angebot.bonusAufstieg || 0) * 0.30 +
+      (angebot.tauschWert || 0) +
       (angebot.weiterverkauf || 0) / 100 * marktwert * 0.35;
   }
 
   function angebotGesamt(angebot) {
     return (angebot.sofort || 0) + (angebot.raten || 0) +
-           (angebot.bonusEinsaetze || 0) + (angebot.bonusAufstieg || 0);
+           (angebot.bonusEinsaetze || 0) + (angebot.bonusAufstieg || 0) +
+           (angebot.tauschWert || 0);
   }
 
   function verhandlungStarten(state, opt) {
@@ -3170,7 +3445,10 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     v.historie.push({
       von: 'kaeufer',
       text: 'Angebot über ' + Fmt.money(angebotGesamt(angebot)) +
-        (angebot.raten ? ', davon ' + Fmt.money(angebot.sofort || 0) + ' sofort' : '') + '.'
+        (angebot.raten ? ', davon ' + Fmt.money(angebot.sofort || 0) + ' sofort' : '') +
+        (angebot.spieler && angebot.spieler.length
+          ? ' – inklusive ' + angebot.spieler.length +
+            (angebot.spieler.length === 1 ? ' Tauschspieler' : ' Tauschspielern') : '') + '.'
     });
 
     /* Das Gesprächsklima leidet unter niedrigen Angeboten. */
@@ -3209,6 +3487,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     } else if (anteilBar < 0.4 && angebot.raten) {
       text = 'Uns fehlen noch etwa ' + prozent + ' %. Vor allem ist uns der Sofortanteil zu klein – ' +
         'Raten sind uns weniger wert als Bargeld.';
+    } else if (angebot.tauschWert && angebot.tauschWert > (angebot.sofort || 0) && abweichung > 0.12) {
+      text = 'Die angebotenen Spieler helfen uns nur bedingt – so fehlen noch rund ' + prozent +
+        ' %. Mit mehr Bargeld ginge es schneller.';
     } else if (abweichung > 0.12) {
       text = 'Wir liegen noch rund ' + prozent + ' % auseinander. Neue Forderung: ' + Fmt.money(v.forderung) + '.';
     } else {
@@ -3428,6 +3709,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     dossier: dossier,
     verhandlungStarten: verhandlungStarten,
     klimaText: klimaText,
+    tauschwert: tauschwert,
     angebotsWert: angebotsWert,
     angebotGesamt: angebotGesamt,
     vereinAntwort: vereinAntwort,
@@ -4618,12 +4900,35 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     spieler.transferliste = false;
     spieler.wechselwunsch = false;
     spieler.moral = Util.clamp(spieler.moral + 8, 5, 100);
+    /* Tauschspieler wechseln in die Gegenrichtung. */
+    if (struktur && struktur.spieler && struktur.spieler.length && verkaeufer) {
+      struktur.spieler.forEach(function (pid) {
+        var tp = state.spieler[pid];
+        if (!tp || tp.klubId !== kaeufer.id) return;
+        kaeufer.kader = kaeufer.kader.filter(function (id) { return id !== pid; });
+        verkaeufer.kader.push(pid);
+        tp.klubId = verkaeufer.id;
+        tp.transferliste = false;
+        tp.wechselwunsch = false;
+        tp.moral = Util.clamp(tp.moral - 4, 5, 100);
+        tp.marktwert = Players.marktwert(tp, state.saison);
+        state.statistik.transfers.unshift({
+          tag: state.tag, saison: state.saison, spielerId: tp.id, name: tp.name,
+          von: kaeufer.id, zu: verkaeufer.id, abloese: 0, tausch: true
+        });
+      });
+      verkaeufer.aufstellung = null;
+    }
+
     if (kaeufer.finanzen) {
       if (sofort > 0) {
         Finance.buchen(kaeufer.finanzen, state.tag, 'Transfer', 'Verpflichtung ' + spieler.name +
           (verkaeufer ? ' von ' + verkaeufer.name : ''), -sofort, 'Transferausgaben');
       }
-      kaeufer.finanzen.transferbudget = Math.max(0, kaeufer.finanzen.transferbudget - abloese);
+      /* Nur der Bargeldanteil belastet das Transferbudget - Tauschspieler
+         kosten kein Geld. */
+      var barAnteil = abloese - (struktur && struktur.tauschWert ? struktur.tauschWert : 0);
+      kaeufer.finanzen.transferbudget = Math.max(0, kaeufer.finanzen.transferbudget - barAnteil);
       /* Ratenzahlung als laufende Verpflichtung eintragen. */
       if (struktur && struktur.raten > 0 && verkaeufer) {
         var wochen = Math.max(1, Math.round((struktur.ratenJahre || 2) * 52));
@@ -7380,6 +7685,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         '<div class="knopfreihe" style="margin-bottom:.8rem">' +
         '<button class="knopf knopf--klein" id="aErfuellen">Forderung erfüllen</button>' +
         '<button class="knopf knopf--klein" id="aRaten">Mit Raten strukturieren</button>' +
+        '<button class="knopf knopf--klein" id="aAnpassen">Barbetrag anpassen</button>' +
         '</div>' +
         '<div class="formularraster">' +
         feldZahl('Sofortzahlung (€)', 'aSofort', Math.round(vorschlag / 5000) * 5000, 0, undefined, 5000) +
@@ -7389,6 +7695,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         feldZahl('Bonus bei Aufstieg/Titel (€)', 'aBonusAuf', 0, 0, undefined, 5000) +
         feldZahl('Weiterverkauf (%)', 'aWeiter', 0, 0, 40, 1) +
         '</div>' +
+        tauschBereich(v, verkaeufer) +
         '<div id="aMesslatte"></div>' +
         '<p class="mini" id="aSumme"></p>';
     } else if (v.phase === 'spieler') {
@@ -7417,15 +7724,67 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     if (v.phase === 'spieler') vertragsRechner(p, mein, v, false);
   }
 
-  function angebotLesen() {
-    return {
+  /* Eigene Spieler, die in den Deal gegeben werden können. */
+  function tauschBereich(v, verkaeufer) {
+    var st = UI.S(), mein = UI.meinKlub();
+    var kaderVerk = Game.kaderVon(st, verkaeufer);
+    var niveau = Game.basisStaerke(verkaeufer);
+    var kandidaten = Game.kaderVon(st, mein).filter(function (p) {
+      return !p.leihe && p.id !== v.spielerId;
+    }).sort(function (a, b) { return b.marktwert - a.marktwert; }).slice(0, 14);
+    if (!kandidaten.length) return '';
+    v.tausch = v.tausch || [];
+
+    return '<h4 style="margin-top:1.1rem">Spieler in den Deal geben</h4>' +
+      '<p class="mini">' + Util.esc(verkaeufer.name) + ' bewertet Ihre Spieler danach, ob sie ' +
+      'sportlich weiterhelfen – nicht nach dem Marktwert.</p>' +
+      '<div class="tabellenrahmen" style="max-height:230px;overflow-y:auto">' +
+      '<table class="liste"><tbody>' +
+      kandidaten.map(function (p) {
+        var tw = Transfers.tauschwert(p, verkaeufer, kaderVerk, niveau);
+        var quote = Math.round(tw / Math.max(1, p.marktwert) * 100);
+        return '<tr><td style="width:2.2em"><input type="checkbox" class="aTausch" value="' + p.id + '"' +
+          (v.tausch.indexOf(p.id) >= 0 ? ' checked' : '') + '></td>' +
+          '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
+          '<td>' + Util.esc(p.name) + ' <span class="mini">' + p.alter + ' J.</span></td>' +
+          '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
+          '<td class="zahl mini">MW ' + Fmt.money(p.marktwert) + '</td>' +
+          '<td class="zahl"><b>' + Fmt.money(tw) + '</b> <span class="mini">' + quote + ' %</span></td>' +
+          '</tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function tauschAuswahl() {
+    var ids = [];
+    Array.prototype.forEach.call(document.querySelectorAll('.aTausch'), function (c) {
+      if (c.checked) ids.push(c.value);
+    });
+    return ids;
+  }
+
+  function angebotLesen(v) {
+    var st = UI.S();
+    var angebot = {
       sofort: Math.max(0, +($('aSofort') || {}).value || 0),
       raten: Math.max(0, +($('aRatenBetrag') || {}).value || 0),
       ratenJahre: +($('aRatenJahre') || {}).value || 2,
       bonusEinsaetze: Math.max(0, +($('aBonus') || {}).value || 0),
       bonusAufstieg: Math.max(0, +($('aBonusAuf') || {}).value || 0),
-      weiterverkauf: Util.clamp(+($('aWeiter') || {}).value || 0, 0, 40)
+      weiterverkauf: Util.clamp(+($('aWeiter') || {}).value || 0, 0, 40),
+      spieler: tauschAuswahl()
     };
+    if (v && angebot.spieler.length) {
+      var verkaeufer = st.klubs[v.vonKlubId];
+      var kaderVerk = Game.kaderVon(st, verkaeufer);
+      var niveau = Game.basisStaerke(verkaeufer);
+      angebot.tauschWert = Util.sum(angebot.spieler, function (id) {
+        var p = st.spieler[id];
+        return p ? Transfers.tauschwert(p, verkaeufer, kaderVerk, niveau) : 0;
+      });
+    } else {
+      angebot.tauschWert = 0;
+    }
+    return angebot;
   }
 
   function angebotsRechner(v) {
@@ -7433,7 +7792,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var p = st.spieler[v.spielerId];
 
     function rechne() {
-      var a = angebotLesen();
+      var a = angebotLesen(v);
       var wert = Transfers.angebotsWert(a, p.marktwert);
       var gesamt = Transfers.angebotGesamt(a);
       var latte = $('aMesslatte');
@@ -7441,7 +7800,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       var el = $('aSumme');
       if (el) {
         var text = 'Volumen <b>' + Fmt.money(gesamt) + '</b>, davon sofort fällig <b>' +
-          Fmt.money(a.sofort) + '</b>. Der Verein bewertet das mit <b>' + Fmt.money(wert) + '</b>';
+          Fmt.money(a.sofort) + '</b>' +
+          (a.tauschWert ? ' und <b>' + Fmt.money(a.tauschWert) + '</b> in Spielern' : '') +
+          '. Der Verein bewertet das mit <b>' + Fmt.money(wert) + '</b>';
         if (gesamt > wert) text += ' – Raten, Boni und Beteiligungen zählen weniger als Bargeld.';
         else text += '.';
         var frei = Game.verfuegbaresGeld(st, mein);
@@ -7461,6 +7822,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       var el = $(id);
       if (el) el.oninput = el.onchange = rechne;
     });
+    Array.prototype.forEach.call(document.querySelectorAll('.aTausch'), function (c) {
+      c.onchange = function () { v.tausch = tauschAuswahl(); rechne(); };
+    });
 
     var grenze = Math.min(mein.finanzen.transferbudget, Game.verfuegbaresGeld(st, mein));
     var erf = $('aErfuellen');
@@ -7472,6 +7836,19 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       $('aRatenJahre').value = 3;
       rechne();
     };
+    /* Setzt die Sofortzahlung genau so, dass die Forderung erfüllt ist -
+       nützlich, sobald Tauschspieler oder Boni im Angebot stecken. */
+    var anp = $('aAnpassen');
+    if (anp) anp.onclick = function () {
+      var a = angebotLesen(v);
+      var ohneBar = Transfers.angebotsWert(a, p.marktwert) - a.sofort;
+      var noetig = Math.max(0, Math.round((v.forderung - ohneBar) / 5000) * 5000);
+      $('aSofort').value = Math.min(noetig, grenze);
+      var rest = Math.max(0, noetig - grenze);
+      $('aRatenBetrag').value = rest > 0 ? Math.round(rest * 1.15 / 5000) * 5000 : 0;
+      rechne();
+    };
+
     var strukt = $('aRaten');
     if (strukt) strukt.onclick = function () {
       var bar = Math.min(Math.round(v.forderung * 0.4 / 5000) * 5000, grenze);
@@ -7487,7 +7864,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var st = UI.S(), mein = UI.meinKlub();
     var p = st.spieler[v.spielerId];
     var verkaeufer = st.klubs[v.vonKlubId];
-    var angebot = angebotLesen();
+    var angebot = angebotLesen(v);
 
     var frei = Game.verfuegbaresGeld(st, mein);
     if (angebot.sofort > frei) {
@@ -7500,6 +7877,14 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     }
     if (Transfers.angebotGesamt(angebot) <= 0) {
       UI.toast('Bitte geben Sie zuerst ein Angebot ein.');
+      return;
+    }
+    if (angebot.spieler.length > 3) {
+      UI.toast('Höchstens drei Spieler können in einen Deal gegeben werden.');
+      return;
+    }
+    if (Game.kaderVon(st, mein).length - angebot.spieler.length + 1 < 18) {
+      UI.toast('Nach diesem Tausch wäre Ihr Kader zu klein.');
       return;
     }
 
@@ -8257,6 +8642,19 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       UI.kennzahl('Unterhalt', Fmt.money(Finance.unterhaltWoche(fin, mein.stufe)), 'pro Woche') +
       '</div>';
 
+    /* Draufsicht – sie ändert sich mit jedem Ausbau. */
+    html += '<div class="karte"><div class="karte__kopf"><h3>Ihr Stadion</h3>' +
+      '<span class="mini">' + StadionGrafik.raenge(kap) +
+      (StadionGrafik.raenge(kap) === 1 ? ' Rang' : ' Ränge') + ' · ' +
+      Fmt.num(sd.sektoren.steh.plaetze) + ' Steh · ' + Fmt.num(sd.sektoren.sitz.plaetze) +
+      ' Sitz · ' + Fmt.num(sd.sektoren.vip.plaetze) + ' VIP</span></div>' +
+      '<div id="stadionBild" class="stadionrahmen">' + StadionGrafik.svg(mein, sd, {}) + '</div>' +
+      '<div class="stadionteile">' + Finance.MODULE.map(function (m) {
+        var da = !!sd.module[m.id];
+        return '<span class="marke' + (da ? ' marke--akzent' : '') + '"' +
+          (da ? '' : ' style="opacity:.45"') + '>' + Util.esc(m.name) + '</span>';
+      }).join('') + '</div></div>';
+
     /* Laufende Baumaßnahme */
     if (sd.ausbau) {
       var a = sd.ausbau;
@@ -8299,7 +8697,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         UI.feldZahl('Zusätzliche Plätze', 'ausbauPlaetze', 2000, 100, 40000, 100) +
         '</div>' +
         '<p class="mini" id="ausbauInfo"></p>' +
-        '<button class="knopf knopf--haupt" id="ausbauStart">Ausbau beauftragen</button>';
+        '<button class="knopf knopf--haupt" id="ausbauStart">Ausbau beauftragen</button>' +
+        '<p class="mini" style="margin-top:.6em">Die Draufsicht oben zeigt den geplanten Zustand, ' +
+        'solange Sie hier etwas verändern.</p>';
     }
     html += '</div>';
 
@@ -8342,22 +8742,35 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       UI.zeichne();
     };
 
-    function ausbauInfo() {
+    /* Die Vorschau erscheint erst, wenn wirklich etwas eingestellt wurde -
+       beim Öffnen zeigt die Draufsicht den heutigen Zustand. */
+    function ausbauInfo(mitVorschau) {
       var sektor = $('ausbauSektor'), plaetze = $('ausbauPlaetze'), info = $('ausbauInfo');
       if (!sektor || !info) return;
       var n = Math.max(0, +plaetze.value || 0);
       var kosten = Finance.ausbauKosten(sektor.value, n);
       var dauer = Finance.ausbauDauer(n);
+      var alteKap = Finance.kapazitaet(sd);
+      var neueKap = alteKap + n;
       info.innerHTML = 'Kosten: <b>' + Fmt.money(kosten) + '</b> · Bauzeit: <b>' + dauer + ' Tage</b> · ' +
-        'Neue Kapazität: <b>' + Fmt.num(Finance.kapazitaet(sd) + n) + '</b>' +
+        'Kapazität: <b>' + Fmt.num(alteKap) + ' → ' + Fmt.num(neueKap) + '</b>' +
+        (StadionGrafik.raenge(neueKap) > StadionGrafik.raenge(alteKap)
+          ? ' <span class="akzent">– das Stadion bekommt einen weiteren Rang.</span>' : '') +
         (kosten > Game.verfuegbaresGeld(st, mein)
           ? ' <span class="schlecht">– dafür reicht das freie Guthaben nicht.</span>' : '');
+      if (!mitVorschau) return;
+      var bild = $('stadionBild');
+      if (bild) {
+        bild.innerHTML = StadionGrafik.svg(mein, sd,
+          n > 0 ? { vorschau: { sektor: sektor.value, plaetze: n } } : {});
+        bild.classList.toggle('stadionrahmen--vorschau', n > 0);
+      }
     }
     ['ausbauSektor', 'ausbauPlaetze'].forEach(function (id) {
       var el = $(id);
-      if (el) el.oninput = el.onchange = ausbauInfo;
+      if (el) el.oninput = el.onchange = function () { ausbauInfo(true); };
     });
-    ausbauInfo();
+    ausbauInfo(false);
 
     var start = $('ausbauStart');
     if (start) start.onclick = function () {
@@ -8944,17 +9357,410 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   }
 })(typeof window !== 'undefined' ? window : globalThis);
 
+/* ===== js/spielfeld2d.js ===== */
+/* spielfeld2d.js - Zweidimensionale Darstellung des laufenden Spiels.
+ *
+ * Die Simulation selbst rechnet mit Wahrscheinlichkeiten, nicht mit
+ * Positionen. Diese Ansicht macht daraus ein sichtbares Spiel: Die
+ * Mannschaften verschieben sich als Block mit dem Ball, der Ball wandert
+ * zwischen den Spielern, und die Ereignisse der Simulation - Chance, Tor,
+ * Karte, Wechsel - lösen die passende Bewegung aus.
+ *
+ * Platzkoordinaten laufen von 0 bis 100 in der Länge (x) und 0 bis 100 in
+ * der Breite (y). Die Heimmannschaft greift nach rechts an.
+ */
+(function (g) {
+  'use strict';
+
+  var TEMPO = { langsam: 0.55, normal: 1, schnell: 1.9 };
+
+  function Feld(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.spieler = [];
+    this.ball = { x: 50, y: 50, zx: 50, zy: 50, hoehe: 0 };
+    this.phase = 'anstoss';
+    this.phaseZeit = 0;
+    this.besitz = 'heim';
+    this.ballbesitzQuote = 50;
+    this.seitenTausch = false;
+    this.laeuft = false;
+    this.tempo = 1;
+    this.letzterRahmen = 0;
+    this.blitz = null;
+    this.amBall = null;
+  }
+
+  /* Formationsposition in Platzkoordinaten umrechnen.
+     Die Formationen sind hochkant angelegt (Tor unten), hier liegt der
+     Platz quer - deshalb werden die Achsen getauscht. */
+  Feld.prototype.basisPos = function (slot, heim) {
+    var fx = slot[1], fy = slot[2];          /* 0-100 quer, 0-100 hoch */
+    var laenge = 100 - fy;                    /* eigenes Tor bei 0 */
+    var breite = fx;
+    if (heim) return { x: laenge * 0.94 + 3, y: breite };
+    return { x: 100 - (laenge * 0.94 + 3), y: 100 - breite };
+  };
+
+  Feld.prototype.aufstellen = function (heimSeite, gastSeite, spielerMap, heimFarbe, gastFarbe) {
+    var self = this;
+    this.spieler = [];
+    [[heimSeite, true, heimFarbe], [gastSeite, false, gastFarbe]].forEach(function (paar) {
+      var seite = paar[0], heim = paar[1], farbe = paar[2];
+      var slots = Match.FORMATIONEN[seite.formation] || Match.FORMATIONEN['4-2-3-1'];
+      seite.elf.forEach(function (pid, i) {
+        var p = spielerMap[pid];
+        if (!p) return;
+        var basis = self.basisPos(slots[i] || [p.pos, 50, 50], heim);
+        self.spieler.push({
+          id: pid, heim: heim, farbe: farbe.fuellung, rand: farbe.rand, text: farbe.text,
+          kurz: p.nachname.substr(0, 3),
+          torwart: (slots[i] && slots[i][0]) === 'TW',
+          tempo: 0.55 + (p.attrs.tempo || 50) / 190,
+          bx: basis.x, by: basis.y,
+          x: basis.x, y: basis.y,
+          zx: basis.x, zy: basis.y
+        });
+      });
+    });
+    this.ball.x = 50; this.ball.y = 50; this.ball.zx = 50; this.ball.zy = 50;
+    this.phase = 'anstoss'; this.phaseZeit = 0;
+  };
+
+  Feld.prototype.ersetzen = function (rausId, reinId, spielerMap) {
+    var p = spielerMap[reinId];
+    for (var i = 0; i < this.spieler.length; i++) {
+      if (this.spieler[i].id === rausId && p) {
+        this.spieler[i].id = reinId;
+        this.spieler[i].kurz = p.nachname.substr(0, 3);
+        this.spieler[i].tempo = 0.55 + (p.attrs.tempo || 50) / 190;
+        return;
+      }
+    }
+  };
+
+  Feld.prototype.halbzeit = function () {
+    this.seitenTausch = !this.seitenTausch;
+    var self = this;
+    this.spieler.forEach(function (s) {
+      s.bx = 100 - s.bx; s.by = 100 - s.by;
+      s.x = s.bx; s.y = s.by; s.zx = s.bx; s.zy = s.by;
+    });
+    this.phase = 'anstoss'; this.phaseZeit = 0;
+    this.ball.x = 50; this.ball.y = 50;
+  };
+
+  /* Richtung, in die eine Mannschaft angreift: 1 = nach rechts. */
+  Feld.prototype.richtung = function (heim) {
+    var r = heim ? 1 : -1;
+    return this.seitenTausch ? -r : r;
+  };
+
+  Feld.prototype.torX = function (heim) {
+    /* Das Tor, auf das diese Mannschaft spielt. */
+    return this.richtung(heim) > 0 ? 98 : 2;
+  };
+
+  Feld.prototype.ereignis = function (e) {
+    var heim = e.heim;
+    this.besitz = heim ? 'heim' : 'gast';
+    if (e.typ === 'chance') { this.phase = 'abschluss'; this.phaseZeit = 0; this.chanceTor = false; }
+    else if (e.typ === 'tor') { this.phase = 'abschluss'; this.phaseZeit = 0; this.chanceTor = true; }
+    else if (e.typ === 'gelb' || e.typ === 'rot' || e.typ === 'gelbrot') {
+      this.phase = 'unterbrechung'; this.phaseZeit = 0;
+      this.blitz = { farbe: e.typ === 'gelb' ? '#f2c94c' : '#e0524b', zeit: 0.9 };
+    } else if (e.typ === 'anpfiff') { this.phase = 'anstoss'; this.phaseZeit = 0; }
+  };
+
+  Feld.prototype.setBallbesitz = function (prozent) { this.ballbesitzQuote = prozent; };
+
+  /* --- Bewegungsmodell --- */
+
+  Feld.prototype.aktualisieren = function (dt) {
+    var self = this;
+    this.phaseZeit += dt;
+    if (this.blitz) {
+      this.blitz.zeit -= dt;
+      if (this.blitz.zeit <= 0) this.blitz = null;
+    }
+
+    var angreifer = this.besitz === 'heim';
+    var richt = this.richtung(angreifer);
+
+    switch (this.phase) {
+      case 'anstoss':
+        this.ball.zx = 50; this.ball.zy = 50;
+        if (this.phaseZeit > 1.1) { this.phase = 'aufbau'; this.phaseZeit = 0; }
+        break;
+
+      case 'unterbrechung':
+        if (this.phaseZeit > 1.3) { this.phase = 'aufbau'; this.phaseZeit = 0; }
+        break;
+
+      case 'aufbau':
+        /* Der Ball wandert zwischen den Spielern der ballführenden Elf. */
+        if (this.phaseZeit > 0.85 || this.nahAmBall()) {
+          this.phaseZeit = 0;
+          var eigene = this.spieler.filter(function (s) {
+            return s.heim === angreifer && !s.torwart;
+          });
+          if (eigene.length) {
+            /* Bevorzugt nach vorne spielen, aber nicht immer. */
+            var ziel = eigene[Math.floor(Math.random() * eigene.length)];
+            for (var v = 0; v < 2; v++) {
+              var alt = eigene[Math.floor(Math.random() * eigene.length)];
+              if ((alt.x - ziel.x) * richt > 0) ziel = alt;
+            }
+            this.ball.zx = ziel.x; this.ball.zy = ziel.y;
+            this.amBall = ziel.id;
+          }
+          /* Gelegentlich den Ballbesitz wechseln – gemäß der Statistik. */
+          if (Math.random() < 0.22) {
+            var quote = this.ballbesitzQuote / 100;
+            this.besitz = Math.random() < quote ? 'heim' : 'gast';
+          }
+        }
+        break;
+
+      case 'abschluss':
+        /* Ein Angreifer zieht zum Tor, dann folgt der Schuss. */
+        if (this.phaseZeit < 0.75) {
+          var vorne = this.spieler.filter(function (s) { return s.heim === angreifer && !s.torwart; })
+            .sort(function (a, b) { return (b.x - a.x) * richt; })[0];
+          if (vorne) {
+            this.ball.zx = vorne.x + richt * 6;
+            this.ball.zy = vorne.y;
+            this.amBall = vorne.id;
+          }
+        } else if (this.phaseZeit < 1.5) {
+          this.ball.zx = this.torX(angreifer);
+          this.ball.zy = this.chanceTor ? 42 + Math.random() * 16 : (Math.random() < 0.5 ? 28 : 72);
+          this.ball.hoehe = 1;
+        } else {
+          this.phase = this.chanceTor ? 'jubel' : 'aufbau';
+          this.phaseZeit = 0;
+          this.ball.hoehe = 0;
+          if (!this.chanceTor) this.besitz = angreifer ? 'gast' : 'heim';
+        }
+        break;
+
+      case 'jubel':
+        if (this.phaseZeit > 2.2) {
+          this.phase = 'anstoss'; this.phaseZeit = 0;
+          this.besitz = angreifer ? 'gast' : 'heim';
+          this.ball.x = 50; this.ball.y = 50;
+        }
+        break;
+    }
+
+    /* Ball zum Ziel bewegen */
+    var bs = this.phase === 'abschluss' && this.phaseZeit > 0.75 ? 150 : 46;
+    this.ball.x = naehern(this.ball.x, this.ball.zx, bs * dt);
+    this.ball.y = naehern(this.ball.y, this.ball.zy, bs * dt);
+
+    /* Mannschaftsblock verschiebt sich mit dem Ball */
+    this.spieler.forEach(function (s) {
+      if (self.phase === 'jubel' && s.heim === angreifer && !s.torwart) {
+        /* Torjubel: alle laufen zum Schützen. */
+        s.zx = self.ball.x + (Math.random() - 0.5) * 14;
+        s.zy = self.ball.y + (Math.random() - 0.5) * 14;
+      } else if (s.torwart) {
+        var eigenesTor = self.richtung(s.heim) > 0 ? 3 : 97;
+        s.zx = eigenesTor + (self.ball.x - 50) * 0.05;
+        s.zy = 50 + (self.ball.y - 50) * 0.28;
+      } else {
+        var vor = self.richtung(s.heim);
+        var ballVorne = (self.ball.x - 50) * vor / 50;   /* -1 hinten, +1 vorne */
+        var schub = s.heim === angreifer ? 13 : 10;
+        s.zx = s.bx + vor * ballVorne * schub;
+        s.zy = s.by + (self.ball.y - 50) * 0.24;
+        /* Der ballnächste Spieler geht zum Ball. */
+        if (s.id === self.amBall) { s.zx = self.ball.zx; s.zy = self.ball.zy; }
+        s.zx += (Math.random() - 0.5) * 1.2;
+        s.zy += (Math.random() - 0.5) * 1.2;
+      }
+      s.zx = Math.max(1.5, Math.min(98.5, s.zx));
+      s.zy = Math.max(3, Math.min(97, s.zy));
+      var v = s.tempo * 17 * dt;
+      s.x = naehern(s.x, s.zx, v);
+      s.y = naehern(s.y, s.zy, v * 1.1);
+    });
+
+    /* Spieler auseinanderhalten - sonst stehen Gegenspieler deckungsgleich
+       übereinander und das Bild wirkt wie ein Fehler. */
+    var mind = 4.2;
+    for (var i = 0; i < this.spieler.length; i++) {
+      for (var j = i + 1; j < this.spieler.length; j++) {
+        var a = this.spieler[i], b2 = this.spieler[j];
+        var dx = b2.x - a.x, dy = b2.y - a.y;
+        var d = Math.sqrt(dx * dx + dy * dy);
+        if (d >= mind || d === 0) continue;
+        var schub = (mind - d) / 2;
+        var ux = dx / d, uy = dy / d;
+        a.x -= ux * schub; a.y -= uy * schub;
+        b2.x += ux * schub; b2.y += uy * schub;
+      }
+    }
+    this.spieler.forEach(function (s) {
+      s.x = Math.max(1.5, Math.min(98.5, s.x));
+      s.y = Math.max(3, Math.min(97, s.y));
+    });
+  };
+
+  /* Hat der Ball sein Ziel erreicht? Dann wird neu gespielt. */
+  Feld.prototype.nahAmBall = function () {
+    var dx = this.ball.x - this.ball.zx, dy = this.ball.y - this.ball.zy;
+    return dx * dx + dy * dy < 2.5;
+  };
+
+  function naehern(ist, ziel, schritt) {
+    var d = ziel - ist;
+    if (Math.abs(d) <= schritt) return ziel;
+    return ist + Math.sign(d) * schritt;
+  }
+
+  /* --- Zeichnen --- */
+
+  Feld.prototype.zeichnen = function () {
+    var c = this.ctx, cv = this.canvas;
+    var dpr = window.devicePixelRatio || 1;
+    var b = cv.clientWidth, h = cv.clientHeight;
+    if (cv.width !== Math.round(b * dpr) || cv.height !== Math.round(h * dpr)) {
+      cv.width = Math.round(b * dpr);
+      cv.height = Math.round(h * dpr);
+    }
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, b, h);
+
+    var rand = 8;
+    var pb = b - rand * 2, ph = h - rand * 2;
+    function X(x) { return rand + x / 100 * pb; }
+    function Y(y) { return rand + y / 100 * ph; }
+
+    /* Rasen mit Streifen */
+    c.fillStyle = '#4f9e70';
+    c.fillRect(0, 0, b, h);
+    c.fillStyle = '#4b9a6c';
+    for (var i = 0; i < 10; i += 2) {
+      c.fillRect(rand + i * (pb / 10), rand, pb / 10, ph);
+    }
+
+    /* Linien */
+    c.strokeStyle = 'rgba(255,255,255,.8)';
+    c.lineWidth = 1.6;
+    c.strokeRect(X(0), Y(0), pb, ph);
+    c.beginPath(); c.moveTo(X(50), Y(0)); c.lineTo(X(50), Y(100)); c.stroke();
+    c.beginPath(); c.arc(X(50), Y(50), pb * 0.09, 0, Math.PI * 2); c.stroke();
+    c.strokeRect(X(0), Y(21), pb * 0.16, ph * 0.58);
+    c.strokeRect(X(84), Y(21), pb * 0.16, ph * 0.58);
+    c.strokeRect(X(0), Y(36), pb * 0.055, ph * 0.28);
+    c.strokeRect(X(94.5), Y(36), pb * 0.055, ph * 0.28);
+    /* Tore */
+    c.lineWidth = 3;
+    c.strokeStyle = 'rgba(255,255,255,.95)';
+    c.beginPath(); c.moveTo(X(0), Y(42)); c.lineTo(X(0), Y(58)); c.stroke();
+    c.beginPath(); c.moveTo(X(100), Y(42)); c.lineTo(X(100), Y(58)); c.stroke();
+
+    /* Spieler */
+    var r = Math.max(6, Math.min(11, pb / 62));
+    this.spieler.forEach(function (s) {
+      var px = X(s.x), py = Y(s.y);
+      c.beginPath();
+      c.ellipse(px, py + r * 0.75, r * 0.85, r * 0.35, 0, 0, Math.PI * 2);
+      c.fillStyle = 'rgba(0,0,0,.16)'; c.fill();
+      c.beginPath(); c.arc(px, py, r, 0, Math.PI * 2);
+      c.fillStyle = s.farbe; c.fill();
+      c.lineWidth = 1.6; c.strokeStyle = s.rand; c.stroke();
+      if (r >= 8) {
+        c.fillStyle = s.text;
+        c.font = '600 ' + Math.round(r * 0.82) + 'px -apple-system, system-ui, sans-serif';
+        c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.fillText(s.kurz, px, py + 0.5);
+      }
+    });
+
+    /* Ball */
+    var bx = X(this.ball.x), by = Y(this.ball.y);
+    var br = Math.max(3.5, r * 0.42);
+    c.beginPath();
+    c.ellipse(bx, by + br * 1.4, br * 0.9, br * 0.4, 0, 0, Math.PI * 2);
+    c.fillStyle = 'rgba(0,0,0,.2)'; c.fill();
+    c.beginPath(); c.arc(bx, by, br, 0, Math.PI * 2);
+    c.fillStyle = '#ffffff'; c.fill();
+    c.lineWidth = 1; c.strokeStyle = 'rgba(0,0,0,.45)'; c.stroke();
+
+    /* Kartenblitz */
+    if (this.blitz) {
+      c.fillStyle = this.blitz.farbe;
+      c.globalAlpha = Math.min(0.5, this.blitz.zeit * 0.5);
+      c.fillRect(0, 0, b, h);
+      c.globalAlpha = 1;
+    }
+  };
+
+  Feld.prototype.start = function (tempo) {
+    var self = this;
+    this.tempo = TEMPO[tempo] || 1;
+    if (this.laeuft) return;
+    this.laeuft = true;
+    this.letzterRahmen = performance.now();
+    function rahmen(jetzt) {
+      if (!self.laeuft) return;
+      var dt = Math.min(0.05, (jetzt - self.letzterRahmen) / 1000) * self.tempo;
+      self.letzterRahmen = jetzt;
+      self.aktualisieren(dt);
+      self.zeichnen();
+      self.raf = requestAnimationFrame(rahmen);
+    }
+    this.raf = requestAnimationFrame(rahmen);
+  };
+
+  Feld.prototype.setTempo = function (tempo) { this.tempo = TEMPO[tempo] || 1; };
+
+  Feld.prototype.stop = function () {
+    this.laeuft = false;
+    if (this.raf) cancelAnimationFrame(this.raf);
+  };
+
+  g.Feld2D = {
+    erzeugen: function (canvas) { return new Feld(canvas); },
+    TEMPO: TEMPO
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
 /* ===== js/ui-spiel.js ===== */
-/* ui-spiel.js - Live-Spiel mit Ticker und Wechseln sowie Saisonabschluss. */
+/* ui-spiel.js - Live-Spiel mit 2D-Ansicht, Ticker und Wechseln sowie
+ * Saisonabschluss.
+ *
+ * Die Oberfläche wird einmal aufgebaut und danach nur noch punktuell
+ * aktualisiert - sonst würde die Spielfeldanimation bei jeder Spielminute
+ * neu beginnen.
+ */
 (function (g) {
   'use strict';
 
   var UI = g.UI;
   var $ = UI.$;
 
-  var live = null;   /* {match, liga, partie, spieltagNr, timer, tempo, gezeigt} */
+  var live = null;
+  var TAKT = { langsam: 620, normal: 260, schnell: 90 };
 
-  var TEMPO = { langsam: 620, normal: 260, schnell: 90 };
+  /* ---------- Trikotfarben ---------- */
+
+  function rgb(hex) {
+    return [parseInt(hex.substr(1, 2), 16), parseInt(hex.substr(3, 2), 16), parseInt(hex.substr(5, 2), 16)];
+  }
+  function abstand(a, b) {
+    var x = rgb(a), y = rgb(b);
+    return Math.sqrt(Math.pow(x[0] - y[0], 2) + Math.pow(x[1] - y[1], 2) + Math.pow(x[2] - y[2], 2));
+  }
+  function trikot(klub, gegenFarbe) {
+    var f = klub.c1;
+    /* Zu ähnliche Trikots wären auf dem Feld nicht auseinanderzuhalten. */
+    if (gegenFarbe && abstand(f, gegenFarbe) < 95) f = klub.c2;
+    if (gegenFarbe && abstand(f, gegenFarbe) < 95) f = Logos.abdunkeln(klub.c1, 0.55);
+    return { fuellung: f, rand: Logos.abdunkeln(f, 0.55), text: Logos.kontrast(f) };
+  }
 
   /* ---------- Spielvorbereitung ---------- */
 
@@ -8970,16 +9776,15 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
     Game.aufstellungPruefen(st, mein, st.tag);
     var kader = Game.kaderVon(st, mein);
-    var fehlend = kader.filter(function (p) {
-      return p.verletztBis > st.tag || p.sperre > 0;
-    });
+    var fehlend = kader.filter(function (p) { return p.verletztBis > st.tag || p.sperre > 0; });
 
-    var html = '<div style="display:flex;align-items:center;justify-content:center;gap:1.5rem;margin-bottom:1rem;flex-wrap:wrap">' +
-      UI.wappen(heim, 64) + '<b style="font-size:1.2rem">' + Util.esc(heim.kurz) + ' – ' + Util.esc(gast.kurz) + '</b>' +
-      UI.wappen(gast, 64) + '</div>' +
-      '<p style="text-align:center">' + an.spieltagNr + '. Spieltag ' + Util.esc(liga.name) + ' · ' +
-      (istHeim ? 'Heimspiel' : 'Auswärtsspiel') + ' gegen <b>' + Util.esc(gegner.name) + '</b> ' +
-      '(Platz ' + League.platzVon(liga, gegner.id) + ')</p>';
+    var html = '<div style="display:flex;align-items:center;justify-content:center;gap:1.5rem;' +
+      'margin-bottom:1rem;flex-wrap:wrap">' +
+      UI.wappen(heim, 56) + '<b style="font-size:1.1rem">' + Util.esc(heim.kurz) + ' – ' +
+      Util.esc(gast.kurz) + '</b>' + UI.wappen(gast, 56) + '</div>' +
+      '<p style="text-align:center" class="hinweis">' + an.spieltagNr + '. Spieltag ' +
+      Util.esc(liga.name) + ' · ' + (istHeim ? 'Heimspiel' : 'Auswärtsspiel') + ' gegen <b>' +
+      Util.esc(gegner.name) + '</b></p>';
 
     html += '<div class="raster raster--3" style="margin:1rem 0">' +
       UI.kennzahl('Ihre Aufstellung', mein.aufstellung.formation,
@@ -8998,9 +9803,10 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
     UI.modal('Spieltag', html, [
       { text: 'Aufstellung ändern', klasse: 'knopf--still', fn: function () { UI.wechsle('taktik'); } },
-      /* Beide oeffnen selbst ein neues Fenster, deshalb nicht automatisch schliessen. */
-      { text: 'Ergebnis simulieren', klasse: 'knopf--still', schliessen: false, fn: function () { schnellSpiel(); } },
-      { text: 'Spiel anpfeifen', klasse: 'knopf--haupt', schliessen: false, fn: function () { liveStarten(); } }
+      { text: 'Ergebnis simulieren', klasse: 'knopf--still', schliessen: false,
+        fn: function () { schnellSpiel(); } },
+      { text: 'Spiel anpfeifen', klasse: 'knopf--haupt', schliessen: false,
+        fn: function () { liveStarten(); } }
     ]);
   };
 
@@ -9033,37 +9839,56 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var ctx = Game.matchKontext(st, f.liga, f.partie.heim, f.partie.gast);
     ctx.spieltag = f.stag.nr;
     var m = Match.neu(Game.rng, ctx);
+
+    var heimFarbe = trikot(m.heimKlub, null);
+    var gastFarbe = trikot(m.gastKlub, heimFarbe.fuellung);
+
     live = {
       match: m, liga: f.liga, partie: f.partie, stag: f.stag,
       tempo: 'normal', timer: null, laeuft: true,
-      meinSeite: f.partie.heim === st.meinKlubId ? 'heim' : 'gast'
+      meinSeite: f.partie.heim === st.meinKlubId ? 'heim' : 'gast',
+      gezeigt: 0, feld: null, ansicht: 'feld',
+      heimFarbe: heimFarbe, gastFarbe: gastFarbe
     };
+
     UI.modalZu();
     $('spielOverlay').hidden = false;
-    zeichneLive();
+    liveAufbauen();
     starteTakt();
   }
 
   function starteTakt() {
     if (!live) return;
     stopTakt();
-    live.timer = setInterval(schritt, TEMPO[live.tempo]);
+    live.timer = setInterval(schritt, TAKT[live.tempo]);
+    if (live.feld) live.feld.start(live.tempo);
   }
   function stopTakt() {
-    if (live && live.timer) { clearInterval(live.timer); live.timer = null; }
+    if (!live) return;
+    if (live.timer) { clearInterval(live.timer); live.timer = null; }
+    if (live.feld) live.feld.stop();
   }
 
   function schritt() {
     if (!live) return;
     var m = live.match;
     if (m.beendet) { beenden(); return; }
-    Match.minute(m);
-    /* Die KI wechselt selbst. */
+    var neue = Match.minute(m);
     var kiSeite = live.meinSeite === 'heim' ? 'gast' : 'heim';
     if (m.minute === 60 || m.minute === 72 || m.minute === 81) {
       Match.autoWechsel(m, kiSeite, UI.S().tag);
     }
-    zeichneLive();
+    /* Ereignisse an die Feldanzeige weitergeben. */
+    if (live.feld) {
+      neue.forEach(function (e) {
+        if (e.typ === 'info' && e.min === 45) { live.feld.halbzeit(); return; }
+        if (e.klubId) {
+          live.feld.ereignis({ typ: e.typ, heim: e.klubId === m.heim.klubId });
+        }
+      });
+      live.feld.setBallbesitz(m.ballbesitz);
+    }
+    liveAktualisieren();
     if (m.beendet) beenden();
   }
 
@@ -9076,73 +9901,146 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     Game.ergebnisVerbuchen(st, live.liga, live.partie, m, live.stag.nr);
     Game.tagAbschliessen(st);
     var f = { liga: live.liga, partie: live.partie, stag: live.stag };
-    zeichneLive();
+    liveAktualisieren();
     setTimeout(function () {
+      if (live && live.feld) live.feld.stop();
       $('spielOverlay').hidden = true;
       $('spielOverlay').innerHTML = '';
-      var fertig = live;
       live = null;
       ergebnisFenster(m, f);
-    }, 1400);
+    }, 1500);
   }
 
-  function zeichneLive() {
-    var st = UI.S();
+  /* Aufbau der Live-Oberfläche - nur einmal je Spiel. */
+  function liveAufbauen() {
     var m = live.match;
     var heim = m.heimKlub, gast = m.gastKlub;
-    var minute = m.beendet ? 'Ende' : (m.minute > 90 ? '90+' + (m.minute - 90) : m.minute) + "'";
 
     var html = '<div class="spiel__kopf"><div class="spiel__stand">' +
-      '<div class="spiel__team">' + UI.wappen(heim, 46) + '<b>' + Util.esc(heim.name) + '</b></div>' +
-      '<div><div class="spiel__tore">' + m.heim.tore + ' : ' + m.gast.tore + '</div>' +
-      '<div class="spiel__minute">' + minute + '</div></div>' +
-      '<div class="spiel__team spiel__team--gast"><b>' + Util.esc(gast.name) + '</b>' + UI.wappen(gast, 46) + '</div>' +
+      '<div class="spiel__team">' + UI.wappen(heim, 44) + '<b>' + Util.esc(heim.name) + '</b></div>' +
+      '<div><div class="spiel__tore" id="spTore">0 : 0</div>' +
+      '<div class="spiel__minute" id="spMinute">Anpfiff</div></div>' +
+      '<div class="spiel__team spiel__team--gast"><b>' + Util.esc(gast.name) + '</b>' +
+      UI.wappen(gast, 44) + '</div>' +
       '</div></div>';
 
     html += '<div class="spiel__leiste">' +
-      '<button class="knopf knopf--klein' + (live.laeuft ? '' : ' knopf--haupt') + '" id="spPause">' +
-      (live.laeuft ? '❚❚ Pause' : '▶ Weiter') + '</button>' +
+      '<button class="knopf knopf--klein" id="spPause">❚❚ Pause</button>' +
       ['langsam', 'normal', 'schnell'].map(function (t) {
         return '<button class="knopf knopf--klein ' + (live.tempo === t ? 'knopf--haupt' : 'knopf--still') +
           '" data-tempo="' + t + '">' + t.charAt(0).toUpperCase() + t.slice(1) + '</button>';
       }).join('') +
-      '<button class="knopf knopf--klein" id="spWechsel">Wechseln (' +
-      (live.meinSeite === 'heim' ? m.heim.wechsel : m.gast.wechsel) + '/5)</button>' +
+      '<button class="knopf knopf--klein" id="spWechsel">Wechseln</button>' +
       '<button class="knopf knopf--klein" id="spTaktik">Taktik</button>' +
       '<button class="knopf knopf--klein knopf--still" id="spEnde">Rest simulieren</button>' +
       '</div>';
 
-    html += '<div class="spiel__koerper"><div class="raster raster--2">';
+    html += '<div class="spiel__koerper"><div class="spiel__raster">' +
+      '<div class="feldrahmen"><canvas id="spFeld" class="feld2d"></canvas>' +
+      '<div class="feldlegende">' +
+      '<span><i style="background:' + live.heimFarbe.fuellung + '"></i>' + Util.esc(heim.kurz) + '</span>' +
+      '<span><i style="background:' + live.gastFarbe.fuellung + '"></i>' + Util.esc(gast.kurz) + '</span>' +
+      '</div></div>' +
+      '<div class="karte spiel__ticker"><div class="karte__kopf"><h3>Spielverlauf</h3></div>' +
+      '<div class="ticker" id="spTicker"></div></div>' +
+      '</div>' +
+      '<div class="raster raster--2" style="margin-top:1.15rem">' +
+      '<div class="karte"><div class="karte__kopf"><h3>Statistik</h3></div>' +
+      '<div id="spStats"></div></div>' +
+      '<div class="karte"><div class="karte__kopf"><h3>Ihre Elf</h3></div>' +
+      '<div class="tabellenrahmen"><table class="liste"><tbody id="spElf"></tbody></table></div></div>' +
+      '</div></div>';
 
-    /* Ticker */
-    html += '<div><h3>Spielverlauf</h3><div class="ticker">' +
-      m.ereignisse.slice().reverse().slice(0, 40).map(function (e) {
-        var klub = e.klubId ? st.klubs[e.klubId] : null;
-        return '<div class="ticker__zeile ' + e.typ + '">' +
-          '<span class="ticker__min">' + (e.min ? e.min + "'" : '') + '</span>' +
-          '<span>' + (klub ? '<b>' + Util.esc(klub.kurz) + '</b> · ' : '') + Util.esc(e.text) + '</span></div>';
-      }).join('') + '</div></div>';
+    var ov = $('spielOverlay');
+    ov.innerHTML = html;
 
-    /* Statistik + Aufstellung */
-    var s = [
-      ['Ballbesitz', m.ballbesitz, 100 - m.ballbesitz, '%'],
-      ['Torschüsse', m.heim.schuesse, m.gast.schuesse, ''],
-      ['Ecken', m.heim.ecken, m.gast.ecken, ''],
-      ['Gelbe Karten', Object.keys(m.heim.gelb).length, Object.keys(m.gast.gelb).length, '']
-    ];
-    html += '<div><h3>Statistik</h3>' + s.map(function (z) {
-      var summe = Math.max(1, z[1] + z[2]);
-      return '<div class="statbalken"><span>' + z[1] + z[3] + '</span>' +
-        '<span class="statbalken__spur"><i style="width:' + (z[1] / summe * 100) + '%"></i>' +
-        '<i style="width:' + (z[2] / summe * 100) + '%"></i></span>' +
-        '<span style="text-align:right">' + z[2] + z[3] + '</span>' +
-        '<span class="mini" style="grid-column:1/-1;text-align:center">' + z[0] + '</span></div>';
-    }).join('');
+    /* Spielfeld einrichten */
+    var cv = $('spFeld');
+    live.feld = Feld2D.erzeugen(cv);
+    live.feld.aufstellen(m.heim, m.gast, m.spieler, live.heimFarbe, live.gastFarbe);
+    live.feld.setBallbesitz(m.ballbesitz);
 
+    $('spPause').onclick = function () {
+      live.laeuft = !live.laeuft;
+      $('spPause').textContent = live.laeuft ? '❚❚ Pause' : '▶ Weiter';
+      if (live.laeuft) starteTakt(); else stopTakt();
+    };
+    Array.prototype.forEach.call(ov.querySelectorAll('[data-tempo]'), function (b) {
+      b.onclick = function () {
+        live.tempo = b.dataset.tempo;
+        Array.prototype.forEach.call(ov.querySelectorAll('[data-tempo]'), function (x) {
+          x.className = 'knopf knopf--klein ' +
+            (x.dataset.tempo === live.tempo ? 'knopf--haupt' : 'knopf--still');
+        });
+        if (live.laeuft) starteTakt();
+      };
+    });
+    $('spEnde').onclick = function () {
+      stopTakt();
+      Match.restSimulieren(live.match);
+      beenden();
+    };
+    $('spWechsel').onclick = wechselFenster;
+    $('spTaktik').onclick = taktikFenster;
+
+    liveAktualisieren();
+  }
+
+  /* Nur die veränderlichen Teile neu schreiben. */
+  function liveAktualisieren() {
+    if (!live) return;
+    var st = UI.S();
+    var m = live.match;
+
+    var tore = $('spTore');
+    if (tore) tore.textContent = m.heim.tore + ' : ' + m.gast.tore;
+    var min = $('spMinute');
+    if (min) {
+      min.textContent = m.beendet ? 'Abpfiff'
+        : (m.minute === 0 ? 'Anpfiff' : (m.minute > 90 ? '90+' + (m.minute - 90) : m.minute) + "'");
+    }
+    var wb = $('spWechsel');
     var seite = live.meinSeite === 'heim' ? m.heim : m.gast;
-    var slots = Match.FORMATIONEN[seite.formation] || [];
-    html += '<h3 style="margin-top:1rem">Ihre Elf</h3><div class="tabellenrahmen"><table class="liste"><tbody>' +
-      seite.elf.map(function (pid, i) {
+    if (wb) wb.textContent = 'Wechseln (' + seite.wechsel + '/5)';
+
+    /* Ticker: nur neue Zeilen voranstellen */
+    var ticker = $('spTicker');
+    if (ticker && m.ereignisse.length > live.gezeigt) {
+      var neue = m.ereignisse.slice(live.gezeigt);
+      live.gezeigt = m.ereignisse.length;
+      neue.reverse().forEach(function (e) {
+        var klub = e.klubId ? st.klubs[e.klubId] : null;
+        var zeile = document.createElement('div');
+        zeile.className = 'ticker__zeile ' + e.typ;
+        zeile.innerHTML = '<span class="ticker__min">' + (e.min ? e.min + "'" : '') + '</span>' +
+          '<span>' + (klub ? '<b>' + Util.esc(klub.kurz) + '</b> · ' : '') + Util.esc(e.text) + '</span>';
+        ticker.insertBefore(zeile, ticker.firstChild);
+      });
+      while (ticker.children.length > 40) ticker.removeChild(ticker.lastChild);
+    }
+
+    var stats = $('spStats');
+    if (stats) {
+      var reihen = [
+        ['Ballbesitz', m.ballbesitz, 100 - m.ballbesitz, '%'],
+        ['Torschüsse', m.heim.schuesse, m.gast.schuesse, ''],
+        ['Ecken', m.heim.ecken, m.gast.ecken, ''],
+        ['Gelbe Karten', Object.keys(m.heim.gelb).length, Object.keys(m.gast.gelb).length, '']
+      ];
+      stats.innerHTML = reihen.map(function (z) {
+        var summe = Math.max(1, z[1] + z[2]);
+        return '<div class="statbalken"><span>' + z[1] + z[3] + '</span>' +
+          '<span class="statbalken__spur"><i style="width:' + (z[1] / summe * 100) + '%"></i>' +
+          '<i style="width:' + (z[2] / summe * 100) + '%"></i></span>' +
+          '<span style="text-align:right">' + z[2] + z[3] + '</span>' +
+          '<span class="mini" style="grid-column:1/-1;text-align:center">' + z[0] + '</span></div>';
+      }).join('');
+    }
+
+    var elf = $('spElf');
+    if (elf) {
+      var slots = Match.FORMATIONEN[seite.formation] || [];
+      elf.innerHTML = seite.elf.map(function (pid, i) {
         var p = m.spieler[pid];
         if (!p) return '';
         var e = seite.eingesetzt[pid];
@@ -9154,32 +10052,11 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
           '<td class="zahl mini">' + (e && e.tore ? '⚽'.repeat(e.tore) : '') +
           (seite.gelb[pid] ? ' 🟨' : '') + '</td>' +
           '<td class="zahl">' + (e ? e.note.toFixed(1).replace('.', ',') : '') + '</td></tr>';
-      }).join('') + '</tbody></table></div>';
-    html += '</div></div></div>';
-
-    var ov = $('spielOverlay');
-    ov.innerHTML = html;
-
-    $('spPause').onclick = function () {
-      live.laeuft = !live.laeuft;
-      if (live.laeuft) starteTakt(); else stopTakt();
-      zeichneLive();
-    };
-    Array.prototype.forEach.call(ov.querySelectorAll('[data-tempo]'), function (b) {
-      b.onclick = function () {
-        live.tempo = b.dataset.tempo;
-        if (live.laeuft) starteTakt();
-        zeichneLive();
-      };
-    });
-    $('spEnde').onclick = function () {
-      stopTakt();
-      Match.restSimulieren(m);
-      beenden();
-    };
-    $('spWechsel').onclick = wechselFenster;
-    $('spTaktik').onclick = taktikFenster;
+      }).join('');
+    }
   }
+
+  /* ---------- Wechsel und Taktik ---------- */
 
   function wechselFenster() {
     var m = live.match;
@@ -9187,7 +10064,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     if (seite.wechsel >= 5) { UI.toast('Alle fünf Wechsel sind aufgebraucht.'); return; }
     stopTakt();
 
-    var html = '<p>Wählen Sie zuerst den Spieler, der herausgeht, dann den Einwechselspieler.</p>' +
+    var html = '<p class="hinweis">Zuerst den Spieler wählen, der herausgeht, dann den Einwechselspieler.</p>' +
       '<div class="raster raster--2">' +
       '<div><h4>Auf dem Platz</h4><div class="tabellenrahmen"><table class="liste"><tbody>' +
       seite.elf.map(function (pid) {
@@ -9215,9 +10092,10 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       if (raus && rein) {
         var r = Match.wechsel(m, live.meinSeite, raus, rein);
         if (r.ok) {
+          if (live.feld) live.feld.ersetzen(raus, rein, m.spieler);
           UI.modalZu();
           UI.toast('Wechsel durchgeführt.');
-          zeichneLive();
+          liveAktualisieren();
           if (live.laeuft) starteTakt();
         } else {
           info.textContent = r.grund;
@@ -9231,7 +10109,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     Array.prototype.forEach.call(inhalt.querySelectorAll('[data-raus]'), function (tr) {
       tr.onclick = function () {
         raus = tr.dataset.raus;
-        Array.prototype.forEach.call(inhalt.querySelectorAll('[data-raus]'), function (x) { x.style.background = ''; });
+        Array.prototype.forEach.call(inhalt.querySelectorAll('[data-raus]'), function (x) {
+          x.style.background = '';
+        });
         tr.style.background = 'var(--akzent-weich)';
         pruefe();
       };
@@ -9266,7 +10146,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
             spielweise: $('lvSpiel').value
           });
           UI.toast('Taktik umgestellt.');
-          zeichneLive();
+          liveAktualisieren();
           if (live.laeuft) starteTakt();
         }
       },
@@ -9283,12 +10163,14 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var eigene = istHeim ? f.partie.th : f.partie.tg;
     var fremde = istHeim ? f.partie.tg : f.partie.th;
     var gegner = st.klubs[istHeim ? f.partie.gast : f.partie.heim];
-    var titel = eigene > fremde ? 'Sieg!' : (eigene < fremde ? 'Niederlage' : 'Unentschieden');
+    var titel = eigene > fremde ? 'Sieg' : (eigene < fremde ? 'Niederlage' : 'Unentschieden');
 
-    var html = '<div style="text-align:center;margin-bottom:1rem">' +
-      '<div style="font-size:2.4rem;font-weight:800">' + f.partie.th + ' : ' + f.partie.tg + '</div>' +
+    var html = '<div style="text-align:center;margin-bottom:1.2rem">' +
+      '<div style="font-size:2.3rem;font-weight:640;letter-spacing:-.03em">' +
+      f.partie.th + ' : ' + f.partie.tg + '</div>' +
       '<div class="mini">' + Util.esc(st.klubs[f.partie.heim].name) + ' gegen ' +
-      Util.esc(st.klubs[f.partie.gast].name) + ' · ' + Fmt.num(f.partie.zuschauer || 0) + ' Zuschauer</div></div>';
+      Util.esc(st.klubs[f.partie.gast].name) +
+      (f.partie.zuschauer ? ' · ' + Fmt.num(f.partie.zuschauer) + ' Zuschauer' : '') + '</div></div>';
 
     if (f.partie.bericht && f.partie.bericht.length) {
       html += '<h4>Höhepunkte</h4><div class="ticker">' + f.partie.bericht.map(function (e) {
@@ -9298,13 +10180,12 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       }).join('') + '</div>';
     }
 
-    /* Tabelle danach */
-    html += '<h4 style="margin-top:1rem">Tabelle</h4>' + UI.tabelleHTML(f.liga, true);
+    html += '<h4 style="margin-top:1.2rem">Tabelle</h4>' + UI.tabelleHTML(f.liga, true);
 
-    /* Andere Ergebnisse des Spieltags */
     var andere = f.stag.partien.filter(function (p) { return p !== f.partie && p.th !== null; });
     if (andere.length) {
-      html += '<h4 style="margin-top:1rem">Weitere Ergebnisse</h4><div class="tabellenrahmen"><table class="liste"><tbody>' +
+      html += '<h4 style="margin-top:1.2rem">Weitere Ergebnisse</h4>' +
+        '<div class="tabellenrahmen"><table class="liste"><tbody>' +
         andere.map(function (p) {
           return '<tr><td style="text-align:right">' + UI.klubZelle(st.klubs[p.heim], 18, true) + '</td>' +
             '<td class="mitte"><b>' + p.th + ':' + p.tg + '</b></td>' +
@@ -9322,9 +10203,6 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
   UI.saisonAbschluss = function () {
     var st = UI.S();
-    var meinAlt = UI.meinKlub();
-    var ligaAlt = st.ligen[meinAlt.ligaId];
-    var platzAlt = ligaAlt ? League.platzVon(ligaAlt, meinAlt.id) : 0;
     var bericht = Saison.saisonwechsel(st);
     var m = bericht.meinKlub;
 
@@ -9332,35 +10210,36 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       String(bericht.saison + 1).slice(2) + ' abgeschlossen</h3>';
 
     if (m) {
-      var text = m.aufgestiegen ? '<span class="gut">Aufstieg geschafft!</span>' :
+      var text = m.aufgestiegen ? '<span class="gut">Aufstieg geschafft.</span>' :
         (m.abgestiegen ? '<span class="schlecht">Der Abstieg ist besiegelt.</span>' :
           (m.platz <= m.ziel ? '<span class="gut">Das Saisonziel wurde erreicht.</span>' :
             '<span class="mini">Das Saisonziel wurde verfehlt.</span>'));
-      html += '<div class="raster raster--3" style="margin:1rem 0">' +
+      html += '<div class="raster raster--3" style="margin:1.2rem 0">' +
         UI.kennzahl('Ihr Platz', m.platz + '.', Util.esc(m.liga)) +
         UI.kennzahl('Ziel des Vorstands', 'Platz ' + m.ziel, '') +
-        UI.kennzahl('Vertrauen', m.vertrauen + ' %',
-          Fmt.signed(m.vertrauen - m.vertrauenAlt) + ' Punkte') +
+        UI.kennzahl('Vertrauen', m.vertrauen + ' %', Fmt.signed(m.vertrauen - m.vertrauenAlt) + ' Punkte') +
         '</div><p style="text-align:center">' + text + '</p>';
       if (m.entlassen) {
-        html += '<p class="schlecht" style="text-align:center"><b>Der Vorstand hat das Vertrauen verloren. ' +
-          'Sie wurden freigestellt.</b></p>';
+        html += '<p class="schlecht" style="text-align:center"><b>Der Vorstand hat das Vertrauen ' +
+          'verloren. Sie wurden freigestellt.</b></p>';
       }
     }
 
     bericht.ligen.forEach(function (l) {
-      html += '<h4 style="margin-top:1rem">' + Util.esc(l.name) + '</h4>' +
+      html += '<h4 style="margin-top:1.2rem">' + Util.esc(l.name) + '</h4>' +
         '<div class="tabellenrahmen"><table class="liste"><tbody>' +
         l.tabelle.slice(0, 5).map(function (z) {
           return '<tr' + (z.klubId === st.meinKlubId ? ' class="eigen"' : '') + '>' +
-            '<td class="mitte"><span class="platz' + (z.platz === 1 ? ' platz--auf' : '') + '">' + z.platz + '</span></td>' +
+            '<td class="mitte"><span class="platz' + (z.platz === 1 ? ' platz--auf' : '') + '">' +
+            z.platz + '</span></td>' +
             '<td>' + UI.klubZelle(st.klubs[z.klubId], 18) + '</td>' +
-            '<td class="zahl">' + z.punkte + '</td><td class="zahl">' + z.tore + ':' + z.gegentore + '</td></tr>';
+            '<td class="zahl">' + z.punkte + '</td><td class="zahl">' + z.tore + ':' + z.gegentore +
+            '</td></tr>';
         }).join('') + '</tbody></table></div>';
     });
 
     if (bericht.relegation.length) {
-      html += '<h4 style="margin-top:1rem">Relegation</h4>';
+      html += '<h4 style="margin-top:1.2rem">Relegation</h4>';
       bericht.relegation.forEach(function (r) {
         html += '<p class="hinweis">' + Util.esc(st.klubs[r.klubA].name) + ' gegen ' +
           Util.esc(st.klubs[r.klubB].name) + ': ' + r.hin.th + ':' + r.hin.tg + ' und ' +
@@ -9371,7 +10250,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
     var aufListe = bericht.auf.filter(function (b) { return b.von; });
     if (aufListe.length) {
-      html += '<h4 style="margin-top:1rem">Aufsteiger</h4><p class="hinweis">' +
+      html += '<h4 style="margin-top:1.2rem">Aufsteiger</h4><p class="hinweis">' +
         aufListe.map(function (b) {
           return Util.esc(st.klubs[b.klubId].name) + ' → ' + Util.esc(st.ligen[b.nach].kurz);
         }).join(' · ') + '</p>';

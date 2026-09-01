@@ -92,6 +92,12 @@ einen Blick erkennbar, ohne fremdes Markenmaterial zu übernehmen.
 - Automatische Warnung bei Verletzten, Gesperrten und Fehlbesetzungen
 
 ### Spiele
+- **Zweidimensionale Ansicht**: 22 Spieler in den Trikotfarben beider
+  Vereine bewegen sich über das Feld. Die Mannschaften verschieben sich als
+  Block mit dem Ball, der Ball wandert zwischen den Spielern, und die
+  Ereignisse der Simulation lösen die passende Bewegung aus – Angriff,
+  Torabschluss, Jubel, Karte. Die Ansicht liest die laufende Simulation,
+  sie ersetzt sie nicht.
 - Live-Ticker Minute für Minute, in drei Geschwindigkeiten oder als
   Sofortergebnis
 - Während des Spiels wechseln (bis zu fünf) und die Taktik umstellen
@@ -119,6 +125,11 @@ Blindflug.
 - **Vertragsverhandlung mit dem Spieler**: Er nennt seine Vorstellungen
   vorab – Gehalt, Laufzeit, Handgeld, erwartete Rolle, Ausstiegsklausel.
   Ein Knopf übernimmt sie, eine Live-Einschätzung sagt, ob er annehmen wird.
+- **Spielertausch**: Bis zu drei eigene Spieler lassen sich in einen Deal
+  geben. Der andere Verein bewertet sie danach, ob sie ihm sportlich
+  weiterhelfen – ein Spieler, der seine Startelf verstärkt, zählt fast voll,
+  ein überzähliger nur zu einem Bruchteil. Ein Knopf passt den Barbetrag so
+  an, dass die Forderung genau erfüllt ist.
 - Eingehende Angebote für eigene Spieler: annehmen, nachverhandeln, ablehnen
 - Vertragsverlängerungen; auslaufende Verträge werden angemahnt
 - Ratenzahlungen werden wöchentlich abgebucht und dem Verkäufer gutgeschrieben,
@@ -160,6 +171,15 @@ Meisterprämie und Aufstiegsprämie. Die Höhe richtet sich nach Ansehen und
 Ligazugehörigkeit; ein Stadionname-Vertrag benennt das Stadion um.
 
 ### Stadion
+
+Eine **Draufsicht** zeigt das Stadion so, wie es gerade dasteht: Die Tiefe
+der Tribünen folgt der Kapazität, ab 12.000, 34.000 und 60.000 Plätzen kommt
+je ein weiterer Rang dazu, die VIP-Logen sitzen auf der Westtribüne, und die
+Ausstattung erscheint als eigene Bauteile – Flutlichtmasten, Videowand,
+Parkhaus, Fanshop. Während gebaut wird, steht ein Kran an der betroffenen
+Seite. Stellen Sie einen Ausbau ein, zeigt dieselbe Grafik sofort den
+geplanten Zustand.
+
 - Eintrittspreise getrennt für Steh-, Sitz- und VIP-Plätze
 - Ausbau einzelner Bereiche mit Kosten und echter Bauzeit
 - Acht Ausbaustufen: Rasenheizung, Videowand, Gastronomie, Parkhaus,
@@ -228,6 +248,8 @@ Fällt das Vorstandsvertrauen zu tief, werden Sie freigestellt.
 | `js/players.js` | Spielererzeugung, Attribute, Marktwert, Entwicklung |
 | `js/league.js` | Spielplan, Tabellen, Kalender |
 | `js/match.js` | Spielsimulation als Minuten-Stepper |
+| `js/spielfeld2d.js` | Zweidimensionale Darstellung des laufenden Spiels |
+| `js/stadion-grafik.js` | Draufsicht des Stadions |
 | `js/finance.js` | Sponsoring, Stadion, Zuschauer, Kredite |
 | `js/transfers.js` | Bewertungen, Verhandlungs- und Leihlogik |
 | `js/jugend.js` | Jugendakademie, Scouting, Jahrgänge |

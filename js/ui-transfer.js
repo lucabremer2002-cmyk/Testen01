@@ -231,6 +231,7 @@
         '<div class="knopfreihe" style="margin-bottom:.8rem">' +
         '<button class="knopf knopf--klein" id="aErfuellen">Forderung erfüllen</button>' +
         '<button class="knopf knopf--klein" id="aRaten">Mit Raten strukturieren</button>' +
+        '<button class="knopf knopf--klein" id="aAnpassen">Barbetrag anpassen</button>' +
         '</div>' +
         '<div class="formularraster">' +
         feldZahl('Sofortzahlung (€)', 'aSofort', Math.round(vorschlag / 5000) * 5000, 0, undefined, 5000) +
@@ -240,6 +241,7 @@
         feldZahl('Bonus bei Aufstieg/Titel (€)', 'aBonusAuf', 0, 0, undefined, 5000) +
         feldZahl('Weiterverkauf (%)', 'aWeiter', 0, 0, 40, 1) +
         '</div>' +
+        tauschBereich(v, verkaeufer) +
         '<div id="aMesslatte"></div>' +
         '<p class="mini" id="aSumme"></p>';
     } else if (v.phase === 'spieler') {
@@ -268,15 +270,67 @@
     if (v.phase === 'spieler') vertragsRechner(p, mein, v, false);
   }
 
-  function angebotLesen() {
-    return {
+  /* Eigene Spieler, die in den Deal gegeben werden können. */
+  function tauschBereich(v, verkaeufer) {
+    var st = UI.S(), mein = UI.meinKlub();
+    var kaderVerk = Game.kaderVon(st, verkaeufer);
+    var niveau = Game.basisStaerke(verkaeufer);
+    var kandidaten = Game.kaderVon(st, mein).filter(function (p) {
+      return !p.leihe && p.id !== v.spielerId;
+    }).sort(function (a, b) { return b.marktwert - a.marktwert; }).slice(0, 14);
+    if (!kandidaten.length) return '';
+    v.tausch = v.tausch || [];
+
+    return '<h4 style="margin-top:1.1rem">Spieler in den Deal geben</h4>' +
+      '<p class="mini">' + Util.esc(verkaeufer.name) + ' bewertet Ihre Spieler danach, ob sie ' +
+      'sportlich weiterhelfen – nicht nach dem Marktwert.</p>' +
+      '<div class="tabellenrahmen" style="max-height:230px;overflow-y:auto">' +
+      '<table class="liste"><tbody>' +
+      kandidaten.map(function (p) {
+        var tw = Transfers.tauschwert(p, verkaeufer, kaderVerk, niveau);
+        var quote = Math.round(tw / Math.max(1, p.marktwert) * 100);
+        return '<tr><td style="width:2.2em"><input type="checkbox" class="aTausch" value="' + p.id + '"' +
+          (v.tausch.indexOf(p.id) >= 0 ? ' checked' : '') + '></td>' +
+          '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
+          '<td>' + Util.esc(p.name) + ' <span class="mini">' + p.alter + ' J.</span></td>' +
+          '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
+          '<td class="zahl mini">MW ' + Fmt.money(p.marktwert) + '</td>' +
+          '<td class="zahl"><b>' + Fmt.money(tw) + '</b> <span class="mini">' + quote + ' %</span></td>' +
+          '</tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  function tauschAuswahl() {
+    var ids = [];
+    Array.prototype.forEach.call(document.querySelectorAll('.aTausch'), function (c) {
+      if (c.checked) ids.push(c.value);
+    });
+    return ids;
+  }
+
+  function angebotLesen(v) {
+    var st = UI.S();
+    var angebot = {
       sofort: Math.max(0, +($('aSofort') || {}).value || 0),
       raten: Math.max(0, +($('aRatenBetrag') || {}).value || 0),
       ratenJahre: +($('aRatenJahre') || {}).value || 2,
       bonusEinsaetze: Math.max(0, +($('aBonus') || {}).value || 0),
       bonusAufstieg: Math.max(0, +($('aBonusAuf') || {}).value || 0),
-      weiterverkauf: Util.clamp(+($('aWeiter') || {}).value || 0, 0, 40)
+      weiterverkauf: Util.clamp(+($('aWeiter') || {}).value || 0, 0, 40),
+      spieler: tauschAuswahl()
     };
+    if (v && angebot.spieler.length) {
+      var verkaeufer = st.klubs[v.vonKlubId];
+      var kaderVerk = Game.kaderVon(st, verkaeufer);
+      var niveau = Game.basisStaerke(verkaeufer);
+      angebot.tauschWert = Util.sum(angebot.spieler, function (id) {
+        var p = st.spieler[id];
+        return p ? Transfers.tauschwert(p, verkaeufer, kaderVerk, niveau) : 0;
+      });
+    } else {
+      angebot.tauschWert = 0;
+    }
+    return angebot;
   }
 
   function angebotsRechner(v) {
@@ -284,7 +338,7 @@
     var p = st.spieler[v.spielerId];
 
     function rechne() {
-      var a = angebotLesen();
+      var a = angebotLesen(v);
       var wert = Transfers.angebotsWert(a, p.marktwert);
       var gesamt = Transfers.angebotGesamt(a);
       var latte = $('aMesslatte');
@@ -292,7 +346,9 @@
       var el = $('aSumme');
       if (el) {
         var text = 'Volumen <b>' + Fmt.money(gesamt) + '</b>, davon sofort fällig <b>' +
-          Fmt.money(a.sofort) + '</b>. Der Verein bewertet das mit <b>' + Fmt.money(wert) + '</b>';
+          Fmt.money(a.sofort) + '</b>' +
+          (a.tauschWert ? ' und <b>' + Fmt.money(a.tauschWert) + '</b> in Spielern' : '') +
+          '. Der Verein bewertet das mit <b>' + Fmt.money(wert) + '</b>';
         if (gesamt > wert) text += ' – Raten, Boni und Beteiligungen zählen weniger als Bargeld.';
         else text += '.';
         var frei = Game.verfuegbaresGeld(st, mein);
@@ -312,6 +368,9 @@
       var el = $(id);
       if (el) el.oninput = el.onchange = rechne;
     });
+    Array.prototype.forEach.call(document.querySelectorAll('.aTausch'), function (c) {
+      c.onchange = function () { v.tausch = tauschAuswahl(); rechne(); };
+    });
 
     var grenze = Math.min(mein.finanzen.transferbudget, Game.verfuegbaresGeld(st, mein));
     var erf = $('aErfuellen');
@@ -323,6 +382,19 @@
       $('aRatenJahre').value = 3;
       rechne();
     };
+    /* Setzt die Sofortzahlung genau so, dass die Forderung erfüllt ist -
+       nützlich, sobald Tauschspieler oder Boni im Angebot stecken. */
+    var anp = $('aAnpassen');
+    if (anp) anp.onclick = function () {
+      var a = angebotLesen(v);
+      var ohneBar = Transfers.angebotsWert(a, p.marktwert) - a.sofort;
+      var noetig = Math.max(0, Math.round((v.forderung - ohneBar) / 5000) * 5000);
+      $('aSofort').value = Math.min(noetig, grenze);
+      var rest = Math.max(0, noetig - grenze);
+      $('aRatenBetrag').value = rest > 0 ? Math.round(rest * 1.15 / 5000) * 5000 : 0;
+      rechne();
+    };
+
     var strukt = $('aRaten');
     if (strukt) strukt.onclick = function () {
       var bar = Math.min(Math.round(v.forderung * 0.4 / 5000) * 5000, grenze);
@@ -338,7 +410,7 @@
     var st = UI.S(), mein = UI.meinKlub();
     var p = st.spieler[v.spielerId];
     var verkaeufer = st.klubs[v.vonKlubId];
-    var angebot = angebotLesen();
+    var angebot = angebotLesen(v);
 
     var frei = Game.verfuegbaresGeld(st, mein);
     if (angebot.sofort > frei) {
@@ -351,6 +423,14 @@
     }
     if (Transfers.angebotGesamt(angebot) <= 0) {
       UI.toast('Bitte geben Sie zuerst ein Angebot ein.');
+      return;
+    }
+    if (angebot.spieler.length > 3) {
+      UI.toast('Höchstens drei Spieler können in einen Deal gegeben werden.');
+      return;
+    }
+    if (Game.kaderVon(st, mein).length - angebot.spieler.length + 1 < 18) {
+      UI.toast('Nach diesem Tausch wäre Ihr Kader zu klein.');
       return;
     }
 

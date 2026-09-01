@@ -597,7 +597,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   border-top: 1px solid var(--separator);
   position: sticky; top: 0; z-index: 5;
 }
-.spiel__koerper { flex: 1; padding: var(--s5) var(--s4) var(--s8); max-width: 1040px; margin: 0 auto; width: 100%; }
+.spiel__koerper { flex: 1; padding: var(--s5) var(--s4) var(--s8); max-width: 1240px; margin: 0 auto; width: 100%; }
 .ticker { display: flex; flex-direction: column; gap: var(--s1); }
 .ticker__zeile {
   display: grid; grid-template-columns: 3em 1fr; gap: var(--s3);
@@ -611,6 +611,21 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 .ticker__zeile.rot, .ticker__zeile.gelbrot { background: var(--schlecht-weich); }
 .ticker__zeile.wechsel { background: var(--info-weich); }
 .ticker__min { color: var(--text-3); font-weight: 550; }
+/* 2D-Spielfeld */
+.spiel__raster { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(280px, 1fr); gap: var(--s4); align-items: start; }
+.spiel__ticker { max-height: 62vh; overflow-y: auto; }
+.feldrahmen { position: relative; }
+.feld2d {
+  display: block; width: 100%; aspect-ratio: 105 / 68;
+  border-radius: var(--r-m); background: #4f9e70;
+}
+.feldlegende {
+  display: flex; gap: var(--s5); justify-content: center;
+  margin-top: var(--s3); font-size: var(--t-footnote); color: var(--text-2);
+}
+.feldlegende span { display: inline-flex; align-items: center; gap: var(--s2); }
+.feldlegende i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
 /* Aufstellungsliste im Livespiel: schmale Positionsspalte, damit Namen
    und Noten nicht auseinanderdriften. */
 .spiel__koerper table.liste td:first-child,
@@ -685,6 +700,19 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 .fortschritt { height: 6px; background: var(--fill); border-radius: var(--r-pille); overflow: hidden; }
 .fortschritt i { display: block; height: 100%; background: var(--akzent); border-radius: var(--r-pille); }
 
+/* ---------- Stadion ---------- */
+.stadionrahmen {
+  background: var(--surface-2); border-radius: var(--r-m);
+  padding: var(--s3); max-width: 560px; margin: 0 auto;
+  transition: box-shadow .2s ease;
+}
+.stadionrahmen--vorschau { box-shadow: inset 0 0 0 2px var(--warn); }
+.stadionbild { display: block; }
+.stadionteile {
+  display: flex; flex-wrap: wrap; gap: var(--s2);
+  justify-content: center; margin-top: var(--s4);
+}
+
 /* ---------- Jugendakademie ---------- */
 .talentkarte {
   background: var(--surface-2); border-radius: var(--r-m); padding: var(--s4);
@@ -718,6 +746,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   .inhalt { padding: var(--s2) var(--s4) var(--s8); }
   .taktikraster { grid-template-columns: 1fr; }
   .spiel__tore { font-size: var(--t-title1); }
+  .spiel__raster { grid-template-columns: 1fr; }
+  .spiel__ticker { max-height: none; }
   .kopf__datum span { display: none; }
   .karte { padding: var(--s4); border-radius: var(--r-m); }
   .seitentitel { font-size: var(--t-title2); }
