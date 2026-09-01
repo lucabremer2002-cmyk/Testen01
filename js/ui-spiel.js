@@ -285,7 +285,7 @@
       tr.onclick = function () {
         raus = tr.dataset.raus;
         Array.prototype.forEach.call(inhalt.querySelectorAll('[data-raus]'), function (x) { x.style.background = ''; });
-        tr.style.background = 'rgba(232,182,76,.18)';
+        tr.style.background = 'var(--akzent-weich)';
         pruefe();
       };
     });

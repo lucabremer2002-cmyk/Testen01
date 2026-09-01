@@ -17,10 +17,10 @@
   color-scheme: light dark;
 
   /* Flächen und Text – hell */
-  --ground: #f2f2f5;
+  --ground: #f5f5f7;
   --surface: #ffffff;
-  --surface-2: #f7f7f9;
-  --surface-3: #ececf0;
+  --surface-2: #f5f5f7;
+  --surface-3: #e8e8ed;
   --text: #16171a;
   --text-2: #63656b;
   --text-3: #8a8c93;
@@ -47,17 +47,17 @@
   --rasen: #6cbf8f;
   --rasen-2: #63b787;
 
-  --r-klein: 8px;
-  --r: 12px;
+  --r-klein: 9px;
+  --r: 14px;
   --r-gross: 18px;
   --r-pille: 980px;
 
   --schrift: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
              system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
 
-  --schatten-klein: 0 1px 2px rgba(0, 0, 0, .04);
-  --schatten: 0 8px 30px rgba(0, 0, 0, .10);
-  --seitenleiste: 244px;
+  --schatten-klein: 0 1px 2px rgba(0, 0, 0, .045);
+  --schatten: 0 16px 48px rgba(0, 0, 0, .14);
+  --seitenleiste: 248px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -90,8 +90,8 @@
     --rasen: #2f7c53;
     --rasen-2: #2a734c;
 
-    --schatten-klein: 0 1px 2px rgba(0, 0, 0, .3);
-    --schatten: 0 10px 34px rgba(0, 0, 0, .5);
+    --schatten-klein: 0 1px 2px rgba(0, 0, 0, .35);
+    --schatten: 0 16px 48px rgba(0, 0, 0, .6);
   }
 }
 
@@ -124,8 +124,8 @@
   --rasen: #2f7c53;
   --rasen-2: #2a734c;
 
-  --schatten-klein: 0 1px 2px rgba(0, 0, 0, .3);
-  --schatten: 0 10px 34px rgba(0, 0, 0, .5);
+  --schatten-klein: 0 1px 2px rgba(0, 0, 0, .35);
+  --schatten: 0 16px 48px rgba(0, 0, 0, .6);
 }
 
 * { box-sizing: border-box; }
@@ -207,16 +207,17 @@ a { color: var(--akzent-text); }
 }
 input[type="text"], input[type="number"], select {
   width: 100%;
-  padding: .52em .7em;
+  padding: .58em .75em;
   background: var(--surface-2);
   color: var(--text);
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: var(--r-klein);
   font: inherit;
   transition: border-color .15s ease, background .15s ease;
 }
+.karte input[type="text"], .karte input[type="number"], .karte select { background: var(--surface-2); }
 input[type="text"]:focus, input[type="number"]:focus, select:focus {
-  border-color: var(--akzent); background: var(--surface); outline: none;
+  border-color: var(--akzent); outline: none;
 }
 select { appearance: none; padding-right: 2em;
   background-image: linear-gradient(45deg, transparent 50%, var(--text-3) 50%),
@@ -238,9 +239,8 @@ select { appearance: none; padding-right: 2em;
 .start__unter { color: var(--text-2); font-size: .95rem; }
 .start__laden, .start__neu {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-gross);
-  padding: 1.6rem;
+  border-radius: 20px;
+  padding: 1.9rem;
   margin-bottom: 1.2rem;
   box-shadow: var(--schatten-klein);
 }
@@ -279,9 +279,9 @@ select { appearance: none; padding-right: 2em;
   max-height: 44vh; overflow-y: auto; padding: 2px;
 }
 .vereinskachel {
-  display: flex; align-items: center; gap: .7rem;
-  background: var(--surface-2); border: 1px solid transparent;
-  border-radius: var(--r); padding: .6rem .7rem; cursor: pointer; text-align: left;
+  display: flex; align-items: center; gap: .75rem;
+  background: var(--surface-2); border: 1.5px solid transparent;
+  border-radius: var(--r); padding: .7rem .8rem; cursor: pointer; text-align: left;
   color: var(--text); font: inherit;
   transition: background .15s ease, border-color .15s ease;
 }
@@ -296,14 +296,13 @@ select { appearance: none; padding-right: 2em;
 
 .seitenleiste {
   width: var(--seitenleiste); flex: 0 0 var(--seitenleiste);
-  background: var(--surface);
-  border-right: 1px solid var(--line);
+  background: var(--ground);
   display: flex; flex-direction: column;
   position: sticky; top: 0; height: 100vh;
 }
 .seitenleiste__klub {
-  display: flex; align-items: center; gap: .7rem;
-  padding: 1.1rem 1rem; border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: .75rem;
+  padding: 1.3rem 1.15rem 1.1rem;
 }
 .seitenklub__name { font-weight: 600; font-size: .95rem; line-height: 1.2; letter-spacing: -.01em; }
 .seitenklub__liga { font-size: .76rem; color: var(--text-3); }
@@ -316,8 +315,12 @@ select { appearance: none; padding-right: 2em;
   cursor: pointer; text-align: left; border-radius: var(--r-klein);
   transition: background .14s ease, color .14s ease;
 }
-.menue button:hover { background: var(--surface-2); color: var(--text); }
-.menue button.aktiv { background: var(--akzent-weich); color: var(--akzent-text); font-weight: 590; }
+.menue button:hover { background: rgba(127, 127, 127, .09); color: var(--text); }
+.menue button.aktiv {
+  background: var(--surface); color: var(--text); font-weight: 590;
+  box-shadow: var(--schatten-klein);
+}
+.menue button.aktiv .sym { color: var(--akzent); }
 .menue .sym { flex: 0 0 auto; opacity: .7; }
 .menue button.aktiv .sym { opacity: 1; }
 .menue .zaehler {
@@ -325,18 +328,17 @@ select { appearance: none; padding-right: 2em;
   border-radius: var(--r-pille); padding: .05em .45em; font-size: .7rem; font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-.seitenleiste__fuss { padding: .7rem; display: flex; gap: .4rem; border-top: 1px solid var(--line); }
+.seitenleiste__fuss { padding: .9rem .8rem 1rem; display: flex; gap: .4rem; }
 .seitenleiste__fuss .knopf { flex: 1; }
 
 .hauptbereich { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
 .kopfzeile {
   display: flex; align-items: center; gap: 1rem;
-  padding: .7rem 1.4rem;
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  padding: .95rem 1.9rem;
+  background: color-mix(in srgb, var(--ground) 82%, transparent);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 20;
 }
 .menueknopf {
@@ -347,7 +349,7 @@ select { appearance: none; padding-right: 2em;
 .menueknopf:hover { background: var(--surface-3); }
 .kopf__datum strong { display: block; font-size: .94rem; font-weight: 590; letter-spacing: -.01em; }
 .kopf__datum span { font-size: .76rem; color: var(--text-3); }
-.kopf__werte { display: flex; gap: 1.6rem; margin-left: auto; }
+.kopf__werte { display: flex; gap: 2rem; margin-left: auto; }
 .kopfwert span {
   display: block; font-size: .68rem; color: var(--text-3);
   text-transform: uppercase; letter-spacing: .045em; font-weight: 500;
@@ -355,54 +357,59 @@ select { appearance: none; padding-right: 2em;
 .kopfwert b { font-size: .94rem; font-weight: 590; font-variant-numeric: tabular-nums; }
 .kopfwert b.minus { color: var(--schlecht); }
 
-.inhalt { padding: 1.5rem 1.4rem 3rem; flex: 1; max-width: 1360px; width: 100%; }
+.inhalt { padding: .5rem 1.9rem 4rem; flex: 1; max-width: 1400px; width: 100%; }
 
 /* ---------- Karten ---------- */
+/* Karten tragen keinen Rahmen - der Helligkeitsunterschied zum Grund
+   genügt und lässt die Seite deutlich ruhiger wirken. */
 .karte {
   background: var(--surface);
-  border: 1px solid var(--line);
   border-radius: var(--r-gross);
-  padding: 1.2rem 1.3rem;
-  margin-bottom: 1rem;
+  padding: 1.5rem 1.6rem;
+  margin-bottom: 1.15rem;
+  box-shadow: var(--schatten-klein);
 }
 .karte__kopf {
   display: flex; align-items: center; justify-content: space-between;
-  gap: .8rem; margin-bottom: .9rem; flex-wrap: wrap;
+  gap: .8rem; margin-bottom: 1.15rem; flex-wrap: wrap;
 }
 .karte__kopf h2, .karte__kopf h3 { margin: 0; }
-.raster { display: grid; gap: 1rem; }
+.raster { display: grid; gap: 1.15rem; }
 .raster--2 { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
 .raster--3 { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
 .raster--4 { grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); }
 
 .kennzahl {
-  background: var(--surface-2); border: 1px solid var(--line);
-  border-radius: var(--r); padding: .85rem .95rem;
+  background: var(--surface); border-radius: var(--r);
+  padding: 1.15rem 1.25rem; box-shadow: var(--schatten-klein);
 }
+/* Innerhalb einer Karte wäre Weiß auf Weiß unsichtbar. */
+.karte .kennzahl { background: var(--surface-2); box-shadow: none; }
 .kennzahl span {
-  display: block; font-size: .71rem; color: var(--text-3);
-  text-transform: uppercase; letter-spacing: .045em; font-weight: 550;
+  display: block; font-size: .715rem; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: .05em; font-weight: 550;
 }
 .kennzahl b {
-  font-size: 1.32rem; display: block; margin-top: .12em;
-  font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+  font-size: 1.42rem; display: block; margin-top: .18em;
+  font-weight: 600; letter-spacing: -.025em; font-variant-numeric: tabular-nums;
 }
-.kennzahl small { color: var(--text-2); font-size: .8rem; display: block; margin-top: .1em; }
+.kennzahl small { color: var(--text-2); font-size: .8rem; display: block; margin-top: .2em; }
 
 /* ---------- Tabellen ---------- */
 .tabellenrahmen { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -.3rem; padding: 0 .3rem; }
 table.liste { width: 100%; border-collapse: collapse; font-size: .89rem; }
 table.liste th {
-  text-align: left; font-size: .7rem; text-transform: uppercase; letter-spacing: .045em;
+  text-align: left; font-size: .7rem; text-transform: uppercase; letter-spacing: .05em;
   color: var(--text-3); font-weight: 600;
-  padding: .5em .55em; border-bottom: 1px solid var(--line); white-space: nowrap;
+  padding: 0 .6em .7em; border-bottom: 1px solid var(--line); white-space: nowrap;
 }
 table.liste td {
-  padding: .58em .55em; border-bottom: 1px solid var(--line); vertical-align: middle;
+  padding: .72em .6em; border-bottom: 1px solid var(--line); vertical-align: middle;
 }
 table.liste tbody tr:last-child td { border-bottom: 0; }
 table.liste tbody tr.klickbar { cursor: pointer; }
 table.liste tbody tr.klickbar:hover { background: var(--surface-2); }
+.karte .karte table.liste tbody tr.klickbar:hover { background: var(--surface-3); }
 table.liste tr.eigen { background: var(--akzent-weich); }
 table.liste td.zahl, table.liste th.zahl { text-align: right; font-variant-numeric: tabular-nums; }
 table.liste td.mitte, table.liste th.mitte { text-align: center; }
@@ -507,13 +514,13 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 }
 @keyframes modalEin { from { opacity: 0; } to { opacity: 1; } }
 .modal__box {
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--r-gross); width: min(760px, 100%);
+  background: var(--surface);
+  border-radius: 20px; width: min(760px, 100%);
   max-height: 88vh; display: flex; flex-direction: column; box-shadow: var(--schatten);
 }
 .modal__kopf {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 1.1rem 1.3rem .8rem;
+  padding: 1.4rem 1.6rem .9rem;
 }
 .modal__kopf h2 { margin: 0; font-size: 1.14rem; }
 .modal__zu {
@@ -522,9 +529,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   font-size: 1.05rem; line-height: 1; cursor: pointer; display: grid; place-items: center;
 }
 .modal__zu:hover { background: var(--line-stark); color: var(--text); }
-.modal__inhalt { padding: 0 1.3rem 1.1rem; overflow-y: auto; }
+.modal__inhalt { padding: 0 1.6rem 1.3rem; overflow-y: auto; }
 .modal__fuss {
-  padding: .9rem 1.3rem; border-top: 1px solid var(--line);
+  padding: 1rem 1.6rem 1.3rem; border-top: 1px solid var(--line);
   display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap;
 }
 .modal__fuss:empty { display: none; }
@@ -559,15 +566,15 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 .ticker { display: flex; flex-direction: column; gap: .3rem; }
 .ticker__zeile {
   display: grid; grid-template-columns: 3em 1fr; gap: .7rem;
-  padding: .55em .75em; border-radius: var(--r-klein); background: var(--surface);
-  border: 1px solid var(--line); font-size: .89rem;
+  padding: .62em .85em; border-radius: var(--r-klein); background: var(--surface);
+  font-size: .89rem;
 }
 .ticker__zeile:first-child { animation: einblenden .22s ease; }
 @keyframes einblenden { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-.ticker__zeile.tor { background: var(--gut-weich); border-color: transparent; font-weight: 550; }
-.ticker__zeile.gelb { background: var(--warn-weich); border-color: transparent; }
-.ticker__zeile.rot, .ticker__zeile.gelbrot { background: var(--schlecht-weich); border-color: transparent; }
-.ticker__zeile.wechsel { background: var(--info-weich); border-color: transparent; }
+.ticker__zeile.tor { background: var(--gut-weich); font-weight: 550; }
+.ticker__zeile.gelb { background: var(--warn-weich); }
+.ticker__zeile.rot, .ticker__zeile.gelbrot { background: var(--schlecht-weich); }
+.ticker__zeile.wechsel { background: var(--info-weich); }
 .ticker__min { color: var(--text-3); font-weight: 600; font-variant-numeric: tabular-nums; }
 .statbalken {
   display: grid; grid-template-columns: 3.2em 1fr 3.2em; align-items: center;
@@ -590,10 +597,10 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
 /* ---------- Nachrichten ---------- */
 .nachricht {
-  border: 1px solid var(--line); border-radius: var(--r);
-  padding: .85rem .95rem; margin-bottom: .55rem; background: var(--surface);
+  border-radius: var(--r);
+  padding: .95rem 1.1rem; margin-bottom: .6rem; background: var(--surface-2);
 }
-.nachricht.ungelesen { border-color: var(--akzent); background: var(--akzent-weich); }
+.nachricht.ungelesen { background: var(--akzent-weich); }
 .nachricht.warnung { border-left: 3px solid var(--warn); }
 .nachricht.gut { border-left: 3px solid var(--gut); }
 .nachricht.transfer { border-left: 3px solid var(--info); }
@@ -610,7 +617,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 }
 .verlauf__zeile.kaeufer { background: var(--akzent); color: var(--auf-akzent); align-self: flex-end; }
 .verlauf__zeile.kaeufer .verlauf__wer { color: rgba(255, 255, 255, .72); }
-.verlauf__zeile.verkaeufer, .verlauf__zeile.spieler { background: var(--surface-2); border: 1px solid var(--line); }
+.verlauf__zeile.verkaeufer, .verlauf__zeile.spieler { background: var(--surface-2); }
 .verlauf__wer {
   display: block; font-size: .68rem; color: var(--text-3);
   text-transform: uppercase; letter-spacing: .045em; margin-bottom: .2em; font-weight: 600;
@@ -624,7 +631,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 }
 .dossier__label { color: var(--text-3); font-size: .8rem; }
 .dossier__wert { font-weight: 550; font-variant-numeric: tabular-nums; }
-.dossier__hinweise { margin: .7rem 0 0; padding: .8rem .95rem; background: var(--surface-2);
+.dossier__hinweise { margin: .8rem 0 0; padding: .95rem 1.1rem; background: var(--surface-2);
   border-radius: var(--r); font-size: .86rem; color: var(--text-2); }
 .dossier__hinweise ul { margin: 0; padding-left: 1.1em; }
 .dossier__hinweise li { margin-bottom: .3em; }
@@ -659,9 +666,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
 /* ---------- Jugendakademie ---------- */
 .talentkarte {
-  background: var(--surface-2); border: 1px solid var(--line);
-  border-radius: var(--r); padding: 1rem;
-  display: flex; flex-direction: column; gap: .55rem;
+  background: var(--surface-2);
+  border-radius: var(--r); padding: 1.15rem;
+  display: flex; flex-direction: column; gap: .6rem;
 }
 .talentkarte__kopf { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; }
 .talentkarte .knopfreihe { border-top: 1px solid var(--line); padding-top: .6rem; }
@@ -1520,7 +1527,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   function gehaltsBasis(staerke, klubRuf, alter) {
     var lw = leistungswert(staerke, alter === undefined ? 26 : alter);
     var jahr = Math.pow(lw, 0.80) * 10;
-    var rf = 0.55 + Math.pow(klubRuf / 100, 1.3) * 0.75;
+    var rf = 0.50 + Math.pow(klubRuf / 100, 1.35) * 0.80;
     return Math.max(120, Math.round(jahr * rf / 52));
   }
 
@@ -2471,7 +2478,10 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     klub.stufe = stufe;
     var jahresUmsatz = sponsorWert(klub.ruf, 1.87, stufe) + grundNachfrage(klub.ruf) * 17 * 22;
     return {
-      kontostand: Math.round(jahresUmsatz * rng.float(0.10, 0.22)),
+      /* Kleine Vereine brauchen im Verhaeltnis mehr Rücklage, weil ein
+         einzelner ausgefallener Heimspieltag sie sonst umwirft. */
+      kontostand: Math.round(jahresUmsatz * rng.float(0.10, 0.22) *
+        (stufe >= 4 ? 1.9 : (stufe === 3 ? 1.45 : 1))),
       transferbudget: 0,
       gehaltsbudget: 0,
       sponsoren: { haupt: null, aermel: null, ausruester: null, stadionname: null },
@@ -2624,10 +2634,14 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     return Util.clamp(Math.round(45 + plaetze / 45), 45, 420);
   }
 
-  function ausbauStarten(fin, tag, sektor, plaetze) {
+  function ausbauStarten(fin, tag, sektor, plaetze, verfuegbar) {
     if (fin.stadion.ausbau) return { ok: false, grund: 'Es läuft bereits eine Baumaßnahme.' };
     var kosten = ausbauKosten(sektor, plaetze);
-    if (kosten > fin.kontostand) return { ok: false, grund: 'Nicht genug Geld auf dem Konto.' };
+    var grenze = verfuegbar === undefined ? fin.kontostand : verfuegbar;
+    if (kosten > grenze) {
+      return { ok: false, grund: 'Dafür reicht das freie Guthaben nicht. Verfügbar sind ' +
+        Fmt.money(grenze) + ' – der Rest ist Betriebsreserve.' };
+    }
     var dauer = ausbauDauer(plaetze);
     fin.stadion.ausbau = {
       art: 'sektor', sektor: sektor, plaetze: plaetze,
@@ -2637,12 +2651,16 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     return { ok: true, dauer: dauer, kosten: kosten };
   }
 
-  function modulBauen(fin, tag, modulId) {
+  function modulBauen(fin, tag, modulId, verfuegbar) {
     if (fin.stadion.ausbau) return { ok: false, grund: 'Es läuft bereits eine Baumaßnahme.' };
     var m = Util.byId(MODULE, modulId);
     if (!m) return { ok: false, grund: 'Unbekanntes Bauvorhaben.' };
     if (fin.stadion.module[modulId]) return { ok: false, grund: 'Bereits vorhanden.' };
-    if (m.kosten > fin.kontostand) return { ok: false, grund: 'Nicht genug Geld auf dem Konto.' };
+    var grenze2 = verfuegbar === undefined ? fin.kontostand : verfuegbar;
+    if (m.kosten > grenze2) {
+      return { ok: false, grund: 'Dafür reicht das freie Guthaben nicht. Verfügbar sind ' +
+        Fmt.money(grenze2) + ' – der Rest ist Betriebsreserve.' };
+    }
     fin.stadion.ausbau = {
       art: 'modul', modul: modulId, name: m.name,
       kosten: m.kosten, startTag: tag, fertigTag: tag + m.tage
@@ -3441,8 +3459,11 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     };
   }
 
-  function unterhaltWoche(jugend) {
-    return stufe(jugend.stufe).unterhalt + scoutStufe(jugend.scouting).unterhalt;
+  /* In den unteren Ligen wird ein Grossteil der Jugendarbeit ehrenamtlich
+     geleistet - entsprechend guenstiger ist der Betrieb. */
+  function unterhaltWoche(jugend, ligastufe) {
+    var faktor = [1, 1, 0.85, 0.55, 0.32][Math.min(4, ligastufe || 1)];
+    return Math.round((stufe(jugend.stufe).unterhalt + scoutStufe(jugend.scouting).unterhalt) * faktor);
   }
 
   /* Wie stark ein Jahrgang ausfällt: Ausbaustufe, Ansehen und Zufall. */
@@ -3538,14 +3559,16 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     return Math.round(basis * talentzuschlag / 10) * 10;
   }
 
-  function ausbauStarten(klub, tag, art) {
+  function ausbauStarten(klub, tag, art, verfuegbar) {
     var j = klub.jugend;
     if (j.ausbau) return { ok: false, grund: 'Es läuft bereits eine Maßnahme.' };
     var naechste = art === 'scouting' ? scoutStufe(j.scouting + 1) : stufe(j.stufe + 1);
     var aktuell = art === 'scouting' ? j.scouting : j.stufe;
     if (aktuell >= 5) return { ok: false, grund: 'Die höchste Stufe ist bereits erreicht.' };
-    if (naechste.kosten > klub.finanzen.kontostand) {
-      return { ok: false, grund: 'Nicht genug Geld auf dem Konto.' };
+    var grenze = verfuegbar === undefined ? klub.finanzen.kontostand : verfuegbar;
+    if (naechste.kosten > grenze) {
+      return { ok: false, grund: 'Dafür reicht das freie Guthaben nicht. Verfügbar sind ' +
+        Fmt.money(grenze) + ' – der Rest ist Betriebsreserve.' };
     }
     var tage = art === 'scouting' ? 60 : 90 + naechste.stufe * 30;
     j.ausbau = { art: art, ziel: aktuell + 1, kosten: naechste.kosten, startTag: tag, fertigTag: tag + tage };
@@ -3797,12 +3820,56 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     });
   }
 
+  /* Das Transferbudget muss durch vorhandenes Geld gedeckt sein. Sonst
+     stürzt ein Verein schon mit dem ersten Einkauf ins Minus - gerade in den
+     unteren Ligen, wo die Rücklagen klein sind. Deshalb: frei verfügbar ist
+     nur, was über einer Betriebsreserve liegt, zuzüglich des Überschusses,
+     der in der Saison tatsächlich noch erwartet wird. */
   function budgetsSetzen(state, k) {
     var fin = k.finanzen;
-    var umsatz = Finance.jahresUmsatzSchaetzung(k, fin, k.international ? 1 : k.stufe);
-    var gehaltssumme = Util.sum(kaderVon(state, k), function (p) { return p.gehalt; });
+    var stufe = k.international ? 1 : k.stufe;
+    var umsatz = Finance.jahresUmsatzSchaetzung(k, fin, stufe);
+    var kader = kaderVon(state, k);
+    var gehaltssumme = Util.sum(kader, function (p) { return p.gehalt; });
     fin.gehaltsbudget = Math.round(Math.max(gehaltssumme * 1.14, umsatz * 0.52 / 52));
-    fin.transferbudget = Math.max(0, Math.round(fin.kontostand * 0.55 + umsatz * 0.12));
+
+    var kosten = wochenkosten(state, k);
+    var frei = verfuegbaresGeld(state, k);
+    var erwartet = Math.max(0, umsatz - kosten * 52) * 0.45;
+    fin.transferbudget = Math.round(frei * 0.85 + erwartet);
+  }
+
+  /* Laufende Fixkosten pro Woche: Gehälter samt Nebenkosten, Stadion,
+     Jugendarbeit und Kreditraten. */
+  function wochenkosten(state, k) {
+    var fin = k.finanzen;
+    if (!fin) return 0;
+    var stufe = k.international ? 1 : k.stufe;
+    var kader = kaderVon(state, k);
+    var gehalt = Util.sum(kader, function (p) {
+      return p.leihe ? p.gehalt * p.leihe.gehaltsanteil / 100 : p.gehalt;
+    });
+    (k.verliehen || []).forEach(function (pid) {
+      var lp = state.spieler[pid];
+      if (lp && lp.leihe) gehalt += lp.gehalt * (100 - lp.leihe.gehaltsanteil) / 100;
+    });
+    return gehalt * 1.35 +
+      Finance.unterhaltWoche(fin, stufe) +
+      (k.jugend ? Jugend.unterhaltWoche(k.jugend, stufe) : 0) +
+      Util.sum(fin.kredite, function (kr) { return kr.rate; }) +
+      Util.sum(fin.verpflichtungen || [], function (v) {
+        return v.art === 'rate' && v.restWochen > 0 ? v.wocheBetrag : 0;
+      });
+  }
+
+  /* Betriebsreserve: acht Wochen laufende Kosten bleiben unangetastet.
+     Alles darüber ist frei verfügbar - für Einkäufe, Bau und Jugendarbeit. */
+  function betriebsreserve(state, k) {
+    return Math.round(wochenkosten(state, k) * 8);
+  }
+
+  function verfuegbaresGeld(state, k) {
+    return Math.max(0, Math.round(k.finanzen.kontostand - betriebsreserve(state, k)));
   }
 
   /* =================== Postfach & Nachrichten =================== */
@@ -4059,7 +4126,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
       /* Jugendakademie: Betrieb, Scouting und Aufwandsentschädigungen. */
       if (k.jugend) {
-        var jugendKosten = Jugend.unterhaltWoche(k.jugend) +
+        var jugendKosten = Jugend.unterhaltWoche(k.jugend, stufe) +
           Util.sum(k.jugend.talente, function (id) {
             var jp = state.spieler[id];
             return jp ? jp.gehalt : 0;
@@ -4264,6 +4331,111 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       gebuehr: kond.gebuehr,
       kaufoption: rng.chance(0.35) ? kond.kaufoptionVorschlag : 0
     });
+  }
+
+  /* Welche Vereine kämen für einen Spieler in Frage und was würden sie
+     ungefähr zahlen? Grundlage für die Deckungsvorschläge in den Finanzen -
+     die Schätzung benutzt dieselben Filter wie das echte Angebot. */
+  function verkaufsschaetzung(state, spieler, kaderVerkaeufer) {
+    var mein = state.klubs[state.meinKlubId];
+    var kader = kaderVerkaeufer || kaderVon(state, mein);
+    var gebote = [];
+    Object.keys(state.klubs).forEach(function (id) {
+      var k = state.klubs[id];
+      if (id === mein.id || k.wartend || !k.finanzen) return;
+      if (k.kader.length >= 30) return;
+      var niveau = basisStaerke(k);
+      if (spieler.staerke < niveau - 12 || spieler.staerke > niveau + 14) return;
+      var ford = Transfers.forderung(spieler, kader, mein, k, state.saison);
+      if (k.finanzen.transferbudget < ford * 0.45) return;
+      gebote.push(Math.min(ford * 0.81, k.finanzen.transferbudget));
+    });
+    if (!gebote.length) return { interessenten: 0, erwartet: 0, bestes: 0 };
+    gebote.sort(function (a, b) { return b - a; });
+    return {
+      interessenten: gebote.length,
+      bestes: Math.round(gebote[0]),
+      erwartet: Math.round(gebote[Math.min(gebote.length - 1, 1)])
+    };
+  }
+
+  /* Der Trainer bietet einen Spieler aktiv an und holt konkrete Angebote ein.
+     Bei negativem Konto ist das auch ausserhalb des Transferfensters als
+     Notverkauf moeglich - dann allerdings zu schlechteren Preisen. */
+  function verkaufAnbieten(state, spieler) {
+    var rng = Game.rng;
+    var mein = state.klubs[state.meinKlubId];
+    if (!mein || spieler.klubId !== mein.id) {
+      return { ok: false, grund: 'Der Spieler gehört nicht zu Ihrem Verein.' };
+    }
+    if (spieler.leihe) {
+      return { ok: false, grund: 'Geliehene Spieler können Sie nicht verkaufen.' };
+    }
+    var kader = kaderVon(state, mein);
+    if (kader.length <= 17) {
+      return { ok: false, grund: 'Ihr Kader wäre danach zu klein.' };
+    }
+    var notverkauf = !istTransferfenster(state);
+    if (notverkauf && mein.finanzen.kontostand >= 0) {
+      return { ok: false, grund: 'Ausserhalb des Transferfensters sind Verkäufe nur erlaubt, ' +
+        'wenn das Konto im Minus steht.' };
+    }
+
+    /* Wer schon ein offenes Angebot hat, wird nicht doppelt angeboten. */
+    var schonOffen = state.verhandlungen.some(function (v) {
+      return v.typ === 'verkauf' && v.spielerId === spieler.id && v.status === 'offen';
+    });
+    if (schonOffen) return { ok: false, grund: 'Für diesen Spieler liegt bereits ein Angebot vor.' };
+
+    var basis = Transfers.forderung(spieler, kader, mein, null, state.saison);
+    var interessenten = [];
+    Object.keys(state.klubs).forEach(function (id) {
+      var k = state.klubs[id];
+      if (id === mein.id || k.wartend || !k.finanzen) return;
+      if (k.kader.length >= 30) return;
+      /* Nur Vereine, für die der Spieler sportlich interessant ist. */
+      var eigeneStufe = k.international ? 1 : k.stufe;
+      var niveau = basisStaerke(k);
+      if (spieler.staerke < niveau - 12 || spieler.staerke > niveau + 14) return;
+      var ford = Transfers.forderung(spieler, kader, mein, k, state.saison);
+      if (k.finanzen.transferbudget < ford * 0.45) return;
+      interessenten.push({ klub: k, forderung: ford });
+    });
+    if (!interessenten.length) {
+      return { ok: false, grund: 'Kein Verein zeigt derzeit Interesse an ' + spieler.name + '.' };
+    }
+
+    rng.shuffle(interessenten);
+    interessenten.sort(function (a, b) { return b.klub.ruf - a.klub.ruf; });
+    var anzahl = Math.min(interessenten.length, rng.int(1, 3));
+    var angebote = [];
+    for (var i = 0; i < anzahl; i++) {
+      var e = interessenten[i];
+      var faktor = rng.float(0.6, 1.02) * (notverkauf ? 0.85 : 1);
+      var gebot = Math.round(Math.min(e.forderung * faktor, e.klub.finanzen.transferbudget) / 5000) * 5000;
+      if (gebot < 3000) continue;
+      var id = 'v_ang_' + state.tag + '_' + spieler.id + '_' + i;
+      state.verhandlungen.push({
+        id: id, typ: 'verkauf', spielerId: spieler.id,
+        vonKlubId: mein.id, zuKlubId: e.klub.id,
+        phase: 'angebot', gebot: gebot, forderung: e.forderung,
+        notverkauf: notverkauf, runde: 0,
+        historie: [{ von: 'kaeufer', text: e.klub.name + ' bietet ' + Fmt.money(gebot) + '.' }],
+        startTag: state.tag, frist: state.tag + 14, status: 'offen'
+      });
+      angebote.push({ klub: e.klub, gebot: gebot });
+    }
+    if (!angebote.length) {
+      return { ok: false, grund: 'Die Interessenten haben derzeit kein Geld für ' + spieler.name + '.' };
+    }
+    spieler.transferliste = true;
+    post(state, 'Angebote für ' + spieler.name,
+      angebote.length + (angebote.length === 1 ? ' Verein hat' : ' Vereine haben') +
+      ' ein Angebot abgegeben: ' +
+      angebote.map(function (a) { return a.klub.name + ' ' + Fmt.money(a.gebot); }).join(', ') +
+      (notverkauf ? '. Bei einem Notverkauf ausserhalb des Fensters drücken die Käufer den Preis.' : '.'),
+      'transfer');
+    return { ok: true, angebote: angebote, notverkauf: notverkauf };
   }
 
   /* Ein Verein fragt einen jungen Reservisten des Spielers als Leihe an. */
@@ -4731,6 +4903,11 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   Game.kaufoptionZiehen = kaufoptionZiehen;
   Game.kiJugendHochziehen = kiJugendHochziehen;
   Game.kiEineLeihe = kiEineLeihe;
+  Game.verkaufAnbieten = verkaufAnbieten;
+  Game.verkaufsschaetzung = verkaufsschaetzung;
+  Game.wochenkosten = wochenkosten;
+  Game.betriebsreserve = betriebsreserve;
+  Game.verfuegbaresGeld = verfuegbaresGeld;
   Game.sponsorenPruefen = sponsorenPruefen;
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -4947,6 +5124,12 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     Transfers.setZaehler(d.zaehler.transfer);
     Game.rng = new RNG(d.rng);
     Game.rng.s = d.rng >>> 0;
+
+    /* Budgets nach den aktuellen Regeln neu berechnen, damit auch ältere
+       Spielstände ein durch Guthaben gedecktes Transferbudget bekommen. */
+    if (state.meinKlubId && state.klubs[state.meinKlubId]) {
+      Game.budgetsSetzen(state, state.klubs[state.meinKlubId]);
+    }
     return state;
   }
 
@@ -5668,7 +5851,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
   function noteText(n) {
     if (n === null || n === undefined) return '<span class="mini">–</span>';
-    var farbe = n <= 2.5 ? 'var(--gruen-gut)' : (n <= 3.5 ? 'var(--text)' : 'var(--rot)');
+    var farbe = n <= 2.5 ? 'var(--gut)' : (n <= 3.5 ? 'var(--text)' : 'var(--schlecht)');
     return '<span style="color:' + farbe + ';font-variant-numeric:tabular-nums">' + n.toFixed(2).replace('.', ',') + '</span>';
   }
 
@@ -5690,7 +5873,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   }
 
   function fitnessBalken(v) {
-    var farbe = v >= 85 ? 'var(--gruen-gut)' : (v >= 65 ? 'var(--gelb)' : 'var(--rot)');
+    var farbe = v >= 85 ? 'var(--gut)' : (v >= 65 ? 'var(--warn)' : 'var(--schlecht)');
     return '<span class="balken" title="Fitness ' + v + ' %"><i style="width:' + v + '%;background:' + farbe + '"></i></span>';
   }
 
@@ -6048,10 +6231,17 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         klasse: 'knopf--still',
         fn: function () {
           p.transferliste = !p.transferliste;
-          toast(p.transferliste ? p.name + ' steht auf der Transferliste.' : p.name + ' wurde von der Liste genommen.');
+          toast(p.transferliste ? p.name + ' steht auf der Transferliste.'
+                                : p.name + ' wurde von der Liste genommen.');
           UI.zeichne();
         }
       });
+      if (!p.leihe) {
+        aktionen.push({
+          text: 'Zum Verkauf anbieten', klasse: 'knopf--still', schliessen: false,
+          fn: function () { UI.verkaufAnbieten(p.id); }
+        });
+      }
       /* schliessen: false, weil die Funktion selbst ein neues Fenster oeffnet. */
       if (!p.leihe) {
         aktionen.push({
@@ -6104,7 +6294,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var html = '<div class="raster raster--4">' +
       kennzahl('Tabellenplatz', platz ? platz + '.' : '–', liga ? liga.name : '') +
       kennzahl('Punkte', z ? String(z.punkte - z.abzug) : '0', z ? z.sp + ' Spiele · ' + z.tore + ':' + z.gegentore + ' Tore' : '') +
-      kennzahl('Kontostand', Fmt.money(fin.kontostand), 'Transferbudget ' + Fmt.money(fin.transferbudget)) +
+      kennzahl('Frei verfügbar', Fmt.money(Game.verfuegbaresGeld(st, mein)),
+        'Konto ' + Fmt.money(fin.kontostand) + ' · Transferbudget ' + Fmt.money(fin.transferbudget)) +
       kennzahl('Kadergröße', String(kader.length), 'Wert ' + Fmt.money(Util.sum(kader, function (p) { return p.marktwert; }))) +
       '</div>';
 
@@ -6298,7 +6489,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
             var farbe = eigene > fremde ? 'gut' : (eigene < fremde ? 'schlecht' : '');
             erg = '<b class="' + farbe + '">' + eigene + ':' + fremde + '</b>';
           }
-          var heute = s.tag === st.tag ? ' style="background:rgba(232,182,76,.12)"' : '';
+          var heute = s.tag === st.tag ? ' style="background:var(--akzent-weich)"' : '';
           return '<tr' + heute + '><td class="zahl">' + s.nr + '</td>' +
             '<td class="mini">' + Fmt.weekday(s.tag, st.saison) + ', ' + Fmt.date(s.tag, st.saison) + '</td>' +
             '<td>' + klubZelle(st.klubs[gegnerId], 18) + '</td>' +
@@ -6727,7 +6918,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         c.classList.toggle('gewaehlt', !!gewaehlt && pid === gewaehlt);
       });
       Array.prototype.forEach.call(document.querySelectorAll('[data-tausch]'), function (tr) {
-        tr.style.background = (gewaehlt === tr.dataset.tausch) ? 'rgba(232,182,76,.18)' : '';
+        tr.style.background = (gewaehlt === tr.dataset.tausch) ? 'var(--akzent-weich)' : '';
       });
     }
 
@@ -6924,7 +7115,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     html += '<div class="knopfreihe" style="margin-top:1rem">' +
       '<button class="knopf knopf--haupt" id="fSuchen">Suchen</button>' +
       '<button class="knopf knopf--still" id="fReset">Zurücksetzen</button>' +
-      '<span class="mini">Transferbudget: <b>' + Fmt.money(mein.finanzen.transferbudget) + '</b></span>' +
+      '<span class="mini">Transferbudget <b>' + Fmt.money(mein.finanzen.transferbudget) +
+      '</b> · sofort verfügbar <b>' + Fmt.money(Game.verfuegbaresGeld(st, mein)) + '</b></span>' +
       '</div></div>';
 
     var treffer = Transfers.marktSuche(st, filter);
@@ -7059,7 +7251,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     html += verlaufHTML(v);
 
     if (v.phase === 'verein') {
-      var vorschlag = Math.min(v.forderung, mein.finanzen.transferbudget);
+      var vorschlag = Math.min(v.forderung, mein.finanzen.transferbudget,
+        Game.verfuegbaresGeld(st, mein));
       html += '<h4>Ihr Angebot an ' + Util.esc(verkaeufer.name) + '</h4>' +
         '<div class="knopfreihe" style="margin-bottom:.8rem">' +
         '<button class="knopf knopf--klein" id="aErfuellen">Forderung erfüllen</button>' +
@@ -7128,7 +7321,11 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
           Fmt.money(a.sofort) + '</b>. Der Verein bewertet das mit <b>' + Fmt.money(wert) + '</b>';
         if (gesamt > wert) text += ' – Raten, Boni und Beteiligungen zählen weniger als Bargeld.';
         else text += '.';
-        if (a.sofort > mein.finanzen.transferbudget) {
+        var frei = Game.verfuegbaresGeld(st, mein);
+        if (a.sofort > frei) {
+          text += ' <span class="schlecht">Die Sofortzahlung übersteigt Ihr freies Guthaben von ' +
+            Fmt.money(frei) + '. Verteilen Sie den Betrag auf Raten.</span>';
+        } else if (a.sofort > mein.finanzen.transferbudget) {
           text += ' <span class="schlecht">Die Sofortzahlung übersteigt Ihr Transferbudget von ' +
             Fmt.money(mein.finanzen.transferbudget) + '.</span>';
         }
@@ -7141,16 +7338,19 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       if (el) el.oninput = el.onchange = rechne;
     });
 
+    var grenze = Math.min(mein.finanzen.transferbudget, Game.verfuegbaresGeld(st, mein));
     var erf = $('aErfuellen');
     if (erf) erf.onclick = function () {
-      $('aSofort').value = Math.min(v.forderung, mein.finanzen.transferbudget);
-      var rest = Math.max(0, v.forderung - mein.finanzen.transferbudget);
+      var bar = Math.min(v.forderung, grenze);
+      $('aSofort').value = Math.round(bar / 5000) * 5000;
+      var rest = Math.max(0, v.forderung - bar);
       $('aRatenBetrag').value = rest > 0 ? Math.round(rest * 1.15 / 5000) * 5000 : 0;
+      $('aRatenJahre').value = 3;
       rechne();
     };
     var strukt = $('aRaten');
     if (strukt) strukt.onclick = function () {
-      var bar = Math.min(Math.round(v.forderung * 0.45 / 5000) * 5000, mein.finanzen.transferbudget);
+      var bar = Math.min(Math.round(v.forderung * 0.4 / 5000) * 5000, grenze);
       $('aSofort').value = bar;
       $('aRatenBetrag').value = Math.round((v.forderung - bar) * 1.2 / 5000) * 5000;
       $('aRatenJahre').value = 3;
@@ -7165,6 +7365,11 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var verkaeufer = st.klubs[v.vonKlubId];
     var angebot = angebotLesen();
 
+    var frei = Game.verfuegbaresGeld(st, mein);
+    if (angebot.sofort > frei) {
+      UI.toast('Die Sofortzahlung übersteigt Ihr freies Guthaben von ' + Fmt.money(frei) + '.');
+      return;
+    }
     if (angebot.sofort > mein.finanzen.transferbudget) {
       UI.toast('Die Sofortzahlung übersteigt Ihr Transferbudget.');
       return;
@@ -7549,6 +7754,51 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     UI.zeichne();
   }
 
+  /* ---------- Spieler aktiv anbieten ---------- */
+
+  UI.verkaufAnbieten = function (spielerId) {
+    var st = UI.S(), mein = UI.meinKlub();
+    var p = st.spieler[spielerId];
+    if (!p) return;
+    var imFenster = Game.istTransferfenster(st);
+    var notlage = mein.finanzen.kontostand < 0;
+
+    var html = '<p>Sie lassen bei interessierten Vereinen anfragen, was sie für <b>' +
+      Util.esc(p.name) + '</b> zu zahlen bereit wären.</p>' +
+      '<div class="dossier">' +
+      dossierZeile('Marktwert', Fmt.money(p.marktwert)) +
+      dossierZeile('Ihre Vorstellung', Fmt.money(
+        Transfers.forderung(p, Game.kaderVon(st, mein), mein, null, st.saison))) +
+      dossierZeile('Gehalt, das frei wird', Fmt.money(p.gehalt) + ' / Woche ' +
+        '<span class="mini">= ' + Fmt.money(p.gehalt * 52) + ' im Jahr</span>') +
+      '</div>';
+
+    if (!imFenster && notlage) {
+      html += '<div class="dossier__hinweise">Das Transferfenster ist geschlossen. Weil Ihr Konto ' +
+        'im Minus steht, genehmigt der Verband einen <b>Notverkauf</b> – die Käufer wissen das ' +
+        'allerdings und drücken den Preis um etwa 15 %.</div>';
+    } else if (!imFenster) {
+      html += '<div class="dossier__hinweise">Das Transferfenster ist geschlossen. Verkäufe sind ' +
+        'außerhalb des Fensters nur erlaubt, wenn das Konto im Minus steht.</div>';
+    }
+
+    UI.modal('Spieler anbieten', html, [
+      {
+        text: 'Angebote einholen', klasse: 'knopf--haupt', schliessen: false,
+        deaktiviert: !imFenster && !notlage,
+        fn: function () {
+          var r = Game.verkaufAnbieten(st, p);
+          if (!r.ok) { UI.toast(r.grund); return; }
+          UI.modalZu();
+          UI.toast(r.angebote.length + (r.angebote.length === 1 ? ' Angebot' : ' Angebote') +
+            ' eingegangen – nachzulesen unter Verhandlungen.');
+          UI.wechsle('verhandlungen');
+        }
+      },
+      { text: 'Abbrechen', klasse: 'knopf--still' }
+    ]);
+  };
+
   /* ---------- Verhandlungsübersicht ---------- */
 
   UI.seiten.verhandlungen = function () {
@@ -7573,6 +7823,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
           '<div class="nachricht__kopf"><span class="nachricht__betreff">' +
           Util.esc(p.name) + ' → ' + Util.esc(interessent.name) + '</span>' +
           '<span class="nachricht__datum">Frist: ' + Fmt.date(v.frist, st.saison) + '</span></div>' +
+          (v.notverkauf ? '<span class="marke marke--warn">Notverkauf</span> ' : '') +
           '<p class="nachricht__text">Gebot <b>' + Fmt.money(v.gebot) + '</b> · Marktwert ' +
           Fmt.money(p.marktwert) + ' <span class="' + (diff >= 0 ? 'gut' : 'schlecht') + '">(' +
           (diff >= 0 ? '+' : '') + Fmt.money(diff) + ')</span> · Ihre Vorstellung wäre ' +
@@ -7975,7 +8226,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       var dauer = Finance.ausbauDauer(n);
       info.innerHTML = 'Kosten: <b>' + Fmt.money(kosten) + '</b> · Bauzeit: <b>' + dauer + ' Tage</b> · ' +
         'Neue Kapazität: <b>' + Fmt.num(Finance.kapazitaet(sd) + n) + '</b>' +
-        (kosten > fin.kontostand ? ' <span class="schlecht">– dafür reicht das Konto nicht.</span>' : '');
+        (kosten > Game.verfuegbaresGeld(st, mein)
+          ? ' <span class="schlecht">– dafür reicht das freie Guthaben nicht.</span>' : '');
     }
     ['ausbauSektor', 'ausbauPlaetze'].forEach(function (id) {
       var el = $(id);
@@ -7986,7 +8238,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var start = $('ausbauStart');
     if (start) start.onclick = function () {
       var r = Finance.ausbauStarten(fin, st.tag, $('ausbauSektor').value,
-        Math.max(0, +$('ausbauPlaetze').value || 0));
+        Math.max(0, +$('ausbauPlaetze').value || 0), Game.verfuegbaresGeld(st, mein));
       if (!r.ok) { UI.toast(r.grund); return; }
       UI.toast('Bauauftrag erteilt. Fertigstellung in ' + r.dauer + ' Tagen.');
       UI.zeichne();
@@ -7997,12 +8249,13 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         var m = Util.byId(Finance.MODULE, b.dataset.modul);
         UI.modal(m.name, '<p>' + Util.esc(m.text) + '</p>' +
           '<p>Kosten: <b>' + Fmt.money(m.kosten) + '</b> · Bauzeit: <b>' + m.tage + ' Tage</b> · ' +
-          'laufender Unterhalt: ' + Fmt.money(m.unterhalt) + ' pro Woche.</p>',
+          'laufender Unterhalt: ' + Fmt.money(m.unterhalt) + ' pro Woche.</p>' +
+          '<p class="mini">Frei verfügbar: ' + Fmt.money(Game.verfuegbaresGeld(st, mein)) + '</p>',
           [
             {
               text: 'Bauen', klasse: 'knopf--haupt',
               fn: function () {
-                var r = Finance.modulBauen(fin, st.tag, m.id);
+                var r = Finance.modulBauen(fin, st.tag, m.id, Game.verfuegbaresGeld(st, mein));
                 if (!r.ok) { UI.toast(r.grund); return; }
                 UI.toast('Bauauftrag erteilt.');
                 UI.zeichne();
@@ -8170,13 +8423,81 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       '</div>';
 
     html += '<div class="raster raster--2">';
-    html += '<div class="karte"><div class="karte__kopf"><h3>Einnahmen</h3></div>' + posten(einnahmen, summeE, 'var(--gruen-gut)') + '</div>';
-    html += '<div class="karte"><div class="karte__kopf"><h3>Ausgaben</h3></div>' + posten(ausgaben, summeA, 'var(--rot)') + '</div>';
+    html += '<div class="karte"><div class="karte__kopf"><h3>Einnahmen</h3></div>' + posten(einnahmen, summeE, 'var(--gut)') + '</div>';
+    html += '<div class="karte"><div class="karte__kopf"><h3>Ausgaben</h3></div>' + posten(ausgaben, summeA, 'var(--schlecht)') + '</div>';
+    html += '</div>';
+
+    /* Vorschau und Deckungsvorschläge */
+    var wochen = Math.max(1, st.tag / 7);
+    var schnittEin = summeE / wochen, schnittAus = summeA / wochen;
+    var saldoWoche = schnittEin - schnittAus;
+    var reserve = Game.betriebsreserve(st, mein);
+    var frei = Game.verfuegbaresGeld(st, mein);
+
+    html += '<div class="karte"><div class="karte__kopf"><h3>Vorschau</h3></div>' +
+      '<div class="raster raster--3">' +
+      UI.kennzahl('Frei verfügbar', Fmt.money(frei),
+        'Betriebsreserve ' + Fmt.money(reserve) + ' bleibt liegen') +
+      UI.kennzahl('Wöchentlicher Saldo', Fmt.money(saldoWoche),
+        Fmt.money(schnittEin) + ' ein, ' + Fmt.money(schnittAus) + ' aus') +
+      UI.kennzahl('Reichweite',
+        saldoWoche >= 0 ? 'unbegrenzt'
+          : Math.max(0, Math.floor(fin.kontostand / -saldoWoche)) + ' Wochen',
+        saldoWoche >= 0 ? 'Der Verein erwirtschaftet einen Überschuss.'
+          : 'bis das Konto ins Minus rutscht') +
+      '</div>';
+
+    if (fin.kontostand < 0 || saldoWoche < 0) {
+      var luecke = fin.kontostand < 0
+        ? -fin.kontostand + reserve
+        : Math.round(-saldoWoche * 26);
+      var kader = Game.kaderVon(st, mein).slice()
+        .sort(function (a, b) { return b.marktwert - a.marktwert; });
+      var kandidaten = kader.filter(function (p) {
+        return !p.leihe && Transfers.wichtigkeit(p, kader) < 0.7;
+      }).slice(0, 6);
+
+      html += '<h4 style="margin-top:1.2rem">Konto decken</h4>' +
+        '<p class="hinweis">' + (fin.kontostand < 0
+          ? 'Das Konto steht im Minus. Um es samt Betriebsreserve auszugleichen, fehlen '
+          : 'Bei gleichbleibendem Verlauf entsteht bis zum Saisonende eine Lücke von ') +
+        '<b>' + Fmt.money(luecke) + '</b>. Ein Verkauf bringt neben der Ablöse auch das ' +
+        'eingesparte Gehalt.</p>' +
+        '<div class="tabellenrahmen"><table class="liste"><thead><tr><th class="mitte">Pos</th>' +
+        '<th>Spieler</th><th class="zahl">Alter</th><th class="zahl">Stärke</th>' +
+        '<th class="zahl">Erwartete Ablöse</th><th class="zahl">Gehalt/Jahr</th>' +
+        '<th class="zahl">Deckt die Lücke</th><th></th></tr></thead><tbody>' +
+        kandidaten.map(function (p) {
+          var sch = Game.verkaufsschaetzung(st, p, kader);
+          var anteil = Util.clamp((sch.erwartet + p.gehalt * 26) / Math.max(1, luecke) * 100, 0, 100);
+          return '<tr><td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
+            '<td class="klickbar" data-spieler="' + p.id + '"><b>' + Util.esc(p.name) + '</b></td>' +
+            '<td class="zahl">' + p.alter + '</td>' +
+            '<td class="zahl">' + p.staerke + '</td>' +
+            '<td class="zahl">' + (sch.interessenten
+              ? Fmt.money(sch.erwartet) + ' <span class="mini">(' + sch.interessenten + ' Interessenten)</span>'
+              : '<span class="mini">kein Interesse</span>') + '</td>' +
+            '<td class="zahl">' + Fmt.money(p.gehalt * 52) + '</td>' +
+            '<td class="zahl">' + Math.round(anteil) + ' %' +
+            '<span class="balken" style="margin-left:.4em"><i style="width:' + anteil.toFixed(0) +
+            '%;background:' + (anteil >= 100 ? 'var(--gut)' : 'var(--warn)') + '"></i></span></td>' +
+            '<td><button class="knopf knopf--klein" data-anbieten="' + p.id + '"' +
+            (sch.interessenten ? '' : ' disabled') + '>Anbieten</button></td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<p class="mini">Die erwartete Ablöse berücksichtigt, welche Vereine den Spieler ' +
+        'sportlich brauchen und was ihr Transferbudget hergibt. Ein Verkauf spart zusätzlich ' +
+        'das Gehalt für den Rest der Saison.</p>';
+      if (!Game.istTransferfenster(st) && fin.kontostand >= 0) {
+        html += '<p class="mini">Verkäufe sind erst im nächsten Transferfenster möglich. ' +
+          'Steht das Konto im Minus, genehmigt der Verband einen Notverkauf.</p>';
+      }
+    }
     html += '</div>';
 
     html += '<div class="karte"><div class="karte__kopf"><h3>Budgets</h3></div>' +
       '<div class="raster raster--3">' +
-      UI.kennzahl('Transferbudget', Fmt.money(fin.transferbudget), 'für Ablösesummen') +
+      UI.kennzahl('Transferbudget', Fmt.money(fin.transferbudget),
+        'davon sofort zahlbar ' + Fmt.money(Math.min(fin.transferbudget, Game.verfuegbaresGeld(st, mein)))) +
       UI.kennzahl('Gehaltsrahmen', Fmt.money(fin.gehaltsbudget) + ' / Woche',
         'genutzt: ' + Fmt.money(Util.sum(kader, function (p) { return p.gehalt; }))) +
       UI.kennzahl('Geschätzter Jahresumsatz',
@@ -8196,6 +8517,16 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     return html;
   };
 
+  UI.nachZeichnen.finanzen = function () {
+    UI.spielerKlicks();
+    Array.prototype.forEach.call(document.querySelectorAll('[data-anbieten]'), function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        UI.verkaufAnbieten(b.dataset.anbieten);
+      };
+    });
+  };
+
   function posten(obj, summe, farbe) {
     var keys = Object.keys(obj).sort(function (a, b) { return obj[b] - obj[a]; });
     if (!keys.length) return '<p class="hinweis">Noch keine Buchungen in dieser Saison.</p>';
@@ -8206,7 +8537,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         '<span>' + Util.esc(k) + '</span><b>' + Fmt.money(obj[k]) + '</b></div>' +
         '<div class="balken" style="width:100%"><i style="width:' + anteil.toFixed(1) + '%;background:' + farbe + '"></i></div>' +
         '</div>';
-    }).join('') + '<div style="border-top:1px solid var(--gruen-rand);margin-top:.6em;padding-top:.5em;' +
+    }).join('') + '<div style="border-top:1px solid var(--line);margin-top:.6em;padding-top:.5em;' +
       'display:flex;justify-content:space-between"><b>Gesamt</b><b>' + Fmt.money(summe) + '</b></div>';
   }
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -8337,12 +8668,14 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
           '<p>' + Util.esc(naechste.text || 'Verbessert die Einschätzung Ihrer Talente deutlich.') + '</p>' +
           '<p>Kosten: <b>' + Fmt.money(naechste.kosten) + '</b> einmalig, danach <b>' +
           Fmt.money(naechste.unterhalt) + '</b> pro Woche.</p>' +
-          '<p class="mini">Verfügbar: ' + Fmt.money(mein.finanzen.kontostand) + '</p>',
+          '<p class="mini">Frei verfügbar: ' + Fmt.money(Game.verfuegbaresGeld(st, mein)) +
+          ' <span class="mini">(Kontostand ' + Fmt.money(mein.finanzen.kontostand) +
+          ' abzüglich Betriebsreserve)</span></p>',
           [
             {
               text: 'Ausbauen', klasse: 'knopf--haupt',
               fn: function () {
-                var r = Jugend.ausbauStarten(mein, st.tag, art);
+                var r = Jugend.ausbauStarten(mein, st.tag, art, Game.verfuegbaresGeld(st, mein));
                 if (!r.ok) { UI.toast(r.grund); return; }
                 UI.toast('Ausbau beauftragt, fertig in ' + r.tage + ' Tagen.');
                 UI.zeichne();
@@ -8744,7 +9077,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       tr.onclick = function () {
         raus = tr.dataset.raus;
         Array.prototype.forEach.call(inhalt.querySelectorAll('[data-raus]'), function (x) { x.style.background = ''; });
-        tr.style.background = 'rgba(232,182,76,.18)';
+        tr.style.background = 'var(--akzent-weich)';
         pruefe();
       };
     });

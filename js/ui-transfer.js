@@ -89,7 +89,8 @@
     html += '<div class="knopfreihe" style="margin-top:1rem">' +
       '<button class="knopf knopf--haupt" id="fSuchen">Suchen</button>' +
       '<button class="knopf knopf--still" id="fReset">Zurücksetzen</button>' +
-      '<span class="mini">Transferbudget: <b>' + Fmt.money(mein.finanzen.transferbudget) + '</b></span>' +
+      '<span class="mini">Transferbudget <b>' + Fmt.money(mein.finanzen.transferbudget) +
+      '</b> · sofort verfügbar <b>' + Fmt.money(Game.verfuegbaresGeld(st, mein)) + '</b></span>' +
       '</div></div>';
 
     var treffer = Transfers.marktSuche(st, filter);
@@ -224,7 +225,8 @@
     html += verlaufHTML(v);
 
     if (v.phase === 'verein') {
-      var vorschlag = Math.min(v.forderung, mein.finanzen.transferbudget);
+      var vorschlag = Math.min(v.forderung, mein.finanzen.transferbudget,
+        Game.verfuegbaresGeld(st, mein));
       html += '<h4>Ihr Angebot an ' + Util.esc(verkaeufer.name) + '</h4>' +
         '<div class="knopfreihe" style="margin-bottom:.8rem">' +
         '<button class="knopf knopf--klein" id="aErfuellen">Forderung erfüllen</button>' +
@@ -293,7 +295,11 @@
           Fmt.money(a.sofort) + '</b>. Der Verein bewertet das mit <b>' + Fmt.money(wert) + '</b>';
         if (gesamt > wert) text += ' – Raten, Boni und Beteiligungen zählen weniger als Bargeld.';
         else text += '.';
-        if (a.sofort > mein.finanzen.transferbudget) {
+        var frei = Game.verfuegbaresGeld(st, mein);
+        if (a.sofort > frei) {
+          text += ' <span class="schlecht">Die Sofortzahlung übersteigt Ihr freies Guthaben von ' +
+            Fmt.money(frei) + '. Verteilen Sie den Betrag auf Raten.</span>';
+        } else if (a.sofort > mein.finanzen.transferbudget) {
           text += ' <span class="schlecht">Die Sofortzahlung übersteigt Ihr Transferbudget von ' +
             Fmt.money(mein.finanzen.transferbudget) + '.</span>';
         }
@@ -306,16 +312,19 @@
       if (el) el.oninput = el.onchange = rechne;
     });
 
+    var grenze = Math.min(mein.finanzen.transferbudget, Game.verfuegbaresGeld(st, mein));
     var erf = $('aErfuellen');
     if (erf) erf.onclick = function () {
-      $('aSofort').value = Math.min(v.forderung, mein.finanzen.transferbudget);
-      var rest = Math.max(0, v.forderung - mein.finanzen.transferbudget);
+      var bar = Math.min(v.forderung, grenze);
+      $('aSofort').value = Math.round(bar / 5000) * 5000;
+      var rest = Math.max(0, v.forderung - bar);
       $('aRatenBetrag').value = rest > 0 ? Math.round(rest * 1.15 / 5000) * 5000 : 0;
+      $('aRatenJahre').value = 3;
       rechne();
     };
     var strukt = $('aRaten');
     if (strukt) strukt.onclick = function () {
-      var bar = Math.min(Math.round(v.forderung * 0.45 / 5000) * 5000, mein.finanzen.transferbudget);
+      var bar = Math.min(Math.round(v.forderung * 0.4 / 5000) * 5000, grenze);
       $('aSofort').value = bar;
       $('aRatenBetrag').value = Math.round((v.forderung - bar) * 1.2 / 5000) * 5000;
       $('aRatenJahre').value = 3;
@@ -330,6 +339,11 @@
     var verkaeufer = st.klubs[v.vonKlubId];
     var angebot = angebotLesen();
 
+    var frei = Game.verfuegbaresGeld(st, mein);
+    if (angebot.sofort > frei) {
+      UI.toast('Die Sofortzahlung übersteigt Ihr freies Guthaben von ' + Fmt.money(frei) + '.');
+      return;
+    }
     if (angebot.sofort > mein.finanzen.transferbudget) {
       UI.toast('Die Sofortzahlung übersteigt Ihr Transferbudget.');
       return;
@@ -714,6 +728,51 @@
     UI.zeichne();
   }
 
+  /* ---------- Spieler aktiv anbieten ---------- */
+
+  UI.verkaufAnbieten = function (spielerId) {
+    var st = UI.S(), mein = UI.meinKlub();
+    var p = st.spieler[spielerId];
+    if (!p) return;
+    var imFenster = Game.istTransferfenster(st);
+    var notlage = mein.finanzen.kontostand < 0;
+
+    var html = '<p>Sie lassen bei interessierten Vereinen anfragen, was sie für <b>' +
+      Util.esc(p.name) + '</b> zu zahlen bereit wären.</p>' +
+      '<div class="dossier">' +
+      dossierZeile('Marktwert', Fmt.money(p.marktwert)) +
+      dossierZeile('Ihre Vorstellung', Fmt.money(
+        Transfers.forderung(p, Game.kaderVon(st, mein), mein, null, st.saison))) +
+      dossierZeile('Gehalt, das frei wird', Fmt.money(p.gehalt) + ' / Woche ' +
+        '<span class="mini">= ' + Fmt.money(p.gehalt * 52) + ' im Jahr</span>') +
+      '</div>';
+
+    if (!imFenster && notlage) {
+      html += '<div class="dossier__hinweise">Das Transferfenster ist geschlossen. Weil Ihr Konto ' +
+        'im Minus steht, genehmigt der Verband einen <b>Notverkauf</b> – die Käufer wissen das ' +
+        'allerdings und drücken den Preis um etwa 15 %.</div>';
+    } else if (!imFenster) {
+      html += '<div class="dossier__hinweise">Das Transferfenster ist geschlossen. Verkäufe sind ' +
+        'außerhalb des Fensters nur erlaubt, wenn das Konto im Minus steht.</div>';
+    }
+
+    UI.modal('Spieler anbieten', html, [
+      {
+        text: 'Angebote einholen', klasse: 'knopf--haupt', schliessen: false,
+        deaktiviert: !imFenster && !notlage,
+        fn: function () {
+          var r = Game.verkaufAnbieten(st, p);
+          if (!r.ok) { UI.toast(r.grund); return; }
+          UI.modalZu();
+          UI.toast(r.angebote.length + (r.angebote.length === 1 ? ' Angebot' : ' Angebote') +
+            ' eingegangen – nachzulesen unter Verhandlungen.');
+          UI.wechsle('verhandlungen');
+        }
+      },
+      { text: 'Abbrechen', klasse: 'knopf--still' }
+    ]);
+  };
+
   /* ---------- Verhandlungsübersicht ---------- */
 
   UI.seiten.verhandlungen = function () {
@@ -738,6 +797,7 @@
           '<div class="nachricht__kopf"><span class="nachricht__betreff">' +
           Util.esc(p.name) + ' → ' + Util.esc(interessent.name) + '</span>' +
           '<span class="nachricht__datum">Frist: ' + Fmt.date(v.frist, st.saison) + '</span></div>' +
+          (v.notverkauf ? '<span class="marke marke--warn">Notverkauf</span> ' : '') +
           '<p class="nachricht__text">Gebot <b>' + Fmt.money(v.gebot) + '</b> · Marktwert ' +
           Fmt.money(p.marktwert) + ' <span class="' + (diff >= 0 ? 'gut' : 'schlecht') + '">(' +
           (diff >= 0 ? '+' : '') + Fmt.money(diff) + ')</span> · Ihre Vorstellung wäre ' +

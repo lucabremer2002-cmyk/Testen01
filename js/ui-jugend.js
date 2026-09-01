@@ -123,12 +123,14 @@
           '<p>' + Util.esc(naechste.text || 'Verbessert die Einschätzung Ihrer Talente deutlich.') + '</p>' +
           '<p>Kosten: <b>' + Fmt.money(naechste.kosten) + '</b> einmalig, danach <b>' +
           Fmt.money(naechste.unterhalt) + '</b> pro Woche.</p>' +
-          '<p class="mini">Verfügbar: ' + Fmt.money(mein.finanzen.kontostand) + '</p>',
+          '<p class="mini">Frei verfügbar: ' + Fmt.money(Game.verfuegbaresGeld(st, mein)) +
+          ' <span class="mini">(Kontostand ' + Fmt.money(mein.finanzen.kontostand) +
+          ' abzüglich Betriebsreserve)</span></p>',
           [
             {
               text: 'Ausbauen', klasse: 'knopf--haupt',
               fn: function () {
-                var r = Jugend.ausbauStarten(mein, st.tag, art);
+                var r = Jugend.ausbauStarten(mein, st.tag, art, Game.verfuegbaresGeld(st, mein));
                 if (!r.ok) { UI.toast(r.grund); return; }
                 UI.toast('Ausbau beauftragt, fertig in ' + r.tage + ' Tagen.');
                 UI.zeichne();

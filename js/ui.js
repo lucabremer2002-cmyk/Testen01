@@ -60,7 +60,7 @@
 
   function noteText(n) {
     if (n === null || n === undefined) return '<span class="mini">–</span>';
-    var farbe = n <= 2.5 ? 'var(--gruen-gut)' : (n <= 3.5 ? 'var(--text)' : 'var(--rot)');
+    var farbe = n <= 2.5 ? 'var(--gut)' : (n <= 3.5 ? 'var(--text)' : 'var(--schlecht)');
     return '<span style="color:' + farbe + ';font-variant-numeric:tabular-nums">' + n.toFixed(2).replace('.', ',') + '</span>';
   }
 
@@ -82,7 +82,7 @@
   }
 
   function fitnessBalken(v) {
-    var farbe = v >= 85 ? 'var(--gruen-gut)' : (v >= 65 ? 'var(--gelb)' : 'var(--rot)');
+    var farbe = v >= 85 ? 'var(--gut)' : (v >= 65 ? 'var(--warn)' : 'var(--schlecht)');
     return '<span class="balken" title="Fitness ' + v + ' %"><i style="width:' + v + '%;background:' + farbe + '"></i></span>';
   }
 
@@ -440,10 +440,17 @@
         klasse: 'knopf--still',
         fn: function () {
           p.transferliste = !p.transferliste;
-          toast(p.transferliste ? p.name + ' steht auf der Transferliste.' : p.name + ' wurde von der Liste genommen.');
+          toast(p.transferliste ? p.name + ' steht auf der Transferliste.'
+                                : p.name + ' wurde von der Liste genommen.');
           UI.zeichne();
         }
       });
+      if (!p.leihe) {
+        aktionen.push({
+          text: 'Zum Verkauf anbieten', klasse: 'knopf--still', schliessen: false,
+          fn: function () { UI.verkaufAnbieten(p.id); }
+        });
+      }
       /* schliessen: false, weil die Funktion selbst ein neues Fenster oeffnet. */
       if (!p.leihe) {
         aktionen.push({
@@ -496,7 +503,8 @@
     var html = '<div class="raster raster--4">' +
       kennzahl('Tabellenplatz', platz ? platz + '.' : '–', liga ? liga.name : '') +
       kennzahl('Punkte', z ? String(z.punkte - z.abzug) : '0', z ? z.sp + ' Spiele · ' + z.tore + ':' + z.gegentore + ' Tore' : '') +
-      kennzahl('Kontostand', Fmt.money(fin.kontostand), 'Transferbudget ' + Fmt.money(fin.transferbudget)) +
+      kennzahl('Frei verfügbar', Fmt.money(Game.verfuegbaresGeld(st, mein)),
+        'Konto ' + Fmt.money(fin.kontostand) + ' · Transferbudget ' + Fmt.money(fin.transferbudget)) +
       kennzahl('Kadergröße', String(kader.length), 'Wert ' + Fmt.money(Util.sum(kader, function (p) { return p.marktwert; }))) +
       '</div>';
 
@@ -690,7 +698,7 @@
             var farbe = eigene > fremde ? 'gut' : (eigene < fremde ? 'schlecht' : '');
             erg = '<b class="' + farbe + '">' + eigene + ':' + fremde + '</b>';
           }
-          var heute = s.tag === st.tag ? ' style="background:rgba(232,182,76,.12)"' : '';
+          var heute = s.tag === st.tag ? ' style="background:var(--akzent-weich)"' : '';
           return '<tr' + heute + '><td class="zahl">' + s.nr + '</td>' +
             '<td class="mini">' + Fmt.weekday(s.tag, st.saison) + ', ' + Fmt.date(s.tag, st.saison) + '</td>' +
             '<td>' + klubZelle(st.klubs[gegnerId], 18) + '</td>' +

@@ -205,7 +205,8 @@
       var dauer = Finance.ausbauDauer(n);
       info.innerHTML = 'Kosten: <b>' + Fmt.money(kosten) + '</b> · Bauzeit: <b>' + dauer + ' Tage</b> · ' +
         'Neue Kapazität: <b>' + Fmt.num(Finance.kapazitaet(sd) + n) + '</b>' +
-        (kosten > fin.kontostand ? ' <span class="schlecht">– dafür reicht das Konto nicht.</span>' : '');
+        (kosten > Game.verfuegbaresGeld(st, mein)
+          ? ' <span class="schlecht">– dafür reicht das freie Guthaben nicht.</span>' : '');
     }
     ['ausbauSektor', 'ausbauPlaetze'].forEach(function (id) {
       var el = $(id);
@@ -216,7 +217,7 @@
     var start = $('ausbauStart');
     if (start) start.onclick = function () {
       var r = Finance.ausbauStarten(fin, st.tag, $('ausbauSektor').value,
-        Math.max(0, +$('ausbauPlaetze').value || 0));
+        Math.max(0, +$('ausbauPlaetze').value || 0), Game.verfuegbaresGeld(st, mein));
       if (!r.ok) { UI.toast(r.grund); return; }
       UI.toast('Bauauftrag erteilt. Fertigstellung in ' + r.dauer + ' Tagen.');
       UI.zeichne();
@@ -227,12 +228,13 @@
         var m = Util.byId(Finance.MODULE, b.dataset.modul);
         UI.modal(m.name, '<p>' + Util.esc(m.text) + '</p>' +
           '<p>Kosten: <b>' + Fmt.money(m.kosten) + '</b> · Bauzeit: <b>' + m.tage + ' Tage</b> · ' +
-          'laufender Unterhalt: ' + Fmt.money(m.unterhalt) + ' pro Woche.</p>',
+          'laufender Unterhalt: ' + Fmt.money(m.unterhalt) + ' pro Woche.</p>' +
+          '<p class="mini">Frei verfügbar: ' + Fmt.money(Game.verfuegbaresGeld(st, mein)) + '</p>',
           [
             {
               text: 'Bauen', klasse: 'knopf--haupt',
               fn: function () {
-                var r = Finance.modulBauen(fin, st.tag, m.id);
+                var r = Finance.modulBauen(fin, st.tag, m.id, Game.verfuegbaresGeld(st, mein));
                 if (!r.ok) { UI.toast(r.grund); return; }
                 UI.toast('Bauauftrag erteilt.');
                 UI.zeichne();
@@ -400,13 +402,81 @@
       '</div>';
 
     html += '<div class="raster raster--2">';
-    html += '<div class="karte"><div class="karte__kopf"><h3>Einnahmen</h3></div>' + posten(einnahmen, summeE, 'var(--gruen-gut)') + '</div>';
-    html += '<div class="karte"><div class="karte__kopf"><h3>Ausgaben</h3></div>' + posten(ausgaben, summeA, 'var(--rot)') + '</div>';
+    html += '<div class="karte"><div class="karte__kopf"><h3>Einnahmen</h3></div>' + posten(einnahmen, summeE, 'var(--gut)') + '</div>';
+    html += '<div class="karte"><div class="karte__kopf"><h3>Ausgaben</h3></div>' + posten(ausgaben, summeA, 'var(--schlecht)') + '</div>';
+    html += '</div>';
+
+    /* Vorschau und Deckungsvorschläge */
+    var wochen = Math.max(1, st.tag / 7);
+    var schnittEin = summeE / wochen, schnittAus = summeA / wochen;
+    var saldoWoche = schnittEin - schnittAus;
+    var reserve = Game.betriebsreserve(st, mein);
+    var frei = Game.verfuegbaresGeld(st, mein);
+
+    html += '<div class="karte"><div class="karte__kopf"><h3>Vorschau</h3></div>' +
+      '<div class="raster raster--3">' +
+      UI.kennzahl('Frei verfügbar', Fmt.money(frei),
+        'Betriebsreserve ' + Fmt.money(reserve) + ' bleibt liegen') +
+      UI.kennzahl('Wöchentlicher Saldo', Fmt.money(saldoWoche),
+        Fmt.money(schnittEin) + ' ein, ' + Fmt.money(schnittAus) + ' aus') +
+      UI.kennzahl('Reichweite',
+        saldoWoche >= 0 ? 'unbegrenzt'
+          : Math.max(0, Math.floor(fin.kontostand / -saldoWoche)) + ' Wochen',
+        saldoWoche >= 0 ? 'Der Verein erwirtschaftet einen Überschuss.'
+          : 'bis das Konto ins Minus rutscht') +
+      '</div>';
+
+    if (fin.kontostand < 0 || saldoWoche < 0) {
+      var luecke = fin.kontostand < 0
+        ? -fin.kontostand + reserve
+        : Math.round(-saldoWoche * 26);
+      var kader = Game.kaderVon(st, mein).slice()
+        .sort(function (a, b) { return b.marktwert - a.marktwert; });
+      var kandidaten = kader.filter(function (p) {
+        return !p.leihe && Transfers.wichtigkeit(p, kader) < 0.7;
+      }).slice(0, 6);
+
+      html += '<h4 style="margin-top:1.2rem">Konto decken</h4>' +
+        '<p class="hinweis">' + (fin.kontostand < 0
+          ? 'Das Konto steht im Minus. Um es samt Betriebsreserve auszugleichen, fehlen '
+          : 'Bei gleichbleibendem Verlauf entsteht bis zum Saisonende eine Lücke von ') +
+        '<b>' + Fmt.money(luecke) + '</b>. Ein Verkauf bringt neben der Ablöse auch das ' +
+        'eingesparte Gehalt.</p>' +
+        '<div class="tabellenrahmen"><table class="liste"><thead><tr><th class="mitte">Pos</th>' +
+        '<th>Spieler</th><th class="zahl">Alter</th><th class="zahl">Stärke</th>' +
+        '<th class="zahl">Erwartete Ablöse</th><th class="zahl">Gehalt/Jahr</th>' +
+        '<th class="zahl">Deckt die Lücke</th><th></th></tr></thead><tbody>' +
+        kandidaten.map(function (p) {
+          var sch = Game.verkaufsschaetzung(st, p, kader);
+          var anteil = Util.clamp((sch.erwartet + p.gehalt * 26) / Math.max(1, luecke) * 100, 0, 100);
+          return '<tr><td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
+            '<td class="klickbar" data-spieler="' + p.id + '"><b>' + Util.esc(p.name) + '</b></td>' +
+            '<td class="zahl">' + p.alter + '</td>' +
+            '<td class="zahl">' + p.staerke + '</td>' +
+            '<td class="zahl">' + (sch.interessenten
+              ? Fmt.money(sch.erwartet) + ' <span class="mini">(' + sch.interessenten + ' Interessenten)</span>'
+              : '<span class="mini">kein Interesse</span>') + '</td>' +
+            '<td class="zahl">' + Fmt.money(p.gehalt * 52) + '</td>' +
+            '<td class="zahl">' + Math.round(anteil) + ' %' +
+            '<span class="balken" style="margin-left:.4em"><i style="width:' + anteil.toFixed(0) +
+            '%;background:' + (anteil >= 100 ? 'var(--gut)' : 'var(--warn)') + '"></i></span></td>' +
+            '<td><button class="knopf knopf--klein" data-anbieten="' + p.id + '"' +
+            (sch.interessenten ? '' : ' disabled') + '>Anbieten</button></td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<p class="mini">Die erwartete Ablöse berücksichtigt, welche Vereine den Spieler ' +
+        'sportlich brauchen und was ihr Transferbudget hergibt. Ein Verkauf spart zusätzlich ' +
+        'das Gehalt für den Rest der Saison.</p>';
+      if (!Game.istTransferfenster(st) && fin.kontostand >= 0) {
+        html += '<p class="mini">Verkäufe sind erst im nächsten Transferfenster möglich. ' +
+          'Steht das Konto im Minus, genehmigt der Verband einen Notverkauf.</p>';
+      }
+    }
     html += '</div>';
 
     html += '<div class="karte"><div class="karte__kopf"><h3>Budgets</h3></div>' +
       '<div class="raster raster--3">' +
-      UI.kennzahl('Transferbudget', Fmt.money(fin.transferbudget), 'für Ablösesummen') +
+      UI.kennzahl('Transferbudget', Fmt.money(fin.transferbudget),
+        'davon sofort zahlbar ' + Fmt.money(Math.min(fin.transferbudget, Game.verfuegbaresGeld(st, mein)))) +
       UI.kennzahl('Gehaltsrahmen', Fmt.money(fin.gehaltsbudget) + ' / Woche',
         'genutzt: ' + Fmt.money(Util.sum(kader, function (p) { return p.gehalt; }))) +
       UI.kennzahl('Geschätzter Jahresumsatz',
@@ -426,6 +496,16 @@
     return html;
   };
 
+  UI.nachZeichnen.finanzen = function () {
+    UI.spielerKlicks();
+    Array.prototype.forEach.call(document.querySelectorAll('[data-anbieten]'), function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        UI.verkaufAnbieten(b.dataset.anbieten);
+      };
+    });
+  };
+
   function posten(obj, summe, farbe) {
     var keys = Object.keys(obj).sort(function (a, b) { return obj[b] - obj[a]; });
     if (!keys.length) return '<p class="hinweis">Noch keine Buchungen in dieser Saison.</p>';
@@ -436,7 +516,7 @@
         '<span>' + Util.esc(k) + '</span><b>' + Fmt.money(obj[k]) + '</b></div>' +
         '<div class="balken" style="width:100%"><i style="width:' + anteil.toFixed(1) + '%;background:' + farbe + '"></i></div>' +
         '</div>';
-    }).join('') + '<div style="border-top:1px solid var(--gruen-rand);margin-top:.6em;padding-top:.5em;' +
+    }).join('') + '<div style="border-top:1px solid var(--line);margin-top:.6em;padding-top:.5em;' +
       'display:flex;justify-content:space-between"><b>Gesamt</b><b>' + Fmt.money(summe) + '</b></div>';
   }
 })(typeof window !== 'undefined' ? window : globalThis);

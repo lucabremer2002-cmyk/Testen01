@@ -88,7 +88,10 @@
     klub.stufe = stufe;
     var jahresUmsatz = sponsorWert(klub.ruf, 1.87, stufe) + grundNachfrage(klub.ruf) * 17 * 22;
     return {
-      kontostand: Math.round(jahresUmsatz * rng.float(0.10, 0.22)),
+      /* Kleine Vereine brauchen im Verhaeltnis mehr Rücklage, weil ein
+         einzelner ausgefallener Heimspieltag sie sonst umwirft. */
+      kontostand: Math.round(jahresUmsatz * rng.float(0.10, 0.22) *
+        (stufe >= 4 ? 1.9 : (stufe === 3 ? 1.45 : 1))),
       transferbudget: 0,
       gehaltsbudget: 0,
       sponsoren: { haupt: null, aermel: null, ausruester: null, stadionname: null },
@@ -241,10 +244,14 @@
     return Util.clamp(Math.round(45 + plaetze / 45), 45, 420);
   }
 
-  function ausbauStarten(fin, tag, sektor, plaetze) {
+  function ausbauStarten(fin, tag, sektor, plaetze, verfuegbar) {
     if (fin.stadion.ausbau) return { ok: false, grund: 'Es läuft bereits eine Baumaßnahme.' };
     var kosten = ausbauKosten(sektor, plaetze);
-    if (kosten > fin.kontostand) return { ok: false, grund: 'Nicht genug Geld auf dem Konto.' };
+    var grenze = verfuegbar === undefined ? fin.kontostand : verfuegbar;
+    if (kosten > grenze) {
+      return { ok: false, grund: 'Dafür reicht das freie Guthaben nicht. Verfügbar sind ' +
+        Fmt.money(grenze) + ' – der Rest ist Betriebsreserve.' };
+    }
     var dauer = ausbauDauer(plaetze);
     fin.stadion.ausbau = {
       art: 'sektor', sektor: sektor, plaetze: plaetze,
@@ -254,12 +261,16 @@
     return { ok: true, dauer: dauer, kosten: kosten };
   }
 
-  function modulBauen(fin, tag, modulId) {
+  function modulBauen(fin, tag, modulId, verfuegbar) {
     if (fin.stadion.ausbau) return { ok: false, grund: 'Es läuft bereits eine Baumaßnahme.' };
     var m = Util.byId(MODULE, modulId);
     if (!m) return { ok: false, grund: 'Unbekanntes Bauvorhaben.' };
     if (fin.stadion.module[modulId]) return { ok: false, grund: 'Bereits vorhanden.' };
-    if (m.kosten > fin.kontostand) return { ok: false, grund: 'Nicht genug Geld auf dem Konto.' };
+    var grenze2 = verfuegbar === undefined ? fin.kontostand : verfuegbar;
+    if (m.kosten > grenze2) {
+      return { ok: false, grund: 'Dafür reicht das freie Guthaben nicht. Verfügbar sind ' +
+        Fmt.money(grenze2) + ' – der Rest ist Betriebsreserve.' };
+    }
     fin.stadion.ausbau = {
       art: 'modul', modul: modulId, name: m.name,
       kosten: m.kosten, startTag: tag, fertigTag: tag + m.tage

@@ -189,12 +189,56 @@
     });
   }
 
+  /* Das Transferbudget muss durch vorhandenes Geld gedeckt sein. Sonst
+     stürzt ein Verein schon mit dem ersten Einkauf ins Minus - gerade in den
+     unteren Ligen, wo die Rücklagen klein sind. Deshalb: frei verfügbar ist
+     nur, was über einer Betriebsreserve liegt, zuzüglich des Überschusses,
+     der in der Saison tatsächlich noch erwartet wird. */
   function budgetsSetzen(state, k) {
     var fin = k.finanzen;
-    var umsatz = Finance.jahresUmsatzSchaetzung(k, fin, k.international ? 1 : k.stufe);
-    var gehaltssumme = Util.sum(kaderVon(state, k), function (p) { return p.gehalt; });
+    var stufe = k.international ? 1 : k.stufe;
+    var umsatz = Finance.jahresUmsatzSchaetzung(k, fin, stufe);
+    var kader = kaderVon(state, k);
+    var gehaltssumme = Util.sum(kader, function (p) { return p.gehalt; });
     fin.gehaltsbudget = Math.round(Math.max(gehaltssumme * 1.14, umsatz * 0.52 / 52));
-    fin.transferbudget = Math.max(0, Math.round(fin.kontostand * 0.55 + umsatz * 0.12));
+
+    var kosten = wochenkosten(state, k);
+    var frei = verfuegbaresGeld(state, k);
+    var erwartet = Math.max(0, umsatz - kosten * 52) * 0.45;
+    fin.transferbudget = Math.round(frei * 0.85 + erwartet);
+  }
+
+  /* Laufende Fixkosten pro Woche: Gehälter samt Nebenkosten, Stadion,
+     Jugendarbeit und Kreditraten. */
+  function wochenkosten(state, k) {
+    var fin = k.finanzen;
+    if (!fin) return 0;
+    var stufe = k.international ? 1 : k.stufe;
+    var kader = kaderVon(state, k);
+    var gehalt = Util.sum(kader, function (p) {
+      return p.leihe ? p.gehalt * p.leihe.gehaltsanteil / 100 : p.gehalt;
+    });
+    (k.verliehen || []).forEach(function (pid) {
+      var lp = state.spieler[pid];
+      if (lp && lp.leihe) gehalt += lp.gehalt * (100 - lp.leihe.gehaltsanteil) / 100;
+    });
+    return gehalt * 1.35 +
+      Finance.unterhaltWoche(fin, stufe) +
+      (k.jugend ? Jugend.unterhaltWoche(k.jugend, stufe) : 0) +
+      Util.sum(fin.kredite, function (kr) { return kr.rate; }) +
+      Util.sum(fin.verpflichtungen || [], function (v) {
+        return v.art === 'rate' && v.restWochen > 0 ? v.wocheBetrag : 0;
+      });
+  }
+
+  /* Betriebsreserve: acht Wochen laufende Kosten bleiben unangetastet.
+     Alles darüber ist frei verfügbar - für Einkäufe, Bau und Jugendarbeit. */
+  function betriebsreserve(state, k) {
+    return Math.round(wochenkosten(state, k) * 8);
+  }
+
+  function verfuegbaresGeld(state, k) {
+    return Math.max(0, Math.round(k.finanzen.kontostand - betriebsreserve(state, k)));
   }
 
   /* =================== Postfach & Nachrichten =================== */
@@ -451,7 +495,7 @@
 
       /* Jugendakademie: Betrieb, Scouting und Aufwandsentschädigungen. */
       if (k.jugend) {
-        var jugendKosten = Jugend.unterhaltWoche(k.jugend) +
+        var jugendKosten = Jugend.unterhaltWoche(k.jugend, stufe) +
           Util.sum(k.jugend.talente, function (id) {
             var jp = state.spieler[id];
             return jp ? jp.gehalt : 0;
@@ -656,6 +700,111 @@
       gebuehr: kond.gebuehr,
       kaufoption: rng.chance(0.35) ? kond.kaufoptionVorschlag : 0
     });
+  }
+
+  /* Welche Vereine kämen für einen Spieler in Frage und was würden sie
+     ungefähr zahlen? Grundlage für die Deckungsvorschläge in den Finanzen -
+     die Schätzung benutzt dieselben Filter wie das echte Angebot. */
+  function verkaufsschaetzung(state, spieler, kaderVerkaeufer) {
+    var mein = state.klubs[state.meinKlubId];
+    var kader = kaderVerkaeufer || kaderVon(state, mein);
+    var gebote = [];
+    Object.keys(state.klubs).forEach(function (id) {
+      var k = state.klubs[id];
+      if (id === mein.id || k.wartend || !k.finanzen) return;
+      if (k.kader.length >= 30) return;
+      var niveau = basisStaerke(k);
+      if (spieler.staerke < niveau - 12 || spieler.staerke > niveau + 14) return;
+      var ford = Transfers.forderung(spieler, kader, mein, k, state.saison);
+      if (k.finanzen.transferbudget < ford * 0.45) return;
+      gebote.push(Math.min(ford * 0.81, k.finanzen.transferbudget));
+    });
+    if (!gebote.length) return { interessenten: 0, erwartet: 0, bestes: 0 };
+    gebote.sort(function (a, b) { return b - a; });
+    return {
+      interessenten: gebote.length,
+      bestes: Math.round(gebote[0]),
+      erwartet: Math.round(gebote[Math.min(gebote.length - 1, 1)])
+    };
+  }
+
+  /* Der Trainer bietet einen Spieler aktiv an und holt konkrete Angebote ein.
+     Bei negativem Konto ist das auch ausserhalb des Transferfensters als
+     Notverkauf moeglich - dann allerdings zu schlechteren Preisen. */
+  function verkaufAnbieten(state, spieler) {
+    var rng = Game.rng;
+    var mein = state.klubs[state.meinKlubId];
+    if (!mein || spieler.klubId !== mein.id) {
+      return { ok: false, grund: 'Der Spieler gehört nicht zu Ihrem Verein.' };
+    }
+    if (spieler.leihe) {
+      return { ok: false, grund: 'Geliehene Spieler können Sie nicht verkaufen.' };
+    }
+    var kader = kaderVon(state, mein);
+    if (kader.length <= 17) {
+      return { ok: false, grund: 'Ihr Kader wäre danach zu klein.' };
+    }
+    var notverkauf = !istTransferfenster(state);
+    if (notverkauf && mein.finanzen.kontostand >= 0) {
+      return { ok: false, grund: 'Ausserhalb des Transferfensters sind Verkäufe nur erlaubt, ' +
+        'wenn das Konto im Minus steht.' };
+    }
+
+    /* Wer schon ein offenes Angebot hat, wird nicht doppelt angeboten. */
+    var schonOffen = state.verhandlungen.some(function (v) {
+      return v.typ === 'verkauf' && v.spielerId === spieler.id && v.status === 'offen';
+    });
+    if (schonOffen) return { ok: false, grund: 'Für diesen Spieler liegt bereits ein Angebot vor.' };
+
+    var basis = Transfers.forderung(spieler, kader, mein, null, state.saison);
+    var interessenten = [];
+    Object.keys(state.klubs).forEach(function (id) {
+      var k = state.klubs[id];
+      if (id === mein.id || k.wartend || !k.finanzen) return;
+      if (k.kader.length >= 30) return;
+      /* Nur Vereine, für die der Spieler sportlich interessant ist. */
+      var eigeneStufe = k.international ? 1 : k.stufe;
+      var niveau = basisStaerke(k);
+      if (spieler.staerke < niveau - 12 || spieler.staerke > niveau + 14) return;
+      var ford = Transfers.forderung(spieler, kader, mein, k, state.saison);
+      if (k.finanzen.transferbudget < ford * 0.45) return;
+      interessenten.push({ klub: k, forderung: ford });
+    });
+    if (!interessenten.length) {
+      return { ok: false, grund: 'Kein Verein zeigt derzeit Interesse an ' + spieler.name + '.' };
+    }
+
+    rng.shuffle(interessenten);
+    interessenten.sort(function (a, b) { return b.klub.ruf - a.klub.ruf; });
+    var anzahl = Math.min(interessenten.length, rng.int(1, 3));
+    var angebote = [];
+    for (var i = 0; i < anzahl; i++) {
+      var e = interessenten[i];
+      var faktor = rng.float(0.6, 1.02) * (notverkauf ? 0.85 : 1);
+      var gebot = Math.round(Math.min(e.forderung * faktor, e.klub.finanzen.transferbudget) / 5000) * 5000;
+      if (gebot < 3000) continue;
+      var id = 'v_ang_' + state.tag + '_' + spieler.id + '_' + i;
+      state.verhandlungen.push({
+        id: id, typ: 'verkauf', spielerId: spieler.id,
+        vonKlubId: mein.id, zuKlubId: e.klub.id,
+        phase: 'angebot', gebot: gebot, forderung: e.forderung,
+        notverkauf: notverkauf, runde: 0,
+        historie: [{ von: 'kaeufer', text: e.klub.name + ' bietet ' + Fmt.money(gebot) + '.' }],
+        startTag: state.tag, frist: state.tag + 14, status: 'offen'
+      });
+      angebote.push({ klub: e.klub, gebot: gebot });
+    }
+    if (!angebote.length) {
+      return { ok: false, grund: 'Die Interessenten haben derzeit kein Geld für ' + spieler.name + '.' };
+    }
+    spieler.transferliste = true;
+    post(state, 'Angebote für ' + spieler.name,
+      angebote.length + (angebote.length === 1 ? ' Verein hat' : ' Vereine haben') +
+      ' ein Angebot abgegeben: ' +
+      angebote.map(function (a) { return a.klub.name + ' ' + Fmt.money(a.gebot); }).join(', ') +
+      (notverkauf ? '. Bei einem Notverkauf ausserhalb des Fensters drücken die Käufer den Preis.' : '.'),
+      'transfer');
+    return { ok: true, angebote: angebote, notverkauf: notverkauf };
   }
 
   /* Ein Verein fragt einen jungen Reservisten des Spielers als Leihe an. */
@@ -1123,5 +1272,10 @@
   Game.kaufoptionZiehen = kaufoptionZiehen;
   Game.kiJugendHochziehen = kiJugendHochziehen;
   Game.kiEineLeihe = kiEineLeihe;
+  Game.verkaufAnbieten = verkaufAnbieten;
+  Game.verkaufsschaetzung = verkaufsschaetzung;
+  Game.wochenkosten = wochenkosten;
+  Game.betriebsreserve = betriebsreserve;
+  Game.verfuegbaresGeld = verfuegbaresGeld;
   Game.sponsorenPruefen = sponsorenPruefen;
 })(typeof window !== 'undefined' ? window : globalThis);

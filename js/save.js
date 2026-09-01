@@ -210,6 +210,12 @@
     Transfers.setZaehler(d.zaehler.transfer);
     Game.rng = new RNG(d.rng);
     Game.rng.s = d.rng >>> 0;
+
+    /* Budgets nach den aktuellen Regeln neu berechnen, damit auch ältere
+       Spielstände ein durch Guthaben gedecktes Transferbudget bekommen. */
+    if (state.meinKlubId && state.klubs[state.meinKlubId]) {
+      Game.budgetsSetzen(state, state.klubs[state.meinKlubId]);
+    }
     return state;
   }
 

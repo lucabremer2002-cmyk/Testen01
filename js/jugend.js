@@ -54,8 +54,11 @@
     };
   }
 
-  function unterhaltWoche(jugend) {
-    return stufe(jugend.stufe).unterhalt + scoutStufe(jugend.scouting).unterhalt;
+  /* In den unteren Ligen wird ein Grossteil der Jugendarbeit ehrenamtlich
+     geleistet - entsprechend guenstiger ist der Betrieb. */
+  function unterhaltWoche(jugend, ligastufe) {
+    var faktor = [1, 1, 0.85, 0.55, 0.32][Math.min(4, ligastufe || 1)];
+    return Math.round((stufe(jugend.stufe).unterhalt + scoutStufe(jugend.scouting).unterhalt) * faktor);
   }
 
   /* Wie stark ein Jahrgang ausfällt: Ausbaustufe, Ansehen und Zufall. */
@@ -151,14 +154,16 @@
     return Math.round(basis * talentzuschlag / 10) * 10;
   }
 
-  function ausbauStarten(klub, tag, art) {
+  function ausbauStarten(klub, tag, art, verfuegbar) {
     var j = klub.jugend;
     if (j.ausbau) return { ok: false, grund: 'Es läuft bereits eine Maßnahme.' };
     var naechste = art === 'scouting' ? scoutStufe(j.scouting + 1) : stufe(j.stufe + 1);
     var aktuell = art === 'scouting' ? j.scouting : j.stufe;
     if (aktuell >= 5) return { ok: false, grund: 'Die höchste Stufe ist bereits erreicht.' };
-    if (naechste.kosten > klub.finanzen.kontostand) {
-      return { ok: false, grund: 'Nicht genug Geld auf dem Konto.' };
+    var grenze = verfuegbar === undefined ? klub.finanzen.kontostand : verfuegbar;
+    if (naechste.kosten > grenze) {
+      return { ok: false, grund: 'Dafür reicht das freie Guthaben nicht. Verfügbar sind ' +
+        Fmt.money(grenze) + ' – der Rest ist Betriebsreserve.' };
     }
     var tage = art === 'scouting' ? 60 : 90 + naechste.stufe * 30;
     j.ausbau = { art: art, ziel: aktuell + 1, kosten: naechste.kosten, startTag: tag, fertigTag: tag + tage };

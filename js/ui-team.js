@@ -273,7 +273,7 @@
         c.classList.toggle('gewaehlt', !!gewaehlt && pid === gewaehlt);
       });
       Array.prototype.forEach.call(document.querySelectorAll('[data-tausch]'), function (tr) {
-        tr.style.background = (gewaehlt === tr.dataset.tausch) ? 'rgba(232,182,76,.18)' : '';
+        tr.style.background = (gewaehlt === tr.dataset.tausch) ? 'var(--akzent-weich)' : '';
       });
     }
 

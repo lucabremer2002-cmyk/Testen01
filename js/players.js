@@ -86,7 +86,7 @@
   function gehaltsBasis(staerke, klubRuf, alter) {
     var lw = leistungswert(staerke, alter === undefined ? 26 : alter);
     var jahr = Math.pow(lw, 0.80) * 10;
-    var rf = 0.55 + Math.pow(klubRuf / 100, 1.3) * 0.75;
+    var rf = 0.50 + Math.pow(klubRuf / 100, 1.35) * 0.80;
     return Math.max(120, Math.round(jahr * rf / 52));
   }
 

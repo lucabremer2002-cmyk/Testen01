@@ -163,10 +163,29 @@ Ligazugehörigkeit; ein Stadionname-Vertrag benennt das Stadion um.
   droht der Verband mit Punktabzug
 
 ### Finanzen
+
 Wöchentliche Abrechnung mit Spielergehältern, Trainerstab, Stadionunterhalt,
-Sponsoreneinnahmen, Medienerlösen nach Tabellenplatz, Merchandising,
-Spieltagseinnahmen, Europapokalgeldern, Kreditraten und Transferraten –
-aufgeschlüsselt nach Posten für die laufende Saison.
+Jugendarbeit, Sponsoreneinnahmen, Medienerlösen nach Tabellenplatz,
+Merchandising, Spieltagseinnahmen, Europapokalgeldern, Kreditraten und
+Transferraten – aufgeschlüsselt nach Posten für die laufende Saison.
+
+**Betriebsreserve.** Acht Wochen laufende Kosten bleiben unangetastet. Alles
+darüber ist *frei verfügbar* – für Einkäufe, Stadionbau und Jugendarbeit.
+Damit kann kein Kauf und kein Bauvorhaben den Verein ins Minus reißen, und
+das Transferbudget verspricht nie mehr, als tatsächlich da ist. Bei einem
+strukturierten Transfer dürfen Sie über Raten mehr binden, als Sie bar
+haben – die Sofortzahlung bleibt aber immer durch Guthaben gedeckt.
+
+**Vorschau und Konto decken.** Die Finanzseite zeigt den wöchentlichen Saldo
+und die Reichweite in Wochen. Rutscht der Verein ins Minus oder steuert
+darauf zu, erscheint eine Liste von Verkaufskandidaten: erwartete Ablöse
+(berechnet aus tatsächlichem Interesse und den Transferbudgets der anderen
+Vereine), eingespartes Gehalt und wie viel Prozent der Lücke ein Verkauf
+schließt. Ein Klick holt konkrete Angebote ein.
+
+**Notverkauf.** Steht das Konto im Minus, genehmigt der Verband Verkäufe
+auch außerhalb des Transferfensters – die Käufer wissen das und drücken den
+Preis um etwa 15 %.
 
 ### Saison
 Am Saisonende: Platzprämien, Relegation im Hin- und Rückspiel (mit
