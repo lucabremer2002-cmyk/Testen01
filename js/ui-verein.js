@@ -49,7 +49,7 @@
               '<div class="mini">Meisterschaft: ' + Fmt.money(a.titelBonus) + '</div>' +
               '<div class="mini">Aufstieg: ' + Fmt.money(a.aufstiegBonus) + '</div>' +
               '<div class="mini">Gesamtvolumen: <b>' + Fmt.money(a.fixJahr * a.jahre) + '</b></div>' +
-              '<button class="knopf knopf--klein knopf--gold" data-sponsor="' + a.id + '" data-slot="' + slot.id + '">' +
+              '<button class="knopf knopf--klein knopf--haupt" data-sponsor="' + a.id + '" data-slot="' + slot.id + '">' +
               (sp ? 'Partner wechseln' : 'Vertrag abschließen') + '</button></div>';
           }).join('') + '</div>' +
           '<p class="mini" style="margin-top:.6em">Bei Abschluss wird ein Viertel der Jahressumme sofort ausgezahlt.</p>';
@@ -82,7 +82,7 @@
           '<p class="mini">Sofort ausgezahlt werden ' + Fmt.money(a.fixJahr * 0.25) + '.</p>',
           [
             {
-              text: 'Unterschreiben', klasse: 'knopf--gold',
+              text: 'Unterschreiben', klasse: 'knopf--haupt',
               fn: function () {
                 Finance.sponsorAbschliessen(mein.finanzen, a, st.saison, st.tag);
                 UI.toast('Vertrag mit ' + a.firma + ' abgeschlossen.');
@@ -135,7 +135,7 @@
           sd.sektoren[s].preis + '"></label>';
       }).join('') + '</div>' +
       '<div class="knopfreihe" style="margin-top:.6rem">' +
-      '<button class="knopf knopf--gold" id="preiseSpeichern">Preise übernehmen</button>' +
+      '<button class="knopf knopf--haupt" id="preiseSpeichern">Preise übernehmen</button>' +
       '<button class="knopf knopf--still" id="preiseStandard">Ligaüblich setzen</button></div>' +
       '<p class="mini" style="margin-top:.6em">Hohe Preise bringen mehr pro Besucher, schrecken aber Zuschauer ab. ' +
       'Bei voller Auslastung lohnt sich eine Erhöhung fast immer.</p>' +
@@ -154,7 +154,7 @@
         UI.feldZahl('Zusätzliche Plätze', 'ausbauPlaetze', 2000, 100, 40000, 100) +
         '</div>' +
         '<p class="mini" id="ausbauInfo"></p>' +
-        '<button class="knopf knopf--gold" id="ausbauStart">Ausbau beauftragen</button>';
+        '<button class="knopf knopf--haupt" id="ausbauStart">Ausbau beauftragen</button>';
     }
     html += '</div>';
 
@@ -169,7 +169,7 @@
           (vorhanden ? '<div class="mini">Unterhalt ' + Fmt.money(m.unterhalt) + '/Woche</div>'
             : '<div class="mini">Bauzeit ' + m.tage + ' Tage · Unterhalt ' + Fmt.money(m.unterhalt) + '/Woche</div>') +
           (vorhanden || sd.ausbau ? '' :
-            '<button class="knopf knopf--klein knopf--gold" data-modul="' + m.id + '">Bauen</button>') +
+            '<button class="knopf knopf--klein knopf--haupt" data-modul="' + m.id + '">Bauen</button>') +
           '</div>';
       }).join('') + '</div></div>';
     return html;
@@ -230,7 +230,7 @@
           'laufender Unterhalt: ' + Fmt.money(m.unterhalt) + ' pro Woche.</p>',
           [
             {
-              text: 'Bauen', klasse: 'knopf--gold',
+              text: 'Bauen', klasse: 'knopf--haupt',
               fn: function () {
                 var r = Finance.modulBauen(fin, st.tag, m.id);
                 if (!r.ok) { UI.toast(r.grund); return; }
@@ -292,7 +292,7 @@
         }), 4) +
         '</div>' +
         '<p class="mini" id="krInfo"></p>' +
-        '<button class="knopf knopf--gold" id="krAufnehmen">Kredit aufnehmen</button>' +
+        '<button class="knopf knopf--haupt" id="krAufnehmen">Kredit aufnehmen</button>' +
         '<p class="mini" style="margin-top:.6em">Der Zinssatz hängt von Ihrer Bonität, der Ligazugehörigkeit ' +
         'und der Laufzeit ab. Die Tilgung erfolgt wöchentlich als gleichbleibende Rate.</p>';
     }
@@ -367,7 +367,7 @@
           '<p class="mini">Die Bank berechnet 1 % Vorfälligkeitsentschädigung auf den getilgten Betrag.</p>',
           [
             {
-              text: 'Tilgen', klasse: 'knopf--gold',
+              text: 'Tilgen', klasse: 'knopf--haupt',
               fn: function () {
                 var r = Finance.sondertilgung(fin, k.id, +$('tilgBetrag').value || 0, st.tag);
                 if (!r.ok) { UI.toast(r.grund); return; }

@@ -70,7 +70,7 @@
       }).join('') + '</tr></thead><tbody>' +
       kader.map(function (p) {
         var rest = p.vertragBis - st.saison;
-        var vertragKlasse = rest <= 0 ? 'schlecht' : (rest === 1 ? 'gold' : '');
+        var vertragKlasse = rest <= 0 ? 'schlecht' : (rest === 1 ? 'akzent' : '');
         return '<tr class="klickbar" data-spieler="' + p.id + '">' +
           '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
           '<td><b>' + Util.esc(p.name) + '</b> <span class="mini">' + Util.esc(p.nation) + '</span></td>' +
@@ -87,6 +87,30 @@
           '<td class="zahl ' + vertragKlasse + '">' + p.vertragBis + '</td>' +
           '<td>' + UI.zustand(p) + '</td></tr>';
       }).join('') + '</tbody></table></div></div>';
+
+    /* Verliehene Spieler stehen nicht im Kader, gehören aber dem Verein. */
+    var verliehen = UI.verliehene();
+    if (verliehen.length) {
+      html += '<div class="karte"><div class="karte__kopf"><h3>Verliehene Spieler</h3>' +
+        '<span class="mini">' + verliehen.length + ' Spieler, Rückkehr am Saisonende</span></div>' +
+        '<div class="tabellenrahmen"><table class="liste"><thead><tr><th class="mitte">Pos</th>' +
+        '<th>Spieler</th><th>Verein</th><th class="zahl">Alter</th><th class="zahl">Stärke</th>' +
+        '<th class="zahl">Ihr Gehaltsanteil</th><th class="zahl">Einsätze</th>' +
+        '<th class="zahl">Kaufoption</th></tr></thead><tbody>' +
+        verliehen.map(function (p) {
+          var zu = st.klubs[p.klubId];
+          return '<tr class="klickbar" data-spieler="' + p.id + '">' +
+            '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
+            '<td>' + Util.esc(p.name) + '</td>' +
+            '<td>' + UI.klubZelle(zu, 18, true) + '</td>' +
+            '<td class="zahl">' + p.alter + '</td>' +
+            '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
+            '<td class="zahl">' + (p.leihe ? (100 - p.leihe.gehaltsanteil) + ' %' : '–') + '</td>' +
+            '<td class="zahl">' + p.stats.spiele + '</td>' +
+            '<td class="zahl mini">' + (p.leihe && p.leihe.kaufoption
+              ? Fmt.money(p.leihe.kaufoption) : '–') + '</td></tr>';
+        }).join('') + '</tbody></table></div></div>';
+    }
     return html;
   };
 
@@ -316,7 +340,7 @@
         '<p class="hinweis">Diese ' + auslaufend.length + ' Spieler verlassen den Verein am Saisonende ablösefrei, ' +
         'wenn Sie nicht verlängern.</p>' +
         '<div class="knopfreihe">' + auslaufend.map(function (p) {
-          return '<button class="knopf knopf--klein knopf--gold" data-verl="' + p.id + '">' +
+          return '<button class="knopf knopf--klein knopf--haupt" data-verl="' + p.id + '">' +
             Util.esc(p.nachname) + ' verlängern</button>';
         }).join('') + '</div></div>';
     }
@@ -329,7 +353,7 @@
       kader.map(function (p) {
         var rest = p.vertragBis - st.saison;
         var anteil = p.gehalt / Math.max(1, Util.sum(kader, function (x) { return x.gehalt; }));
-        var farbe = rest <= 0 ? 'schlecht' : (rest === 1 ? 'gold' : '');
+        var farbe = rest <= 0 ? 'schlecht' : (rest === 1 ? 'akzent' : '');
         return '<tr><td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
           '<td class="klickbar" data-spieler="' + p.id + '"><b>' + Util.esc(p.name) + '</b></td>' +
           '<td class="zahl">' + p.alter + '</td>' +

@@ -45,6 +45,11 @@
       reihe.push(s.noten.slice(-12).map(function (x) { return Math.round(x * 10); }));
       reihe.push(p.weiterverkauf ? [wb.kl.id(p.weiterverkauf.klubId), p.weiterverkauf.prozent] : 0);
       reihe.push(p.bonusEinsaetze ? [wb.kl.id(p.bonusEinsaetze.klubId), p.bonusEinsaetze.betrag, p.bonusEinsaetze.spiele] : 0);
+      reihe.push(p.leihe ? [wb.kl.id(p.leihe.vonKlubId), p.leihe.bisTag, p.leihe.gehaltsanteil,
+        p.leihe.kaufoption || 0, p.leihe.gebuehr || 0] : 0);
+      reihe.push(p.jugend ? [p.jugendSeit,
+        p.einschaetzung ? [p.einschaetzung.von, p.einschaetzung.bis, p.einschaetzung.urteil,
+          Math.round(p.einschaetzung.genauigkeit * 100)] : 0] : 0);
       spieler.push(reihe);
     });
 
@@ -55,8 +60,9 @@
       klubs[id] = {
         l: k.ligaId, s: k.stufe, w: k.wartend ? 1 : 0,
         t: k.taktik, a: k.aufstellung,
-        f: k.finanzen ? finanzenKlein(k.finanzen) : null,
+        f: k.finanzen ? finanzenKlein(k.finanzen, id === state.meinKlubId) : null,
         vs: k.vorstand, ep: k.europapokal, h: k.historie,
+        vl: k.verliehen || [], ju: k.jugend || null,
         st: k.finanzen ? null : undefined
       };
     });
@@ -91,13 +97,15 @@
     };
   }
 
-  function finanzenKlein(fin) {
+  function finanzenKlein(fin, eigen) {
     return {
       k: Math.round(fin.kontostand),
       tb: fin.transferbudget, gb: fin.gehaltsbudget,
       sp: fin.sponsoren, sa: fin.sponsorAngebote,
       st: fin.stadion, kr: fin.kredite, vp: fin.verpflichtungen || [],
-      b: fin.buchungen.slice(-50),
+      /* Die Buchungshistorie der KI-Vereine sieht niemand - sie waere der
+         groesste Posten im Spielstand. */
+      b: eigen ? fin.buchungen.slice(-60) : [],
       sai: fin.saison, ges: fin.gesamt,
       dt: fin.dispoTage, pa: fin.punktabzugGedroht ? 1 : 0
     };
@@ -148,6 +156,8 @@
       k.vorstand = kd.vs || { vertrauen: 60, zielPlatz: 10, ziel: '' };
       k.europapokal = kd.ep || null;
       k.historie = kd.h || [];
+      k.verliehen = kd.vl || [];
+      k.jugend = kd.ju || null;
       k.kader = [];
       k.international = !!basis.international;
       state.klubs[id] = k;
@@ -180,8 +190,20 @@
       };
       if (r[38]) p.weiterverkauf = { klubId: wb.kl[r[38][0]], prozent: r[38][1] };
       if (r[39]) p.bonusEinsaetze = { klubId: wb.kl[r[39][0]], betrag: r[39][1], spiele: r[39][2] };
+      if (r[40]) {
+        p.leihe = { vonKlubId: wb.kl[r[40][0]], bisTag: r[40][1], gehaltsanteil: r[40][2],
+          kaufoption: r[40][3], gebuehr: r[40][4] };
+      }
+      if (r[41]) {
+        p.jugend = true;
+        p.jugendSeit = r[41][0];
+        if (r[41][1]) {
+          p.einschaetzung = { von: r[41][1][0], bis: r[41][1][1], urteil: r[41][1][2],
+            genauigkeit: r[41][1][3] / 100 };
+        }
+      }
       state.spieler[p.id] = p;
-      if (klubId && state.klubs[klubId]) state.klubs[klubId].kader.push(p.id);
+      if (klubId && state.klubs[klubId] && !p.jugend) state.klubs[klubId].kader.push(p.id);
     });
 
     Players.setIdZaehler(d.zaehler.spieler);

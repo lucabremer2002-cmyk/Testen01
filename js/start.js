@@ -131,7 +131,7 @@
     UI.modal('Hauptmenü', '<p>Möchten Sie zum Startbildschirm zurückkehren? ' +
       'Nicht gespeicherte Fortschritte gehen verloren.</p>', [
       {
-        text: 'Speichern und zurück', klasse: 'knopf--gold',
+        text: 'Speichern und zurück', klasse: 'knopf--haupt',
         fn: function () { speichern(false); location.reload(); }
       },
       { text: 'Ohne Speichern zurück', klasse: 'knopf--gefahr', fn: function () { location.reload(); } },

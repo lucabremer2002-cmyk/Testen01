@@ -35,6 +35,8 @@
     k.ligaId = ligaId || null;
     k.stufe = stufe;
     k.kader = [];
+    k.verliehen = [];
+    k.jugend = null;
     k.taktik = Match.standardTaktik();
     k.aufstellung = null;
     k.finanzen = null;
@@ -123,6 +125,8 @@
       }
       kader.forEach(function (p) { state.spieler[p.id] = p; k.kader.push(p.id); });
       k.finanzen = Finance.finanzenAufsetzen(rng, k, k.international ? 1 : k.stufe);
+      k.jugend = Jugend.aufsetzen(k);
+      Jugend.jahrgangErzeugen(rng, state, k);
       k.aufstellung = Match.autoAufstellung(kaderVon(state, k), k.taktik.formation, 0);
     });
 
@@ -281,9 +285,15 @@
     partie.th = m.heim.tore;
     partie.tg = m.gast.tore;
     partie.zuschauer = m.zuschauer;
-    partie.bericht = m.ereignisse.filter(function (e) {
-      return e.typ === 'tor' || e.typ === 'rot' || e.typ === 'gelbrot';
-    }).map(function (e) { return { min: e.min, typ: e.typ, text: e.text, klubId: e.klubId }; });
+    /* Der ausfuehrliche Bericht wird nur fuer eigene Spiele aufgehoben -
+       fuer alle uebrigen Partien genuegt das Ergebnis. */
+    if (partie.heim === state.meinKlubId || partie.gast === state.meinKlubId) {
+      partie.bericht = m.ereignisse.filter(function (e) {
+        return e.typ === 'tor' || e.typ === 'rot' || e.typ === 'gelbrot';
+      }).map(function (e) { return { min: e.min, typ: e.typ, text: e.text, klubId: e.klubId }; });
+    } else {
+      partie.bericht = null;
+    }
 
     League.ergebnisEintragen(liga.tabelle, partie.heim, partie.gast, m.heim.tore, m.gast.tore);
 
@@ -426,9 +436,29 @@
       var kader = kaderVon(state, k);
       var stufe = k.international ? 1 : k.stufe;
 
-      /* Gehaelter */
-      var gehalt = Util.sum(kader, function (p) { return p.gehalt; });
+      /* Gehaelter. Bei Leihspielern zahlt jeder Verein seinen vereinbarten
+         Anteil - der ausleihende Verein den ausgehandelten Prozentsatz, der
+         Stammverein den Rest. */
+      var gehalt = Util.sum(kader, function (p) {
+        return p.leihe ? p.gehalt * p.leihe.gehaltsanteil / 100 : p.gehalt;
+      });
+      (k.verliehen || []).forEach(function (pid) {
+        var lp = state.spieler[pid];
+        if (lp && lp.leihe) gehalt += lp.gehalt * (100 - lp.leihe.gehaltsanteil) / 100;
+      });
+      gehalt = Math.round(gehalt);
       if (gehalt > 0) Finance.buchen(fin, state.tag, 'Gehalt', 'Spielergehälter', -gehalt, 'Spielergehälter');
+
+      /* Jugendakademie: Betrieb, Scouting und Aufwandsentschädigungen. */
+      if (k.jugend) {
+        var jugendKosten = Jugend.unterhaltWoche(k.jugend) +
+          Util.sum(k.jugend.talente, function (id) {
+            var jp = state.spieler[id];
+            return jp ? jp.gehalt : 0;
+          });
+        Finance.buchen(fin, state.tag, 'Jugend', 'Jugendakademie & Scouting',
+          -Math.round(jugendKosten), 'Jugendarbeit');
+      }
 
       /* Personal, Nachwuchs, Stadionunterhalt. In den unteren Ligen arbeitet
          ein grosser Teil des Vereins ehrenamtlich - entsprechend guenstiger. */
@@ -525,6 +555,35 @@
       if (fertig && id === state.meinKlubId) {
         post(state, 'Baumaßnahme abgeschlossen', fertig.text, 'gut');
       }
+      if (k.jugend) {
+        var jf = Jugend.ausbauPruefen(k, state.tag);
+        if (jf && id === state.meinKlubId) {
+          post(state, 'Jugendarbeit ausgebaut', jf.text, 'gut');
+        }
+      }
+    });
+
+    /* Neuer Jahrgang in der Jugendakademie. */
+    if (state.tag === Jugend.JAHRGANG_TAG) {
+      Object.keys(state.klubs).forEach(function (id) {
+        var k = state.klubs[id];
+        if (!k.jugend || k.wartend) return;
+        Jugend.jahrgangAltern(state, k);
+        var neue = Jugend.jahrgangErzeugen(Game.rng, state, k);
+        if (id === state.meinKlubId && neue.length) {
+          post(state, 'Neuer Jahrgang in der Akademie',
+            neue.length + (neue.length === 1 ? ' Talent rückt' : ' Talente rücken') +
+            ' in die Jugendakademie nach. Der Scout hat sie eingeschätzt – ' +
+            'schauen Sie im Bereich Jugend vorbei.', 'gut');
+        }
+      });
+      kiJugendHochziehen(state);
+    }
+
+    /* Auslaufende Leihen. */
+    Object.keys(state.spieler).forEach(function (pid) {
+      var lp = state.spieler[pid];
+      if (lp.leihe && lp.leihe.bisTag <= state.tag) leiheBeenden(state, lp);
     });
     /* Verletzungen auslaufen lassen */
     Object.keys(state.spieler).forEach(function (pid) {
@@ -554,6 +613,95 @@
       kiEinTransfer(state, state.klubs[alleKlubs[i]]);
     }
     if (rng.chance(0.22)) kiAngeboteAnSpieler(state);
+    if (rng.chance(0.45)) kiEineLeihe(state);
+    if (rng.chance(0.10)) kiLeihanfrageAnSpieler(state);
+  }
+
+  /* Verleiht junge Reservisten von einem KI-Klub an einen schwaecheren Verein. */
+  function kiEineLeihe(state) {
+    var rng = Game.rng;
+    /* Nur Vereine mit Spielbetrieb - eine Leihe soll Spielpraxis bringen. */
+    var ids = Object.keys(state.klubs).filter(function (id) {
+      var k = state.klubs[id];
+      return id !== state.meinKlubId && !k.wartend && k.ligaId && k.kader.length > 22;
+    });
+    if (!ids.length) return;
+    var verleiher = state.klubs[rng.pick(ids)];
+    var kaderAlt = kaderVon(state, verleiher);
+    var kandidaten = kaderAlt.filter(function (p) {
+      return p.alter <= 22 && !p.leihe && !p.jugend &&
+        Transfers.wichtigkeit(p, kaderAlt) < 0.45 && p.verletztBis <= state.tag;
+    });
+    if (!kandidaten.length) return;
+    var spieler = rng.pick(kandidaten);
+
+    var ziele = ids.filter(function (id) {
+      var k = state.klubs[id];
+      return k.id !== verleiher.id && k.ruf < verleiher.ruf - 4 && k.ruf > verleiher.ruf - 40 &&
+        k.kader.length < 29 && k.finanzen;
+    });
+    if (!ziele.length) return;
+    var ausleiher = state.klubs[rng.pick(ziele)];
+    var kaderNeu = kaderVon(state, ausleiher);
+    var kond = Transfers.leihKonditionen(spieler, kaderAlt, verleiher, ausleiher, state.saison);
+    var bew = Transfers.leihBewertung(spieler, kaderAlt, verleiher, ausleiher, kaderNeu, {
+      gehaltsanteil: kond.gehaltsanteil, gebuehr: kond.gebuehr, kaufoption: 0
+    }, state.saison);
+    if (!bew.vereinOk || !bew.spielerOk) return;
+    if (kond.gebuehr > ausleiher.finanzen.transferbudget) return;
+
+    leiheAusfuehren(state, spieler, verleiher, ausleiher, {
+      bisTag: League.SAISON_ENDE_ZIEL + 20,
+      gehaltsanteil: kond.gehaltsanteil,
+      gebuehr: kond.gebuehr,
+      kaufoption: rng.chance(0.35) ? kond.kaufoptionVorschlag : 0
+    });
+  }
+
+  /* Ein Verein fragt einen jungen Reservisten des Spielers als Leihe an. */
+  function kiLeihanfrageAnSpieler(state) {
+    var rng = Game.rng;
+    var mein = state.klubs[state.meinKlubId];
+    if (!mein) return;
+    var kader = kaderVon(state, mein);
+    var kandidaten = kader.filter(function (p) {
+      return p.alter <= 23 && !p.leihe && Transfers.wichtigkeit(p, kader) < 0.5;
+    });
+    if (!kandidaten.length) return;
+    var spieler = rng.pick(kandidaten);
+
+    var ziele = Object.keys(state.klubs).filter(function (id) {
+      var k = state.klubs[id];
+      return id !== mein.id && !k.wartend && k.ligaId && k.finanzen &&
+        k.ruf < mein.ruf + 3 && k.ruf > mein.ruf - 38 && k.kader.length < 29;
+    });
+    if (!ziele.length) return;
+    var interessent = state.klubs[rng.pick(ziele)];
+    var kond = Transfers.leihKonditionen(spieler, kader, mein, interessent, state.saison);
+    /* Der Interessent bietet etwas weniger als die Wunschvorstellung. */
+    var anteil = Util.clamp(Math.round((kond.gehaltsanteil * rng.float(0.7, 1.05)) / 5) * 5, 15, 100);
+
+    state.verhandlungen.push({
+      id: 'l_ki_' + state.tag + '_' + spieler.id,
+      typ: 'leihanfrage',
+      spielerId: spieler.id,
+      vonKlubId: mein.id,
+      zuKlubId: interessent.id,
+      phase: 'angebot',
+      gehaltsanteil: anteil,
+      gebuehr: Math.round(kond.gebuehr * rng.float(0.5, 1.1) / 1000) * 1000,
+      kaufoption: rng.chance(0.3) ? kond.kaufoptionVorschlag : 0,
+      runde: 0,
+      historie: [{ von: 'kaeufer', text: interessent.name + ' möchte ' + spieler.name +
+        ' bis zum Saisonende ausleihen und ' + anteil + ' % des Gehalts übernehmen.' }],
+      startTag: state.tag,
+      frist: state.tag + 12,
+      status: 'offen'
+    });
+    post(state, 'Leihanfrage für ' + spieler.name,
+      interessent.name + ' möchte ' + spieler.name + ' bis Saisonende ausleihen und ' + anteil +
+      ' % des Gehalts übernehmen. Spielpraxis würde seiner Entwicklung helfen.',
+      'transfer', { verhandlungId: 'l_ki_' + state.tag + '_' + spieler.id });
   }
 
   function kiEinTransfer(state, kaeufer) {
@@ -589,6 +737,7 @@
       if (p.staerke < wert - 1) continue;
       if (p.klubId === state.meinKlubId) continue;
       if (p.verletztBis > state.tag + 30) continue;
+      if (p.leihe || p.jugend) continue;
       kandidaten.push(p);
       if (kandidaten.length >= 25) break;
     }
@@ -692,6 +841,102 @@
     if (state.statistik.transfers.length > 200) state.statistik.transfers.pop();
   }
 
+  /* ---- Leihgeschaefte ---- */
+
+  function leiheAusfuehren(state, spieler, vonKlub, zuKlub, konditionen) {
+    vonKlub.kader = vonKlub.kader.filter(function (id) { return id !== spieler.id; });
+    if (!vonKlub.verliehen) vonKlub.verliehen = [];
+    vonKlub.verliehen.push(spieler.id);
+    zuKlub.kader.push(spieler.id);
+    spieler.klubId = zuKlub.id;
+    spieler.transferliste = false;
+    spieler.leihe = {
+      vonKlubId: vonKlub.id,
+      bisTag: konditionen.bisTag,
+      gehaltsanteil: konditionen.gehaltsanteil,
+      kaufoption: konditionen.kaufoption || 0,
+      gebuehr: konditionen.gebuehr || 0
+    };
+    spieler.moral = Util.clamp(spieler.moral + 6, 5, 100);
+    if (konditionen.gebuehr > 0) {
+      Finance.buchen(zuKlub.finanzen, state.tag, 'Transfer',
+        'Leihgebühr ' + spieler.name, -konditionen.gebuehr, 'Leihgebühren');
+      Finance.buchen(vonKlub.finanzen, state.tag, 'Transfer',
+        'Leiherlös ' + spieler.name, konditionen.gebuehr, 'Transfererlöse');
+    }
+    vonKlub.aufstellung = null;
+    zuKlub.aufstellung = null;
+  }
+
+  function leiheBeenden(state, spieler) {
+    if (!spieler.leihe) return;
+    var von = state.klubs[spieler.leihe.vonKlubId];
+    var zu = state.klubs[spieler.klubId];
+    if (zu) {
+      zu.kader = zu.kader.filter(function (id) { return id !== spieler.id; });
+      zu.aufstellung = null;
+    }
+    if (von) {
+      von.verliehen = (von.verliehen || []).filter(function (id) { return id !== spieler.id; });
+      von.kader.push(spieler.id);
+      spieler.klubId = von.id;
+      von.aufstellung = null;
+      if (von.id === state.meinKlubId) {
+        post(state, 'Leihe beendet: ' + spieler.name,
+          spieler.name + ' ist aus der Leihe zurück und steht wieder zur Verfügung.', 'info');
+      } else if (zu && zu.id === state.meinKlubId) {
+        post(state, 'Leihspieler zurück: ' + spieler.name,
+          spieler.name + ' kehrt zu ' + von.name + ' zurück. Die Leihe ist abgelaufen.', 'info');
+      }
+    }
+    spieler.leihe = null;
+  }
+
+  function kaufoptionZiehen(state, spieler) {
+    if (!spieler.leihe || !spieler.leihe.kaufoption) {
+      return { ok: false, grund: 'Für diesen Spieler wurde keine Kaufoption vereinbart.' };
+    }
+    var zu = state.klubs[spieler.klubId];
+    var von = state.klubs[spieler.leihe.vonKlubId];
+    var preis = spieler.leihe.kaufoption;
+    if (zu.finanzen.transferbudget < preis) {
+      return { ok: false, grund: 'Das Transferbudget reicht für die Kaufoption von ' +
+        Fmt.money(preis) + ' nicht aus.' };
+    }
+    von.verliehen = (von.verliehen || []).filter(function (id) { return id !== spieler.id; });
+    spieler.leihe = null;
+    Finance.buchen(zu.finanzen, state.tag, 'Transfer', 'Kaufoption ' + spieler.name, -preis, 'Transferausgaben');
+    Finance.buchen(von.finanzen, state.tag, 'Transfer', 'Kaufoption ' + spieler.name + ' gezogen', preis, 'Transfererlöse');
+    zu.finanzen.transferbudget -= preis;
+    spieler.vertragBis = Math.max(spieler.vertragBis, state.saison + 3);
+    state.statistik.transfers.unshift({
+      tag: state.tag, saison: state.saison, spielerId: spieler.id, name: spieler.name,
+      von: von.id, zu: zu.id, abloese: preis
+    });
+    return { ok: true, preis: preis };
+  }
+
+  /* KI-Vereine ziehen ihre besten Talente selbst hoch. */
+  function kiJugendHochziehen(state) {
+    Object.keys(state.klubs).forEach(function (id) {
+      var k = state.klubs[id];
+      if (id === state.meinKlubId || !k.jugend || k.wartend) return;
+      var schwelle = basisStaerke(k) - 12;
+      k.jugend.talente.slice().forEach(function (pid) {
+        var p = state.spieler[pid];
+        if (!p) return;
+        if (k.kader.length >= 28) return;
+        if (p.staerke >= schwelle || p.potenzial >= basisStaerke(k) + 6) {
+          Jugend.hochziehen(state, k, p, {
+            gehalt: Jugend.vertragsforderung(p, k),
+            jahre: Game.rng.int(3, 5),
+            rolle: 'talent'
+          });
+        }
+      });
+    });
+  }
+
   /* KI-Klubs machen Angebote fuer Spieler des Nutzers. */
   function kiAngeboteAnSpieler(state) {
     var rng = Game.rng;
@@ -702,6 +947,7 @@
     if (!rng.chance(0.35)) return;
 
     var kandidaten = kader.filter(function (p) {
+      if (p.leihe) return false;   /* geliehene Spieler gehoeren einem anderen Verein */
       return p.transferliste || rng.chance(0.10);
     });
     if (!kandidaten.length) return;
@@ -872,5 +1118,10 @@
   Game.zieleSetzen = zieleSetzen;
   Game.transferAusfuehren = transferAusfuehren;
   Game.kiTransfers = kiTransfers;
+  Game.leiheAusfuehren = leiheAusfuehren;
+  Game.leiheBeenden = leiheBeenden;
+  Game.kaufoptionZiehen = kaufoptionZiehen;
+  Game.kiJugendHochziehen = kiJugendHochziehen;
+  Game.kiEineLeihe = kiEineLeihe;
   Game.sponsorenPruefen = sponsorenPruefen;
 })(typeof window !== 'undefined' ? window : globalThis);

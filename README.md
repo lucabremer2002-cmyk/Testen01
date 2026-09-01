@@ -50,6 +50,13 @@ Hallescher FC, Kickers Offenbach, Stuttgarter Kickers …). Unterhalb der
 Regionalliga West übernehmen Oberliga-Aufsteiger aus NRW. Der eigene Verein
 bleibt dabei immer in der Spielwelt.
 
+### Gestaltung
+
+Ruhige Flächen, Haarlinien statt Rahmen, Systemtypografie und ein einziger
+Akzent. Alle Farben liegen als Merkmale auf `:root`, sodass heller und
+dunkler Modus dieselben Bausteine benutzen – die Oberfläche folgt
+automatisch der Einstellung Ihres Systems.
+
 ### Vereinsnamen und Wappen
 
 Verwendet werden die **echten Vereinsnamen, Städte, Stadien, Kapazitäten und
@@ -80,21 +87,58 @@ einen Blick erkennbar, ohne fremdes Markenmaterial zu übernehmen.
 - Verletzungen, Gelbsperren (fünfte Gelbe) und Platzverweise mit Sperren
 
 ### Transfermarkt und Verhandlungen
+
+Vor jedem Angebot steht ein **Dossier**: Ablöseforderung im Verhältnis zum
+Marktwert, Wechselbereitschaft des Spielers, seine Bedeutung im alten Kader,
+Restlaufzeit, Gehaltsvorstellung und konkrete Hinweise („Nur noch ein Jahr
+Vertrag – das drückt die Forderung spürbar."). Sie verhandeln nicht im
+Blindflug.
+
 - Suche über den kompletten Weltbestand (rund 4.000 Spieler) mit Filtern für
   Bereich, Position, Stärke, Alter, Marktwert und Nation
 - **Transferverhandlung mit dem abgebenden Verein**: Sofortzahlung,
   Ratenzahlung über bis zu vier Jahre, Bonus nach 25 Einsätzen,
-  Erfolgsbonus und Weiterverkaufsbeteiligung. Der Verein antwortet mit
-  Annahme, Gegenangebot oder Abbruch – über mehrere Runden.
-- **Vertragsverhandlung mit dem Spieler**: Wochengehalt, Laufzeit, Handgeld,
-  versprochene Rolle im Kader und Ausstiegsklausel. Der Spieler nennt seine
-  Vorstellungen und springt ab, wenn zu lange gefeilscht wird.
-- Die Forderung hängt von Marktwert, Restlaufzeit, Bedeutung im Kader,
-  Transferlisten-Status und dem Ansehen beider Vereine ab
+  Erfolgsbonus und Weiterverkaufsbeteiligung. Eine Messlatte zeigt beim
+  Tippen, was der Verein Ihr Angebot wirklich wert findet – so wird
+  nachvollziehbar, warum Raten weniger zählen als Bargeld.
+- Jede Antwort benennt die Abweichung in Prozent statt nur „zu wenig". Ein
+  **Gesprächsklima** verschlechtert sich bei Tiefstangeboten; wer zu lange
+  reizt, erlebt den Abbruch.
+- **Vertragsverhandlung mit dem Spieler**: Er nennt seine Vorstellungen
+  vorab – Gehalt, Laufzeit, Handgeld, erwartete Rolle, Ausstiegsklausel.
+  Ein Knopf übernimmt sie, eine Live-Einschätzung sagt, ob er annehmen wird.
 - Eingehende Angebote für eigene Spieler: annehmen, nachverhandeln, ablehnen
 - Vertragsverlängerungen; auslaufende Verträge werden angemahnt
 - Ratenzahlungen werden wöchentlich abgebucht und dem Verkäufer gutgeschrieben,
   Weiterverkaufsbeteiligungen greifen beim nächsten Transfer
+
+### Leihgeschäfte
+
+- Spieler **verleihen** oder **ausleihen**, bis zum Saisonende
+- Frei verhandelbar: Gehaltsanteil des ausleihenden Vereins, Leihgebühr und
+  eine optionale Kaufoption, die Sie während der Leihe jederzeit ziehen können
+- Die Auswahlliste sortiert Vereine nach **Einsatzaussicht** – eine Leihe zum
+  Tabellenführer nützt niemandem, wenn der Spieler dort auf der Bank sitzt
+- Beide Seiten bewerten getrennt: Der Verein achtet auf Kaderdichte und
+  Gehaltsentlastung, der Spieler auf Spielzeit
+- Das Gehalt wird wöchentlich nach dem vereinbarten Schlüssel zwischen beiden
+  Vereinen aufgeteilt
+- Andere Vereine fragen von sich aus nach Ihren jungen Reservisten
+- Leihen sind nur zwischen Vereinen mit laufendem Spielbetrieb möglich
+
+### Jugendakademie
+
+- Fünf Ausbaustufen von der **Kreisebene** bis zur **Eliteschule des
+  Fußballs** – sie bestimmen, wie viele Talente nachrücken und wie weit sie
+  es bringen können
+- Fünf **Scoutingstufen** bestimmen, wie genau das Potenzial eingeschätzt
+  wird. Bei schwachem Scouting sehen Sie nur eine breite Spanne wie „54–78";
+  mit datengestützter Analyse wird daraus „71–76".
+- Jeden Sommer rückt ein neuer Jahrgang nach, mit Scoutbericht und Urteil
+- Talente bekommen einen Profivertrag und rücken in den Kader auf, oder sie
+  werden freigegeben. Wer mit 20 noch keinen Vertrag hat, verlässt den Verein.
+- Die meisten Talente werden solide Spieler ihrer Liga, wenige schlagen
+  wirklich ein – die Verteilung ist bewusst rechtsschief
 
 ### Sponsoring
 Vier Bereiche: Hauptsponsor, Ärmelsponsor, Ausrüster und Stadionname.
@@ -127,8 +171,9 @@ aufgeschlüsselt nach Posten für die laufende Saison.
 ### Saison
 Am Saisonende: Platzprämien, Relegation im Hin- und Rückspiel (mit
 Elfmeterschießen), Auf- und Abstieg, Meisterprämien der Sponsoren,
-Spielerentwicklung nach Alter und Einsatzzeit, Karriereenden, Nachwuchs aus
-der eigenen Jugend, auslaufende Verträge und neue Vorstandsziele.
+Spielerentwicklung nach Alter und Einsatzzeit, Karriereenden, Rückkehr aller
+Leihspieler, ein neuer Jahrgang in der Akademie, auslaufende Verträge und
+neue Vorstandsziele.
 Fällt das Vorstandsvertrauen zu tief, werden Sie freigestellt.
 
 ## Aufbau des Quelltexts
@@ -145,7 +190,8 @@ Fällt das Vorstandsvertrauen zu tief, werden Sie freigestellt.
 | `js/league.js` | Spielplan, Tabellen, Kalender |
 | `js/match.js` | Spielsimulation als Minuten-Stepper |
 | `js/finance.js` | Sponsoring, Stadion, Zuschauer, Kredite |
-| `js/transfers.js` | Bewertungen und Verhandlungslogik |
+| `js/transfers.js` | Bewertungen, Verhandlungs- und Leihlogik |
+| `js/jugend.js` | Jugendakademie, Scouting, Jahrgänge |
 | `js/game.js` | Spielwelt, Tagesablauf, KI |
 | `js/saison.js` | Saisonabschluss, Relegation, Auf- und Abstieg |
 | `js/save.js` | Kompakter Spielstand (rund 0,9 MB statt 3,5 MB) |

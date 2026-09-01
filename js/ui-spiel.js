@@ -53,7 +53,7 @@
       { text: 'Aufstellung ändern', klasse: 'knopf--still', fn: function () { UI.wechsle('taktik'); } },
       /* Beide oeffnen selbst ein neues Fenster, deshalb nicht automatisch schliessen. */
       { text: 'Ergebnis simulieren', klasse: 'knopf--still', schliessen: false, fn: function () { schnellSpiel(); } },
-      { text: 'Spiel anpfeifen', klasse: 'knopf--gold', schliessen: false, fn: function () { liveStarten(); } }
+      { text: 'Spiel anpfeifen', klasse: 'knopf--haupt', schliessen: false, fn: function () { liveStarten(); } }
     ]);
   };
 
@@ -153,10 +153,10 @@
       '</div></div>';
 
     html += '<div class="spiel__leiste">' +
-      '<button class="knopf knopf--klein' + (live.laeuft ? '' : ' knopf--gold') + '" id="spPause">' +
+      '<button class="knopf knopf--klein' + (live.laeuft ? '' : ' knopf--haupt') + '" id="spPause">' +
       (live.laeuft ? '❚❚ Pause' : '▶ Weiter') + '</button>' +
       ['langsam', 'normal', 'schnell'].map(function (t) {
-        return '<button class="knopf knopf--klein ' + (live.tempo === t ? 'knopf--gold' : 'knopf--still') +
+        return '<button class="knopf knopf--klein ' + (live.tempo === t ? 'knopf--haupt' : 'knopf--still') +
           '" data-tempo="' + t + '">' + t.charAt(0).toUpperCase() + t.slice(1) + '</button>';
       }).join('') +
       '<button class="knopf knopf--klein" id="spWechsel">Wechseln (' +
@@ -311,7 +311,7 @@
       '</div>';
     UI.modal('Taktik umstellen', html, [
       {
-        text: 'Übernehmen', klasse: 'knopf--gold',
+        text: 'Übernehmen', klasse: 'knopf--haupt',
         fn: function () {
           Match.taktikAendern(m, live.meinSeite, {
             mentalitaet: $('lvMent').value,
@@ -366,7 +366,7 @@
     }
 
     UI.modal(titel + ' gegen ' + gegner.kurz, html, [
-      { text: 'Weiter', klasse: 'knopf--gold' }
+      { text: 'Weiter', klasse: 'knopf--haupt' }
     ], true);
     UI.zeichne();
   }
@@ -431,7 +431,7 @@
     }
 
     UI.modal('Saisonrückblick', html, [
-      { text: 'Neue Saison beginnen', klasse: 'knopf--gold', fn: function () { UI.zeichne(); } }
+      { text: 'Neue Saison beginnen', klasse: 'knopf--haupt', fn: function () { UI.zeichne(); } }
     ], true);
   };
 

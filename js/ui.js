@@ -66,6 +66,10 @@
 
   function zustand(p) {
     var st = S();
+    if (p.leihe) {
+      var von = st.klubs[p.leihe.vonKlubId];
+      return '<span class="marke marke--info">Leihe von ' + Util.esc(von ? von.kurz : '?') + '</span>';
+    }
     if (p.verletztBis > st.tag) {
       return '<span class="marke marke--gefahr" title="' + Util.esc(p.verletzung || '') + '">verletzt ' +
         (p.verletztBis - st.tag) + ' T</span>';
@@ -123,21 +127,56 @@
 
   /* ---------- Navigation ---------- */
 
+  /* Einheitliche Strichsymbole statt Emoji - sie nehmen die Textfarbe an
+     und bleiben in beiden Farbschemata ruhig. */
+  var SYMBOLE = {
+    uebersicht: '<path d="M3 8.5 10 3l7 5.5V16a1 1 0 0 1-1 1h-3v-5H7v5H4a1 1 0 0 1-1-1z"/>',
+    kader: '<circle cx="7" cy="6.5" r="2.6"/><path d="M2.5 16c0-2.5 2-4.2 4.5-4.2s4.5 1.7 4.5 4.2"/>' +
+           '<circle cx="14.5" cy="7.5" r="2"/><path d="M13 12.2c2.3-.5 4.5 1 4.5 3.8"/>',
+    taktik: '<rect x="3" y="3" width="14" height="14" rx="2"/><path d="M3 10h14"/>' +
+            '<circle cx="10" cy="10" r="2.6"/><path d="M7 3v2.4h6V3M7 17v-2.4h6V17"/>',
+    spielplan: '<rect x="3" y="4.5" width="14" height="12.5" rx="2"/><path d="M3 8.5h14M7 3v3M13 3v3"/>' +
+               '<circle cx="7" cy="12" r="1" fill="currentColor" stroke="none"/>' +
+               '<circle cx="10.5" cy="12" r="1" fill="currentColor" stroke="none"/>',
+    tabellen: '<path d="M3 5h14M3 10h14M3 15h9"/>',
+    transfermarkt: '<path d="M4 7h11l-2.6-2.6M16 13H5l2.6 2.6"/>',
+    verhandlungen: '<path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h6A2.5 2.5 0 0 1 14 6.5v2A2.5 2.5 0 0 1 11.5 11H7l-3 2.6z"/>' +
+                   '<path d="M16.5 8.5A2.5 2.5 0 0 1 17 10v3.5a2 2 0 0 1-2 2h-.5"/>',
+    vertraege: '<path d="M5 3h6l4 4v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>' +
+               '<path d="M11 3v4h4M7 11h6M7 14h4"/>',
+    sponsoring: '<path d="M10 2.8l2.1 4.3 4.7.7-3.4 3.3.8 4.7-4.2-2.2-4.2 2.2.8-4.7L3.2 7.8l4.7-.7z"/>',
+    jugend: '<path d="M10 17v-6"/><path d="M10 11c0-3 2-5 5-5 0 3-2 5-5 5z"/>' +
+            '<path d="M10 13c0-2.4-1.7-4-4-4 0 2.4 1.7 4 4 4z"/>',
+    stadion: '<path d="M3 8c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3z"/>' +
+             '<path d="M3 8v5c0 1.7 3.1 3 7 3s7-1.3 7-3V8"/>',
+    bank: '<path d="M3 8l7-4 7 4"/><path d="M4.5 8v6M8 8v6M12 8v6M15.5 8v6M3 16.5h14"/>',
+    finanzen: '<path d="M3.5 16.5V9M8 16.5V5M12.5 16.5v-5M17 16.5V7"/>',
+    postfach: '<rect x="3" y="5" width="14" height="10" rx="2"/><path d="M3.6 6.2 10 10.8l6.4-4.6"/>',
+    verein: '<path d="M10 2.8 16 5v5.2c0 3.4-2.4 5.7-6 7.2-3.6-1.5-6-3.8-6-7.2V5z"/>'
+  };
+
+  function icon(name) {
+    return '<svg class="sym" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" ' +
+      'fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" ' +
+      'stroke-linejoin="round">' + (SYMBOLE[name] || '') + '</svg>';
+  }
+
   var MENUE = [
-    { id: 'uebersicht', sym: '⌂', name: 'Übersicht' },
-    { id: 'kader', sym: '☰', name: 'Kader' },
-    { id: 'taktik', sym: '⚽', name: 'Aufstellung' },
-    { id: 'spielplan', sym: '📅', name: 'Spielplan' },
-    { id: 'tabellen', sym: '≡', name: 'Tabellen' },
-    { id: 'transfermarkt', sym: '⇄', name: 'Transfermarkt' },
-    { id: 'verhandlungen', sym: '🤝', name: 'Verhandlungen', zaehler: 'verhandlungen' },
-    { id: 'vertraege', sym: '✎', name: 'Verträge', zaehler: 'vertraege' },
-    { id: 'sponsoring', sym: '★', name: 'Sponsoring', zaehler: 'sponsoren' },
-    { id: 'stadion', sym: '🏟', name: 'Stadion' },
-    { id: 'bank', sym: '€', name: 'Bank' },
-    { id: 'finanzen', sym: '📊', name: 'Finanzen' },
-    { id: 'postfach', sym: '✉', name: 'Postfach', zaehler: 'post' },
-    { id: 'verein', sym: '⚑', name: 'Verein' }
+    { id: 'uebersicht', name: 'Übersicht' },
+    { id: 'kader', name: 'Kader' },
+    { id: 'taktik', name: 'Aufstellung' },
+    { id: 'spielplan', name: 'Spielplan' },
+    { id: 'tabellen', name: 'Tabellen' },
+    { id: 'transfermarkt', name: 'Transfermarkt' },
+    { id: 'verhandlungen', name: 'Verhandlungen', zaehler: 'verhandlungen' },
+    { id: 'vertraege', name: 'Verträge', zaehler: 'vertraege' },
+    { id: 'sponsoring', name: 'Sponsoring', zaehler: 'sponsoren' },
+    { id: 'jugend', name: 'Jugend', zaehler: 'talente' },
+    { id: 'stadion', name: 'Stadion' },
+    { id: 'bank', name: 'Bank' },
+    { id: 'finanzen', name: 'Finanzen' },
+    { id: 'postfach', name: 'Postfach', zaehler: 'post' },
+    { id: 'verein', name: 'Verein' }
   ];
 
   function zaehlerWerte() {
@@ -149,7 +188,13 @@
     }).length;
     var sponsoren = Object.keys(mein.finanzen.sponsorAngebote || {}).length;
     var post = st.postfach.filter(function (m) { return !m.gelesen; }).length;
-    return { verhandlungen: offen, vertraege: auslaufend, sponsoren: sponsoren, post: post };
+    /* Nur Talente melden, die reif für einen Profivertrag sind. */
+    var talente = mein.jugend ? mein.jugend.talente.filter(function (id) {
+      var p = st.spieler[id];
+      return p && p.alter >= 17 && p.staerke >= Game.basisStaerke(mein) - 14;
+    }).length : 0;
+    return { verhandlungen: offen, vertraege: auslaufend, sponsoren: sponsoren,
+      post: post, talente: talente };
   }
 
   function menueZeichnen() {
@@ -158,7 +203,7 @@
     nav.innerHTML = MENUE.map(function (m) {
       var anzahl = m.zaehler ? z[m.zaehler] : 0;
       return '<button data-seite="' + m.id + '" class="' + (UI.seite === m.id ? 'aktiv' : '') + '">' +
-        '<span class="sym">' + m.sym + '</span><span>' + m.name + '</span>' +
+        icon(m.id) + '<span>' + m.name + '</span>' +
         (anzahl ? '<span class="zaehler">' + anzahl + '</span>' : '') +
         '</button>';
     }).join('');
@@ -315,6 +360,7 @@
 
   UI.spielerFenster = function (spielerId, extraAktionen) {
     var st = S();
+    var mein = meinKlub;
     var p = st.spieler[spielerId];
     if (!p) return;
     var klub = p.klubId ? st.klubs[p.klubId] : null;
@@ -325,7 +371,7 @@
       (klub ? wappen(klub, 54) : '') +
       '<div style="flex:1;min-width:200px"><h3 style="margin:0">' + Util.esc(p.name) + '</h3>' +
       '<div class="mini">' + posMarke(p.pos) + ' · ' + p.alter + ' Jahre · ' + Util.esc(p.nation) +
-      (klub ? ' · ' + Util.esc(klub.name) : ' · <span class="gold">vereinslos</span>') + '</div>' +
+      (klub ? ' · ' + Util.esc(klub.name) : ' · <span class="akzent">vereinslos</span>') + '</div>' +
       '<div style="margin-top:.4em">' + zustand(p) + '</div></div></div>';
 
     html += '<div class="raster raster--4" style="margin-bottom:1rem">' +
@@ -356,7 +402,38 @@
       '<tr><td>Notenschnitt</td><td class="zahl">' + noteText(note) + '</td></tr>' +
       '</tbody></table></div></div>';
 
+    /* Leihstatus sichtbar machen */
+    if (p.leihe) {
+      var geber = st.klubs[p.leihe.vonKlubId];
+      html += '<div class="dossier__hinweise"><b>Leihspieler</b> von ' +
+        Util.esc(geber ? geber.name : '?') + ' bis ' + Fmt.date(p.leihe.bisTag, st.saison) +
+        '. Sie tragen ' + p.leihe.gehaltsanteil + ' % des Gehalts' +
+        (p.leihe.kaufoption ? ', vereinbarte Kaufoption: <b>' + Fmt.money(p.leihe.kaufoption) + '</b>' : '') +
+        '.</div>';
+    }
+    var verliehenVon = null;
+    if (eigen === false && klub && mein() && (mein().verliehen || []).indexOf(p.id) >= 0) verliehenVon = klub;
+    if (verliehenVon) {
+      html += '<div class="dossier__hinweise">Aktuell an <b>' + Util.esc(verliehenVon.name) +
+        '</b> verliehen. Er kehrt am Saisonende zurück.</div>';
+    }
+
     var aktionen = [];
+    if (eigen && p.leihe && p.leihe.kaufoption) {
+      aktionen.push({
+        text: 'Kaufoption ziehen (' + Fmt.money(p.leihe.kaufoption) + ')',
+        klasse: 'knopf--haupt', schliessen: false,
+        fn: function () {
+          var r = Game.kaufoptionZiehen(st, p);
+          if (!r.ok) { toast(r.grund); return; }
+          modalZu();
+          toast(p.name + ' gehört jetzt fest zum Verein.');
+          Game.post(st, 'Kaufoption gezogen: ' + p.name,
+            p.name + ' wurde für ' + Fmt.money(r.preis) + ' fest verpflichtet.', 'gut');
+          UI.zeichne();
+        }
+      });
+    }
     if (eigen) {
       aktionen.push({
         text: p.transferliste ? 'Von Transferliste nehmen' : 'Auf die Transferliste',
@@ -368,18 +445,30 @@
         }
       });
       /* schliessen: false, weil die Funktion selbst ein neues Fenster oeffnet. */
-      aktionen.push({
-        text: 'Vertrag verlängern', klasse: 'knopf--gold', schliessen: false,
-        fn: function () { UI.vertragsVerhandlung(p.id); }
-      });
+      if (!p.leihe) {
+        aktionen.push({
+          text: 'Verleihen', klasse: 'knopf--still', schliessen: false,
+          fn: function () { UI.leihVerhandlung(p.id, 'raus'); }
+        });
+        aktionen.push({
+          text: 'Vertrag verlängern', klasse: 'knopf--haupt', schliessen: false,
+          fn: function () { UI.vertragsVerhandlung(p.id); }
+        });
+      }
     } else if (klub) {
+      if (!p.leihe && !verliehenVon) {
+        aktionen.push({
+          text: 'Ausleihen', klasse: 'knopf--still', schliessen: false,
+          fn: function () { UI.leihVerhandlung(p.id, 'rein'); }
+        });
+      }
       aktionen.push({
-        text: 'Transferangebot abgeben', klasse: 'knopf--gold', schliessen: false,
+        text: 'Transferangebot abgeben', klasse: 'knopf--haupt', schliessen: false,
         fn: function () { UI.transferVerhandlung(p.id); }
       });
     } else {
       aktionen.push({
-        text: 'Ablösefrei verpflichten', klasse: 'knopf--gold', schliessen: false,
+        text: 'Ablösefrei verpflichten', klasse: 'knopf--haupt', schliessen: false,
         fn: function () { UI.vertragsVerhandlung(p.id, true); }
       });
     }
@@ -656,7 +745,7 @@
           '<div class="nachricht__kopf"><span class="nachricht__betreff">' + Util.esc(m.betreff) + '</span>' +
           '<span class="nachricht__datum">' + Fmt.date(m.tag, m.saison) + '</span></div>' +
           '<p class="nachricht__text">' + Util.esc(m.text) + '</p>' +
-          (m.daten && m.daten.verhandlungId ? '<button class="knopf knopf--klein knopf--gold" data-verh="' + m.daten.verhandlungId + '">Zur Verhandlung</button>' : '') +
+          (m.daten && m.daten.verhandlungId ? '<button class="knopf knopf--klein knopf--haupt" data-verh="' + m.daten.verhandlungId + '">Zur Verhandlung</button>' : '') +
           '</div>';
       }).join('') + '</div>';
   };
@@ -738,6 +827,11 @@
   UI.zustand = zustand;
   UI.fitnessBalken = fitnessBalken;
   UI.kennzahl = kennzahl;
+  UI.icon = icon;
+  UI.verliehene = function () {
+    var st = S(), k = meinKlub();
+    return (k.verliehen || []).map(function (id) { return st.spieler[id]; }).filter(Boolean);
+  };
   UI.modal = modal;
   UI.modalZu = modalZu;
   UI.toast = toast;

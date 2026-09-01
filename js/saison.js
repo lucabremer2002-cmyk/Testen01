@@ -316,6 +316,11 @@
     });
     kader.forEach(function (p) { state.spieler[p.id] = p; klub.kader.push(p.id); });
     if (!klub.finanzen) klub.finanzen = Finance.finanzenAufsetzen(Game.rng, klub, stufe);
+    if (!klub.jugend) {
+      klub.jugend = Jugend.aufsetzen(klub);
+      Jugend.jahrgangErzeugen(Game.rng, state, klub);
+    }
+    if (!klub.verliehen) klub.verliehen = [];
     Finance.SLOTS.forEach(function (slot) {
       if (klub.finanzen.sponsoren[slot.id]) return;
       var ang = Finance.angeboteErzeugen(Game.rng, klub, klub.finanzen, slot.id, state.saison, stufe, 1);
@@ -369,6 +374,21 @@
       var training = klub && klub.finanzen && klub.finanzen.stadion.module.trainingszentrum ? 0.8 : 0.35;
       if (klub) training += (klub.ruf / 100) * 0.5;
       Players.entwickeln(Game.rng, p, training, einsatz);
+
+      /* Jugendspieler stehen nicht im Profikader - fuer sie gelten weder
+         Vertragsende noch Karriereende. */
+      if (p.jugend) {
+        p.stats = { spiele: 0, tore: 0, vorlagen: 0, gelb: 0, rot: 0, noten: [], minuten: 0 };
+        p.fitness = Game.rng.int(88, 100);
+        p.marktwert = Players.marktwert(p, state.saison + 1);
+        if (p.einschaetzung && klub && klub.jugend) {
+          /* Mit einem Jahr mehr Beobachtung wird die Einschaetzung genauer. */
+          var g = Jugend.scoutStufe(klub.jugend.scouting).genauigkeit;
+          p.einschaetzung = Jugend.einschaetzung(Game.rng, p, Math.min(0.97, g + 0.12));
+        }
+        return;
+      }
+
       /* Karriereende */
       var endet = false;
       if (p.alter >= 39) endet = true;
@@ -553,8 +573,17 @@
     state.neueLigaVerteilung = null;
   }
 
+  /* Alle Leihen enden mit der Saison. */
+  function leihenBeenden(state) {
+    Object.keys(state.spieler).forEach(function (id) {
+      var p = state.spieler[id];
+      if (p.leihe) Game.leiheBeenden(state, p);
+    });
+  }
+
   function saisonwechsel(state) {
     var bericht = saisonAbschliessen(state);
+    leihenBeenden(state);
     var frei = spielerAltern(state);
     vertraegeAbwickeln(state, frei);
     nachwuchsErzeugen(state);
@@ -573,6 +602,7 @@
 
   g.Saison = {
     saisonwechsel: saisonwechsel,
+    leihenBeenden: leihenBeenden,
     vereinsloseSpieler: vereinsloseSpieler,
     saisonAbschliessen: saisonAbschliessen,
     neueSaisonStarten: neueSaisonStarten,
