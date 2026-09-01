@@ -41,9 +41,10 @@
       '<span class="balken"><i style="width:' + breite.toFixed(0) + '%;background:' + staerkeFarbe(v) + '"></i></span></span>';
   }
 
+  /* Farbige Positionsmarken auf jeder Zeile waeren nur Lärm - das Kürzel
+     sagt bereits alles. */
   function posMarke(pos) {
-    var grp = Players.GRUPPE[pos] || 'MIT';
-    return '<span class="marke marke--' + grp.toLowerCase() + '">' + pos + '</span>';
+    return '<span class="pos">' + pos + '</span>';
   }
 
   function formIcons(form) {
@@ -248,11 +249,26 @@
     kopfZeichnen();
     menueZeichnen();
     var fn = UI.seiten[UI.seite] || UI.seiten.uebersicht;
-    $('inhalt').innerHTML = fn();
+    var eintrag = MENUE.filter(function (m) { return m.id === UI.seite; })[0];
+    var titel = eintrag ? '<h1 class="seitentitel">' + Util.esc(eintrag.name) + '</h1>' : '';
+    $('inhalt').innerHTML = titel + fn();
     if (UI.nachZeichnen[UI.seite]) UI.nachZeichnen[UI.seite]();
   };
 
   UI.nachZeichnen = {};
+
+  /* Die Kopfzeile bekommt erst eine Trennlinie, wenn Inhalt darunter
+     verschwindet - solange nichts gescrollt ist, bleibt sie unsichtbar. */
+  function kopfzeileBeobachten() {
+    var kopf = $('kopfzeile') || document.querySelector('.kopfzeile');
+    if (!kopf) return;
+    function pruefe() {
+      kopf.style.borderBottomColor = window.scrollY > 4 ? 'var(--separator)' : 'transparent';
+    }
+    window.addEventListener('scroll', pruefe, { passive: true });
+    pruefe();
+  }
+  UI.kopfzeileBeobachten = kopfzeileBeobachten;
 
   /* ---------- Tabellenbaustein ---------- */
 
@@ -502,10 +518,12 @@
 
     var html = '<div class="raster raster--4">' +
       kennzahl('Tabellenplatz', platz ? platz + '.' : '–', liga ? liga.name : '') +
-      kennzahl('Punkte', z ? String(z.punkte - z.abzug) : '0', z ? z.sp + ' Spiele · ' + z.tore + ':' + z.gegentore + ' Tore' : '') +
+      kennzahl('Punkte', z ? String(z.punkte - z.abzug) : '0',
+        z ? z.sp + ' Spiele · ' + z.tore + ':' + z.gegentore : '') +
       kennzahl('Frei verfügbar', Fmt.money(Game.verfuegbaresGeld(st, mein)),
-        'Konto ' + Fmt.money(fin.kontostand) + ' · Transferbudget ' + Fmt.money(fin.transferbudget)) +
-      kennzahl('Kadergröße', String(kader.length), 'Wert ' + Fmt.money(Util.sum(kader, function (p) { return p.marktwert; }))) +
+        'Konto ' + Fmt.money(fin.kontostand)) +
+      kennzahl('Kaderwert', Fmt.money(Util.sum(kader, function (p) { return p.marktwert; })),
+        kader.length + ' Spieler') +
       '</div>';
 
     html += '<div class="raster raster--2">';
@@ -522,11 +540,12 @@
         '<div class="mini">' + (naechstes.heim ? 'Heimspiel' : 'Auswärtsspiel') + ' · ' +
         naechstes.spieltag.nr + '. Spieltag · ' + Fmt.weekday(naechstes.spieltag.tag, st.saison) + ', ' +
         Fmt.date(naechstes.spieltag.tag, st.saison) + '</div>' +
-        '<div class="mini">Tabellenplatz ' + gPlatz + ' · ' + formIcons(liga.tabelle[gegnerId].form) + '</div>' +
+        '<div class="mini">Tabellenplatz ' + gPlatz +
+        (liga.tabelle[gegnerId].form.length ? ' · ' + formIcons(liga.tabelle[gegnerId].form) : '') + '</div>' +
         '</div></div>';
       html += '<p class="hinweis" style="margin-top:.8em">Noch <b>' + (naechstes.spieltag.tag - st.tag) + '</b> Tage bis zum Anpfiff.</p>';
     } else {
-      html += '<p class="hinweis">Kein weiteres Ligaspiel in dieser Saison.</p>';
+      html += '<p class="leer">Kein weiteres Ligaspiel in dieser Saison.</p>';
     }
     html += '</div>';
 
@@ -541,6 +560,62 @@
     }
     html += '</div>';
 
+    html += '</div>';
+
+    /* Was jetzt ansteht - füllt die Übersicht mit dem, was zu tun ist. */
+    var aufgaben = [];
+    var z2 = zaehlerWerte();
+    if (fin.kontostand < 0) {
+      aufgaben.push({ seite: 'finanzen', text: 'Das Konto steht im Minus',
+        wert: Fmt.money(fin.kontostand), art: 'gefahr' });
+    }
+    if (z2.sponsoren) {
+      aufgaben.push({ seite: 'sponsoring', text: 'Sponsorenangebote liegen vor',
+        wert: String(z2.sponsoren) });
+    }
+    if (z2.verhandlungen) {
+      aufgaben.push({ seite: 'verhandlungen', text: 'Offene Verhandlungen und Angebote',
+        wert: String(z2.verhandlungen) });
+    }
+    if (z2.vertraege) {
+      aufgaben.push({ seite: 'vertraege', text: 'Verträge laufen zum Saisonende aus',
+        wert: String(z2.vertraege), art: 'warn' });
+    }
+    if (z2.talente) {
+      aufgaben.push({ seite: 'jugend', text: 'Talente sind reif für einen Profivertrag',
+        wert: String(z2.talente) });
+    }
+    if (z2.post) {
+      aufgaben.push({ seite: 'postfach', text: 'Ungelesene Nachrichten', wert: String(z2.post) });
+    }
+    var verletzt = kader.filter(function (p) { return p.verletztBis > st.tag; }).length;
+    if (verletzt) {
+      aufgaben.push({ seite: 'kader', text: 'Spieler sind verletzt', wert: String(verletzt), art: 'warn' });
+    }
+    if (kader.length < 18) {
+      aufgaben.push({ seite: 'transfermarkt', text: 'Der Kader ist zu klein',
+        wert: kader.length + ' Spieler', art: 'gefahr' });
+    }
+    if (Game.istTransferfenster(st)) {
+      var endet = st.tag <= 62 ? 62 - st.tag : 215 - st.tag;
+      if (endet >= 0 && endet <= 21) {
+        aufgaben.push({ seite: 'transfermarkt', text: 'Das Transferfenster schließt bald',
+          wert: 'in ' + endet + ' Tagen', art: 'warn' });
+      }
+    }
+
+    html += '<div class="karte"><div class="karte__kopf"><h3>Was jetzt ansteht</h3></div>';
+    if (!aufgaben.length) {
+      html += '<p class="leer">Nichts zu erledigen. Weiter geht es mit dem nächsten Spieltag.</p>';
+    } else {
+      html += '<div class="aufgaben">' + aufgaben.map(function (a) {
+        return '<button class="aufgabe" data-ziel="' + a.seite + '">' +
+          '<span class="aufgabe__text">' + Util.esc(a.text) + '</span>' +
+          '<span class="aufgabe__wert' + (a.art ? ' aufgabe__wert--' + a.art : '') + '">' +
+          Util.esc(a.wert) + '</span>' +
+          '<span class="aufgabe__pfeil">›</span></button>';
+      }).join('') + '</div>';
+    }
     html += '</div>';
 
     /* Letzte Ergebnisse und Nachrichten */
@@ -560,7 +635,7 @@
             '<td class="zahl mini">' + s.nr + '. ST</td></tr>';
         }).join('') + '</tbody></table>';
       } else {
-        html += '<p class="hinweis">Noch keine Spiele bestritten.</p>';
+        html += '<p class="leer">Noch keine Spiele bestritten.</p>';
       }
     }
     html += '</div>';
@@ -574,7 +649,7 @@
           '<span class="nachricht__datum">' + Fmt.date(m.tag, m.saison) + '</span></div></div>';
       }).join('');
     } else {
-      html += '<p class="hinweis">Keine neuen Nachrichten.</p>';
+      html += '<p class="leer">Keine neuen Nachrichten.</p>';
     }
     if (st.news.length) {
       html += '<h4 style="margin-top:1em">Aus den Ligen</h4>' +
@@ -607,6 +682,9 @@
 
   UI.nachZeichnen.uebersicht = function () {
     spielerKlicks();
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ziel]'), function (b) {
+      b.onclick = function () { UI.wechsle(b.dataset.ziel); };
+    });
   };
 
   function spielerKlicks() {
@@ -686,7 +764,8 @@
 
     if (ansicht === 'eigene') {
       var spiele = League.spieleVon(liga, mein.id);
-      html += '<div class="karte"><div class="karte__kopf"><h2>Spielplan ' + Util.esc(liga.name) + '</h2></div>' +
+      html += '<div class="karte"><div class="karte__kopf"><h3>' + Util.esc(liga.name) + '</h3>' +
+        '<span class="mini">' + liga.spieltage.length + ' Spieltage</span></div>' +
         '<div class="tabellenrahmen"><table class="liste"><thead><tr><th class="zahl">ST</th><th>Datum</th>' +
         '<th>Gegner</th><th class="mitte">Ort</th><th class="zahl">Ergebnis</th><th class="zahl">Zuschauer</th></tr></thead><tbody>' +
         spiele.map(function (s) {
@@ -744,9 +823,9 @@
   UI.seiten.postfach = function () {
     var st = S();
     if (!st.postfach.length) {
-      return '<div class="karte"><h2>Postfach</h2><p class="hinweis">Keine Nachrichten vorhanden.</p></div>';
+      return '<div class="karte"><p class="leer">Keine Nachrichten vorhanden.</p></div>';
     }
-    return '<div class="karte"><div class="karte__kopf"><h2>Postfach</h2>' +
+    return '<div class="karte"><div class="karte__kopf"><h3>Alle Nachrichten</h3>' +
       '<button class="knopf knopf--klein knopf--still" id="allesGelesen">Alle als gelesen markieren</button></div>' +
       st.postfach.map(function (m) {
         return '<div class="nachricht ' + m.art + (m.gelesen ? '' : ' ungelesen') + '" data-post="' + m.id + '">' +

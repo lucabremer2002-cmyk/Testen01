@@ -144,7 +144,7 @@
       '</div>';
 
     /* Ausbau */
-    html += '<div class="karte"><div class="karte__kopf"><h2>Ausbau</h2></div>';
+    html += '<div class="karte"><div class="karte__kopf"><h3>Ausbau</h3></div>';
     if (sd.ausbau) {
       html += '<p class="hinweis">Solange eine Baumaßnahme läuft, kann keine zweite begonnen werden.</p>';
     } else {
@@ -159,7 +159,7 @@
     html += '</div>';
 
     /* Module */
-    html += '<div class="karte"><div class="karte__kopf"><h2>Ausstattung</h2></div><div class="raster raster--3">' +
+    html += '<div class="karte"><div class="karte__kopf"><h3>Ausstattung</h3></div><div class="raster raster--3">' +
       Finance.MODULE.map(function (m) {
         var vorhanden = !!sd.module[m.id];
         return '<div class="kennzahl" style="display:flex;flex-direction:column;gap:.35em">' +
@@ -282,7 +282,7 @@
         }).join('') + '</tbody></table></div></div>';
     }
 
-    html += '<div class="karte"><div class="karte__kopf"><h2>Neuen Kredit aufnehmen</h2></div>';
+    html += '<div class="karte"><div class="karte__kopf"><h3>Neuen Kredit aufnehmen</h3></div>';
     if (rahmen < 10000) {
       html += '<p class="hinweis">Die Bank gewährt derzeit keinen weiteren Kredit. ' +
         'Verbessern Sie zuerst Ihre Bonität, indem Sie Schulden abbauen oder Einnahmen steigern.</p>';
@@ -301,7 +301,7 @@
     html += '</div>';
 
     if (fin.kredite.length) {
-      html += '<div class="karte"><div class="karte__kopf"><h2>Laufende Kredite</h2></div>' +
+      html += '<div class="karte"><div class="karte__kopf"><h3>Laufende Kredite</h3></div>' +
         '<div class="tabellenrahmen"><table class="liste"><thead><tr><th>Aufgenommen</th>' +
         '<th class="zahl">Ursprung</th><th class="zahl">Restschuld</th><th class="zahl">Zins</th>' +
         '<th class="zahl">Wochenrate</th><th class="zahl">Restwochen</th><th class="zahl">Zinsen gezahlt</th>' +

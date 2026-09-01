@@ -61,7 +61,7 @@
       ['gehalt', 'Gehalt/Wo', 'zahl'], ['vertrag', 'Vertrag', 'zahl'], ['', 'Status', '']
     ];
 
-    html += '<div class="karte"><div class="karte__kopf"><h2>Kader</h2>' +
+    html += '<div class="karte"><div class="karte__kopf"><h3>Alle Spieler</h3>' +
       '<span class="mini">Spalte anklicken zum Sortieren · Zeile anklicken für Details</span></div>' +
       '<div class="tabellenrahmen"><table class="liste"><thead><tr>' +
       spalten.map(function (s) {
@@ -150,7 +150,7 @@
     var html = '<div class="taktikraster">';
 
     /* Spielfeld */
-    html += '<div class="karte"><div class="karte__kopf"><h2>Aufstellung</h2>' +
+    html += '<div class="karte"><div class="karte__kopf"><h3>Startelf</h3>' +
       '<div class="knopfreihe"><button class="knopf knopf--klein" id="btnAutoElf">Beste Elf</button></div></div>';
     html += '<div class="platz-feld" id="platzFeld">' +
       '<div class="linie mittellinie"></div><div class="linie mittelkreis"></div>' +
@@ -221,7 +221,7 @@
   }
 
   function spielerListe(liste, st, art) {
-    if (!liste.length) return '<p class="hinweis">Niemand.</p>';
+    if (!liste.length) return '<p class="leer">Niemand.</p>';
     return '<div class="tabellenrahmen"><table class="liste"><tbody>' +
       liste.sort(function (a, b) { return b.staerke - a.staerke; }).map(function (p) {
         return '<tr class="klickbar" data-tausch="' + p.id + '" data-art="' + art + '">' +
@@ -345,7 +345,7 @@
         }).join('') + '</div></div>';
     }
 
-    html += '<div class="karte"><div class="karte__kopf"><h2>Verträge</h2>' +
+    html += '<div class="karte"><div class="karte__kopf"><h3>Laufende Verträge</h3>' +
       '<span class="mini">Gesamt ' + Fmt.money(Util.sum(kader, function (p) { return p.gehalt; }) * 52) + ' im Jahr</span></div>' +
       '<div class="tabellenrahmen"><table class="liste"><thead><tr><th class="mitte">Pos</th><th>Spieler</th>' +
       '<th class="zahl">Alter</th><th class="zahl">Stärke</th><th class="zahl">Gehalt/Woche</th>' +

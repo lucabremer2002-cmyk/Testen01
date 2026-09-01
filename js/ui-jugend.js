@@ -22,8 +22,8 @@
       UI.kennzahl('Akademie', 'Stufe ' + j.stufe, Util.esc(akademie.name)) +
       UI.kennzahl('Scouting', 'Stufe ' + j.scouting, Util.esc(scout.name)) +
       UI.kennzahl('Talente im Haus', String(talente.length),
-        j.hervorgebracht + ' seit Amtsantritt ausgebildet') +
-      UI.kennzahl('Kosten', Fmt.money(Jugend.unterhaltWoche(j)) + ' / Woche',
+        j.hervorgebracht + ' bisher ausgebildet') +
+      UI.kennzahl('Kosten pro Woche', Fmt.money(Jugend.unterhaltWoche(j, mein.stufe)),
         'Nächster Jahrgang in ' + naechster + ' Tagen') +
       '</div>';
 
@@ -39,10 +39,10 @@
     }
 
     /* Talente */
-    html += '<div class="karte"><div class="karte__kopf"><h2>Talente</h2>' +
+    html += '<div class="karte"><div class="karte__kopf"><h3>Talente</h3>' +
       '<span class="mini">Einschätzung des Scouts – je besser das Scouting, desto enger die Spanne</span></div>';
     if (!talente.length) {
-      html += '<p class="hinweis">Zurzeit ist kein Talent im Haus. Der nächste Jahrgang rückt in ' +
+      html += '<p class="leer">Zurzeit ist kein Talent im Haus.<br>Der nächste Jahrgang rückt in ' +
         naechster + ' Tagen nach.</p>';
     } else {
       html += '<div class="raster raster--3">' + talente.map(function (p) {
@@ -54,8 +54,7 @@
           '<div class="talentkarte__kopf">' +
           '<span class="talentkarte__name">' + Util.esc(p.name) + '</span>' +
           UI.posMarke(p.pos) + '</div>' +
-          '<div class="mini">' + p.alter + ' Jahre · ' + Util.esc(p.nation) +
-          ' · aktuelle Stärke ' + p.staerke + '</div>' +
+          '<div class="mini">' + p.alter + ' J. · ' + Util.esc(p.nation) + ' · Stärke ' + p.staerke + '</div>' +
           '<div class="talentspanne">' +
           '<div class="talentspanne__spur">' +
           '<i class="talentspanne__ist" style="width:' + istProz + '%"></i>' +
@@ -64,10 +63,9 @@
           '<div class="talentspanne__text"><span>jetzt ' + p.staerke + '</span>' +
           '<span>Potenzial ' + e.von + '–' + e.bis + '</span></div></div>' +
           '<div class="mini">„' + Util.esc(e.urteil) + '"</div>' +
-          '<div class="knopfreihe" style="margin-top:auto">' +
+          '<div class="knopfreihe">' +
           '<button class="knopf knopf--klein knopf--haupt" data-profi="' + p.id + '">Profivertrag</button>' +
           '<button class="knopf knopf--klein knopf--still" data-talent="' + p.id + '">Details</button>' +
-          '<button class="knopf knopf--klein knopf--gefahr" data-freigeben="' + p.id + '" style="margin-left:auto">Freigeben</button>' +
           '</div></div>';
       }).join('') + '</div>';
       html += '<p class="mini" style="margin-top:.9rem">Talente verlassen den Verein mit 20 Jahren oder ' +
@@ -147,27 +145,28 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-profi]'), function (b) {
       b.onclick = function () { profivertrag(b.dataset.profi); };
     });
-    Array.prototype.forEach.call(document.querySelectorAll('[data-freigeben]'), function (b) {
-      b.onclick = function () {
-        var p = st.spieler[b.dataset.freigeben];
-        UI.modal('Talent freigeben',
-          '<p><b>' + Util.esc(p.name) + '</b> verlässt den Verein. Der Scout schätzt ihn auf ' +
-          p.einschaetzung.von + '–' + p.einschaetzung.bis + ' – er kann sich auch anders entwickeln.</p>' +
-          '<p class="hinweis">Das spart die Aufwandsentschädigung, macht die Entscheidung aber unumkehrbar.</p>',
-          [
-            {
-              text: 'Freigeben', klasse: 'knopf--gefahr',
-              fn: function () {
-                Jugend.freigeben(st, mein, p);
-                UI.toast(p.name + ' hat den Verein verlassen.');
-                UI.zeichne();
-              }
-            },
-            { text: 'Behalten', klasse: 'knopf--still' }
-          ]);
-      };
-    });
   };
+
+  function freigebenFragen(id) {
+    var st = UI.S(), mein = UI.meinKlub();
+    var p = st.spieler[id];
+    if (!p) return;
+    UI.modal('Talent freigeben',
+      '<p><b>' + Util.esc(p.name) + '</b> verlässt den Verein. Der Scout schätzt ihn auf ' +
+      p.einschaetzung.von + '–' + p.einschaetzung.bis + ' – er kann sich auch anders entwickeln.</p>' +
+      '<p class="hinweis">Das spart die Aufwandsentschädigung, macht die Entscheidung aber unumkehrbar.</p>',
+      [
+        {
+          text: 'Freigeben', klasse: 'knopf--gefahr',
+          fn: function () {
+            Jugend.freigeben(st, mein, p);
+            UI.toast(p.name + ' hat den Verein verlassen.');
+            UI.zeichne();
+          }
+        },
+        { text: 'Behalten', klasse: 'knopf--still' }
+      ]);
+  }
 
   function talentFenster(id) {
     var st = UI.S();
@@ -195,6 +194,8 @@
     UI.modal(p.name, html, [
       { text: 'Profivertrag anbieten', klasse: 'knopf--haupt', schliessen: false,
         fn: function () { profivertrag(p.id); } },
+      { text: 'Freigeben', klasse: 'knopf--gefahr', schliessen: false,
+        fn: function () { freigebenFragen(p.id); } },
       { text: 'Schließen', klasse: 'knopf--still' }
     ]);
   }

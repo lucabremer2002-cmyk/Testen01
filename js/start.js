@@ -103,6 +103,7 @@
     $('app').hidden = false;
     UI.wechsle('uebersicht');
     steuerung();
+    UI.kopfzeileBeobachten();
   }
 
   /* ---------- Spielsteuerung ---------- */

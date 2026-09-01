@@ -56,7 +56,7 @@
     var offen = Game.istTransferfenster(st);
 
     var html = '<div class="karte">' +
-      '<div class="karte__kopf"><h2>Transfermarkt</h2>' +
+      '<div class="karte__kopf"><h3>Suche</h3>' +
       '<span class="marke ' + (offen ? 'marke--gut' : 'marke--gefahr') + '">' +
       (offen ? 'Transferfenster geöffnet' : 'Transferfenster geschlossen') + '</span></div>';
 
@@ -782,11 +782,11 @@
     var leihanfragen = offen.filter(function (v) { return v.typ === 'leihanfrage'; });
     var eigene = offen.filter(function (v) { return v.typ === 'kauf' || v.typ === 'vertrag'; });
 
-    var html = '<div class="karte"><div class="karte__kopf"><h2>Angebote für Ihre Spieler</h2>' +
+    var html = '<div class="karte"><div class="karte__kopf"><h3>Angebote für Ihre Spieler</h3>' +
       '<span class="mini">' + eingehend.length + ' offen</span></div>';
     if (!eingehend.length) {
-      html += '<p class="hinweis">Zurzeit liegt kein Kaufangebot vor. Setzen Sie Spieler auf die ' +
-        'Transferliste, um Interessenten anzulocken.</p>';
+      html += '<p class="leer">Zurzeit liegt kein Kaufangebot vor.<br>' +
+        'Bieten Sie einen Spieler aktiv an, um Interessenten zu wecken.</p>';
     } else {
       html += eingehend.map(function (v) {
         var p = st.spieler[v.spielerId];
@@ -812,10 +812,10 @@
     }
     html += '</div>';
 
-    html += '<div class="karte"><div class="karte__kopf"><h2>Leihanfragen</h2>' +
+    html += '<div class="karte"><div class="karte__kopf"><h3>Leihanfragen</h3>' +
       '<span class="mini">' + leihanfragen.length + ' offen</span></div>';
     if (!leihanfragen.length) {
-      html += '<p class="hinweis">Keine offenen Leihanfragen. Junge Reservisten wecken das meiste Interesse.</p>';
+      html += '<p class="leer">Keine offenen Leihanfragen.<br>Junge Reservisten wecken das meiste Interesse.</p>';
     } else {
       html += leihanfragen.map(function (v) {
         var p = st.spieler[v.spielerId];
@@ -840,9 +840,9 @@
     }
     html += '</div>';
 
-    html += '<div class="karte"><div class="karte__kopf"><h2>Ihre laufenden Verhandlungen</h2></div>';
+    html += '<div class="karte"><div class="karte__kopf"><h3>Ihre laufenden Verhandlungen</h3></div>';
     if (!eigene.length) {
-      html += '<p class="hinweis">Sie führen derzeit keine Verhandlungen.</p>';
+      html += '<p class="leer">Sie führen derzeit keine Verhandlungen.</p>';
     } else {
       html += '<div class="tabellenrahmen"><table class="liste"><thead><tr><th>Spieler</th>' +
         '<th>Verein</th><th>Stand</th><th>Klima</th><th class="zahl">Forderung</th><th></th>' +

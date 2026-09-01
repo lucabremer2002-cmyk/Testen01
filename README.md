@@ -52,10 +52,22 @@ bleibt dabei immer in der Spielwelt.
 
 ### Gestaltung
 
-Ruhige Flächen, Haarlinien statt Rahmen, Systemtypografie und ein einziger
-Akzent. Alle Farben liegen als Merkmale auf `:root`, sodass heller und
-dunkler Modus dieselben Bausteine benutzen – die Oberfläche folgt
-automatisch der Einstellung Ihres Systems.
+Aufgebaut nach den Prinzipien der Apple-Systemoberflächen:
+
+- **Systemfarbpalette** für Flächen, Trennlinien und Fülltöne, mit
+  vollständig getrenntem hellem und dunklem Satz. Die Oberfläche folgt der
+  Einstellung Ihres Systems.
+- **Gruppierte Listen mit eingerückten Trennlinien** – sie beginnen erst
+  beim Inhalt, nicht am Rand der Fläche.
+- **Flache Flächen ohne Schatten.** Schatten tragen nur schwebende Ebenen
+  wie Dialoge.
+- **Disziplinierte Typo-Skala** in der Systemschrift, mit negativem
+  Zeichenabstand bei großen Graden und Tabellenziffern überall.
+- **Farbe nur, wo sie etwas bedeutet.** Positionskürzel sind einfarbig – das
+  Kürzel selbst trägt die Information; Farbe bleibt Auf- und Abstiegszonen,
+  Formkürzeln und Warnungen vorbehalten.
+- **Segmentierte Umschalter**, Pillenknöpfe und eine große Seitenüberschrift
+  wie in einer Navigationsleiste.
 
 ### Vereinsnamen und Wappen
 
