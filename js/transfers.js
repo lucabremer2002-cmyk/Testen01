@@ -170,7 +170,8 @@
     var budget = kaeufer.finanzen.transferbudget;
     if (ford > budget) {
       hinweise.push('Die Forderung übersteigt Ihr Transferbudget um ' + Fmt.money(ford - budget) +
-        '. Mit Raten und Boni kommen Sie trotzdem ins Geschäft.');
+        '. Mit Raten und Boni kommen Sie trotzdem ins Geschäft – oder Sie nehmen bei der Bank ' +
+        'einen Transferkredit auf, der das Budget direkt erhöht.');
     }
 
     return {

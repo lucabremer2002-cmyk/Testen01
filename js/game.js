@@ -2,7 +2,7 @@
 (function (g) {
   'use strict';
 
-  var VERSION = 1;
+  var VERSION = 2;
   var SPEICHER_KEY = 'fussballmanager_speicherstand_v1';
 
   var Game = {

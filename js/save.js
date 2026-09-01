@@ -211,10 +211,13 @@
     Game.rng = new RNG(d.rng);
     Game.rng.s = d.rng >>> 0;
 
-    /* Budgets nach den aktuellen Regeln neu berechnen, damit auch ältere
-       Spielstände ein durch Guthaben gedecktes Transferbudget bekommen. */
-    if (state.meinKlubId && state.klubs[state.meinKlubId]) {
-      Game.budgetsSetzen(state, state.klubs[state.meinKlubId]);
+    /* Ältere Spielstände kannten noch kein gedecktes Transferbudget – dort
+       wird es neu berechnet. Neuere Stände bleiben unangetastet, sonst ginge
+       ein aufgenommener Transferkredit beim Laden verloren. */
+    if (!d.v || d.v < 2) {
+      if (state.meinKlubId && state.klubs[state.meinKlubId]) {
+        Game.budgetsSetzen(state, state.klubs[state.meinKlubId]);
+      }
     }
     return state;
   }

@@ -168,6 +168,9 @@ Ligazugehörigkeit; ein Stadionname-Vertrag benennt das Stadion um.
   Eintrittspreisen und Ausstattung
 
 ### Bank
+- Zwei Verwendungszwecke: **Betriebsmittel** fließen auf das Konto,
+  ein **Transferkredit** erhöht zusätzlich das Transferbudget um denselben
+  Betrag – dafür verlangt die Bank 0,8 Prozentpunkte Aufschlag
 - Kreditrahmen und Zinssatz abhängig von Bonität, Liga und Laufzeit
 - Laufzeiten von einem bis zehn Jahren, wöchentliche Annuitätenrate
 - Sondertilgung mit 1 % Vorfälligkeitsentschädigung
@@ -180,6 +183,11 @@ Wöchentliche Abrechnung mit Spielergehältern, Trainerstab, Stadionunterhalt,
 Jugendarbeit, Sponsoreneinnahmen, Medienerlösen nach Tabellenplatz,
 Merchandising, Spieltagseinnahmen, Europapokalgeldern, Kreditraten und
 Transferraten – aufgeschlüsselt nach Posten für die laufende Saison.
+
+**Transferkredit.** Reicht das Transferbudget für einen Wunschspieler nicht,
+lässt es sich bei der Bank aufstocken. Der Kredit erhöht Kontostand und
+Transferbudget gleichermaßen; die Wochenrate läuft unabhängig davon weiter,
+ob sich der Einkauf sportlich auszahlt.
 
 **Betriebsreserve.** Acht Wochen laufende Kosten bleiben unangetastet. Alles
 darüber ist *frei verfügbar* – für Einkäufe, Stadionbau und Jugendarbeit.

@@ -265,7 +265,8 @@
       UI.kennzahl('Kontostand', Fmt.money(fin.kontostand), fin.kontostand < 0 ? 'im Dispo (' +
         (Finance.DISPO_ZINS * 100).toFixed(1).replace('.', ',') + ' % p. a.)' : '') +
       UI.kennzahl('Bonität', bonitaet + ' / 100', note) +
-      UI.kennzahl('Restschulden', Fmt.money(schulden), fin.kredite.length + ' laufende Kredite') +
+      UI.kennzahl('Restschulden', Fmt.money(schulden),
+        fin.kredite.length === 1 ? 'ein laufender Kredit' : fin.kredite.length + ' laufende Kredite') +
       UI.kennzahl('Freier Kreditrahmen', Fmt.money(rahmen), 'Wochenrate aktuell ' + Fmt.money(wochenRate)) +
       '</div>';
 
@@ -288,26 +289,35 @@
         'Verbessern Sie zuerst Ihre Bonität, indem Sie Schulden abbauen oder Einnahmen steigern.</p>';
     } else {
       html += '<div class="formularraster">' +
+        UI.feldAuswahl('Verwendungszweck', 'krZweck', [
+          ['betrieb', 'Betriebsmittel'], ['transfer', 'Transferkredit']
+        ], 'betrieb') +
         UI.feldZahl('Betrag (€)', 'krBetrag', Math.round(rahmen * 0.3 / 10000) * 10000, 10000, rahmen, 10000) +
         UI.feldAuswahl('Laufzeit', 'krJahre', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(function (j) {
           return [j, j + (j === 1 ? ' Jahr' : ' Jahre')];
         }), 4) +
         '</div>' +
+        '<p class="hinweis" id="krZweckText" style="margin-top:.3em"></p>' +
         '<p class="mini" id="krInfo"></p>' +
         '<button class="knopf knopf--haupt" id="krAufnehmen">Kredit aufnehmen</button>' +
         '<p class="mini" style="margin-top:.6em">Der Zinssatz hängt von Ihrer Bonität, der Ligazugehörigkeit ' +
-        'und der Laufzeit ab. Die Tilgung erfolgt wöchentlich als gleichbleibende Rate.</p>';
+        'und der Laufzeit ab. Die Tilgung erfolgt wöchentlich als gleichbleibende Rate und läuft ' +
+        'unabhängig davon weiter, ob sich der Einkauf sportlich auszahlt.</p>';
     }
     html += '</div>';
 
     if (fin.kredite.length) {
       html += '<div class="karte"><div class="karte__kopf"><h3>Laufende Kredite</h3></div>' +
         '<div class="tabellenrahmen"><table class="liste"><thead><tr><th>Aufgenommen</th>' +
+        '<th>Zweck</th>' +
         '<th class="zahl">Ursprung</th><th class="zahl">Restschuld</th><th class="zahl">Zins</th>' +
         '<th class="zahl">Wochenrate</th><th class="zahl">Restwochen</th><th class="zahl">Zinsen gezahlt</th>' +
         '<th></th></tr></thead><tbody>' +
         fin.kredite.map(function (k) {
+          var zw = Finance.ZWECKE[k.zweck] || Finance.ZWECKE.betrieb;
           return '<tr><td class="mini">' + Fmt.date(k.aufgenommenTag, st.saison) + '</td>' +
+            '<td><span class="marke' + (k.zweck === 'transfer' ? ' marke--akzent' : '') + '">' +
+            Util.esc(zw.name) + '</span></td>' +
             '<td class="zahl">' + Fmt.money(k.betrag) + '</td>' +
             '<td class="zahl"><b>' + Fmt.money(k.restschuld) + '</b></td>' +
             '<td class="zahl">' + (k.zinssatz * 100).toFixed(2).replace('.', ',') + ' %</td>' +
@@ -327,17 +337,30 @@
     function info() {
       var b = $('krBetrag'), j = $('krJahre'), el = $('krInfo');
       if (!b || !el) return;
+      var zweck = ($('krZweck') || {}).value || 'betrieb';
       var betrag = Math.max(0, +b.value || 0);
       var jahre = +j.value || 1;
-      var z = Finance.zinssatz(mein, fin, mein.stufe, jahre);
+      var z = Finance.zinssatz(mein, fin, mein.stufe, jahre, zweck);
       var iw = z / 52, wochen = jahre * 52;
       var rate = betrag * iw / (1 - Math.pow(1 + iw, -wochen));
-      el.innerHTML = 'Zinssatz: <b>' + (z * 100).toFixed(2).replace('.', ',') + ' %</b> pro Jahr · ' +
-        'Wochenrate: <b>' + Fmt.money(rate) + '</b> · ' +
+      var zt = $('krZweckText');
+      if (zt) {
+        zt.innerHTML = Util.esc(Finance.ZWECKE[zweck].text) +
+          (zweck === 'transfer'
+            ? ' Ihr Transferbudget stiege damit von <b>' + Fmt.money(fin.transferbudget) +
+              '</b> auf <b>' + Fmt.money(fin.transferbudget + betrag) + '</b>.'
+            : '');
+      }
+      var mehr = Finance.zinssatz(mein, fin, mein.stufe, jahre, 'transfer') -
+                 Finance.zinssatz(mein, fin, mein.stufe, jahre, 'betrieb');
+      el.innerHTML = 'Zinssatz: <b>' + (z * 100).toFixed(2).replace('.', ',') + ' %</b> pro Jahr' +
+        (zweck === 'transfer' ? ' <span class="mini">(inklusive ' +
+          (mehr * 100).toFixed(1).replace('.', ',') + ' Punkte Aufschlag)</span>' : '') +
+        ' · Wochenrate: <b>' + Fmt.money(rate) + '</b> · ' +
         'Gesamtrückzahlung: <b>' + Fmt.money(rate * wochen) + '</b> ' +
         '(Zinskosten ' + Fmt.money(rate * wochen - betrag) + ')';
     }
-    ['krBetrag', 'krJahre'].forEach(function (id) {
+    ['krBetrag', 'krJahre', 'krZweck'].forEach(function (id) {
       var el = $(id);
       if (el) el.oninput = el.onchange = info;
     });
@@ -347,13 +370,19 @@
     if (b) b.onclick = function () {
       var betrag = Math.max(0, +$('krBetrag').value || 0);
       var jahre = +$('krJahre').value || 1;
-      var r = Finance.kreditAufnehmen(mein, fin, mein.stufe, betrag, jahre, st.tag);
+      var zweck = $('krZweck').value;
+      var r = Finance.kreditAufnehmen(mein, fin, mein.stufe, betrag, jahre, st.tag, zweck);
       if (!r.ok) { UI.toast(r.grund); return; }
-      UI.toast('Kredit über ' + Fmt.money(betrag) + ' aufgenommen.');
-      Game.post(st, 'Kredit aufgenommen',
-        'Die Bank hat einen Kredit über ' + Fmt.money(betrag) + ' zu ' +
+      UI.toast(zweck === 'transfer'
+        ? 'Transferkredit über ' + Fmt.money(betrag) + ' aufgenommen – das Transferbudget ist erhöht.'
+        : 'Kredit über ' + Fmt.money(betrag) + ' aufgenommen.');
+      Game.post(st, Finance.ZWECKE[zweck].name + ' aufgenommen',
+        'Die Bank hat ' + Fmt.money(betrag) + ' zu ' +
         (r.kredit.zinssatz * 100).toFixed(2).replace('.', ',') + ' % über ' + jahre +
-        ' Jahre bewilligt. Wochenrate: ' + Fmt.money(r.kredit.rate) + '.', 'geld');
+        ' Jahre bewilligt. Wochenrate: ' + Fmt.money(r.kredit.rate) + '.' +
+        (zweck === 'transfer'
+          ? ' Das Transferbudget beträgt jetzt ' + Fmt.money(fin.transferbudget) + '.'
+          : ''), 'geld');
       UI.zeichne();
     };
 
@@ -454,7 +483,8 @@
             '<td class="zahl">' + p.alter + '</td>' +
             '<td class="zahl">' + p.staerke + '</td>' +
             '<td class="zahl">' + (sch.interessenten
-              ? Fmt.money(sch.erwartet) + ' <span class="mini">(' + sch.interessenten + ' Interessenten)</span>'
+              ? Fmt.money(sch.erwartet) + ' <span class="mini">(' + sch.interessenten +
+                (sch.interessenten === 1 ? ' Interessent)' : ' Interessenten)') + '</span>'
               : '<span class="mini">kein Interesse</span>') + '</td>' +
             '<td class="zahl">' + Fmt.money(p.gehalt * 52) + '</td>' +
             '<td class="zahl">' + Math.round(anteil) + ' %' +

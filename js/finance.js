@@ -372,23 +372,33 @@
     return Math.max(0, Math.round((max - restschuld(fin)) / 10000) * 10000);
   }
 
-  function zinssatz(klub, fin, stufe, jahre) {
+  var ZWECKE = {
+    betrieb: { name: 'Betriebsmittel', aufschlag: 0,
+      text: 'Fließt auf das Konto und deckt laufende Kosten, Bauvorhaben oder Gehälter.' },
+    transfer: { name: 'Transferkredit', aufschlag: 0.008,
+      text: 'Fließt auf das Konto und erhöht zusätzlich das Transferbudget um denselben Betrag. ' +
+            'Die Bank lässt sich das Risiko mit einem Aufschlag bezahlen.' }
+  };
+
+  function zinssatz(klub, fin, stufe, jahre, zweck) {
     var b = bonitaet(klub, fin, stufe);
     var basis = 0.031 + (100 - b) / 100 * 0.115;
     basis += (jahre - 1) * 0.0032;
     if (stufe >= 3) basis += 0.012;
     if (stufe === 4) basis += 0.010;
+    basis += (ZWECKE[zweck] || ZWECKE.betrieb).aufschlag;
     return Math.round(basis * 10000) / 10000;
   }
 
   var kreditZaehler = 0;
 
-  function kreditAufnehmen(klub, fin, stufe, betrag, jahre, tag) {
+  function kreditAufnehmen(klub, fin, stufe, betrag, jahre, tag, zweck) {
     betrag = Math.round(betrag);
     if (betrag <= 0) return { ok: false, grund: 'Ungültiger Betrag.' };
+    zweck = ZWECKE[zweck] ? zweck : 'betrieb';
     var rahmen = kreditRahmen(klub, fin, stufe);
     if (betrag > rahmen) return { ok: false, grund: 'Die Bank gewährt höchstens ' + Fmt.money(rahmen) + '.' };
-    var z = zinssatz(klub, fin, stufe, jahre);
+    var z = zinssatz(klub, fin, stufe, jahre, zweck);
     var wochen = jahre * 52;
     /* Annuitaet auf Wochenbasis */
     var iw = z / 52;
@@ -403,10 +413,14 @@
       restWochen: wochen,
       rate: Math.round(rate),
       aufgenommenTag: tag,
-      gezahlteZinsen: 0
+      gezahlteZinsen: 0,
+      zweck: zweck
     };
     fin.kredite.push(kredit);
-    buchen(fin, tag, 'Bank', 'Kreditauszahlung (' + jahre + ' Jahre, ' + (z * 100).toFixed(2).replace('.', ',') + ' %)', betrag, 'Kredite');
+    buchen(fin, tag, 'Bank', ZWECKE[zweck].name + ' (' + jahre + ' Jahre, ' +
+      (z * 100).toFixed(2).replace('.', ',') + ' %)', betrag, 'Kredite');
+    /* Der zweckgebundene Kredit erhöht auch den Rahmen für Ablösesummen. */
+    if (zweck === 'transfer') fin.transferbudget += betrag;
     return { ok: true, kredit: kredit };
   }
 
@@ -481,6 +495,7 @@
     verpflichtungenWoche: verpflichtungenWoche,
     bonitaet: bonitaet,
     kreditRahmen: kreditRahmen,
+    ZWECKE: ZWECKE,
     zinssatz: zinssatz,
     kreditAufnehmen: kreditAufnehmen,
     sondertilgung: sondertilgung,

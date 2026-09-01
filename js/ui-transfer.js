@@ -301,7 +301,8 @@
             Fmt.money(frei) + '. Verteilen Sie den Betrag auf Raten.</span>';
         } else if (a.sofort > mein.finanzen.transferbudget) {
           text += ' <span class="schlecht">Die Sofortzahlung übersteigt Ihr Transferbudget von ' +
-            Fmt.money(mein.finanzen.transferbudget) + '.</span>';
+            Fmt.money(mein.finanzen.transferbudget) + '.</span> Ein Transferkredit bei der Bank ' +
+            'würde das Budget erhöhen.';
         }
         el.innerHTML = text;
       }
