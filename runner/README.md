@@ -21,7 +21,8 @@ python3 -m http.server 8000
 | Taste | Wirkung |
 | --- | --- |
 | `Leertaste` / `W` / `↑` | Springen – laenger gedrueckt springt hoeher, ein zweiter Druck in der Luft ist der Doppelsprung |
-| `S` / `↓` | Am Boden rutschen, in der Luft schneller fallen |
+| `S` / `↓` | Rutschen, solange gehalten; in der Luft schneller fallen |
+| `A` `D` / `←` `→` | Zuruecknehmen und vorpreschen (siehe unten) |
 | `Shift` / `X` | Dash – kurzer Vorwaertsschub, zerlegt Kisten und macht kurz unverwundbar |
 | `E` / `Q` | Hyper-Modus zuenden, sobald die Leiste voll ist |
 | `P` / `Esc` | Pause |
@@ -29,9 +30,45 @@ python3 -m http.server 8000
 | `M` | Ton an/aus |
 | `Enter` | Starten bzw. Pause aufheben |
 
-Auf Touchgeraeten gibt es eine Schaltflaechenleiste. Zusaetzlich funktionieren
-Gesten auf der Spielflaeche: tippen springt, nach unten wischen rutscht, nach
-rechts wischen loest den Dash aus, nach oben wischen zuendet den Hyper-Modus.
+**Gamepad** wird automatisch erkannt: A oder Steuerkreuz oben springt, X oder
+Steuerkreuz unten rutscht, B und die Schultertasten sind der Dash, Y zuendet
+den Hyper-Modus, der linke Stick und das Steuerkreuz lenken, Start pausiert.
+
+**Beruehrung**: Die gesamte Spielflaeche ist die Sprungtaste – der Sprung
+loest beim Aufsetzen des Fingers aus, laenger halten springt hoeher. Darunter
+liegt eine Knopfreihe fuer Lenken, Rutschen, Dash und Hyper. Wischgesten auf
+der Flaeche gehen ebenfalls: nach unten rutscht, nach rechts loest den Dash
+aus, nach oben zuendet den Hyper-Modus.
+
+### Zuruecknehmen und vorpreschen
+
+Die Figur steht nicht starr auf einer Stelle. Mit `A` und `D` (oder dem Stick)
+laesst sie sich zwischen 115 und 415 Pixeln Bildschirmposition verschieben:
+zurueckgenommen sieht man mehr von der Strecke und hat mehr Zeit zum
+Reagieren, vorgeschoben erreicht man eine Muenzreihe oder die andere Seite
+einer Grube frueher. Ohne Eingabe gleitet die Figur langsam auf ihre
+Grundposition zurueck.
+
+### Wie sich die Steuerung verhaelt
+
+Alle Eingabequellen – Tastatur, Finger, Gamepad – melden dieselben Aktionen an
+dieselbe Schicht. Damit verhaelt sich jeder Sprung ueberall gleich:
+
+* **Eingabepuffer (150 ms)** – wer kurz vor der Landung springt, springt bei
+  der Landung. Auch ein zu frueh gedrueckter Dash wird nachgeholt.
+* **Coyote-Time (120 ms)** – nach dem Verlassen einer Kante bleibt der Sprung
+  noch kurz moeglich.
+* **Mindesthaltezeit (55 ms)** – vorher wird ein Sprung nie gekappt. Ein
+  kurzer Tipp ergibt darum immer denselben sichtbaren Huepfer (66 px), ein
+  gehaltener Knopf den vollen Sprung (148 px).
+* **Laengerer Scheitelpunkt** – nahe dem hoechsten Punkt wirkt nur 62 Prozent
+  der Schwerkraft, beim Fallen dagegen 125 Prozent. Das gibt oben Zeit zum
+  Zielen und unten einen zackigen Fall.
+* **Kopffreiheit** – wer die Rutschtaste unter einer Drohne loslaesst, bleibt
+  unten, bis wieder Platz ist, statt in das Hindernis aufzustehen.
+* **Zeiger wird festgehalten** – rutscht der Finger vom Knopf, bleibt die
+  Taste gedrueckt, statt den Sprung mitten im Flug abzuschneiden.
+* Beim Fensterwechsel werden alle Tasten geloest, es klemmt nichts.
 
 ## Features
 
@@ -41,9 +78,12 @@ rechts wischen loest den Dash aus, nach oben wischen zuendet den Hyper-Modus.
 * **Sieben Zonen** mit komplett eigener Farbwelt, die alle 650 Meter wechseln
   und ineinander ueberblenden: Neonstadt, Kristalltal, Lavafeld,
   Giftdschungel, Tiefsee, Sonnensturm, Magentawueste.
-* **Sprunggefuehl** mit variabler Sprunghoehe, Doppelsprung, Coyote-Time
-  (100 ms Gnadenfrist nach der Kante) und Sprungpuffer (120 ms vor der
-  Landung) – Eingaben gehen dadurch praktisch nie verloren.
+* **Sprunggefuehl** mit variabler Sprunghoehe, Doppelsprung, Coyote-Time,
+  Eingabepuffer und laengerem Scheitelpunkt – Eingaben gehen praktisch nie
+  verloren, und jede Eingabequelle fuehlt sich gleich an.
+* **Lenken** zwischen 115 und 415 Pixeln Bildschirmposition, um sich mehr Zeit
+  zu verschaffen oder frueher am Ziel zu sein.
+* **Gamepad-Unterstuetzung** ueber die Gamepad-API, ohne Einrichtung.
 * **Vier Power-ups**: Schild (faengt einen Treffer ab), Magnet (zieht Muenzen
   an), doppelte Punkte und Zeitlupe.
 * **Hyper-Modus**: Muenzen und knappe Ausweichmanoever fuellen die Leiste. Ist
@@ -90,6 +130,7 @@ game.js      Spiellogik, Streckenerzeugung, Ton und Rendering
   CSS skaliert; die Aufloesung folgt `devicePixelRatio` (hoechstens 2×).
 * Grubenweiten werden aus der aktuellen Geschwindigkeit abgeleitet
   (`min(330, Tempo × 0,44)`) und liegen damit stets unter der Reichweite eines
-  einzelnen Sprungs – jede Luecke ist ohne Doppelsprung ueberwindbar.
+  einzelnen Sprungs – gemessen ueber 533 erzeugte Gruben braucht die breiteste
+  54 Prozent der Reichweite, jede Luecke ist ohne Doppelsprung ueberwindbar.
 * Objekte hinter der Kamera werden jeden Frame verworfen, die Partikelzahl ist
   auf 420 begrenzt.

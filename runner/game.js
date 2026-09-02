@@ -18,16 +18,25 @@
   var W = 960;                  // logische Breite der Zeichenflaeche
   var H = 540;                  // logische Hoehe
   var GROUND_Y = 424;           // Oberkante des Bodens
-  var PLAYER_X = 210;           // feste Bildschirmposition der Figur
+  var PLAYER_X = 210;           // Grundposition der Figur auf dem Bildschirm
   var STEP = 1 / 120;           // fester Physikschritt in Sekunden
   var PX_PER_M = 12;            // Weltpixel pro Meter
 
   var GRAVITY = 2500;
-  var JUMP_V = 860;             // ergibt rund 148 px Sprunghoehe
+  var JUMP_V = 860;             // ergibt rund 152 px Sprunghoehe
   var JUMP_CUT = 0.42;          // Restimpuls beim fruehen Loslassen
-  var COYOTE = 0.10;            // Gnadenfrist nach dem Verlassen der Kante
-  var JUMP_BUFFER = 0.12;       // vorgemerkter Sprung kurz vor der Landung
+  var MIN_JUMP_HOLD = 0.055;    // vorher wird nie gekappt - jeder Tipp huepft sichtbar
+  var COYOTE = 0.12;            // Gnadenfrist nach dem Verlassen der Kante
+  var INPUT_BUFFER = 0.15;      // so lange wartet ein zu frueh gedrueckter Knopf
   var FAST_FALL = 2.6;
+  var APEX_VY = 190;            // Geschwindigkeitsfenster um den Scheitelpunkt
+  var APEX_GRAVITY = 0.62;      // dort haengt die Figur laenger in der Luft
+  var FALL_GRAVITY = 1.25;      // dafuer faellt sie danach zackiger
+
+  var LEAN_BACK = 95;           // so weit laesst sich die Figur zuruecknehmen
+  var LEAN_FWD = 205;           // und so weit nach vorn schieben
+  var LEAN_SPEED = 360;         // px/s beim Lenken
+  var LEAN_HOME = 175;          // px/s zurueck auf die Grundposition
 
   var SPEED_MIN = 360;
   var SPEED_MAX = 960;
@@ -37,8 +46,9 @@
   var DASH_CD = 1.05;
   var DASH_BOOST = 640;
 
-  var SLIDE_TIME = 0.62;
-  var SLIDE_CD = 0.22;
+  var SLIDE_MIN = 0.20;         // kuerzestes Rutschen, damit ein Tipp nicht zuckt
+  var SLIDE_MAX = 1.20;         // laenger nur, solange etwas ueber dem Kopf haengt
+  var SLIDE_CD = 0.20;
 
   var PW = 36;                  // Breite der Figur
   var PH = 48;                  // Hoehe stehend
@@ -279,10 +289,35 @@
   var state = 'ready';          // ready | play | pause | over
   var G = null;                 // Laufender Spielzustand
 
-  var input = {
-    up: false, down: false, dash: false,
-    jumpQueued: false, dashQueued: false, hyperQueued: false
-  };
+  // Tastatur, Beruehrung und Gamepad melden alle dieselben Aktionen an. Jede
+  // merkt sich, ob sie gehalten wird und wann sie zuletzt gedrueckt wurde -
+  // daraus entsteht der Eingabepuffer, der zu fruehe Druecke aufhebt.
+  var ACTIONS = ['jump', 'slide', 'dash', 'hyper', 'left', 'right'];
+  var input = {};
+  (function () {
+    for (var i = 0; i < ACTIONS.length; i++) input[ACTIONS[i]] = { held: false, buffer: 0 };
+  }());
+
+  function press(name) {
+    var a = input[name];
+    if (!a) return;
+    a.buffer = INPUT_BUFFER;
+    a.held = true;
+  }
+
+  function release(name) {
+    var a = input[name];
+    if (a) a.held = false;
+  }
+
+  function held(name) { return input[name].held; }
+
+  function releaseAll() {
+    for (var i = 0; i < ACTIONS.length; i++) {
+      input[ACTIONS[i]].held = false;
+      input[ACTIONS[i]].buffer = 0;
+    }
+  }
 
   function newGame() {
     G = {
@@ -302,7 +337,6 @@
       h: PH,
       onGround: true,
       coyote: COYOTE,
-      buffer: 0,
       jumps: 0,
       sliding: false,
       slideT: 0,
@@ -312,6 +346,10 @@
       inv: 0,
       shield: 0,
       run: 0,                   // Laufanimation
+      screenX: PLAYER_X,        // Bildschirmposition, per Lenken verschiebbar
+      lean: 0,
+      jumpAge: 9,               // Zeit seit dem letzten Absprung
+      cutArmed: false,          // darf der laufende Sprung noch gekappt werden?
 
       hyperT: 0,
       meter: 0,
@@ -594,8 +632,6 @@
 
   // ------------------------------------------------------------------ Eingabe
 
-  function queueJump() { input.jumpQueued = true; }
-
   function multiplier() {
     var m = 1 + Math.floor(G.combo / 8);
     if (m > 8) m = 8;
@@ -611,30 +647,46 @@
       G.jumps = 1;
       G.onGround = false;
       G.coyote = 0;
+      G.jumpAge = 0;
+      G.cutArmed = true;
       endSlide();
       Sound.jump();
-      burst(G.worldX + PLAYER_X + PW / 2, G.py + G.h, 10, {
+      burst(G.worldX + G.screenX + PW / 2, G.py + G.h, 10, {
         angle: Math.PI / 2, spread: 0.9, minSpeed: 60, maxSpeed: 180, grav: 400, hue: G.hue + 160
       });
     } else if (G.jumps < 2) {
       G.vy = -JUMP_V * 0.9;
       G.jumps = 2;
+      G.jumpAge = 0;
+      G.cutArmed = true;
       endSlide();
       Sound.dJump();
-      burst(G.worldX + PLAYER_X + PW / 2, G.py + G.h / 2, 18, {
+      burst(G.worldX + G.screenX + PW / 2, G.py + G.h / 2, 18, {
         minSpeed: 90, maxSpeed: 260, grav: 260, hue: G.hue + 200, hueSpread: 70, square: true
       });
     }
   }
 
+  // Steht etwas ueber der rutschenden Figur, darf sie nicht aufstehen.
+  function canStand() {
+    if (!G.sliding) return true;
+    var box = { x: G.worldX + G.screenX, y: G.py + G.h - PH, w: PW, h: PH };
+    for (var i = 0; i < G.obstacles.length; i++) {
+      var o = G.obstacles[i];
+      if (o.dead || o.x > G.worldX + W || o.x + 120 < G.worldX + G.screenX) continue;
+      if (aabb(box, obstacleBox(o))) return false;
+    }
+    return true;
+  }
+
   function startSlide() {
     if (G.sliding) return;
     G.sliding = true;
-    G.slideT = SLIDE_TIME;
+    G.slideT = 0;
     G.py += G.h - PH_SLIDE;
     G.h = PH_SLIDE;
     Sound.slide();
-    burst(G.worldX + PLAYER_X, GROUND_Y, 12, {
+    burst(G.worldX + G.screenX, GROUND_Y, 12, {
       angle: Math.PI, spread: 0.6, minSpeed: 120, maxSpeed: 300, grav: 700, hue: G.hue + 120
     });
   }
@@ -645,6 +697,7 @@
     G.py -= PH - PH_SLIDE;
     G.h = PH;
     G.slideCD = SLIDE_CD;
+    G.slideT = 0;
   }
 
   function doDash() {
@@ -655,7 +708,7 @@
     endSlide();
     Sound.dash();
     shake(7);
-    burst(G.worldX + PLAYER_X, G.py + G.h / 2, 22, {
+    burst(G.worldX + G.screenX, G.py + G.h / 2, 22, {
       angle: Math.PI, spread: 0.7, minSpeed: 200, maxSpeed: 520, grav: 0,
       hue: G.hue + 190, hueSpread: 60, maxLife: 0.5
     });
@@ -672,7 +725,7 @@
     shake(16);
     flash(0.85, G.hue + 180);
     toast('HYPER!', 55);
-    burst(G.worldX + PLAYER_X + PW / 2, G.py + G.h / 2, 90, {
+    burst(G.worldX + G.screenX + PW / 2, G.py + G.h / 2, 90, {
       minSpeed: 200, maxSpeed: 720, grav: 0, hueSpread: 180, maxLife: 0.9, maxSize: 9
     });
   }
@@ -740,30 +793,66 @@
     var baseMult = (G.powers.x2 > 0 ? 2 : 1) * (G.hyperT > 0 ? 3 : 1);
     G.score += (moved / PX_PER_M) * baseMult;
 
-    // --- Sprungpuffer und Coyote-Time
-    if (input.jumpQueued) { G.buffer = JUMP_BUFFER; input.jumpQueued = false; }
-    if (G.buffer > 0) {
-      G.buffer -= dt;
-      if (G.onGround || G.coyote > 0 || G.jumps < 2) { doJump(); G.buffer = 0; }
+    // --- Eingabe: erst die Puffer altern lassen, dann auswerten
+    for (var ai = 0; ai < ACTIONS.length; ai++) {
+      var slot = input[ACTIONS[ai]];
+      if (slot.buffer > 0) slot.buffer = Math.max(0, slot.buffer - dt);
     }
-    if (!input.up && G.upPrev && G.vy < 0 && G.hyperT <= 0) G.vy *= JUMP_CUT;
-    G.upPrev = input.up;
 
-    if (input.down && !G.downPrev && G.onGround && G.slideCD <= 0 && G.hyperT <= 0) startSlide();
-    G.downPrev = input.down;
+    // Springen: ein gepufferter Druck loest aus, sobald er darf. Damit gehen
+    // weder zu frueh gedrueckte noch knapp verpasste Spruenge verloren.
+    G.jumpAge += dt;
+    if (input.jump.buffer > 0 && (G.onGround || G.coyote > 0 || G.jumps < 2)) {
+      input.jump.buffer = 0;
+      doJump();
+    }
+    // Gekappt wird erst nach der Mindesthaltezeit. So huepft auch ein ganz
+    // kurzer Tipp sichtbar - egal ob von Taste, Finger oder Gamepad.
+    if (G.cutArmed) {
+      if (G.vy >= 0 || G.hyperT > 0) G.cutArmed = false;
+      else if (!held('jump') && G.jumpAge >= MIN_JUMP_HOLD) {
+        G.vy *= JUMP_CUT;
+        G.cutArmed = false;
+      }
+    }
 
-    if (input.dashQueued) { input.dashQueued = false; doDash(); }
-    if (input.hyperQueued) { input.hyperQueued = false; doHyper(); }
-
+    // Rutschen: der Druck darf schon in der Luft kommen und greift bei der
+    // Landung. Gehalten wird weitergerutscht, losgelassen steht die Figur auf -
+    // aber nur, wenn ueber ihr Platz ist.
+    if ((input.slide.buffer > 0 || held('slide')) &&
+        G.onGround && !G.sliding && G.slideCD <= 0 && G.hyperT <= 0) {
+      input.slide.buffer = 0;
+      startSlide();
+    }
     if (G.sliding) {
-      G.slideT -= dt;
-      if (G.slideT <= 0 || !G.onGround) endSlide();
+      G.slideT += dt;
+      var blockiert = !canStand();
+      if (!G.onGround) endSlide();
+      else if (!blockiert && (G.slideT >= SLIDE_MAX || (G.slideT >= SLIDE_MIN && !held('slide')))) endSlide();
     }
+
+    // Dash und Hyper warten im Puffer, bis sie verfuegbar sind.
+    if (input.dash.buffer > 0 && G.dashCD <= 0 && G.hyperT <= 0) {
+      input.dash.buffer = 0;
+      doDash();
+    }
+    if (input.hyper.buffer > 0 && G.meter >= 100 && G.hyperT <= 0) {
+      input.hyper.buffer = 0;
+      doHyper();
+    }
+
+    // --- Lenken: die Figur laesst sich zuruecknehmen und nach vorn schieben
+    var leanDir = (held('right') ? 1 : 0) - (held('left') ? 1 : 0);
+    var leanZiel = PLAYER_X + (leanDir > 0 ? LEAN_FWD : (leanDir < 0 ? -LEAN_BACK : 0));
+    var leanTempo = (leanDir === 0 ? LEAN_HOME : LEAN_SPEED) * dt;
+    if (G.screenX < leanZiel) G.screenX = Math.min(leanZiel, G.screenX + leanTempo);
+    else if (G.screenX > leanZiel) G.screenX = Math.max(leanZiel, G.screenX - leanTempo);
+    G.lean = (G.screenX - PLAYER_X) / LEAN_FWD;
 
     // --- Senkrechte Bewegung
     var prevBottom = G.py + G.h;
     if (G.hyperT > 0) {
-      var want = (input.up ? -1 : 0) + (input.down ? 1 : 0);
+      var want = (held('jump') ? -1 : 0) + (held('slide') ? 1 : 0);
       G.vy = lerp(G.vy, want * 430, Math.min(1, dt * 9));
       G.py += G.vy * dt;
       G.py = clamp(G.py, 46, GROUND_Y - G.h);
@@ -772,13 +861,16 @@
     } else if (G.dashT > 0) {
       G.vy = 0;                                  // Der Dash haelt die Hoehe
     } else {
-      var g = GRAVITY * (!G.onGround && input.down ? FAST_FALL : 1);
+      var g = GRAVITY;
+      if (Math.abs(G.vy) < APEX_VY) g *= APEX_GRAVITY;   // laengerer Scheitelpunkt
+      else if (G.vy > 0) g *= FALL_GRAVITY;              // danach zackiger Fall
+      if (!G.onGround && held('slide')) g = GRAVITY * FAST_FALL;
       G.vy += g * dt;
       G.py += G.vy * dt;
     }
 
     // --- Landung auf Boden und Absaetzen
-    var px = G.worldX + PLAYER_X;
+    var px = G.worldX + G.screenX;
     if (G.hyperT <= 0) {
       var landed = false;
       for (var i = 0; i < G.platforms.length; i++) {
@@ -999,7 +1091,7 @@
       toast('ZONE: ' + ZONES[z].name, ZONES[z].hue);
       flash(0.35, ZONES[z].hue);
       el.zone.textContent = ZONES[z].name;
-      burst(G.worldX + PLAYER_X + PW / 2, G.py + G.h / 2, 40, {
+      burst(G.worldX + G.screenX + PW / 2, G.py + G.h / 2, 40, {
         minSpeed: 160, maxSpeed: 520, grav: 0, hue: ZONES[z].hue, hueSpread: 90, maxLife: 0.9
       });
     }
@@ -1013,7 +1105,7 @@
     Sound.hit();
     shake(24);
     flash(0.8, 0);
-    var px = G.worldX + PLAYER_X + PW / 2;
+    var px = G.worldX + G.screenX + PW / 2;
     burst(px, G.py + G.h / 2, 80, {
       minSpeed: 140, maxSpeed: 620, grav: 1100, hueSpread: 120, maxLife: 1.1, maxSize: 9, square: true
     });
@@ -1395,7 +1487,7 @@
   }
 
   function drawPlayer() {
-    var x = PLAYER_X, y = G.py, h = G.h;
+    var x = G.screenX, y = G.py, h = G.h;
     var hyper = G.hyperT > 0;
     var hue = hyper ? (G.time * 700) % 360 : (G.hue + 165) % 360;
 
@@ -1657,6 +1749,7 @@
   }
 
   function startGame() {
+    releaseAll();
     newGame();
     lastPowerKey = '';
     el.zone.textContent = ZONES[0].name;
@@ -1670,110 +1763,185 @@
     else if (state === 'pause') { state = 'play'; hideOverlay(); }
   }
 
+  // Ein Druck auf die Sprungtaste startet, entpausiert oder springt.
   function primaryAction() {
     Sound.resume();
     if (state === 'ready' || state === 'over') startGame();
     else if (state === 'pause') togglePause();
-    else queueJump();
+    else press('jump');
   }
 
   // ------------------------------------------------------------------ Eingabe
 
-  var HOLD_KEYS = {
-    Space: 'up', ArrowUp: 'up', KeyW: 'up',
-    ArrowDown: 'down', KeyS: 'down',
-    ShiftLeft: 'dash', ShiftRight: 'dash', KeyX: 'dash'
+  var KEY_ACTION = {
+    Space: 'jump', ArrowUp: 'jump', KeyW: 'jump',
+    ArrowDown: 'slide', KeyS: 'slide',
+    ArrowLeft: 'left', KeyA: 'left',
+    ArrowRight: 'right', KeyD: 'right',
+    ShiftLeft: 'dash', ShiftRight: 'dash', KeyX: 'dash',
+    KeyE: 'hyper', KeyQ: 'hyper'
   };
 
   window.addEventListener('keydown', function (e) {
     var code = e.code;
-    if (HOLD_KEYS[code] || code === 'KeyP' || code === 'Escape' || code === 'KeyR' ||
-        code === 'KeyM' || code === 'KeyE' || code === 'Enter') {
+    if (KEY_ACTION[code] || code === 'KeyP' || code === 'Escape' ||
+        code === 'KeyR' || code === 'KeyM' || code === 'Enter') {
       e.preventDefault();
     }
     if (e.repeat) return;
 
+    var action = KEY_ACTION[code];
+    if (action) {
+      if (action === 'jump') primaryAction();
+      else { Sound.resume(); press(action); }
+      return;
+    }
+
     switch (code) {
-      case 'Space': case 'ArrowUp': case 'KeyW':
-        input.up = true;
-        primaryAction();
-        break;
-      case 'Enter':
-        primaryAction();
-        break;
-      case 'ArrowDown': case 'KeyS':
-        input.down = true;
-        break;
-      case 'ShiftLeft': case 'ShiftRight': case 'KeyX':
-        input.dash = true;
-        if (state === 'play') input.dashQueued = true;
-        break;
-      case 'KeyE': case 'KeyQ':
-        if (state === 'play') input.hyperQueued = true;
-        break;
-      case 'KeyP': case 'Escape':
-        togglePause();
-        break;
-      case 'KeyR':
-        startGame();
-        break;
-      case 'KeyM':
-        el.soundState.textContent = Sound.toggle() ? 'an' : 'aus';
-        break;
+      case 'Enter': primaryAction(); break;
+      case 'KeyP': case 'Escape': togglePause(); break;
+      case 'KeyR': startGame(); break;
+      case 'KeyM': el.soundState.textContent = Sound.toggle() ? 'an' : 'aus'; break;
     }
   });
 
   window.addEventListener('keyup', function (e) {
-    var slot = HOLD_KEYS[e.code];
-    if (slot) input[slot] = false;
+    var action = KEY_ACTION[e.code];
+    if (action) release(action);
   });
 
-  // Beruehrung: Schaltflaechen und Tippen auf die Flaeche
+  // Beim Fensterwechsel keine haengenden Tasten zuruecklassen.
+  window.addEventListener('blur', releaseAll);
+
+  // -------------------------------------------------------------- Beruehrung
+
   function bindTouch(btn) {
-    var act = btn.getAttribute('data-act');
-    var press = function (e) {
+    var action = btn.getAttribute('data-act');
+    var down = function (e) {
       e.preventDefault();
-      Sound.resume();
-      if (act === 'jump') primaryAction();
-      else if (act === 'slide') input.down = true;
-      else if (act === 'dash') { if (state === 'play') input.dashQueued = true; }
-      else if (act === 'hyper') { if (state === 'play') input.hyperQueued = true; }
+      // Der Zeiger wird festgehalten: rutscht der Finger vom Knopf, bleibt die
+      // Taste trotzdem gedrueckt, statt den Sprung mitten im Flug zu kappen.
+      if (btn.setPointerCapture && e.pointerId !== undefined) {
+        try { btn.setPointerCapture(e.pointerId); } catch (err) { /* nicht schlimm */ }
+      }
+      btn.classList.add('down');
+      if (action === 'jump') primaryAction();
+      else { Sound.resume(); press(action); }
     };
-    var release = function (e) {
+    var up = function (e) {
       e.preventDefault();
-      if (act === 'slide') input.down = false;
-      if (act === 'jump') input.up = false;
+      btn.classList.remove('down');
+      release(action);
     };
-    btn.addEventListener('pointerdown', press);
-    btn.addEventListener('pointerup', release);
-    btn.addEventListener('pointercancel', release);
-    btn.addEventListener('pointerleave', release);
+    btn.addEventListener('pointerdown', down);
+    btn.addEventListener('pointerup', up);
+    btn.addEventListener('pointercancel', up);
     btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-    if (act === 'jump') btn.addEventListener('pointerdown', function () { input.up = true; });
   }
 
   var touchButtons = el.touch.querySelectorAll('button');
   for (var b = 0; b < touchButtons.length; b++) bindTouch(touchButtons[b]);
 
-  // Wischgesten auf der Spielflaeche
+  // Die gesamte Spielflaeche ist die Sprungtaste: der Sprung loest beim
+  // Aufsetzen des Fingers aus, laenger halten springt hoeher. Wischen loest
+  // zusaetzlich Rutschen, Dash oder Hyper aus.
   var swipe = null;
+
   canvas.addEventListener('pointerdown', function (e) {
-    swipe = { x: e.clientX, y: e.clientY, t: performance.now(), used: false };
-    input.up = true;
+    e.preventDefault();
+    if (canvas.setPointerCapture && e.pointerId !== undefined) {
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* nicht schlimm */ }
+    }
+    swipe = { x: e.clientX, y: e.clientY, action: 'jump' };
+    primaryAction();
   });
+
   canvas.addEventListener('pointermove', function (e) {
-    if (!swipe || swipe.used) return;
-    var dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
-    if (dy > 42 && Math.abs(dy) > Math.abs(dx)) { swipe.used = true; input.down = true; setTimeout(function () { input.down = false; }, 320); }
-    else if (dx > 52 && Math.abs(dx) > Math.abs(dy)) { swipe.used = true; if (state === 'play') input.dashQueued = true; }
-    else if (dy < -70 && Math.abs(dy) > Math.abs(dx)) { swipe.used = true; if (state === 'play') input.hyperQueued = true; }
+    if (!swipe || swipe.action !== 'jump' || state !== 'play') return;
+    var dx = e.clientX - swipe.x;
+    var dy = e.clientY - swipe.y;
+    if (dy > 46 && dy > Math.abs(dx)) {
+      release('jump');
+      swipe.action = 'slide';
+      press('slide');
+    } else if (dx > 64 && dx > Math.abs(dy)) {
+      release('jump');
+      swipe.action = 'dash';
+      press('dash');
+      release('dash');
+    } else if (-dy > 76 && -dy > Math.abs(dx)) {
+      release('jump');
+      swipe.action = 'hyper';
+      press('hyper');
+      release('hyper');
+    }
   });
-  canvas.addEventListener('pointerup', function (e) {
-    input.up = false;
-    if (swipe && !swipe.used && performance.now() - swipe.t < 320) primaryAction();
+
+  function endSwipe() {
+    if (swipe) release(swipe.action);
+    else release('jump');
     swipe = null;
+  }
+
+  canvas.addEventListener('pointerup', endSwipe);
+  canvas.addEventListener('pointercancel', endSwipe);
+
+  // ----------------------------------------------------------------- Gamepad
+
+  var PAD_BUTTONS = [
+    [0, 'jump'], [12, 'jump'],
+    [2, 'slide'], [13, 'slide'], [4, 'slide'], [6, 'slide'],
+    [1, 'dash'], [5, 'dash'], [7, 'dash'],
+    [3, 'hyper'],
+    [14, 'left'], [15, 'right']
+  ];
+  var padPrev = {};
+  var padKnown = false;
+
+  function pollPad() {
+    if (!navigator.getGamepads) return;
+    var pads;
+    try { pads = navigator.getGamepads(); } catch (e) { return; }
+    if (!pads) return;
+
+    var now = {};
+    for (var i = 0; i < pads.length; i++) {
+      var gp = pads[i];
+      if (!gp || !gp.connected) continue;
+      for (var m = 0; m < PAD_BUTTONS.length; m++) {
+        var b = gp.buttons[PAD_BUTTONS[m][0]];
+        if (b && (b.pressed || b.value > 0.4)) now[PAD_BUTTONS[m][1]] = true;
+      }
+      var ax = gp.axes.length ? gp.axes[0] : 0;
+      if (ax < -0.4) now.left = true;
+      if (ax > 0.4) now.right = true;
+      if (gp.buttons[9] && gp.buttons[9].pressed) now.pause = true;
+      if (gp.buttons[8] && gp.buttons[8].pressed) now.restart = true;
+    }
+
+    // Nur Flanken melden, damit das Gamepad die Tastatur nicht ueberschreibt.
+    for (var k = 0; k < ACTIONS.length; k++) {
+      var name = ACTIONS[k];
+      var on = !!now[name];
+      if (on && !padPrev[name]) {
+        if (name === 'jump') primaryAction();
+        else { Sound.resume(); press(name); }
+      } else if (!on && padPrev[name]) {
+        release(name);
+      }
+      padPrev[name] = on;
+    }
+    if (now.pause && !padPrev.pause) togglePause();
+    padPrev.pause = !!now.pause;
+    if (now.restart && !padPrev.restart) startGame();
+    padPrev.restart = !!now.restart;
+  }
+
+  window.addEventListener('gamepadconnected', function () {
+    if (padKnown) return;
+    padKnown = true;
+    toast('GAMEPAD BEREIT', 140);
   });
-  canvas.addEventListener('pointercancel', function () { input.up = false; swipe = null; });
 
   el.ovBtn.addEventListener('click', function (e) {
     e.stopPropagation();
@@ -1792,7 +1960,7 @@
   });
 
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden && state === 'play') togglePause();
+    if (document.hidden && state === 'play') { releaseAll(); togglePause(); }
   });
 
   // ------------------------------------------------------------------- Schleife
@@ -1840,6 +2008,7 @@
       if (G.flash > 0) G.flash = Math.max(0, G.flash - dt * 2.4);
     }
 
+    pollPad();
     Sound.music(clamp((G.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN), 0, 1), G.hyperT > 0, state === 'play');
 
     render();

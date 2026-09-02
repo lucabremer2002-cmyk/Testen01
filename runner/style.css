@@ -345,8 +345,19 @@ body {
 }
 
 .touch button.big { width: 84px; height: 84px; font-size: 28px; background: rgba(255, 62, 165, .26); border-color: rgba(255, 62, 165, .7); }
-.touch button:active { background: rgba(255, 255, 255, .3); }
+/* Der Zeiger wird beim Druecken festgehalten, darum faerbt eine Klasse statt
+   :active - sonst blieben abgerutschte Finger unsichtbar gedrueckt. */
+.touch button:active,
+.touch button.down { background: rgba(255, 255, 255, .3); border-color: rgba(255, 255, 255, .6); }
 .touch button.armed { border-color: #fff; box-shadow: 0 0 18px rgba(255, 255, 255, .8); }
+.touch__gap { flex: 0 1 26px; }
+
+@media (max-width: 520px) {
+  .touch { gap: 7px; }
+  .touch button { width: 50px; height: 50px; font-size: 18px; }
+  .touch button.big { width: 68px; height: 68px; font-size: 24px; }
+  .touch__gap { flex: 0 1 10px; }
+}
 
 
 
