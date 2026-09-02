@@ -479,6 +479,7 @@
         for (var f = 0; f < nehmen; f++) {
           var fp = frei[f];
           fp.klubId = klub.id;
+          fp.nummer = Players.nummerFuerKader(fp, Game.kaderVon(state, klub));
           fp.vertragBis = state.saison + 1 + Game.rng.int(1, 3);
           fp.gehalt = Players.gehaltsBasis(fp.staerke, klub.ruf, fp.alter);
           klub.kader.push(fp.id);
@@ -494,6 +495,7 @@
           klubId: klub.id, klubRuf: klub.ruf, saison: state.saison + 1
         });
         if (lz) p.potenzial = Util.clamp(p.potenzial + Game.rng.int(2, 7), p.staerke, 99);
+        p.nummer = Players.nummerFuerKader(p, Game.kaderVon(state, klub));
         state.spieler[p.id] = p;
         klub.kader.push(p.id);
         if (klub.id === state.meinKlubId && p.potenzial - p.staerke > 14) {
@@ -568,6 +570,9 @@
       });
       k.finanzen.sponsorAngebote = {};
     });
+
+    /* Neuer Pokalwettbewerb mit dem aktuellen Teilnehmerfeld. */
+    state.pokal = Pokal.aufsetzen(state, Game.rng);
 
     Game.sponsorenPruefen(state);
     state.neueLigaVerteilung = null;

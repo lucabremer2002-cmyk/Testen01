@@ -128,6 +128,9 @@
     if (klub.kader.length >= 30) return { ok: false, grund: 'Der Profikader ist mit 30 Spielern voll.' };
     klub.jugend.talente.splice(i, 1);
     klub.kader.push(spieler.id);
+    spieler.nummer = Players.nummerFuerKader(spieler,
+      klub.kader.map(function (id) { return state.spieler[id]; })
+        .filter(function (p) { return p && p.id !== spieler.id; }));
     spieler.jugend = false;
     spieler.einschaetzung = null;
     spieler.gehalt = vertrag.gehalt;

@@ -37,7 +37,8 @@
     var st = UI.S();
     var an = st.anstehendesSpiel;
     if (!an) return;
-    var liga = st.ligen[an.ligaId];
+    var f0 = partieFinden();
+    var liga = f0.liga;
     var mein = UI.meinKlub();
     var heim = st.klubs[an.heim], gast = st.klubs[an.gast];
     var gegner = an.heim === mein.id ? gast : heim;
@@ -51,17 +52,23 @@
       'margin-bottom:1rem;flex-wrap:wrap">' +
       UI.wappen(heim, 56) + '<b style="font-size:1.1rem">' + Util.esc(heim.kurz) + ' – ' +
       Util.esc(gast.kurz) + '</b>' + UI.wappen(gast, 56) + '</div>' +
-      '<p style="text-align:center" class="hinweis">' + an.spieltagNr + '. Spieltag ' +
-      Util.esc(liga.name) + ' · ' + (istHeim ? 'Heimspiel' : 'Auswärtsspiel') + ' gegen <b>' +
-      Util.esc(gegner.name) + '</b></p>';
+      '<p style="text-align:center" class="hinweis">' +
+      (an.pokal ? 'DFB-Pokal, ' + Util.esc(f0.runde.name)
+                : an.spieltagNr + '. Spieltag ' + Util.esc(liga.name)) +
+      ' · ' + (istHeim ? 'Heimspiel' : 'Auswärtsspiel') + ' gegen <b>' +
+      Util.esc(gegner.name) + '</b></p>' +
+      (an.pokal ? '<p class="hinweis" style="text-align:center">Bei Gleichstand nach 90 Minuten ' +
+        'folgen Verlängerung und, wenn nötig, Elfmeterschießen.</p>' : '');
 
+    var meineLiga = mein.ligaId ? st.ligen[mein.ligaId] : null;
+    var gLiga = gegner.ligaId ? st.ligen[gegner.ligaId] : null;
     html += '<div class="raster raster--3" style="margin:1rem 0">' +
       UI.kennzahl('Ihre Aufstellung', mein.aufstellung.formation,
         Match.MENTALITAET[mein.taktik.mentalitaet].name) +
-      UI.kennzahl('Ihre Form', UI.formIcons(liga.tabelle[mein.id].form),
-        'Platz ' + League.platzVon(liga, mein.id)) +
-      UI.kennzahl('Form des Gegners', UI.formIcons(liga.tabelle[gegner.id].form),
-        'Platz ' + League.platzVon(liga, gegner.id)) +
+      UI.kennzahl('Ihre Form', meineLiga ? UI.formIcons(meineLiga.tabelle[mein.id].form) : '–',
+        meineLiga ? 'Platz ' + League.platzVon(meineLiga, mein.id) + ' · ' + meineLiga.kurz : '') +
+      UI.kennzahl('Form des Gegners', gLiga ? UI.formIcons(gLiga.tabelle[gegner.id].form) : '–',
+        gLiga ? 'Platz ' + League.platzVon(gLiga, gegner.id) + ' · ' + gLiga.kurz : '') +
       '</div>';
 
     if (fehlend.length) {
@@ -82,6 +89,15 @@
   function partieFinden() {
     var st = UI.S();
     var an = st.anstehendesSpiel;
+    if (an.pokal) {
+      var runde = Pokal.runde(st.pokal, an.rundeNr);
+      var pp = runde.partien.filter(function (p) {
+        return p.heim === an.heim && p.gast === an.gast;
+      })[0];
+      var heimKlub = st.klubs[an.heim];
+      return { pokal: true, runde: runde, partie: pp,
+        liga: heimKlub.ligaId ? st.ligen[heimKlub.ligaId] : st.ligen.bl1 };
+    }
     var liga = st.ligen[an.ligaId];
     var stag = liga.spieltage[an.spieltagNr - 1];
     var partie = stag.partien.filter(function (p) {
@@ -94,7 +110,9 @@
     var st = UI.S();
     var f = partieFinden();
     if (!f.partie || f.partie.th !== null) return;
-    var m = Game.spielSimulieren(st, f.liga, f.partie, f.stag.nr);
+    var m = f.pokal
+      ? Pokal.partieAustragen(st, f.runde, f.partie)
+      : Game.spielSimulieren(st, f.liga, f.partie, f.stag.nr);
     Game.tagAbschliessen(st);
     ergebnisFenster(m, f);
   }
@@ -105,15 +123,21 @@
     var st = UI.S();
     var f = partieFinden();
     if (!f.partie || f.partie.th !== null) return;
-    var ctx = Game.matchKontext(st, f.liga, f.partie.heim, f.partie.gast);
-    ctx.spieltag = f.stag.nr;
-    var m = Match.neu(Game.rng, ctx);
+    var m;
+    if (f.pokal) {
+      m = Game.pokalSpielVorbereiten(st, f.liga, f.partie);
+    } else {
+      var ctx = Game.matchKontext(st, f.liga, f.partie.heim, f.partie.gast);
+      ctx.spieltag = f.stag.nr;
+      m = Match.neu(Game.rng, ctx);
+    }
 
     var heimFarbe = trikot(m.heimKlub, null);
     var gastFarbe = trikot(m.gastKlub, heimFarbe.fuellung);
 
     live = {
       match: m, liga: f.liga, partie: f.partie, stag: f.stag,
+      pokal: f.pokal ? { runde: f.runde } : null, verlaengert: false,
       tempo: 'normal', timer: null, laeuft: true,
       meinSeite: f.partie.heim === st.meinKlubId ? 'heim' : 'gast',
       gezeigt: 0, feld: null, ansicht: 'feld',
@@ -141,7 +165,17 @@
   function schritt() {
     if (!live) return;
     var m = live.match;
-    if (m.beendet) { beenden(); return; }
+    if (m.beendet) {
+      /* Im Pokal geht es bei Gleichstand weiter. */
+      if (live.pokal && !live.verlaengert && m.heim.tore === m.gast.tore) {
+        live.verlaengert = true;
+        live.partie.verlaengerung = true;
+        Match.verlaengern(m);
+        liveAktualisieren();
+        return;
+      }
+      beenden(); return;
+    }
     var neue = Match.minute(m);
     var kiSeite = live.meinSeite === 'heim' ? 'gast' : 'heim';
     if (m.minute === 60 || m.minute === 72 || m.minute === 81) {
@@ -167,9 +201,19 @@
     var st = UI.S();
     var m = live.match;
     if (!m.beendet) Match.abpfiff(m);
-    Game.ergebnisVerbuchen(st, live.liga, live.partie, m, live.stag.nr);
+    if (live.pokal) {
+      if (m.heim.tore === m.gast.tore) {
+        live.partie.elfmeter = Match.elfmeterschiessen(m);
+        m.ereignisse.push({ min: 120, typ: 'tor',
+          text: 'Elfmeterschießen: ' + live.partie.elfmeter.text + '.' });
+      }
+      Pokal.abschliessen(st, live.pokal.runde, live.partie, m);
+    } else {
+      Game.ergebnisVerbuchen(st, live.liga, live.partie, m, live.stag.nr);
+    }
     Game.tagAbschliessen(st);
-    var f = { liga: live.liga, partie: live.partie, stag: live.stag };
+    var f = { liga: live.liga, partie: live.partie, stag: live.stag,
+      pokal: live.pokal ? true : false, runde: live.pokal ? live.pokal.runde : null };
     liveAktualisieren();
     setTimeout(function () {
       if (live && live.feld) live.feld.stop();
@@ -433,6 +477,10 @@
     var fremde = istHeim ? f.partie.tg : f.partie.th;
     var gegner = st.klubs[istHeim ? f.partie.gast : f.partie.heim];
     var titel = eigene > fremde ? 'Sieg' : (eigene < fremde ? 'Niederlage' : 'Unentschieden');
+    if (f.pokal) {
+      var weiter = f.partie.sieger === mein.id;
+      titel = weiter ? 'Weiter im Pokal' : 'Pokal-Aus';
+    }
 
     var html = '<div style="text-align:center;margin-bottom:1.2rem">' +
       '<div style="font-size:2.3rem;font-weight:640;letter-spacing:-.03em">' +
@@ -449,9 +497,21 @@
       }).join('') + '</div>';
     }
 
-    html += '<h4 style="margin-top:1.2rem">Tabelle</h4>' + UI.tabelleHTML(f.liga, true);
+    if (f.pokal) {
+      var zusatz = f.partie.elfmeter ? f.partie.elfmeter.text
+        : (f.partie.verlaengerung ? 'nach Verlängerung' : '');
+      html = html.replace('</div></div>',
+        '</div>' + (zusatz ? '<div class="mini">' + Util.esc(zusatz) + '</div>' : '') + '</div>');
+      html += '<p style="text-align:center" class="hinweis">' +
+        (f.partie.sieger === mein.id
+          ? 'Sie stehen in der nächsten Runde.'
+          : 'Der Pokalwettbewerb ist für Sie beendet.') + '</p>';
+    } else {
+      html += '<h4 style="margin-top:1.2rem">Tabelle</h4>' + UI.tabelleHTML(f.liga, true);
+    }
 
-    var andere = f.stag.partien.filter(function (p) { return p !== f.partie && p.th !== null; });
+    var andere = (f.pokal ? f.runde.partien : f.stag.partien)
+      .filter(function (p) { return p !== f.partie && p.th !== null; });
     if (andere.length) {
       html += '<h4 style="margin-top:1.2rem">Weitere Ergebnisse</h4>' +
         '<div class="tabellenrahmen"><table class="liste"><tbody>' +

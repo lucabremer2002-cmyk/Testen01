@@ -47,6 +47,7 @@
       reihe.push(p.bonusEinsaetze ? [wb.kl.id(p.bonusEinsaetze.klubId), p.bonusEinsaetze.betrag, p.bonusEinsaetze.spiele] : 0);
       reihe.push(p.leihe ? [wb.kl.id(p.leihe.vonKlubId), p.leihe.bisTag, p.leihe.gehaltsanteil,
         p.leihe.kaufoption || 0, p.leihe.gebuehr || 0] : 0);
+      reihe.push(p.nummer || 0);
       reihe.push(p.jugend ? [p.jugendSeit,
         p.einschaetzung ? [p.einschaetzung.von, p.einschaetzung.bis, p.einschaetzung.urteil,
           Math.round(p.einschaetzung.genauigkeit * 100)] : 0] : 0);
@@ -89,6 +90,7 @@
       postfach: state.postfach.slice(0, 60),
       news: state.news.slice(0, 30),
       saisonHistorie: state.saisonHistorie,
+      pokal: state.pokal,
       poolL3: state.poolL3,
       poolRLW: state.poolRLW,
       statistik: { transfers: state.statistik.transfers.slice(0, 80) },
@@ -130,6 +132,7 @@
       ligaReihenfolge: d.ligaReihenfolge, intlKlubs: d.intlKlubs,
       verhandlungen: d.verhandlungen || [], postfach: d.postfach || [], news: d.news || [],
       saisonHistorie: d.saisonHistorie || [],
+      pokal: d.pokal || null,
       anstehendesSpiel: d.anstehendesSpiel || null,
       letzteSpieltagErgebnisse: [],
       poolL3: d.poolL3, poolRLW: d.poolRLW,
@@ -194,12 +197,13 @@
         p.leihe = { vonKlubId: wb.kl[r[40][0]], bisTag: r[40][1], gehaltsanteil: r[40][2],
           kaufoption: r[40][3], gebuehr: r[40][4] };
       }
-      if (r[41]) {
+      p.nummer = r[41] || 0;
+      if (r[42]) {
         p.jugend = true;
-        p.jugendSeit = r[41][0];
-        if (r[41][1]) {
-          p.einschaetzung = { von: r[41][1][0], bis: r[41][1][1], urteil: r[41][1][2],
-            genauigkeit: r[41][1][3] / 100 };
+        p.jugendSeit = r[42][0];
+        if (r[42][1]) {
+          p.einschaetzung = { von: r[42][1][0], bis: r[42][1][1], urteil: r[42][1][2],
+            genauigkeit: r[42][1][3] / 100 };
         }
       }
       state.spieler[p.id] = p;

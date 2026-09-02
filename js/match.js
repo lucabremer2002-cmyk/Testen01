@@ -64,10 +64,13 @@
     };
   }
 
-  /* Effektive Staerke eines Spielers auf einer bestimmten Position. */
-  function wirkung(p, slotPos) {
+  /* Effektive Staerke eines Spielers auf einer bestimmten Position.
+     frische ueberschreibt die Fitness, sobald das Spiel laeuft - so wirkt
+     sich Muedigkeit unmittelbar auf die Leistung aus. */
+  function wirkung(p, slotPos, frische) {
     var eig = Players.eignung(p.pos, slotPos);
-    var fit = 0.58 + 0.42 * (p.fitness / 100);
+    var wert = frische === undefined ? p.fitness : frische;
+    var fit = 0.58 + 0.42 * (wert / 100);
     var form = 0.86 + 0.28 * (p.form / 100);
     var moral = 0.93 + 0.14 * (p.moral / 100);
     return p.staerke * eig * fit * form * moral;
@@ -119,7 +122,7 @@
       var p = spielerMap[pid];
       if (!p) return;
       var slotPos = (slots[i] && slots[i][0]) || p.pos;
-      var w = wirkung(p, slotPos);
+      var w = wirkung(p, slotPos, seite.frische ? seite.frische[pid] : undefined);
       var grp = Players.GRUPPE[slotPos];
       if (grp === 'TW') tw = w;
       else if (grp === 'ABW') abw.push(w);
@@ -162,6 +165,12 @@
       gelb: {}, rot: [], raus: [], eingesetzt: {}, werte: null
     };
     elf.forEach(function (pid) { s.eingesetzt[pid] = { von: 0, bis: 90, note: 3.5, tore: 0, vorlagen: 0 }; });
+    /* Frische zu Spielbeginn: der Fitnesswert des Spielers. */
+    s.frische = {};
+    elf.concat(bank).forEach(function (pid) {
+      var p = spielerMap[pid];
+      if (p) s.frische[pid] = p.fitness;
+    });
     s.werte = teamWerte(s, spielerMap);
     return s;
   }
@@ -288,6 +297,44 @@
     ereignis(m, 'tor', min, txt, seite, torschuetze, { vorlage: vorlage, stand: m.heim.tore + ':' + m.gast.tore });
   }
 
+  /* Strafstoss: der beste Schuetze der Elf tritt an, rund drei Viertel
+     der Elfmeter fallen. */
+  function elfmeter(m, seite, gegner, min) {
+    var beste = null, bester = -1;
+    seite.elf.forEach(function (pid) {
+      var p = m.spieler[pid];
+      if (!p || p.pos === 'TW') return;
+      var w = (p.attrs.abschluss || 0) * 0.7 + (p.attrs.technik || 0) * 0.3;
+      if (w > bester) { bester = w; beste = pid; }
+    });
+    if (!beste) return;
+    var schuetze = m.spieler[beste];
+    ereignis(m, 'chance', min, 'Elfmeter für ' + (m.heim === seite ? m.heimKlub.kurz : m.gastKlub.kurz) +
+      '! ' + schuetze.name + ' legt sich den Ball zurecht.', seite, beste);
+    var twId = gegner.elf.filter(function (pid) {
+      var p = m.spieler[pid]; return p && p.pos === 'TW';
+    })[0];
+    var tw = twId ? m.spieler[twId] : null;
+    var chance = Util.clamp(0.74 + ((schuetze.attrs.abschluss || 50) - 60) * 0.003 -
+      (tw ? ((tw.attrs.reflexe || 50) - 60) * 0.0022 : 0), 0.55, 0.9);
+    if (m.rng.next() < chance) {
+      seite.tore++;
+      var e = seite.eingesetzt[beste];
+      if (e) { e.tore++; e.note = Util.clamp(e.note - 0.6, 1, 6); }
+      ereignis(m, 'tor', min, schuetze.name + ' verwandelt vom Punkt.', seite, beste,
+        { elfmeter: true, stand: m.heim.tore + ':' + m.gast.tore });
+    } else {
+      if (tw && gegner.eingesetzt[twId]) {
+        gegner.eingesetzt[twId].note = Util.clamp(gegner.eingesetzt[twId].note - 0.9, 1, 6);
+      }
+      ereignis(m, 'chance', min, (tw ? tw.name + ' hält den Elfmeter!' :
+        schuetze.name + ' vergibt vom Punkt.'), seite, beste);
+      if (seite.eingesetzt[beste]) {
+        seite.eingesetzt[beste].note = Util.clamp(seite.eingesetzt[beste].note + 0.8, 1, 6);
+      }
+    }
+  }
+
   function karte(m, seite, min, rot) {
     var pid = auswahl(m.rng, seite, m.spieler, FOUL_GEWICHTE);
     if (!pid) return;
@@ -352,6 +399,11 @@
       if (m.rng.next() < pChance) {
         seite.chancen++;
         seite.schuesse++;
+        /* Ein kleiner Teil der Chancen endet mit einem Foul im Strafraum. */
+        if (m.rng.next() < 0.032) {
+          elfmeter(m, seite, gegner, min);
+          continue;
+        }
         /* Verwertung haengt vom Sturm gegen den Torwart ab und schwankt um
            BASIS_KONVERSION - so bleibt die xG-Rechnung im Mittel erhalten. */
         var konversion = 0.48 * (seite.werte.ang / Math.max(10, gegner.werte.tw * 0.9 + seite.werte.ang * 0.5));
@@ -376,9 +428,28 @@
       }
     }
 
-    if (min >= 90) {
+    /* Ermuedung: Wer auf dem Platz steht, verliert Frische. Wie schnell,
+       haengt an der Kondition und daran, wie hoch die Elf presst. */
+    [m.heim, m.gast].forEach(function (seite) {
+      seite.elf.forEach(function (pid) {
+        var p = m.spieler[pid];
+        if (!p) return;
+        var verlust = (0.18 + (100 - (p.attrs.kondition || 50)) * 0.005) * seite.werte.konditionMod;
+        if (min > 70) verlust *= 1.2;
+        seite.frische[pid] = Util.clamp((seite.frische[pid] || 100) - verlust, 25, 100);
+      });
+    });
+    /* Alle zehn Minuten neu bewerten - so wirkt die Muedigkeit sichtbar. */
+    if (min % 10 === 0) {
+      m.heim.werte = teamWerte(m.heim, m.spieler);
+      m.gast.werte = teamWerte(m.gast, m.spieler);
+      berechneXG(m);
+    }
+
+    var ende = m.endeMinute || 90;
+    if (min >= ende) {
       if (!m.nachspielzeit) m.nachspielzeit = m.rng.int(1, 6);
-      if (min >= 90 + m.nachspielzeit) {
+      if (min >= ende + m.nachspielzeit) {
         abpfiff(m);
       }
     }
@@ -414,6 +485,52 @@
     });
   }
 
+  /* Verlaengerung im Pokal: zweimal fuenfzehn Minuten. */
+  function verlaengern(m) {
+    m.beendet = false;
+    m.endeMinute = 120;
+    m.nachspielzeit = 0;
+    ereignis(m, 'info', 90, 'Es geht in die Verlängerung. Stand: ' + m.heim.tore + ':' + m.gast.tore + '.');
+    return m;
+  }
+
+  /* Elfmeterschiessen: fuenf Schuetzen je Mannschaft, danach K.-o. */
+  function elfmeterschiessen(m) {
+    function quote(seite, gegner) {
+      var schuetzen = seite.elf.map(function (pid) { return m.spieler[pid]; })
+        .filter(function (p) { return p && p.pos !== 'TW'; })
+        .sort(function (a, b) { return (b.attrs.abschluss || 0) - (a.attrs.abschluss || 0); });
+      var twId = gegner.elf.filter(function (pid) {
+        var p = m.spieler[pid]; return p && p.pos === 'TW';
+      })[0];
+      var tw = twId ? m.spieler[twId] : null;
+      return { schuetzen: schuetzen, tw: tw };
+    }
+    var h = quote(m.heim, m.gast), g2 = quote(m.gast, m.heim);
+    function schuss(seite, i) {
+      var p = seite.schuetzen[i % Math.max(1, seite.schuetzen.length)];
+      var basis = 0.74 + ((p ? p.attrs.abschluss : 50) - 60) * 0.003 -
+        (seite.tw ? ((seite.tw.attrs.reflexe || 50) - 60) * 0.002 : 0);
+      /* Mit jedem Durchgang steigt der Druck. */
+      basis -= Math.min(0.1, i * 0.012);
+      return m.rng.next() < Util.clamp(basis, 0.5, 0.9);
+    }
+    var th = 0, tg = 0, i = 0;
+    for (i = 0; i < 5; i++) {
+      if (schuss(h, i)) th++;
+      if (schuss(g2, i)) tg++;
+      /* Vorzeitige Entscheidung */
+      if (th > tg + (5 - i - 1) || tg > th + (5 - i - 1)) break;
+    }
+    while (th === tg && i < 20) {
+      i++;
+      var a = schuss(h, i), b = schuss(g2, i);
+      if (a) th++;
+      if (b) tg++;
+    }
+    return { heim: th, gast: tg, text: th + ':' + tg + ' nach Elfmeterschießen' };
+  }
+
   function restSimulieren(m) {
     var wache = 0;
     while (!m.beendet && wache++ < 400) minute(m);
@@ -434,6 +551,9 @@
     seite.wechsel++;
     if (seite.eingesetzt[rausId]) seite.eingesetzt[rausId].bis = m.minute;
     seite.eingesetzt[reinId] = { von: m.minute, bis: 90, note: 3.5, tore: 0, vorlagen: 0 };
+    /* Frisch von der Bank - genau darum lohnen sich Wechsel. */
+    var einP = m.spieler[reinId];
+    if (einP) seite.frische[reinId] = einP.fitness;
     seite.werte = teamWerte(seite, m.spieler);
     berechneXG(m);
     ereignis(m, 'wechsel', m.minute, 'Wechsel: ' + spielerName(m, reinId) + ' kommt für ' + spielerName(m, rausId) + '.', seite, reinId, { raus: rausId });
@@ -459,7 +579,8 @@
       var p = m.spieler[pid];
       if (!p || p.pos === 'TW') return null;
       var e = seite.eingesetzt[pid];
-      var muedigkeit = 100 - p.fitness + (m.minute - (e ? e.von : 0)) * 0.55;
+      var frisch = seite.frische ? (seite.frische[pid] || p.fitness) : p.fitness;
+      var muedigkeit = 100 - frisch + (m.minute - (e ? e.von : 0)) * 0.3;
       return { pid: pid, wert: muedigkeit + (e ? e.note * 4 : 0) };
     }).filter(Boolean).sort(function (a, b) { return b.wert - a.wert; });
     if (!kandidaten.length) return;
@@ -472,7 +593,7 @@
       var w = wirkung(p, rausP.pos);
       if (w > besteW) { besteW = w; beste = pid; }
     });
-    if (beste && besteW > wirkung(rausP, rausP.pos) * 0.86) {
+    if (beste && besteW > wirkung(rausP, rausP.pos, seite.frische[raus]) * 0.86) {
       wechsel(m, seiteName, raus, beste);
     }
   }
@@ -484,12 +605,15 @@
     SPIELWEISE: SPIELWEISE,
     standardTaktik: standardTaktik,
     wirkung: wirkung,
+    elfmeter: elfmeter,
     autoAufstellung: autoAufstellung,
     teamWerte: teamWerte,
     seiteAufbauen: seiteAufbauen,
     neu: neu,
     minute: minute,
     restSimulieren: restSimulieren,
+    verlaengern: verlaengern,
+    elfmeterschiessen: elfmeterschiessen,
     wechsel: wechsel,
     taktikAendern: taktikAendern,
     autoWechsel: autoWechsel,

@@ -56,6 +56,34 @@
 
   var lfdId = 0;
 
+  /* Positionstypische Rückennummern - je Verein einmalig vergeben. */
+  var NUMMERN_WUNSCH = {
+    TW: [1, 12, 22, 30, 13], IV: [4, 5, 3, 2, 15, 25, 6],
+    LV: [3, 18, 26, 2, 17], RV: [2, 23, 17, 24, 20],
+    DM: [6, 8, 16, 28, 5], ZM: [8, 6, 10, 14, 20, 21],
+    OM: [10, 7, 21, 11, 14], LM: [11, 7, 17, 19, 30],
+    RM: [7, 11, 27, 22, 16], LA: [11, 7, 17, 19, 29],
+    RA: [7, 11, 27, 19, 22], ST: [9, 19, 29, 11, 33]
+  };
+
+  function nummerVergeben(pos, belegt) {
+    var wunsch = NUMMERN_WUNSCH[pos] || [];
+    for (var i = 0; i < wunsch.length; i++) {
+      if (!belegt[wunsch[i]]) { belegt[wunsch[i]] = true; return wunsch[i]; }
+    }
+    for (var n = 2; n <= 45; n++) {
+      if (!belegt[n]) { belegt[n] = true; return n; }
+    }
+    return 45;
+  }
+
+  /* Freie Nummer für einen Zugang im bestehenden Kader. */
+  function nummerFuerKader(spieler, kader) {
+    var belegt = {};
+    kader.forEach(function (p) { if (p.nummer) belegt[p.nummer] = true; });
+    return nummerVergeben(spieler.pos, belegt);
+  }
+
   function altersFaktor(alter) {
     return ALTERS_FAKTOR[Math.min(40, Math.max(16, Math.round(alter)))] || 0.03;
   }
@@ -181,6 +209,7 @@
   function kaderErzeugen(rng, klub, basisStaerke, saison, nationFn) {
     var kader = [];
     var belegt = {};
+    var nummern = {};
     KADER_PLAN.forEach(function (eintrag) {
       var pos = eintrag[0], anzahl = eintrag[1];
       for (var i = 0; i < anzahl; i++) {
@@ -203,6 +232,7 @@
           if (!belegt[neuerSpieler.nachname]) break;
         }
         belegt[neuerSpieler.nachname] = true;
+        neuerSpieler.nummer = nummerVergeben(pos, nummern);
         kader.push(neuerSpieler);
       }
     });
@@ -271,6 +301,8 @@
     kaderErzeugen: kaderErzeugen,
     staerkeAus: staerkeAus,
     entwickeln: entwickeln,
+    nummerVergeben: nummerVergeben,
+    nummerFuerKader: nummerFuerKader,
     verletzen: verletzen,
     eignung: function (spielerPos, slotPos) {
       var e = EIGNUNG[spielerPos];

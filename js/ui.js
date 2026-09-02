@@ -140,6 +140,9 @@
                '<circle cx="7" cy="12" r="1" fill="currentColor" stroke="none"/>' +
                '<circle cx="10.5" cy="12" r="1" fill="currentColor" stroke="none"/>',
     tabellen: '<path d="M3 5h14M3 10h14M3 15h9"/>',
+    pokal: '<path d="M6.5 3.5h7v4a3.5 3.5 0 0 1-7 0z"/>' +
+           '<path d="M6.5 5h-2a2 2 0 0 0 2 2M13.5 5h2a2 2 0 0 1-2 2"/>' +
+           '<path d="M10 11v3M7.5 16.5h5"/>',
     transfermarkt: '<path d="M4 7h11l-2.6-2.6M16 13H5l2.6 2.6"/>',
     verhandlungen: '<path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h6A2.5 2.5 0 0 1 14 6.5v2A2.5 2.5 0 0 1 11.5 11H7l-3 2.6z"/>' +
                    '<path d="M16.5 8.5A2.5 2.5 0 0 1 17 10v3.5a2 2 0 0 1-2 2h-.5"/>',
@@ -168,6 +171,7 @@
     { id: 'taktik', name: 'Aufstellung' },
     { id: 'spielplan', name: 'Spielplan' },
     { id: 'tabellen', name: 'Tabellen' },
+    { id: 'pokal', name: 'Pokal' },
     { id: 'transfermarkt', name: 'Transfermarkt' },
     { id: 'verhandlungen', name: 'Verhandlungen', zaehler: 'verhandlungen' },
     { id: 'vertraege', name: 'Verträge', zaehler: 'vertraege' },
@@ -528,9 +532,23 @@
 
     html += '<div class="raster raster--2">';
 
-    /* Nächstes Spiel */
-    html += '<div class="karte"><div class="karte__kopf"><h3>Nächstes Spiel</h3></div>';
-    if (naechstes) {
+    /* Nächstes Spiel - Liga oder Pokal, je nachdem was zuerst kommt. */
+    var pokalNaechste = Pokal.naechstePartie(st);
+    var pokalZuerst = pokalNaechste && (!naechstes || pokalNaechste.runde.tag < naechstes.spieltag.tag);
+    html += '<div class="karte"><div class="karte__kopf"><h3>Nächstes Spiel</h3>' +
+      (pokalZuerst ? '<span class="marke marke--akzent">DFB-Pokal</span>' : '') + '</div>';
+    if (pokalZuerst) {
+      var pGegner = st.klubs[pokalNaechste.heim ? pokalNaechste.partie.gast : pokalNaechste.partie.heim];
+      html += '<div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">' +
+        wappen(pGegner, 48) +
+        '<div><b style="font-size:1.02rem">' + Util.esc(pGegner.name) + '</b>' +
+        '<div class="mini">' + (pokalNaechste.heim ? 'Heimspiel' : 'Auswärtsspiel') + ' · ' +
+        Util.esc(pokalNaechste.runde.name) + ' · ' +
+        Fmt.weekday(pokalNaechste.runde.tag, st.saison) + ', ' +
+        Fmt.date(pokalNaechste.runde.tag, st.saison) + '</div></div></div>' +
+        '<p class="hinweis" style="margin-top:.8em">Noch <b>' +
+        (pokalNaechste.runde.tag - st.tag) + '</b> Tage bis zum Anpfiff.</p>';
+    } else if (naechstes) {
       var gegnerId = naechstes.heim ? naechstes.partie.gast : naechstes.partie.heim;
       var gegner = st.klubs[gegnerId];
       var gPlatz = League.platzVon(liga, gegnerId);
@@ -595,6 +613,10 @@
     if (kader.length < 18) {
       aufgaben.push({ seite: 'transfermarkt', text: 'Der Kader ist zu klein',
         wert: kader.length + ' Spieler', art: 'gefahr' });
+    }
+    if (pokalNaechste && pokalNaechste.runde.tag - st.tag <= 7) {
+      aufgaben.push({ seite: 'pokal', text: 'Pokalspiel steht an: ' + pokalNaechste.runde.name,
+        wert: 'in ' + (pokalNaechste.runde.tag - st.tag) + ' Tagen' });
     }
     if (Game.istTransferfenster(st)) {
       var endet = st.tag <= 62 ? 62 - st.tag : 215 - st.tag;
@@ -764,9 +786,23 @@
 
     if (ansicht === 'eigene') {
       var spiele = League.spieleVon(liga, mein.id);
+      /* Pokalspiele gehören in denselben Kalender. */
+      var pokalspiele = [];
+      if (st.pokal) {
+        st.pokal.runden.forEach(function (r) {
+          r.partien.forEach(function (p) {
+            if (p.heim !== mein.id && p.gast !== mein.id) return;
+            pokalspiele.push({
+              nr: null, tag: r.tag, partie: p, heim: p.heim === mein.id,
+              pokal: true, rundeName: r.name
+            });
+          });
+        });
+      }
+      spiele = spiele.concat(pokalspiele).sort(function (a, b) { return a.tag - b.tag; });
       html += '<div class="karte"><div class="karte__kopf"><h3>' + Util.esc(liga.name) + '</h3>' +
         '<span class="mini">' + liga.spieltage.length + ' Spieltage</span></div>' +
-        '<div class="tabellenrahmen"><table class="liste"><thead><tr><th class="zahl">ST</th><th>Datum</th>' +
+        '<div class="tabellenrahmen"><table class="liste"><thead><tr><th class="zahl">Runde</th><th>Datum</th>' +
         '<th>Gegner</th><th class="mitte">Ort</th><th class="zahl">Ergebnis</th><th class="zahl">Zuschauer</th></tr></thead><tbody>' +
         spiele.map(function (s) {
           var gegnerId = s.heim ? s.partie.gast : s.partie.heim;
@@ -778,12 +814,16 @@
             erg = '<b class="' + farbe + '">' + eigene + ':' + fremde + '</b>';
           }
           var heute = s.tag === st.tag ? ' style="background:var(--akzent-weich)"' : '';
-          return '<tr' + heute + '><td class="zahl">' + s.nr + '</td>' +
+          return '<tr' + heute + '><td class="zahl">' +
+            (s.pokal ? '<span class="marke marke--akzent">Pokal</span>' : s.nr) + '</td>' +
             '<td class="mini">' + Fmt.weekday(s.tag, st.saison) + ', ' + Fmt.date(s.tag, st.saison) + '</td>' +
             '<td>' + klubZelle(st.klubs[gegnerId], 18) + '</td>' +
             '<td class="mitte"><span class="marke">' + (s.heim ? 'H' : 'A') + '</span></td>' +
             '<td class="zahl">' + erg + '</td>' +
-            '<td class="zahl mini">' + (s.partie.zuschauer ? Fmt.num(s.partie.zuschauer) : '') + '</td></tr>';
+            '<td class="zahl mini">' + (s.partie.zuschauer ? Fmt.num(s.partie.zuschauer) : '') +
+            (s.pokal && s.partie.elfmeter ? ' <span class="mini">n. E.</span>'
+              : (s.pokal && s.partie.verlaengerung ? ' <span class="mini">n. V.</span>' : '')) +
+            '</td></tr>';
         }).join('') + '</tbody></table></div></div>';
     } else {
       var nr = UI.daten.spieltag || Math.max(1, liga.aktuellerSpieltag);

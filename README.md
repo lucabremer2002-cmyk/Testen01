@@ -37,6 +37,13 @@ Start zum Fortsetzen angeboten.
 | 3. Liga | 20 | 38 | 2 direkt + Relegation | 3 |
 | Regionalliga West | 18 | 34 | 1 | 3 |
 
+Dazu der **DFB-Pokal** mit 64 Mannschaften: alle Vereine der Bundesliga,
+2. Bundesliga und 3. Liga sowie die acht bestplatzierten Klubs der
+Regionalliga West als Landespokalvertreter. K.-o.-System in einem Spiel, in
+den ersten beiden Runden hat der klassentiefere Verein Heimrecht. Bei
+Gleichstand folgen Verlängerung und Elfmeterschießen. Jede Runde bringt
+Prämien, der Pokalsieg zusätzlich 4,3 Mio. €.
+
 Alle vier Ligen werden vollständig simuliert – jeder Spieltag, jede Tabelle,
 jeder Torschütze. Dazu kommen **83 internationale Vereine** aus 22 Ländern
 (Premier League, LaLiga, Serie A, Ligue 1, Eredivisie, Liga Portugal,
@@ -92,12 +99,19 @@ einen Blick erkennbar, ohne fremdes Markenmaterial zu übernehmen.
 - Automatische Warnung bei Verletzten, Gesperrten und Fehlbesetzungen
 
 ### Spiele
-- **Zweidimensionale Ansicht**: 22 Spieler in den Trikotfarben beider
-  Vereine bewegen sich über das Feld. Die Mannschaften verschieben sich als
-  Block mit dem Ball, der Ball wandert zwischen den Spielern, und die
-  Ereignisse der Simulation lösen die passende Bewegung aus – Angriff,
-  Torabschluss, Jubel, Karte. Die Ansicht liest die laufende Simulation,
-  sie ersetzt sie nicht.
+- **Zweidimensionale Ansicht mit sichtbarem Passspiel**: Ein Spieler führt
+  den Ball, dribbelt kurz an und sucht dann einen Mitspieler. Der Pass
+  fliegt sichtbar – flach und schnell über kurze Wege, als hoher Ball mit
+  Flugkurve über weite – und kann vom Gegner abgefangen werden. Wer den Ball
+  hat, trägt einen Ring; jeder Spieler zeigt seine **Rückennummer**. Die
+  Ansicht liest die laufende Simulation, sie ersetzt sie nicht.
+- **Ausdauer im Spiel**: Spieler verlieren über 90 Minuten Frische, je nach
+  Kondition und Pressinghöhe. Das drückt ihre Leistung – 28 % aller Tore
+  fallen nach der 70. Minute, genau wie in der Realität. Eingewechselte
+  Spieler kommen frisch, deshalb lohnen sich Wechsel wirklich.
+- **Elfmeter**: Ein Teil der Chancen endet mit einem Foul im Strafraum. Der
+  beste Schütze tritt an, rund drei Viertel werden verwandelt – zusammen
+  etwa 8 % aller Tore.
 - Live-Ticker Minute für Minute, in drei Geschwindigkeiten oder als
   Sofortergebnis
 - Während des Spiels wechseln (bis zu fünf) und die Taktik umstellen
@@ -229,7 +243,8 @@ Preis um etwa 15 %.
 
 ### Saison
 Am Saisonende: Platzprämien, Relegation im Hin- und Rückspiel (mit
-Elfmeterschießen), Auf- und Abstieg, Meisterprämien der Sponsoren,
+Elfmeterschießen), Auf- und Abstieg, ein neu ausgeloster Pokalwettbewerb,
+Meisterprämien der Sponsoren,
 Spielerentwicklung nach Alter und Einsatzzeit, Karriereenden, Rückkehr aller
 Leihspieler, ein neuer Jahrgang in der Akademie, auslaufende Verträge und
 neue Vorstandsziele.
@@ -248,7 +263,8 @@ Fällt das Vorstandsvertrauen zu tief, werden Sie freigestellt.
 | `js/players.js` | Spielererzeugung, Attribute, Marktwert, Entwicklung |
 | `js/league.js` | Spielplan, Tabellen, Kalender |
 | `js/match.js` | Spielsimulation als Minuten-Stepper |
-| `js/spielfeld2d.js` | Zweidimensionale Darstellung des laufenden Spiels |
+| `js/spielfeld2d.js` | Zweidimensionale Darstellung mit Passspiel |
+| `js/pokal.js` | DFB-Pokal: Auslosung, Runden, Verlängerung, Elfmeter |
 | `js/stadion-grafik.js` | Draufsicht des Stadions |
 | `js/finance.js` | Sponsoring, Stadion, Zuschauer, Kredite |
 | `js/transfers.js` | Bewertungen, Verhandlungs- und Leihlogik |

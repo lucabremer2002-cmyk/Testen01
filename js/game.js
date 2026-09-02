@@ -65,6 +65,7 @@
       postfach: [],
       news: [],
       saisonHistorie: [],
+      pokal: null,
       anstehendesSpiel: null,
       letzteSpieltagErgebnisse: [],
       poolL3: DataPool.REGIONALLIGA_REST.map(function (c) { return c.id; }),
@@ -163,6 +164,7 @@
       .forEach(function (id, i) { state.klubs[id].europapokal = europa[i]; });
 
     Game.rng = rng;
+    state.pokal = Pokal.aufsetzen(state, rng);
     return state;
   }
 
@@ -308,6 +310,20 @@
     };
   }
 
+  /* Ein Pokalspiel benutzt denselben Kontext wie ein Ligaspiel, wird aber
+     nicht in eine Tabelle eingetragen. */
+  function pokalSpielVorbereiten(state, liga, partie) {
+    var heim = state.klubs[partie.heim];
+    var bezug = heim.ligaId ? state.ligen[heim.ligaId] : liga;
+    var ctx = matchKontext(state, bezug, partie.heim, partie.gast);
+    /* Pokalspiele ziehen mehr Publikum als ein normaler Ligaspieltag. */
+    var kap = Finance.kapazitaet(heim.finanzen.stadion);
+    ctx.zuschauer = Math.min(kap, Math.round(ctx.zuschauer * 1.14));
+    ctx.auslastung = kap ? ctx.zuschauer / kap : 0.6;
+    ctx.pokal = true;
+    return Match.neu(Game.rng, ctx);
+  }
+
   function spielSimulieren(state, liga, partie, spieltagNr) {
     var ctx = matchKontext(state, liga, partie.heim, partie.gast);
     ctx.spieltag = spieltagNr;
@@ -325,7 +341,8 @@
   }
 
   /* Uebertraegt ein beendetes Spiel in Tabelle, Statistiken und Finanzen. */
-  function ergebnisVerbuchen(state, liga, partie, m, spieltagNr) {
+  function ergebnisVerbuchen(state, liga, partie, m, spieltagNr, optionen) {
+    var istPokal = !!(optionen && optionen.pokal);
     partie.th = m.heim.tore;
     partie.tg = m.gast.tore;
     partie.zuschauer = m.zuschauer;
@@ -339,7 +356,9 @@
       partie.bericht = null;
     }
 
-    League.ergebnisEintragen(liga.tabelle, partie.heim, partie.gast, m.heim.tore, m.gast.tore);
+    if (!istPokal) {
+      League.ergebnisEintragen(liga.tabelle, partie.heim, partie.gast, m.heim.tore, m.gast.tore);
+    }
 
     [[m.heim, m.gast], [m.gast, m.heim]].forEach(function (paar) {
       var seite = paar[0], gegner = paar[1];
@@ -372,9 +391,13 @@
         p.stats.vorlagen += e.vorlagen;
         p.stats.noten.push(e.note);
         if (p.stats.noten.length > 40) p.stats.noten.shift();
-        /* Fitness und Form */
-        var verbrauch = minuten * (0.30 + (100 - p.attrs.kondition) * 0.0055) * seite.werte.konditionMod;
-        p.fitness = Util.clamp(Math.round(p.fitness - verbrauch), 12, 100);
+        /* Fitness: die im Spiel verbrauchte Frische wird uebernommen. */
+        if (seite.frische && seite.frische[pid] !== undefined && minuten > 0) {
+          p.fitness = Util.clamp(Math.round(seite.frische[pid]), 12, 100);
+        } else if (minuten > 0) {
+          var verbrauch = minuten * (0.30 + (100 - p.attrs.kondition) * 0.0055) * seite.werte.konditionMod;
+          p.fitness = Util.clamp(Math.round(p.fitness - verbrauch), 12, 100);
+        }
         var formZiel = Util.clamp(100 - (e.note - 1) * 20, 5, 98);
         p.form = Math.round(Util.clamp(p.form * 0.72 + formZiel * 0.28, 5, 98));
         var ergebnis = seite.tore - gegner.tore;
@@ -426,12 +449,16 @@
     var ein = Finance.spieltagEinnahmen(heimK.finanzen, m.zuschauer);
     heimK.finanzen.stadion.zuletztZuschauer = m.zuschauer;
     Finance.buchen(heimK.finanzen, state.tag, 'Spieltag',
-      'Heimspiel gegen ' + gastK.name + ' (' + Fmt.num(m.zuschauer) + ' Zuschauer)', ein.gesamt, 'Spieltagseinnahmen');
+      (istPokal ? 'Pokalspiel gegen ' : 'Heimspiel gegen ') + gastK.name +
+      ' (' + Fmt.num(m.zuschauer) + ' Zuschauer)', ein.gesamt, 'Spieltagseinnahmen');
 
     [[heimK, m.heim.tore > m.gast.tore], [gastK, m.gast.tore > m.heim.tore]].forEach(function (paar) {
       var k = paar[0], sieg = paar[1];
       if (!sieg) return;
-      Finance.buchen(k.finanzen, state.tag, 'Prämie', 'Siegprämie ' + liga.name, liga.siegPraemie, 'Prämien');
+      if (!istPokal) {
+        Finance.buchen(k.finanzen, state.tag, 'Prämie', 'Siegprämie ' + liga.name,
+          liga.siegPraemie, 'Prämien');
+      }
       var bonus = 0;
       Object.keys(k.finanzen.sponsoren).forEach(function (sl) {
         var sp = k.finanzen.sponsoren[sl];
@@ -441,7 +468,7 @@
     });
 
     state.letzteSpieltagErgebnisse.push({
-      ligaId: liga.id, spieltag: spieltagNr,
+      ligaId: istPokal ? 'pokal' : liga.id, spieltag: spieltagNr,
       heim: partie.heim, gast: partie.gast, th: partie.th, tg: partie.tg
     });
     return m;
@@ -568,7 +595,9 @@
 
       /* Regeneration und Formdrift */
       kader.forEach(function (p) {
-        var reg = 6 + p.attrs.kondition * 0.075 + (fin.stadion.module.trainingszentrum ? 2 : 0);
+        /* Erholung ist auf den Verbrauch eines Spiels abgestimmt: Wer jede
+           Woche durchspielt, bleibt knapp unter Bestwert - Rotation lohnt. */
+        var reg = 20 + p.attrs.kondition * 0.17 + (fin.stadion.module.trainingszentrum ? 4 : 0);
         p.fitness = Util.clamp(Math.round(p.fitness + reg), 0, 100);
         p.form = Math.round(Util.clamp(p.form + Game.rng.gauss(0, 3.4, -9, 9) + (50 - p.form) * 0.06, 5, 98));
         p.moral = Util.clamp(Math.round(p.moral + (p.wechselwunsch ? -1.2 : 0.4) + Game.rng.gauss(0, 1.2, -3, 3)), 5, 100);
@@ -943,6 +972,8 @@
     }
     kaeufer.kader.push(spieler.id);
     spieler.klubId = kaeufer.id;
+    spieler.nummer = Players.nummerFuerKader(spieler,
+      kaderVon(state, kaeufer).filter(function (p) { return p.id !== spieler.id; }));
     spieler.transferliste = false;
     spieler.wechselwunsch = false;
     spieler.moral = Util.clamp(spieler.moral + 8, 5, 100);
@@ -954,6 +985,8 @@
         kaeufer.kader = kaeufer.kader.filter(function (id) { return id !== pid; });
         verkaeufer.kader.push(pid);
         tp.klubId = verkaeufer.id;
+        tp.nummer = Players.nummerFuerKader(tp,
+          kaderVon(state, verkaeufer).filter(function (x) { return x.id !== pid; }));
         tp.transferliste = false;
         tp.wechselwunsch = false;
         tp.moral = Util.clamp(tp.moral - 4, 5, 100);
@@ -1021,6 +1054,8 @@
     vonKlub.verliehen.push(spieler.id);
     zuKlub.kader.push(spieler.id);
     spieler.klubId = zuKlub.id;
+    spieler.nummer = Players.nummerFuerKader(spieler,
+      kaderVon(state, zuKlub).filter(function (p) { return p.id !== spieler.id; }));
     spieler.transferliste = false;
     spieler.leihe = {
       vonKlubId: vonKlub.id,
@@ -1227,6 +1262,20 @@
       return { typ: 'spiel', spiel: state.anstehendesSpiel };
     }
 
+    /* Pokalrunde an diesem Tag? */
+    var pokalRunde = Pokal.rundeAmTag(state, state.tag);
+    if (pokalRunde) {
+      var meinePokalPartie = Pokal.userPartie(state, pokalRunde);
+      if (meinePokalPartie) {
+        state.anstehendesSpiel = {
+          pokal: true, rundeNr: pokalRunde.nr,
+          heim: meinePokalPartie.heim, gast: meinePokalPartie.gast
+        };
+        return { typ: 'spiel', spiel: state.anstehendesSpiel };
+      }
+      Pokal.rundeAustragen(state, pokalRunde, false);
+    }
+
     heute.forEach(function (h) { spieltagAustragen(state, h.liga, h.st, false); });
 
     if (saisonVorbei(state)) return { typ: 'saisonende' };
@@ -1241,6 +1290,8 @@
         if (st.tag === state.tag && !st.gespielt) spieltagAustragen(state, liga, st, false);
       });
     });
+    var pr = Pokal.rundeAmTag(state, state.tag);
+    if (pr) Pokal.rundeAustragen(state, pr, false);
     state.anstehendesSpiel = null;
     if (saisonVorbei(state)) return { typ: 'saisonende' };
     return { typ: 'tag' };
@@ -1280,6 +1331,7 @@
   Game.aufstellungPruefen = aufstellungPruefen;
   Game.matchKontext = matchKontext;
   Game.spielSimulieren = spielSimulieren;
+  Game.pokalSpielVorbereiten = pokalSpielVorbereiten;
   Game.ergebnisVerbuchen = ergebnisVerbuchen;
   Game.spieltagAustragen = spieltagAustragen;
   Game.naechsterTag = naechsterTag;

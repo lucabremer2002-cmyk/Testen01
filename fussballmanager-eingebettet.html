@@ -1544,6 +1544,34 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
   var lfdId = 0;
 
+  /* Positionstypische Rückennummern - je Verein einmalig vergeben. */
+  var NUMMERN_WUNSCH = {
+    TW: [1, 12, 22, 30, 13], IV: [4, 5, 3, 2, 15, 25, 6],
+    LV: [3, 18, 26, 2, 17], RV: [2, 23, 17, 24, 20],
+    DM: [6, 8, 16, 28, 5], ZM: [8, 6, 10, 14, 20, 21],
+    OM: [10, 7, 21, 11, 14], LM: [11, 7, 17, 19, 30],
+    RM: [7, 11, 27, 22, 16], LA: [11, 7, 17, 19, 29],
+    RA: [7, 11, 27, 19, 22], ST: [9, 19, 29, 11, 33]
+  };
+
+  function nummerVergeben(pos, belegt) {
+    var wunsch = NUMMERN_WUNSCH[pos] || [];
+    for (var i = 0; i < wunsch.length; i++) {
+      if (!belegt[wunsch[i]]) { belegt[wunsch[i]] = true; return wunsch[i]; }
+    }
+    for (var n = 2; n <= 45; n++) {
+      if (!belegt[n]) { belegt[n] = true; return n; }
+    }
+    return 45;
+  }
+
+  /* Freie Nummer für einen Zugang im bestehenden Kader. */
+  function nummerFuerKader(spieler, kader) {
+    var belegt = {};
+    kader.forEach(function (p) { if (p.nummer) belegt[p.nummer] = true; });
+    return nummerVergeben(spieler.pos, belegt);
+  }
+
   function altersFaktor(alter) {
     return ALTERS_FAKTOR[Math.min(40, Math.max(16, Math.round(alter)))] || 0.03;
   }
@@ -1669,6 +1697,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   function kaderErzeugen(rng, klub, basisStaerke, saison, nationFn) {
     var kader = [];
     var belegt = {};
+    var nummern = {};
     KADER_PLAN.forEach(function (eintrag) {
       var pos = eintrag[0], anzahl = eintrag[1];
       for (var i = 0; i < anzahl; i++) {
@@ -1691,6 +1720,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
           if (!belegt[neuerSpieler.nachname]) break;
         }
         belegt[neuerSpieler.nachname] = true;
+        neuerSpieler.nummer = nummerVergeben(pos, nummern);
         kader.push(neuerSpieler);
       }
     });
@@ -1759,6 +1789,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     kaderErzeugen: kaderErzeugen,
     staerkeAus: staerkeAus,
     entwickeln: entwickeln,
+    nummerVergeben: nummerVergeben,
+    nummerFuerKader: nummerFuerKader,
     verletzen: verletzen,
     eignung: function (spielerPos, slotPos) {
       var e = EIGNUNG[spielerPos];
@@ -2001,10 +2033,13 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     };
   }
 
-  /* Effektive Staerke eines Spielers auf einer bestimmten Position. */
-  function wirkung(p, slotPos) {
+  /* Effektive Staerke eines Spielers auf einer bestimmten Position.
+     frische ueberschreibt die Fitness, sobald das Spiel laeuft - so wirkt
+     sich Muedigkeit unmittelbar auf die Leistung aus. */
+  function wirkung(p, slotPos, frische) {
     var eig = Players.eignung(p.pos, slotPos);
-    var fit = 0.58 + 0.42 * (p.fitness / 100);
+    var wert = frische === undefined ? p.fitness : frische;
+    var fit = 0.58 + 0.42 * (wert / 100);
     var form = 0.86 + 0.28 * (p.form / 100);
     var moral = 0.93 + 0.14 * (p.moral / 100);
     return p.staerke * eig * fit * form * moral;
@@ -2056,7 +2091,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       var p = spielerMap[pid];
       if (!p) return;
       var slotPos = (slots[i] && slots[i][0]) || p.pos;
-      var w = wirkung(p, slotPos);
+      var w = wirkung(p, slotPos, seite.frische ? seite.frische[pid] : undefined);
       var grp = Players.GRUPPE[slotPos];
       if (grp === 'TW') tw = w;
       else if (grp === 'ABW') abw.push(w);
@@ -2099,6 +2134,12 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       gelb: {}, rot: [], raus: [], eingesetzt: {}, werte: null
     };
     elf.forEach(function (pid) { s.eingesetzt[pid] = { von: 0, bis: 90, note: 3.5, tore: 0, vorlagen: 0 }; });
+    /* Frische zu Spielbeginn: der Fitnesswert des Spielers. */
+    s.frische = {};
+    elf.concat(bank).forEach(function (pid) {
+      var p = spielerMap[pid];
+      if (p) s.frische[pid] = p.fitness;
+    });
     s.werte = teamWerte(s, spielerMap);
     return s;
   }
@@ -2225,6 +2266,44 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     ereignis(m, 'tor', min, txt, seite, torschuetze, { vorlage: vorlage, stand: m.heim.tore + ':' + m.gast.tore });
   }
 
+  /* Strafstoss: der beste Schuetze der Elf tritt an, rund drei Viertel
+     der Elfmeter fallen. */
+  function elfmeter(m, seite, gegner, min) {
+    var beste = null, bester = -1;
+    seite.elf.forEach(function (pid) {
+      var p = m.spieler[pid];
+      if (!p || p.pos === 'TW') return;
+      var w = (p.attrs.abschluss || 0) * 0.7 + (p.attrs.technik || 0) * 0.3;
+      if (w > bester) { bester = w; beste = pid; }
+    });
+    if (!beste) return;
+    var schuetze = m.spieler[beste];
+    ereignis(m, 'chance', min, 'Elfmeter für ' + (m.heim === seite ? m.heimKlub.kurz : m.gastKlub.kurz) +
+      '! ' + schuetze.name + ' legt sich den Ball zurecht.', seite, beste);
+    var twId = gegner.elf.filter(function (pid) {
+      var p = m.spieler[pid]; return p && p.pos === 'TW';
+    })[0];
+    var tw = twId ? m.spieler[twId] : null;
+    var chance = Util.clamp(0.74 + ((schuetze.attrs.abschluss || 50) - 60) * 0.003 -
+      (tw ? ((tw.attrs.reflexe || 50) - 60) * 0.0022 : 0), 0.55, 0.9);
+    if (m.rng.next() < chance) {
+      seite.tore++;
+      var e = seite.eingesetzt[beste];
+      if (e) { e.tore++; e.note = Util.clamp(e.note - 0.6, 1, 6); }
+      ereignis(m, 'tor', min, schuetze.name + ' verwandelt vom Punkt.', seite, beste,
+        { elfmeter: true, stand: m.heim.tore + ':' + m.gast.tore });
+    } else {
+      if (tw && gegner.eingesetzt[twId]) {
+        gegner.eingesetzt[twId].note = Util.clamp(gegner.eingesetzt[twId].note - 0.9, 1, 6);
+      }
+      ereignis(m, 'chance', min, (tw ? tw.name + ' hält den Elfmeter!' :
+        schuetze.name + ' vergibt vom Punkt.'), seite, beste);
+      if (seite.eingesetzt[beste]) {
+        seite.eingesetzt[beste].note = Util.clamp(seite.eingesetzt[beste].note + 0.8, 1, 6);
+      }
+    }
+  }
+
   function karte(m, seite, min, rot) {
     var pid = auswahl(m.rng, seite, m.spieler, FOUL_GEWICHTE);
     if (!pid) return;
@@ -2289,6 +2368,11 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       if (m.rng.next() < pChance) {
         seite.chancen++;
         seite.schuesse++;
+        /* Ein kleiner Teil der Chancen endet mit einem Foul im Strafraum. */
+        if (m.rng.next() < 0.032) {
+          elfmeter(m, seite, gegner, min);
+          continue;
+        }
         /* Verwertung haengt vom Sturm gegen den Torwart ab und schwankt um
            BASIS_KONVERSION - so bleibt die xG-Rechnung im Mittel erhalten. */
         var konversion = 0.48 * (seite.werte.ang / Math.max(10, gegner.werte.tw * 0.9 + seite.werte.ang * 0.5));
@@ -2313,9 +2397,28 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       }
     }
 
-    if (min >= 90) {
+    /* Ermuedung: Wer auf dem Platz steht, verliert Frische. Wie schnell,
+       haengt an der Kondition und daran, wie hoch die Elf presst. */
+    [m.heim, m.gast].forEach(function (seite) {
+      seite.elf.forEach(function (pid) {
+        var p = m.spieler[pid];
+        if (!p) return;
+        var verlust = (0.18 + (100 - (p.attrs.kondition || 50)) * 0.005) * seite.werte.konditionMod;
+        if (min > 70) verlust *= 1.2;
+        seite.frische[pid] = Util.clamp((seite.frische[pid] || 100) - verlust, 25, 100);
+      });
+    });
+    /* Alle zehn Minuten neu bewerten - so wirkt die Muedigkeit sichtbar. */
+    if (min % 10 === 0) {
+      m.heim.werte = teamWerte(m.heim, m.spieler);
+      m.gast.werte = teamWerte(m.gast, m.spieler);
+      berechneXG(m);
+    }
+
+    var ende = m.endeMinute || 90;
+    if (min >= ende) {
       if (!m.nachspielzeit) m.nachspielzeit = m.rng.int(1, 6);
-      if (min >= 90 + m.nachspielzeit) {
+      if (min >= ende + m.nachspielzeit) {
         abpfiff(m);
       }
     }
@@ -2351,6 +2454,52 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     });
   }
 
+  /* Verlaengerung im Pokal: zweimal fuenfzehn Minuten. */
+  function verlaengern(m) {
+    m.beendet = false;
+    m.endeMinute = 120;
+    m.nachspielzeit = 0;
+    ereignis(m, 'info', 90, 'Es geht in die Verlängerung. Stand: ' + m.heim.tore + ':' + m.gast.tore + '.');
+    return m;
+  }
+
+  /* Elfmeterschiessen: fuenf Schuetzen je Mannschaft, danach K.-o. */
+  function elfmeterschiessen(m) {
+    function quote(seite, gegner) {
+      var schuetzen = seite.elf.map(function (pid) { return m.spieler[pid]; })
+        .filter(function (p) { return p && p.pos !== 'TW'; })
+        .sort(function (a, b) { return (b.attrs.abschluss || 0) - (a.attrs.abschluss || 0); });
+      var twId = gegner.elf.filter(function (pid) {
+        var p = m.spieler[pid]; return p && p.pos === 'TW';
+      })[0];
+      var tw = twId ? m.spieler[twId] : null;
+      return { schuetzen: schuetzen, tw: tw };
+    }
+    var h = quote(m.heim, m.gast), g2 = quote(m.gast, m.heim);
+    function schuss(seite, i) {
+      var p = seite.schuetzen[i % Math.max(1, seite.schuetzen.length)];
+      var basis = 0.74 + ((p ? p.attrs.abschluss : 50) - 60) * 0.003 -
+        (seite.tw ? ((seite.tw.attrs.reflexe || 50) - 60) * 0.002 : 0);
+      /* Mit jedem Durchgang steigt der Druck. */
+      basis -= Math.min(0.1, i * 0.012);
+      return m.rng.next() < Util.clamp(basis, 0.5, 0.9);
+    }
+    var th = 0, tg = 0, i = 0;
+    for (i = 0; i < 5; i++) {
+      if (schuss(h, i)) th++;
+      if (schuss(g2, i)) tg++;
+      /* Vorzeitige Entscheidung */
+      if (th > tg + (5 - i - 1) || tg > th + (5 - i - 1)) break;
+    }
+    while (th === tg && i < 20) {
+      i++;
+      var a = schuss(h, i), b = schuss(g2, i);
+      if (a) th++;
+      if (b) tg++;
+    }
+    return { heim: th, gast: tg, text: th + ':' + tg + ' nach Elfmeterschießen' };
+  }
+
   function restSimulieren(m) {
     var wache = 0;
     while (!m.beendet && wache++ < 400) minute(m);
@@ -2371,6 +2520,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     seite.wechsel++;
     if (seite.eingesetzt[rausId]) seite.eingesetzt[rausId].bis = m.minute;
     seite.eingesetzt[reinId] = { von: m.minute, bis: 90, note: 3.5, tore: 0, vorlagen: 0 };
+    /* Frisch von der Bank - genau darum lohnen sich Wechsel. */
+    var einP = m.spieler[reinId];
+    if (einP) seite.frische[reinId] = einP.fitness;
     seite.werte = teamWerte(seite, m.spieler);
     berechneXG(m);
     ereignis(m, 'wechsel', m.minute, 'Wechsel: ' + spielerName(m, reinId) + ' kommt für ' + spielerName(m, rausId) + '.', seite, reinId, { raus: rausId });
@@ -2396,7 +2548,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       var p = m.spieler[pid];
       if (!p || p.pos === 'TW') return null;
       var e = seite.eingesetzt[pid];
-      var muedigkeit = 100 - p.fitness + (m.minute - (e ? e.von : 0)) * 0.55;
+      var frisch = seite.frische ? (seite.frische[pid] || p.fitness) : p.fitness;
+      var muedigkeit = 100 - frisch + (m.minute - (e ? e.von : 0)) * 0.3;
       return { pid: pid, wert: muedigkeit + (e ? e.note * 4 : 0) };
     }).filter(Boolean).sort(function (a, b) { return b.wert - a.wert; });
     if (!kandidaten.length) return;
@@ -2409,7 +2562,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       var w = wirkung(p, rausP.pos);
       if (w > besteW) { besteW = w; beste = pid; }
     });
-    if (beste && besteW > wirkung(rausP, rausP.pos) * 0.86) {
+    if (beste && besteW > wirkung(rausP, rausP.pos, seite.frische[raus]) * 0.86) {
       wechsel(m, seiteName, raus, beste);
     }
   }
@@ -2421,12 +2574,15 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     SPIELWEISE: SPIELWEISE,
     standardTaktik: standardTaktik,
     wirkung: wirkung,
+    elfmeter: elfmeter,
     autoAufstellung: autoAufstellung,
     teamWerte: teamWerte,
     seiteAufbauen: seiteAufbauen,
     neu: neu,
     minute: minute,
     restSimulieren: restSimulieren,
+    verlaengern: verlaengern,
+    elfmeterschiessen: elfmeterschiessen,
     wechsel: wechsel,
     taktikAendern: taktikAendern,
     autoWechsel: autoWechsel,
@@ -3848,6 +4004,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     if (klub.kader.length >= 30) return { ok: false, grund: 'Der Profikader ist mit 30 Spielern voll.' };
     klub.jugend.talente.splice(i, 1);
     klub.kader.push(spieler.id);
+    spieler.nummer = Players.nummerFuerKader(spieler,
+      klub.kader.map(function (id) { return state.spieler[id]; })
+        .filter(function (p) { return p && p.id !== spieler.id; }));
     spieler.jugend = false;
     spieler.einschaetzung = null;
     spieler.gehalt = vertrag.gehalt;
@@ -4011,6 +4170,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       postfach: [],
       news: [],
       saisonHistorie: [],
+      pokal: null,
       anstehendesSpiel: null,
       letzteSpieltagErgebnisse: [],
       poolL3: DataPool.REGIONALLIGA_REST.map(function (c) { return c.id; }),
@@ -4109,6 +4269,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       .forEach(function (id, i) { state.klubs[id].europapokal = europa[i]; });
 
     Game.rng = rng;
+    state.pokal = Pokal.aufsetzen(state, rng);
     return state;
   }
 
@@ -4254,6 +4415,20 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     };
   }
 
+  /* Ein Pokalspiel benutzt denselben Kontext wie ein Ligaspiel, wird aber
+     nicht in eine Tabelle eingetragen. */
+  function pokalSpielVorbereiten(state, liga, partie) {
+    var heim = state.klubs[partie.heim];
+    var bezug = heim.ligaId ? state.ligen[heim.ligaId] : liga;
+    var ctx = matchKontext(state, bezug, partie.heim, partie.gast);
+    /* Pokalspiele ziehen mehr Publikum als ein normaler Ligaspieltag. */
+    var kap = Finance.kapazitaet(heim.finanzen.stadion);
+    ctx.zuschauer = Math.min(kap, Math.round(ctx.zuschauer * 1.14));
+    ctx.auslastung = kap ? ctx.zuschauer / kap : 0.6;
+    ctx.pokal = true;
+    return Match.neu(Game.rng, ctx);
+  }
+
   function spielSimulieren(state, liga, partie, spieltagNr) {
     var ctx = matchKontext(state, liga, partie.heim, partie.gast);
     ctx.spieltag = spieltagNr;
@@ -4271,7 +4446,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   }
 
   /* Uebertraegt ein beendetes Spiel in Tabelle, Statistiken und Finanzen. */
-  function ergebnisVerbuchen(state, liga, partie, m, spieltagNr) {
+  function ergebnisVerbuchen(state, liga, partie, m, spieltagNr, optionen) {
+    var istPokal = !!(optionen && optionen.pokal);
     partie.th = m.heim.tore;
     partie.tg = m.gast.tore;
     partie.zuschauer = m.zuschauer;
@@ -4285,7 +4461,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       partie.bericht = null;
     }
 
-    League.ergebnisEintragen(liga.tabelle, partie.heim, partie.gast, m.heim.tore, m.gast.tore);
+    if (!istPokal) {
+      League.ergebnisEintragen(liga.tabelle, partie.heim, partie.gast, m.heim.tore, m.gast.tore);
+    }
 
     [[m.heim, m.gast], [m.gast, m.heim]].forEach(function (paar) {
       var seite = paar[0], gegner = paar[1];
@@ -4318,9 +4496,13 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         p.stats.vorlagen += e.vorlagen;
         p.stats.noten.push(e.note);
         if (p.stats.noten.length > 40) p.stats.noten.shift();
-        /* Fitness und Form */
-        var verbrauch = minuten * (0.30 + (100 - p.attrs.kondition) * 0.0055) * seite.werte.konditionMod;
-        p.fitness = Util.clamp(Math.round(p.fitness - verbrauch), 12, 100);
+        /* Fitness: die im Spiel verbrauchte Frische wird uebernommen. */
+        if (seite.frische && seite.frische[pid] !== undefined && minuten > 0) {
+          p.fitness = Util.clamp(Math.round(seite.frische[pid]), 12, 100);
+        } else if (minuten > 0) {
+          var verbrauch = minuten * (0.30 + (100 - p.attrs.kondition) * 0.0055) * seite.werte.konditionMod;
+          p.fitness = Util.clamp(Math.round(p.fitness - verbrauch), 12, 100);
+        }
         var formZiel = Util.clamp(100 - (e.note - 1) * 20, 5, 98);
         p.form = Math.round(Util.clamp(p.form * 0.72 + formZiel * 0.28, 5, 98));
         var ergebnis = seite.tore - gegner.tore;
@@ -4372,12 +4554,16 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var ein = Finance.spieltagEinnahmen(heimK.finanzen, m.zuschauer);
     heimK.finanzen.stadion.zuletztZuschauer = m.zuschauer;
     Finance.buchen(heimK.finanzen, state.tag, 'Spieltag',
-      'Heimspiel gegen ' + gastK.name + ' (' + Fmt.num(m.zuschauer) + ' Zuschauer)', ein.gesamt, 'Spieltagseinnahmen');
+      (istPokal ? 'Pokalspiel gegen ' : 'Heimspiel gegen ') + gastK.name +
+      ' (' + Fmt.num(m.zuschauer) + ' Zuschauer)', ein.gesamt, 'Spieltagseinnahmen');
 
     [[heimK, m.heim.tore > m.gast.tore], [gastK, m.gast.tore > m.heim.tore]].forEach(function (paar) {
       var k = paar[0], sieg = paar[1];
       if (!sieg) return;
-      Finance.buchen(k.finanzen, state.tag, 'Prämie', 'Siegprämie ' + liga.name, liga.siegPraemie, 'Prämien');
+      if (!istPokal) {
+        Finance.buchen(k.finanzen, state.tag, 'Prämie', 'Siegprämie ' + liga.name,
+          liga.siegPraemie, 'Prämien');
+      }
       var bonus = 0;
       Object.keys(k.finanzen.sponsoren).forEach(function (sl) {
         var sp = k.finanzen.sponsoren[sl];
@@ -4387,7 +4573,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     });
 
     state.letzteSpieltagErgebnisse.push({
-      ligaId: liga.id, spieltag: spieltagNr,
+      ligaId: istPokal ? 'pokal' : liga.id, spieltag: spieltagNr,
       heim: partie.heim, gast: partie.gast, th: partie.th, tg: partie.tg
     });
     return m;
@@ -4514,7 +4700,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
       /* Regeneration und Formdrift */
       kader.forEach(function (p) {
-        var reg = 6 + p.attrs.kondition * 0.075 + (fin.stadion.module.trainingszentrum ? 2 : 0);
+        /* Erholung ist auf den Verbrauch eines Spiels abgestimmt: Wer jede
+           Woche durchspielt, bleibt knapp unter Bestwert - Rotation lohnt. */
+        var reg = 20 + p.attrs.kondition * 0.17 + (fin.stadion.module.trainingszentrum ? 4 : 0);
         p.fitness = Util.clamp(Math.round(p.fitness + reg), 0, 100);
         p.form = Math.round(Util.clamp(p.form + Game.rng.gauss(0, 3.4, -9, 9) + (50 - p.form) * 0.06, 5, 98));
         p.moral = Util.clamp(Math.round(p.moral + (p.wechselwunsch ? -1.2 : 0.4) + Game.rng.gauss(0, 1.2, -3, 3)), 5, 100);
@@ -4889,6 +5077,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     }
     kaeufer.kader.push(spieler.id);
     spieler.klubId = kaeufer.id;
+    spieler.nummer = Players.nummerFuerKader(spieler,
+      kaderVon(state, kaeufer).filter(function (p) { return p.id !== spieler.id; }));
     spieler.transferliste = false;
     spieler.wechselwunsch = false;
     spieler.moral = Util.clamp(spieler.moral + 8, 5, 100);
@@ -4900,6 +5090,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         kaeufer.kader = kaeufer.kader.filter(function (id) { return id !== pid; });
         verkaeufer.kader.push(pid);
         tp.klubId = verkaeufer.id;
+        tp.nummer = Players.nummerFuerKader(tp,
+          kaderVon(state, verkaeufer).filter(function (x) { return x.id !== pid; }));
         tp.transferliste = false;
         tp.wechselwunsch = false;
         tp.moral = Util.clamp(tp.moral - 4, 5, 100);
@@ -4967,6 +5159,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     vonKlub.verliehen.push(spieler.id);
     zuKlub.kader.push(spieler.id);
     spieler.klubId = zuKlub.id;
+    spieler.nummer = Players.nummerFuerKader(spieler,
+      kaderVon(state, zuKlub).filter(function (p) { return p.id !== spieler.id; }));
     spieler.transferliste = false;
     spieler.leihe = {
       vonKlubId: vonKlub.id,
@@ -5173,6 +5367,20 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       return { typ: 'spiel', spiel: state.anstehendesSpiel };
     }
 
+    /* Pokalrunde an diesem Tag? */
+    var pokalRunde = Pokal.rundeAmTag(state, state.tag);
+    if (pokalRunde) {
+      var meinePokalPartie = Pokal.userPartie(state, pokalRunde);
+      if (meinePokalPartie) {
+        state.anstehendesSpiel = {
+          pokal: true, rundeNr: pokalRunde.nr,
+          heim: meinePokalPartie.heim, gast: meinePokalPartie.gast
+        };
+        return { typ: 'spiel', spiel: state.anstehendesSpiel };
+      }
+      Pokal.rundeAustragen(state, pokalRunde, false);
+    }
+
     heute.forEach(function (h) { spieltagAustragen(state, h.liga, h.st, false); });
 
     if (saisonVorbei(state)) return { typ: 'saisonende' };
@@ -5187,6 +5395,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         if (st.tag === state.tag && !st.gespielt) spieltagAustragen(state, liga, st, false);
       });
     });
+    var pr = Pokal.rundeAmTag(state, state.tag);
+    if (pr) Pokal.rundeAustragen(state, pr, false);
     state.anstehendesSpiel = null;
     if (saisonVorbei(state)) return { typ: 'saisonende' };
     return { typ: 'tag' };
@@ -5226,6 +5436,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   Game.aufstellungPruefen = aufstellungPruefen;
   Game.matchKontext = matchKontext;
   Game.spielSimulieren = spielSimulieren;
+  Game.pokalSpielVorbereiten = pokalSpielVorbereiten;
   Game.ergebnisVerbuchen = ergebnisVerbuchen;
   Game.spieltagAustragen = spieltagAustragen;
   Game.naechsterTag = naechsterTag;
@@ -5299,6 +5510,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       reihe.push(p.bonusEinsaetze ? [wb.kl.id(p.bonusEinsaetze.klubId), p.bonusEinsaetze.betrag, p.bonusEinsaetze.spiele] : 0);
       reihe.push(p.leihe ? [wb.kl.id(p.leihe.vonKlubId), p.leihe.bisTag, p.leihe.gehaltsanteil,
         p.leihe.kaufoption || 0, p.leihe.gebuehr || 0] : 0);
+      reihe.push(p.nummer || 0);
       reihe.push(p.jugend ? [p.jugendSeit,
         p.einschaetzung ? [p.einschaetzung.von, p.einschaetzung.bis, p.einschaetzung.urteil,
           Math.round(p.einschaetzung.genauigkeit * 100)] : 0] : 0);
@@ -5341,6 +5553,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       postfach: state.postfach.slice(0, 60),
       news: state.news.slice(0, 30),
       saisonHistorie: state.saisonHistorie,
+      pokal: state.pokal,
       poolL3: state.poolL3,
       poolRLW: state.poolRLW,
       statistik: { transfers: state.statistik.transfers.slice(0, 80) },
@@ -5382,6 +5595,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       ligaReihenfolge: d.ligaReihenfolge, intlKlubs: d.intlKlubs,
       verhandlungen: d.verhandlungen || [], postfach: d.postfach || [], news: d.news || [],
       saisonHistorie: d.saisonHistorie || [],
+      pokal: d.pokal || null,
       anstehendesSpiel: d.anstehendesSpiel || null,
       letzteSpieltagErgebnisse: [],
       poolL3: d.poolL3, poolRLW: d.poolRLW,
@@ -5446,12 +5660,13 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         p.leihe = { vonKlubId: wb.kl[r[40][0]], bisTag: r[40][1], gehaltsanteil: r[40][2],
           kaufoption: r[40][3], gebuehr: r[40][4] };
       }
-      if (r[41]) {
+      p.nummer = r[41] || 0;
+      if (r[42]) {
         p.jugend = true;
-        p.jugendSeit = r[41][0];
-        if (r[41][1]) {
-          p.einschaetzung = { von: r[41][1][0], bis: r[41][1][1], urteil: r[41][1][2],
-            genauigkeit: r[41][1][3] / 100 };
+        p.jugendSeit = r[42][0];
+        if (r[42][1]) {
+          p.einschaetzung = { von: r[42][1][0], bis: r[42][1][1], urteil: r[42][1][2],
+            genauigkeit: r[42][1][3] / 100 };
         }
       }
       state.spieler[p.id] = p;
@@ -5511,6 +5726,231 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     laden: laden,
     vorhanden: vorhanden,
     loeschen: loeschen
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ===== js/pokal.js ===== */
+/* pokal.js - DFB-Pokal.
+ *
+ * 64 Mannschaften: alle Vereine der Bundesliga, 2. Bundesliga und 3. Liga
+ * sowie die acht bestplatzierten Klubs der Regionalliga West als
+ * Landespokalvertreter. K.-o.-System in einem Spiel, bei Gleichstand
+ * Verlängerung und Elfmeterschießen. In den ersten beiden Runden hat der
+ * klassentiefere Verein Heimrecht - wie im echten Wettbewerb.
+ */
+(function (g) {
+  'use strict';
+
+  var RUNDEN = [
+    { nr: 1, name: '1. Runde', tag: 41, praemie: 209000 },
+    { nr: 2, name: '2. Runde', tag: 118, praemie: 419000 },
+    { nr: 3, name: 'Achtelfinale', tag: 200, praemie: 838000 },
+    { nr: 4, name: 'Viertelfinale', tag: 246, praemie: 1700000 },
+    { nr: 5, name: 'Halbfinale', tag: 274, praemie: 3400000 },
+    { nr: 6, name: 'Finale', tag: 302, praemie: 2900000 }
+  ];
+  var SIEGPRAEMIE = 4300000;   /* zusätzlich für den Pokalsieger */
+
+  /* Teilnehmerfeld aus dem Stand der Ligen. */
+  function teilnehmer(state) {
+    var ids = [];
+    ['bl1', 'bl2', 'l3'].forEach(function (lid) {
+      var liga = state.ligen[lid];
+      if (liga) ids = ids.concat(liga.klubs);
+    });
+    var rlw = state.ligen.rlw;
+    if (rlw) {
+      /* Die acht Besten der Regionalliga West vertreten die Landespokale. */
+      var reihenfolge = rlw.abschluss && rlw.abschluss.length
+        ? rlw.abschluss.slice()
+        : rlw.klubs.slice().sort(function (a, b) {
+            return state.klubs[b].ruf - state.klubs[a].ruf;
+          });
+      ids = ids.concat(reihenfolge.slice(0, 8));
+    }
+    return ids;
+  }
+
+  function auslosen(rng, state, ids, rundeNr) {
+    var liste = ids.slice();
+    rng.shuffle(liste);
+    var partien = [];
+    for (var i = 0; i + 1 < liste.length; i += 2) {
+      var a = liste[i], b = liste[i + 1];
+      /* In den ersten beiden Runden hat der klassentiefere Verein Heimrecht. */
+      if (rundeNr <= 2) {
+        var sa = state.klubs[a].stufe || 1, sb = state.klubs[b].stufe || 1;
+        if (sb > sa) { var t = a; a = b; b = t; }
+      }
+      partien.push({ heim: a, gast: b, th: null, tg: null, verlaengerung: false,
+        elfmeter: null, bericht: null, zuschauer: 0 });
+    }
+    return partien;
+  }
+
+  function aufsetzen(state, rng) {
+    var ids = teilnehmer(state);
+    var runden = RUNDEN.map(function (r) {
+      return { nr: r.nr, name: r.name, tag: r.tag, praemie: r.praemie,
+        partien: [], gespielt: false };
+    });
+    runden[0].partien = auslosen(rng, state, ids, 1);
+    return {
+      name: 'DFB-Pokal',
+      runden: runden,
+      aktuelleRunde: 1,
+      sieger: null,
+      teilnehmer: ids.length
+    };
+  }
+
+  function runde(pokal, nr) {
+    return pokal.runden.filter(function (r) { return r.nr === nr; })[0];
+  }
+
+  /* Runde, die an diesem Tag ansteht - oder null. */
+  function rundeAmTag(state, tag) {
+    if (!state.pokal) return null;
+    for (var i = 0; i < state.pokal.runden.length; i++) {
+      var r = state.pokal.runden[i];
+      if (r.tag === tag && !r.gespielt && r.partien.length) return r;
+    }
+    return null;
+  }
+
+  function userPartie(state, r) {
+    for (var i = 0; i < r.partien.length; i++) {
+      var p = r.partien[i];
+      if (p.th === null && (p.heim === state.meinKlubId || p.gast === state.meinKlubId)) return p;
+    }
+    return null;
+  }
+
+  /* Ein Pokalspiel bis zur Entscheidung führen. */
+  function partieAustragen(state, r, partie) {
+    var heim = state.klubs[partie.heim];
+    var liga = heim.ligaId ? state.ligen[heim.ligaId] : state.ligen.bl1;
+    var m = Game.pokalSpielVorbereiten(state, liga, partie);
+    Match.restSimulieren(m);
+    entscheiden(state, r, partie, m);
+    return m;
+  }
+
+  /* Verlängerung und Elfmeterschießen anhängen, dann verbuchen. */
+  function entscheiden(state, r, partie, m) {
+    if (m.heim.tore === m.gast.tore) {
+      partie.verlaengerung = true;
+      Match.verlaengern(m);
+      Match.restSimulieren(m);
+    }
+    abschliessen(state, r, partie, m);
+    return m;
+  }
+
+  /* Verbucht ein fertig gespieltes Pokalspiel und bestimmt den Sieger.
+     Steht es nach der Verlängerung unentschieden, entscheidet das
+     Elfmeterschießen - sofern es nicht schon vorliegt. */
+  function abschliessen(state, r, partie, m) {
+    if (m.heim.tore === m.gast.tore && !partie.elfmeter) {
+      partie.elfmeter = Match.elfmeterschiessen(m);
+    }
+    Game.ergebnisVerbuchen(state, null, partie, m, r.nr, { pokal: true, runde: r });
+    partie.sieger = partie.elfmeter
+      ? (partie.elfmeter.heim > partie.elfmeter.gast ? partie.heim : partie.gast)
+      : (partie.th > partie.tg ? partie.heim : partie.gast);
+    return partie.sieger;
+  }
+
+  function rundeFertig(state, r) {
+    if (r.partien.some(function (p) { return p.th === null; })) return false;
+    r.gespielt = true;
+    var sieger = r.partien.map(function (p) { return p.sieger; });
+
+    /* Prämie für das Erreichen der nächsten Runde. */
+    var naechste = runde(state.pokal, r.nr + 1);
+    sieger.forEach(function (id) {
+      var k = state.klubs[id];
+      if (!k || !k.finanzen) return;
+      var betrag = naechste ? naechste.praemie : SIEGPRAEMIE;
+      Finance.buchen(k.finanzen, state.tag, 'Pokal',
+        naechste ? 'Einzug ins ' + naechste.name : 'Pokalsieg', betrag, 'Pokalprämien');
+    });
+
+    if (naechste) {
+      naechste.partien = auslosen(Game.rng, state, sieger, naechste.nr);
+      state.pokal.aktuelleRunde = naechste.nr;
+      if (sieger.indexOf(state.meinKlubId) >= 0) {
+        var geg = null;
+        naechste.partien.forEach(function (p) {
+          if (p.heim === state.meinKlubId) geg = { klub: state.klubs[p.gast], heim: true };
+          else if (p.gast === state.meinKlubId) geg = { klub: state.klubs[p.heim], heim: false };
+        });
+        Game.post(state, 'Pokal: Auslosung ' + naechste.name,
+          'Sie stehen im ' + naechste.name + '.' +
+          (geg ? ' Der Gegner heißt ' + geg.klub.name + ' – ' +
+            (geg.heim ? 'Heimspiel' : 'Auswärtsspiel') + '.' : ''), 'gut');
+      }
+    } else {
+      state.pokal.sieger = sieger[0];
+      var s = state.klubs[sieger[0]];
+      Game.news(state, s.name + ' gewinnt den DFB-Pokal.', null);
+      if (sieger[0] === state.meinKlubId) {
+        Game.post(state, 'Pokalsieger!',
+          'Sie haben den DFB-Pokal gewonnen. Die Siegprämie von ' + Fmt.money(SIEGPRAEMIE) +
+          ' ist gutgeschrieben.', 'gut');
+      }
+    }
+    return true;
+  }
+
+  /* Ganze Runde austragen, wahlweise ohne die Partie des Spielers. */
+  function rundeAustragen(state, r, ohneUserPartie) {
+    r.partien.forEach(function (p) {
+      if (p.th !== null) return;
+      if (ohneUserPartie && (p.heim === state.meinKlubId || p.gast === state.meinKlubId)) return;
+      partieAustragen(state, r, p);
+    });
+    return rundeFertig(state, r);
+  }
+
+  /* Nächste Pokalpartie des eigenen Vereins. */
+  function naechstePartie(state) {
+    if (!state.pokal) return null;
+    for (var i = 0; i < state.pokal.runden.length; i++) {
+      var r = state.pokal.runden[i];
+      if (r.gespielt || !r.partien.length) continue;
+      for (var j = 0; j < r.partien.length; j++) {
+        var p = r.partien[j];
+        if (p.th !== null) continue;
+        if (p.heim === state.meinKlubId || p.gast === state.meinKlubId) {
+          return { runde: r, partie: p, heim: p.heim === state.meinKlubId };
+        }
+      }
+    }
+    return null;
+  }
+
+  function ausgeschieden(state) {
+    if (!state.pokal) return true;
+    return !naechstePartie(state) && !state.pokal.sieger;
+  }
+
+  g.Pokal = {
+    RUNDEN: RUNDEN,
+    SIEGPRAEMIE: SIEGPRAEMIE,
+    aufsetzen: aufsetzen,
+    teilnehmer: teilnehmer,
+    auslosen: auslosen,
+    runde: runde,
+    rundeAmTag: rundeAmTag,
+    userPartie: userPartie,
+    partieAustragen: partieAustragen,
+    entscheiden: entscheiden,
+    abschliessen: abschliessen,
+    rundeAustragen: rundeAustragen,
+    rundeFertig: rundeFertig,
+    naechstePartie: naechstePartie,
+    ausgeschieden: ausgeschieden
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -5996,6 +6436,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         for (var f = 0; f < nehmen; f++) {
           var fp = frei[f];
           fp.klubId = klub.id;
+          fp.nummer = Players.nummerFuerKader(fp, Game.kaderVon(state, klub));
           fp.vertragBis = state.saison + 1 + Game.rng.int(1, 3);
           fp.gehalt = Players.gehaltsBasis(fp.staerke, klub.ruf, fp.alter);
           klub.kader.push(fp.id);
@@ -6011,6 +6452,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
           klubId: klub.id, klubRuf: klub.ruf, saison: state.saison + 1
         });
         if (lz) p.potenzial = Util.clamp(p.potenzial + Game.rng.int(2, 7), p.staerke, 99);
+        p.nummer = Players.nummerFuerKader(p, Game.kaderVon(state, klub));
         state.spieler[p.id] = p;
         klub.kader.push(p.id);
         if (klub.id === state.meinKlubId && p.potenzial - p.staerke > 14) {
@@ -6085,6 +6527,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       });
       k.finanzen.sponsorAngebote = {};
     });
+
+    /* Neuer Pokalwettbewerb mit dem aktuellen Teilnehmerfeld. */
+    state.pokal = Pokal.aufsetzen(state, Game.rng);
 
     Game.sponsorenPruefen(state);
     state.neueLigaVerteilung = null;
@@ -6272,6 +6717,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
                '<circle cx="7" cy="12" r="1" fill="currentColor" stroke="none"/>' +
                '<circle cx="10.5" cy="12" r="1" fill="currentColor" stroke="none"/>',
     tabellen: '<path d="M3 5h14M3 10h14M3 15h9"/>',
+    pokal: '<path d="M6.5 3.5h7v4a3.5 3.5 0 0 1-7 0z"/>' +
+           '<path d="M6.5 5h-2a2 2 0 0 0 2 2M13.5 5h2a2 2 0 0 1-2 2"/>' +
+           '<path d="M10 11v3M7.5 16.5h5"/>',
     transfermarkt: '<path d="M4 7h11l-2.6-2.6M16 13H5l2.6 2.6"/>',
     verhandlungen: '<path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h6A2.5 2.5 0 0 1 14 6.5v2A2.5 2.5 0 0 1 11.5 11H7l-3 2.6z"/>' +
                    '<path d="M16.5 8.5A2.5 2.5 0 0 1 17 10v3.5a2 2 0 0 1-2 2h-.5"/>',
@@ -6300,6 +6748,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     { id: 'taktik', name: 'Aufstellung' },
     { id: 'spielplan', name: 'Spielplan' },
     { id: 'tabellen', name: 'Tabellen' },
+    { id: 'pokal', name: 'Pokal' },
     { id: 'transfermarkt', name: 'Transfermarkt' },
     { id: 'verhandlungen', name: 'Verhandlungen', zaehler: 'verhandlungen' },
     { id: 'vertraege', name: 'Verträge', zaehler: 'vertraege' },
@@ -6660,9 +7109,23 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
     html += '<div class="raster raster--2">';
 
-    /* Nächstes Spiel */
-    html += '<div class="karte"><div class="karte__kopf"><h3>Nächstes Spiel</h3></div>';
-    if (naechstes) {
+    /* Nächstes Spiel - Liga oder Pokal, je nachdem was zuerst kommt. */
+    var pokalNaechste = Pokal.naechstePartie(st);
+    var pokalZuerst = pokalNaechste && (!naechstes || pokalNaechste.runde.tag < naechstes.spieltag.tag);
+    html += '<div class="karte"><div class="karte__kopf"><h3>Nächstes Spiel</h3>' +
+      (pokalZuerst ? '<span class="marke marke--akzent">DFB-Pokal</span>' : '') + '</div>';
+    if (pokalZuerst) {
+      var pGegner = st.klubs[pokalNaechste.heim ? pokalNaechste.partie.gast : pokalNaechste.partie.heim];
+      html += '<div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">' +
+        wappen(pGegner, 48) +
+        '<div><b style="font-size:1.02rem">' + Util.esc(pGegner.name) + '</b>' +
+        '<div class="mini">' + (pokalNaechste.heim ? 'Heimspiel' : 'Auswärtsspiel') + ' · ' +
+        Util.esc(pokalNaechste.runde.name) + ' · ' +
+        Fmt.weekday(pokalNaechste.runde.tag, st.saison) + ', ' +
+        Fmt.date(pokalNaechste.runde.tag, st.saison) + '</div></div></div>' +
+        '<p class="hinweis" style="margin-top:.8em">Noch <b>' +
+        (pokalNaechste.runde.tag - st.tag) + '</b> Tage bis zum Anpfiff.</p>';
+    } else if (naechstes) {
       var gegnerId = naechstes.heim ? naechstes.partie.gast : naechstes.partie.heim;
       var gegner = st.klubs[gegnerId];
       var gPlatz = League.platzVon(liga, gegnerId);
@@ -6727,6 +7190,10 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     if (kader.length < 18) {
       aufgaben.push({ seite: 'transfermarkt', text: 'Der Kader ist zu klein',
         wert: kader.length + ' Spieler', art: 'gefahr' });
+    }
+    if (pokalNaechste && pokalNaechste.runde.tag - st.tag <= 7) {
+      aufgaben.push({ seite: 'pokal', text: 'Pokalspiel steht an: ' + pokalNaechste.runde.name,
+        wert: 'in ' + (pokalNaechste.runde.tag - st.tag) + ' Tagen' });
     }
     if (Game.istTransferfenster(st)) {
       var endet = st.tag <= 62 ? 62 - st.tag : 215 - st.tag;
@@ -6896,9 +7363,23 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
     if (ansicht === 'eigene') {
       var spiele = League.spieleVon(liga, mein.id);
+      /* Pokalspiele gehören in denselben Kalender. */
+      var pokalspiele = [];
+      if (st.pokal) {
+        st.pokal.runden.forEach(function (r) {
+          r.partien.forEach(function (p) {
+            if (p.heim !== mein.id && p.gast !== mein.id) return;
+            pokalspiele.push({
+              nr: null, tag: r.tag, partie: p, heim: p.heim === mein.id,
+              pokal: true, rundeName: r.name
+            });
+          });
+        });
+      }
+      spiele = spiele.concat(pokalspiele).sort(function (a, b) { return a.tag - b.tag; });
       html += '<div class="karte"><div class="karte__kopf"><h3>' + Util.esc(liga.name) + '</h3>' +
         '<span class="mini">' + liga.spieltage.length + ' Spieltage</span></div>' +
-        '<div class="tabellenrahmen"><table class="liste"><thead><tr><th class="zahl">ST</th><th>Datum</th>' +
+        '<div class="tabellenrahmen"><table class="liste"><thead><tr><th class="zahl">Runde</th><th>Datum</th>' +
         '<th>Gegner</th><th class="mitte">Ort</th><th class="zahl">Ergebnis</th><th class="zahl">Zuschauer</th></tr></thead><tbody>' +
         spiele.map(function (s) {
           var gegnerId = s.heim ? s.partie.gast : s.partie.heim;
@@ -6910,12 +7391,16 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
             erg = '<b class="' + farbe + '">' + eigene + ':' + fremde + '</b>';
           }
           var heute = s.tag === st.tag ? ' style="background:var(--akzent-weich)"' : '';
-          return '<tr' + heute + '><td class="zahl">' + s.nr + '</td>' +
+          return '<tr' + heute + '><td class="zahl">' +
+            (s.pokal ? '<span class="marke marke--akzent">Pokal</span>' : s.nr) + '</td>' +
             '<td class="mini">' + Fmt.weekday(s.tag, st.saison) + ', ' + Fmt.date(s.tag, st.saison) + '</td>' +
             '<td>' + klubZelle(st.klubs[gegnerId], 18) + '</td>' +
             '<td class="mitte"><span class="marke">' + (s.heim ? 'H' : 'A') + '</span></td>' +
             '<td class="zahl">' + erg + '</td>' +
-            '<td class="zahl mini">' + (s.partie.zuschauer ? Fmt.num(s.partie.zuschauer) : '') + '</td></tr>';
+            '<td class="zahl mini">' + (s.partie.zuschauer ? Fmt.num(s.partie.zuschauer) : '') +
+            (s.pokal && s.partie.elfmeter ? ' <span class="mini">n. E.</span>'
+              : (s.pokal && s.partie.verlaengerung ? ' <span class="mini">n. V.</span>' : '')) +
+            '</td></tr>';
         }).join('') + '</tbody></table></div></div>';
     } else {
       var nr = UI.daten.spieltag || Math.max(1, liga.aktuellerSpieltag);
@@ -7677,6 +8162,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         '<div class="knopfreihe" style="margin-bottom:.8rem">' +
         '<button class="knopf knopf--klein" id="aErfuellen">Forderung erfüllen</button>' +
         '<button class="knopf knopf--klein" id="aRaten">Mit Raten strukturieren</button>' +
+        '<button class="knopf knopf--klein" id="aAnpassen">Barbetrag anpassen</button>' +
         '</div>' +
         '<div class="formularraster">' +
         feldZahl('Sofortzahlung (€)', 'aSofort', Math.round(vorschlag / 5000) * 5000, 0, undefined, 5000) +
@@ -7827,6 +8313,19 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       $('aRatenJahre').value = 3;
       rechne();
     };
+    /* Setzt die Sofortzahlung genau so, dass die Forderung erfüllt ist -
+       nützlich, sobald Tauschspieler oder Boni im Angebot stecken. */
+    var anp = $('aAnpassen');
+    if (anp) anp.onclick = function () {
+      var a = angebotLesen(v);
+      var ohneBar = Transfers.angebotsWert(a, p.marktwert) - a.sofort;
+      var noetig = Math.max(0, Math.round((v.forderung - ohneBar) / 5000) * 5000);
+      $('aSofort').value = Math.min(noetig, grenze);
+      var rest = Math.max(0, noetig - grenze);
+      $('aRatenBetrag').value = rest > 0 ? Math.round(rest * 1.15 / 5000) * 5000 : 0;
+      rechne();
+    };
+
     var strukt = $('aRaten');
     if (strukt) strukt.onclick = function () {
       var bar = Math.min(Math.round(v.forderung * 0.4 / 5000) * 5000, grenze);
@@ -9335,17 +9834,136 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   }
 })(typeof window !== 'undefined' ? window : globalThis);
 
+/* ===== js/ui-pokal.js ===== */
+/* ui-pokal.js - Der DFB-Pokal: eigener Weg, Auslosung und alle Ergebnisse. */
+(function (g) {
+  'use strict';
+
+  var UI = g.UI;
+
+  UI.seiten.pokal = function () {
+    var st = UI.S(), mein = UI.meinKlub();
+    var pokal = st.pokal;
+    if (!pokal) return '<div class="karte"><p class="leer">Kein Wettbewerb angesetzt.</p></div>';
+
+    var naechste = Pokal.naechstePartie(st);
+    var raus = Pokal.ausgeschieden(st);
+    var eigenerWeg = [];
+    pokal.runden.forEach(function (r) {
+      r.partien.forEach(function (p) {
+        if (p.heim === mein.id || p.gast === mein.id) {
+          eigenerWeg.push({ runde: r, partie: p, heim: p.heim === mein.id });
+        }
+      });
+    });
+
+    var html = '<div class="raster raster--3">' +
+      UI.kennzahl('Wettbewerb', 'DFB-Pokal', pokal.teilnehmer + ' Mannschaften') +
+      UI.kennzahl('Aktuelle Runde',
+        (Pokal.runde(pokal, pokal.aktuelleRunde) || { name: '–' }).name,
+        pokal.sieger ? 'Sieger: ' + Util.esc(st.klubs[pokal.sieger].name) : 'K.-o.-System, ein Spiel') +
+      UI.kennzahl('Ihr Weg',
+        pokal.sieger === mein.id ? 'Pokalsieger'
+          : (naechste ? naechste.runde.name : (raus ? 'ausgeschieden' : '–')),
+        eigenerWeg.length + (eigenerWeg.length === 1 ? ' Partie' : ' Partien')) +
+      '</div>';
+
+    /* Nächste eigene Partie */
+    if (naechste) {
+      var gegner = st.klubs[naechste.heim ? naechste.partie.gast : naechste.partie.heim];
+      var gLiga = gegner.ligaId ? st.ligen[gegner.ligaId] : null;
+      html += '<div class="karte"><div class="karte__kopf"><h3>' +
+        Util.esc(naechste.runde.name) + '</h3>' +
+        '<span class="mini">' + Fmt.weekday(naechste.runde.tag, st.saison) + ', ' +
+        Fmt.date(naechste.runde.tag, st.saison) + '</span></div>' +
+        '<div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">' +
+        UI.wappen(gegner, 48) +
+        '<div><b style="font-size:1.02rem">' + Util.esc(gegner.name) + '</b>' +
+        '<div class="mini">' + (naechste.heim ? 'Heimspiel' : 'Auswärtsspiel') +
+        (gLiga ? ' · ' + Util.esc(gLiga.name) : '') + '</div>' +
+        '<div class="mini">Prämie für das Weiterkommen: ' +
+        Fmt.money((Pokal.runde(pokal, naechste.runde.nr + 1) || { praemie: Pokal.SIEGPRAEMIE }).praemie) +
+        '</div></div></div>' +
+        '<p class="mini" style="margin-top:.8em">Bei Gleichstand nach 90 Minuten folgen Verlängerung ' +
+        'und, wenn nötig, Elfmeterschießen.</p></div>';
+    }
+
+    /* Eigener Weg durch den Wettbewerb */
+    if (eigenerWeg.length) {
+      html += '<div class="karte"><div class="karte__kopf"><h3>Ihre Partien</h3></div>' +
+        '<div class="tabellenrahmen"><table class="liste"><thead><tr><th>Runde</th><th>Gegner</th>' +
+        '<th class="mitte">Ort</th><th class="zahl">Ergebnis</th><th></th></tr></thead><tbody>' +
+        eigenerWeg.map(function (w) {
+          var gegnerId = w.heim ? w.partie.gast : w.partie.heim;
+          var erg = '<span class="mini">–</span>';
+          var zusatz = '';
+          if (w.partie.th !== null) {
+            var e1 = w.heim ? w.partie.th : w.partie.tg;
+            var e2 = w.heim ? w.partie.tg : w.partie.th;
+            var weiter = w.partie.sieger === mein.id;
+            erg = '<b class="' + (weiter ? 'gut' : 'schlecht') + '">' + e1 + ':' + e2 + '</b>';
+            if (w.partie.elfmeter) zusatz = '<span class="marke">' + Util.esc(w.partie.elfmeter.text) + '</span>';
+            else if (w.partie.verlaengerung) zusatz = '<span class="marke">nach Verlängerung</span>';
+          }
+          return '<tr><td>' + Util.esc(w.runde.name) + '</td>' +
+            '<td>' + (w.heim ? '' : 'bei ') + UI.klubZelle(st.klubs[gegnerId], 18) + '</td>' +
+            '<td class="mitte"><span class="marke">' + (w.heim ? 'H' : 'A') + '</span></td>' +
+            '<td class="zahl">' + erg + '</td><td>' + zusatz + '</td></tr>';
+        }).join('') + '</tbody></table></div></div>';
+    }
+
+    /* Alle Runden */
+    var offeneRunde = UI.daten.pokalRunde ||
+      (Pokal.runde(pokal, pokal.aktuelleRunde) ? pokal.aktuelleRunde : 1);
+    html += '<div class="reiter">' + pokal.runden.filter(function (r) {
+      return r.partien.length;
+    }).map(function (r) {
+      return '<button data-pokalrunde="' + r.nr + '" class="' + (r.nr === offeneRunde ? 'aktiv' : '') +
+        '">' + Util.esc(r.name) + '</button>';
+    }).join('') + '</div>';
+
+    var r2 = Pokal.runde(pokal, offeneRunde);
+    html += '<div class="karte"><div class="karte__kopf"><h3>' + Util.esc(r2.name) + '</h3>' +
+      '<span class="mini">' + Fmt.date(r2.tag, st.saison) + '</span></div>';
+    if (!r2.partien.length) {
+      html += '<p class="leer">Diese Runde ist noch nicht ausgelost.</p>';
+    } else {
+      html += '<div class="tabellenrahmen"><table class="liste"><tbody>' +
+        r2.partien.map(function (p) {
+          var eigen = (p.heim === mein.id || p.gast === mein.id) ? ' class="eigen"' : '';
+          var mitte = p.th === null ? '– : –' : p.th + ' : ' + p.tg;
+          var zusatz = p.elfmeter ? '<span class="mini">' + Util.esc(p.elfmeter.text) + '</span>'
+            : (p.verlaengerung ? '<span class="mini">n. V.</span>' : '');
+          return '<tr' + eigen + '><td style="text-align:right">' +
+            UI.klubZelle(st.klubs[p.heim], 18) + '</td>' +
+            '<td class="mitte" style="width:5.5em"><b>' + mitte + '</b></td>' +
+            '<td>' + UI.klubZelle(st.klubs[p.gast], 18) + '</td>' +
+            '<td class="zahl">' + zusatz + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    html += '</div>';
+    return html;
+  };
+
+  UI.nachZeichnen.pokal = function () {
+    UI.tabellenKlicks();
+    Array.prototype.forEach.call(document.querySelectorAll('[data-pokalrunde]'), function (b) {
+      b.onclick = function () { UI.wechsle('pokal', { pokalRunde: +b.dataset.pokalrunde }); };
+    });
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
 /* ===== js/spielfeld2d.js ===== */
 /* spielfeld2d.js - Zweidimensionale Darstellung des laufenden Spiels.
  *
- * Die Simulation selbst rechnet mit Wahrscheinlichkeiten, nicht mit
- * Positionen. Diese Ansicht macht daraus ein sichtbares Spiel: Die
- * Mannschaften verschieben sich als Block mit dem Ball, der Ball wandert
- * zwischen den Spielern, und die Ereignisse der Simulation - Chance, Tor,
- * Karte, Wechsel - lösen die passende Bewegung aus.
+ * Die Simulation rechnet mit Wahrscheinlichkeiten, nicht mit Positionen.
+ * Diese Ansicht macht daraus sichtbares Fußballspiel: Ein Spieler führt den
+ * Ball, dribbelt kurz an und sucht dann einen Mitspieler. Der Pass fliegt
+ * sichtbar - flach und schnell über kurze Wege, als hoher Ball über weite -
+ * und kann vom Gegner abgefangen werden. Die Ereignisse der Simulation
+ * (Chance, Tor, Karte) lösen die passende Situation aus.
  *
- * Platzkoordinaten laufen von 0 bis 100 in der Länge (x) und 0 bis 100 in
- * der Breite (y). Die Heimmannschaft greift nach rechts an.
+ * Platzkoordinaten: 0-100 in der Länge (x), 0-100 in der Breite (y).
  */
 (function (g) {
   'use strict';
@@ -9356,26 +9974,27 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.spieler = [];
-    this.ball = { x: 50, y: 50, zx: 50, zy: 50, hoehe: 0 };
+    this.ball = { x: 50, y: 50, z: 0 };
+    this.traeger = null;      /* Spieler am Ball */
+    this.flug = null;         /* laufender Pass oder Schuss */
+    this.spur = [];           /* verblassende Passlinien */
     this.phase = 'anstoss';
     this.phaseZeit = 0;
+    this.haltezeit = 0;
     this.besitz = 'heim';
     this.ballbesitzQuote = 50;
     this.seitenTausch = false;
     this.laeuft = false;
     this.tempo = 1;
-    this.letzterRahmen = 0;
     this.blitz = null;
-    this.amBall = null;
+    this.chanceTor = false;
   }
 
-  /* Formationsposition in Platzkoordinaten umrechnen.
-     Die Formationen sind hochkant angelegt (Tor unten), hier liegt der
-     Platz quer - deshalb werden die Achsen getauscht. */
+  /* Formationsposition in Platzkoordinaten. Die Formationen sind hochkant
+     angelegt (eigenes Tor unten), der Platz liegt quer. */
   Feld.prototype.basisPos = function (slot, heim) {
-    var fx = slot[1], fy = slot[2];          /* 0-100 quer, 0-100 hoch */
-    var laenge = 100 - fy;                    /* eigenes Tor bei 0 */
-    var breite = fx;
+    var laenge = 100 - slot[2];
+    var breite = slot[1];
     if (heim) return { x: laenge * 0.94 + 3, y: breite };
     return { x: 100 - (laenge * 0.94 + 3), y: 100 - breite };
   };
@@ -9389,19 +10008,24 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       seite.elf.forEach(function (pid, i) {
         var p = spielerMap[pid];
         if (!p) return;
-        var basis = self.basisPos(slots[i] || [p.pos, 50, 50], heim);
+        var slot = slots[i] || [p.pos, 50, 50];
+        var basis = self.basisPos(slot, heim);
         self.spieler.push({
-          id: pid, heim: heim, farbe: farbe.fuellung, rand: farbe.rand, text: farbe.text,
-          kurz: p.nachname.substr(0, 3),
-          torwart: (slots[i] && slots[i][0]) === 'TW',
-          tempo: 0.55 + (p.attrs.tempo || 50) / 190,
-          bx: basis.x, by: basis.y,
-          x: basis.x, y: basis.y,
-          zx: basis.x, zy: basis.y
+          id: pid, heim: heim,
+          farbe: farbe.fuellung, rand: farbe.rand, text: farbe.text,
+          nummer: p.nummer || (i + 1),
+          name: p.nachname,
+          torwart: slot[0] === 'TW',
+          tempo: 0.6 + (p.attrs.tempo || 50) / 200,
+          technik: (p.attrs.technik || 50) / 100,
+          uebersicht: (p.attrs.uebersicht || 50) / 100,
+          bx: basis.x, by: basis.y, x: basis.x, y: basis.y, zx: basis.x, zy: basis.y
         });
       });
     });
-    this.ball.x = 50; this.ball.y = 50; this.ball.zx = 50; this.ball.zy = 50;
+    this.ball = { x: 50, y: 50, z: 0 };
+    this.traeger = this.spieler.filter(function (s) { return s.heim && !s.torwart; })[5] || null;
+    this.flug = null; this.spur = [];
     this.phase = 'anstoss'; this.phaseZeit = 0;
   };
 
@@ -9409,9 +10033,12 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var p = spielerMap[reinId];
     for (var i = 0; i < this.spieler.length; i++) {
       if (this.spieler[i].id === rausId && p) {
-        this.spieler[i].id = reinId;
-        this.spieler[i].kurz = p.nachname.substr(0, 3);
-        this.spieler[i].tempo = 0.55 + (p.attrs.tempo || 50) / 190;
+        var s = this.spieler[i];
+        s.id = reinId; s.name = p.nachname; s.nummer = p.nummer || s.nummer;
+        s.tempo = 0.6 + (p.attrs.tempo || 50) / 200;
+        s.technik = (p.attrs.technik || 50) / 100;
+        s.uebersicht = (p.attrs.uebersicht || 50) / 100;
+        if (this.traeger === this.spieler[i]) this.traeger = s;
         return;
       }
     }
@@ -9419,40 +10046,131 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
   Feld.prototype.halbzeit = function () {
     this.seitenTausch = !this.seitenTausch;
-    var self = this;
     this.spieler.forEach(function (s) {
       s.bx = 100 - s.bx; s.by = 100 - s.by;
       s.x = s.bx; s.y = s.by; s.zx = s.bx; s.zy = s.by;
     });
     this.phase = 'anstoss'; this.phaseZeit = 0;
-    this.ball.x = 50; this.ball.y = 50;
+    this.ball = { x: 50, y: 50, z: 0 };
+    this.flug = null; this.spur = [];
+    this.traeger = null;
   };
 
-  /* Richtung, in die eine Mannschaft angreift: 1 = nach rechts. */
   Feld.prototype.richtung = function (heim) {
     var r = heim ? 1 : -1;
     return this.seitenTausch ? -r : r;
   };
-
-  Feld.prototype.torX = function (heim) {
-    /* Das Tor, auf das diese Mannschaft spielt. */
-    return this.richtung(heim) > 0 ? 98 : 2;
-  };
+  Feld.prototype.torX = function (heim) { return this.richtung(heim) > 0 ? 99 : 1; };
 
   Feld.prototype.ereignis = function (e) {
-    var heim = e.heim;
-    this.besitz = heim ? 'heim' : 'gast';
-    if (e.typ === 'chance') { this.phase = 'abschluss'; this.phaseZeit = 0; this.chanceTor = false; }
-    else if (e.typ === 'tor') { this.phase = 'abschluss'; this.phaseZeit = 0; this.chanceTor = true; }
-    else if (e.typ === 'gelb' || e.typ === 'rot' || e.typ === 'gelbrot') {
+    this.besitz = e.heim ? 'heim' : 'gast';
+    if (e.typ === 'chance' || e.typ === 'tor') {
+      this.phase = 'angriff'; this.phaseZeit = 0;
+      this.chanceTor = e.typ === 'tor';
+      /* Der Ball geht sofort zu einem Angreifer der Mannschaft. */
+      var stuermer = this.spieler.filter(function (s) { return s.heim === e.heim && !s.torwart; })
+        .sort(function (a, b) { return (b.x - a.x) * (e.heim ? 1 : -1); })[0];
+      if (stuermer) this.passSpielen(stuermer, 'steil');
+    } else if (e.typ === 'gelb' || e.typ === 'rot' || e.typ === 'gelbrot') {
       this.phase = 'unterbrechung'; this.phaseZeit = 0;
-      this.blitz = { farbe: e.typ === 'gelb' ? '#f2c94c' : '#e0524b', zeit: 0.9 };
-    } else if (e.typ === 'anpfiff') { this.phase = 'anstoss'; this.phaseZeit = 0; }
+      this.blitz = { farbe: e.typ === 'gelb' ? '#f2c94c' : '#e0524b', zeit: 0.85 };
+    } else if (e.typ === 'anpfiff') {
+      this.phase = 'anstoss'; this.phaseZeit = 0;
+    }
   };
 
   Feld.prototype.setBallbesitz = function (prozent) { this.ballbesitzQuote = prozent; };
 
-  /* --- Bewegungsmodell --- */
+  /* --- Passspiel --- */
+
+  function abstand(a, b) {
+    var dx = a.x - b.x, dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  /* Wie frei steht ein Spieler? Abstand zum nächsten Gegenspieler. */
+  Feld.prototype.freiheit = function (s) {
+    var min = 99;
+    for (var i = 0; i < this.spieler.length; i++) {
+      var g2 = this.spieler[i];
+      if (g2.heim === s.heim) continue;
+      var d = abstand(s, g2);
+      if (d < min) min = d;
+    }
+    return min;
+  };
+
+  /* Sucht einen Mitspieler und spielt ihn an. */
+  Feld.prototype.passZielWaehlen = function (von, art) {
+    var self = this;
+    var vor = this.richtung(von.heim);
+    var kandidaten = [];
+    this.spieler.forEach(function (s) {
+      if (s.heim !== von.heim || s === von) return;
+      if (s.torwart && art === 'steil') return;
+      var d = abstand(von, s);
+      if (d < 6 || d > 62) return;
+      var fortschritt = (s.x - von.x) * vor;      /* nach vorn ist besser */
+      var frei = Math.min(18, self.freiheit(s));
+      var wert = frei * 1.4 + fortschritt * (art === 'steil' ? 1.9 : 0.8) - d * 0.22;
+      if (art === 'steil' && fortschritt < 0) wert -= 30;
+      kandidaten.push({ s: s, wert: wert + Math.random() * 12 });
+    });
+    if (!kandidaten.length) return null;
+    kandidaten.sort(function (a, b) { return b.wert - a.wert; });
+    /* Nicht immer die beste Option - sonst wirkt es mechanisch. */
+    var index = Math.random() < (0.55 + von.uebersicht * 0.3) ? 0 : Math.min(kandidaten.length - 1, 1);
+    return kandidaten[index].s;
+  };
+
+  Feld.prototype.passSpielen = function (von, art) {
+    var ziel = this.passZielWaehlen(von, art);
+    if (!ziel) { this.haltezeit = 0.4; return; }
+    var d = abstand(von, ziel);
+    var typ = d > 38 ? 'lang' : (d > 20 ? 'mittel' : 'kurz');
+
+    /* Abfangen: je enger der Empfänger gedeckt ist, desto eher. */
+    var frei = this.freiheit(ziel);
+    var risiko = Util.clamp(0.42 - frei * 0.035 - von.technik * 0.16, 0.02, 0.4);
+    if (typ === 'lang') risiko += 0.1;
+    var abgefangen = Math.random() < risiko;
+    var empfaenger = ziel;
+    if (abgefangen) {
+      var gegner = null, nah = 99;
+      for (var i = 0; i < this.spieler.length; i++) {
+        var s = this.spieler[i];
+        if (s.heim === von.heim) continue;
+        var dd = abstand(s, ziel);
+        if (dd < nah) { nah = dd; gegner = s; }
+      }
+      if (gegner) empfaenger = gegner; else abgefangen = false;
+    }
+
+    this.flug = {
+      vonX: von.x, vonY: von.y, t: 0,
+      dauer: Util.clamp(d / (typ === 'lang' ? 62 : 78), 0.22, 0.95),
+      hoehe: typ === 'lang' ? 3.4 : (typ === 'mittel' ? 1.1 : 0),
+      ziel: empfaenger, abgefangen: abgefangen, art: 'pass'
+    };
+    this.spur.push({ x1: von.x, y1: von.y, x2: empfaenger.x, y2: empfaenger.y, zeit: 0.85 });
+    if (this.spur.length > 6) this.spur.shift();
+    this.traeger = null;
+  };
+
+  Feld.prototype.schussSpielen = function (von) {
+    var torX = this.torX(von.heim);
+    var torY = this.chanceTor ? 46 + Math.random() * 8 : (Math.random() < 0.5 ? 34 : 66);
+    this.flug = {
+      vonX: von.x, vonY: von.y, t: 0, dauer: 0.42,
+      hoehe: 2.2, zielPunkt: { x: torX, y: torY },
+      art: 'schuss', tor: this.chanceTor
+    };
+    this.spur.push({ x1: von.x, y1: von.y, x2: torX, y2: torY, zeit: 1.1, schuss: true });
+    if (this.spur.length > 6) this.spur.shift();
+    this.traeger = null;
+  };
+
+  /* --- Ablauf --- */
 
   Feld.prototype.aktualisieren = function (dt) {
     var self = this;
@@ -9461,134 +10179,136 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       this.blitz.zeit -= dt;
       if (this.blitz.zeit <= 0) this.blitz = null;
     }
+    this.spur = this.spur.filter(function (l) { l.zeit -= dt; return l.zeit > 0; });
 
     var angreifer = this.besitz === 'heim';
-    var richt = this.richtung(angreifer);
+    var vorRichtung = this.richtung(angreifer);
 
-    switch (this.phase) {
-      case 'anstoss':
-        this.ball.zx = 50; this.ball.zy = 50;
-        if (this.phaseZeit > 1.1) { this.phase = 'aufbau'; this.phaseZeit = 0; }
-        break;
-
-      case 'unterbrechung':
-        if (this.phaseZeit > 1.3) { this.phase = 'aufbau'; this.phaseZeit = 0; }
-        break;
-
-      case 'aufbau':
-        /* Der Ball wandert zwischen den Spielern der ballführenden Elf. */
-        if (this.phaseZeit > 0.85 || this.nahAmBall()) {
-          this.phaseZeit = 0;
-          var eigene = this.spieler.filter(function (s) {
-            return s.heim === angreifer && !s.torwart;
-          });
-          if (eigene.length) {
-            /* Bevorzugt nach vorne spielen, aber nicht immer. */
-            var ziel = eigene[Math.floor(Math.random() * eigene.length)];
-            for (var v = 0; v < 2; v++) {
-              var alt = eigene[Math.floor(Math.random() * eigene.length)];
-              if ((alt.x - ziel.x) * richt > 0) ziel = alt;
-            }
-            this.ball.zx = ziel.x; this.ball.zy = ziel.y;
-            this.amBall = ziel.id;
+    /* Ball in der Luft */
+    if (this.flug) {
+      var f = this.flug;
+      f.t += dt;
+      var q = Math.min(1, f.t / f.dauer);
+      var zx = f.zielPunkt ? f.zielPunkt.x : f.ziel.x;
+      var zy = f.zielPunkt ? f.zielPunkt.y : f.ziel.y;
+      this.ball.x = f.vonX + (zx - f.vonX) * q;
+      this.ball.y = f.vonY + (zy - f.vonY) * q;
+      this.ball.z = f.hoehe * Math.sin(Math.PI * q);
+      if (q >= 1) {
+        this.ball.z = 0;
+        if (f.art === 'schuss') {
+          if (f.tor) { this.phase = 'jubel'; this.phaseZeit = 0; }
+          else {
+            this.besitz = angreifer ? 'gast' : 'heim';
+            this.phase = 'aufbau'; this.phaseZeit = 0;
+            var tw = this.spieler.filter(function (s) { return s.heim !== angreifer && s.torwart; })[0];
+            this.traeger = tw || null;
+            this.haltezeit = 0.5;
           }
-          /* Gelegentlich den Ballbesitz wechseln – gemäß der Statistik. */
-          if (Math.random() < 0.22) {
+        } else {
+          this.traeger = f.ziel;
+          if (f.abgefangen) {
+            this.besitz = f.ziel.heim ? 'heim' : 'gast';
+            this.phase = 'aufbau'; this.phaseZeit = 0;
+          }
+          this.haltezeit = 0.18 + Math.random() * 0.3;
+        }
+        this.flug = null;
+      }
+    } else if (this.traeger) {
+      /* Ball am Fuß, leicht in Laufrichtung versetzt */
+      var t2 = this.traeger;
+      this.ball.x = t2.x + this.richtung(t2.heim) * 1.6;
+      this.ball.y = t2.y;
+      this.ball.z = 0;
+      this.haltezeit -= dt;
+      if (this.haltezeit <= 0) {
+        var imStrafraum = (this.torX(t2.heim) > 50 ? t2.x > 82 : t2.x < 18);
+        if (this.phase === 'angriff' && imStrafraum) {
+          this.schussSpielen(t2);
+        } else if (this.phase === 'angriff') {
+          this.passSpielen(t2, 'steil');
+        } else {
+          this.passSpielen(t2, 'aufbau');
+          /* Gelegentlich kippt der Ballbesitz durch einen Zweikampf. */
+          if (Math.random() < 0.14) {
             var quote = this.ballbesitzQuote / 100;
             this.besitz = Math.random() < quote ? 'heim' : 'gast';
           }
         }
-        break;
-
-      case 'abschluss':
-        /* Ein Angreifer zieht zum Tor, dann folgt der Schuss. */
-        if (this.phaseZeit < 0.75) {
-          var vorne = this.spieler.filter(function (s) { return s.heim === angreifer && !s.torwart; })
-            .sort(function (a, b) { return (b.x - a.x) * richt; })[0];
-          if (vorne) {
-            this.ball.zx = vorne.x + richt * 6;
-            this.ball.zy = vorne.y;
-            this.amBall = vorne.id;
-          }
-        } else if (this.phaseZeit < 1.5) {
-          this.ball.zx = this.torX(angreifer);
-          this.ball.zy = this.chanceTor ? 42 + Math.random() * 16 : (Math.random() < 0.5 ? 28 : 72);
-          this.ball.hoehe = 1;
-        } else {
-          this.phase = this.chanceTor ? 'jubel' : 'aufbau';
-          this.phaseZeit = 0;
-          this.ball.hoehe = 0;
-          if (!this.chanceTor) this.besitz = angreifer ? 'gast' : 'heim';
-        }
-        break;
-
-      case 'jubel':
-        if (this.phaseZeit > 2.2) {
-          this.phase = 'anstoss'; this.phaseZeit = 0;
-          this.besitz = angreifer ? 'gast' : 'heim';
-          this.ball.x = 50; this.ball.y = 50;
-        }
-        break;
+      }
     }
 
-    /* Ball zum Ziel bewegen */
-    var bs = this.phase === 'abschluss' && this.phaseZeit > 0.75 ? 150 : 46;
-    this.ball.x = naehern(this.ball.x, this.ball.zx, bs * dt);
-    this.ball.y = naehern(this.ball.y, this.ball.zy, bs * dt);
+    /* Phasen ohne Ballführung */
+    if (this.phase === 'anstoss') {
+      if (this.phaseZeit > 1.0) {
+        this.phase = 'aufbau'; this.phaseZeit = 0;
+        var mitte = this.spieler.filter(function (s) { return s.heim === angreifer && !s.torwart; })
+          .sort(function (a, b) { return abstand(a, { x: 50, y: 50 }) - abstand(b, { x: 50, y: 50 }); })[0];
+        this.traeger = mitte || null;
+        this.haltezeit = 0.3;
+      }
+    } else if (this.phase === 'unterbrechung') {
+      if (this.phaseZeit > 1.2) { this.phase = 'aufbau'; this.phaseZeit = 0; this.haltezeit = 0.3; }
+    } else if (this.phase === 'jubel') {
+      if (this.phaseZeit > 2.3) {
+        this.phase = 'anstoss'; this.phaseZeit = 0;
+        this.besitz = angreifer ? 'gast' : 'heim';
+        this.ball = { x: 50, y: 50, z: 0 };
+        this.traeger = null;
+      }
+    } else if (this.phase === 'angriff' && this.phaseZeit > 4.5) {
+      this.phase = 'aufbau'; this.phaseZeit = 0;
+    }
 
-    /* Mannschaftsblock verschiebt sich mit dem Ball */
+    /* Laufwege */
     this.spieler.forEach(function (s) {
       if (self.phase === 'jubel' && s.heim === angreifer && !s.torwart) {
-        /* Torjubel: alle laufen zum Schützen. */
-        s.zx = self.ball.x + (Math.random() - 0.5) * 14;
-        s.zy = self.ball.y + (Math.random() - 0.5) * 14;
+        s.zx = self.ball.x + (Math.random() - 0.5) * 16;
+        s.zy = self.ball.y + (Math.random() - 0.5) * 16;
       } else if (s.torwart) {
         var eigenesTor = self.richtung(s.heim) > 0 ? 3 : 97;
-        s.zx = eigenesTor + (self.ball.x - 50) * 0.05;
-        s.zy = 50 + (self.ball.y - 50) * 0.28;
+        s.zx = eigenesTor + (self.ball.x - 50) * 0.06;
+        s.zy = 50 + (self.ball.y - 50) * 0.3;
       } else {
         var vor = self.richtung(s.heim);
-        var ballVorne = (self.ball.x - 50) * vor / 50;   /* -1 hinten, +1 vorne */
-        var schub = s.heim === angreifer ? 13 : 10;
+        var ballVorne = (self.ball.x - 50) * vor / 50;
+        var schub = s.heim === angreifer ? 14 : 11;
         s.zx = s.bx + vor * ballVorne * schub;
-        s.zy = s.by + (self.ball.y - 50) * 0.24;
-        /* Der ballnächste Spieler geht zum Ball. */
-        if (s.id === self.amBall) { s.zx = self.ball.zx; s.zy = self.ball.zy; }
-        s.zx += (Math.random() - 0.5) * 1.2;
-        s.zy += (Math.random() - 0.5) * 1.2;
+        s.zy = s.by + (self.ball.y - 50) * 0.26;
+        if (s === self.traeger) { s.zx = s.bx + vor * ballVorne * schub; }
+        /* Anspielpartner läuft dem Ball entgegen, Gegner attackiert. */
+        if (self.flug && self.flug.ziel === s) { s.zx = self.ball.x; s.zy = self.ball.y; }
+        else if (s.heim !== angreifer && abstand(s, self.ball) < 16) {
+          s.zx = self.ball.x - vor * 1.5; s.zy = self.ball.y;
+        }
+        s.zx += (Math.random() - 0.5) * 1.1;
+        s.zy += (Math.random() - 0.5) * 1.1;
       }
       s.zx = Math.max(1.5, Math.min(98.5, s.zx));
       s.zy = Math.max(3, Math.min(97, s.zy));
-      var v = s.tempo * 17 * dt;
+      var v = s.tempo * 18 * dt;
       s.x = naehern(s.x, s.zx, v);
       s.y = naehern(s.y, s.zy, v * 1.1);
     });
 
-    /* Spieler auseinanderhalten - sonst stehen Gegenspieler deckungsgleich
-       übereinander und das Bild wirkt wie ein Fehler. */
+    /* Mindestabstand, damit niemand deckungsgleich steht */
     var mind = 4.2;
     for (var i = 0; i < this.spieler.length; i++) {
       for (var j = i + 1; j < this.spieler.length; j++) {
         var a = this.spieler[i], b2 = this.spieler[j];
         var dx = b2.x - a.x, dy = b2.y - a.y;
-        var d = Math.sqrt(dx * dx + dy * dy);
-        if (d >= mind || d === 0) continue;
-        var schub = (mind - d) / 2;
-        var ux = dx / d, uy = dy / d;
-        a.x -= ux * schub; a.y -= uy * schub;
-        b2.x += ux * schub; b2.y += uy * schub;
+        var d2 = Math.sqrt(dx * dx + dy * dy);
+        if (d2 >= mind || d2 === 0) continue;
+        var schub2 = (mind - d2) / 2, ux = dx / d2, uy = dy / d2;
+        a.x -= ux * schub2; a.y -= uy * schub2;
+        b2.x += ux * schub2; b2.y += uy * schub2;
       }
     }
     this.spieler.forEach(function (s) {
       s.x = Math.max(1.5, Math.min(98.5, s.x));
       s.y = Math.max(3, Math.min(97, s.y));
     });
-  };
-
-  /* Hat der Ball sein Ziel erreicht? Dann wird neu gespielt. */
-  Feld.prototype.nahAmBall = function () {
-    var dx = this.ball.x - this.ball.zx, dy = this.ball.y - this.ball.zy;
-    return dx * dx + dy * dy < 2.5;
   };
 
   function naehern(ist, ziel, schritt) {
@@ -9603,6 +10323,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var c = this.ctx, cv = this.canvas;
     var dpr = window.devicePixelRatio || 1;
     var b = cv.clientWidth, h = cv.clientHeight;
+    if (!b || !h) return;
     if (cv.width !== Math.round(b * dpr) || cv.height !== Math.round(h * dpr)) {
       cv.width = Math.round(b * dpr);
       cv.height = Math.round(h * dpr);
@@ -9610,67 +10331,74 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     c.clearRect(0, 0, b, h);
 
-    var rand = 8;
+    var rand = 9;
     var pb = b - rand * 2, ph = h - rand * 2;
     function X(x) { return rand + x / 100 * pb; }
     function Y(y) { return rand + y / 100 * ph; }
 
-    /* Rasen mit Streifen */
     c.fillStyle = '#4f9e70';
     c.fillRect(0, 0, b, h);
     c.fillStyle = '#4b9a6c';
-    for (var i = 0; i < 10; i += 2) {
-      c.fillRect(rand + i * (pb / 10), rand, pb / 10, ph);
-    }
+    for (var i = 0; i < 10; i += 2) c.fillRect(rand + i * (pb / 10), rand, pb / 10, ph);
 
-    /* Linien */
-    c.strokeStyle = 'rgba(255,255,255,.8)';
+    c.strokeStyle = 'rgba(255,255,255,.78)';
     c.lineWidth = 1.6;
     c.strokeRect(X(0), Y(0), pb, ph);
     c.beginPath(); c.moveTo(X(50), Y(0)); c.lineTo(X(50), Y(100)); c.stroke();
-    c.beginPath(); c.arc(X(50), Y(50), pb * 0.09, 0, Math.PI * 2); c.stroke();
+    c.beginPath(); c.arc(X(50), Y(50), pb * 0.088, 0, Math.PI * 2); c.stroke();
     c.strokeRect(X(0), Y(21), pb * 0.16, ph * 0.58);
     c.strokeRect(X(84), Y(21), pb * 0.16, ph * 0.58);
     c.strokeRect(X(0), Y(36), pb * 0.055, ph * 0.28);
     c.strokeRect(X(94.5), Y(36), pb * 0.055, ph * 0.28);
-    /* Tore */
-    c.lineWidth = 3;
-    c.strokeStyle = 'rgba(255,255,255,.95)';
-    c.beginPath(); c.moveTo(X(0), Y(42)); c.lineTo(X(0), Y(58)); c.stroke();
-    c.beginPath(); c.moveTo(X(100), Y(42)); c.lineTo(X(100), Y(58)); c.stroke();
+    c.lineWidth = 3.2; c.strokeStyle = 'rgba(255,255,255,.95)';
+    c.beginPath(); c.moveTo(X(0), Y(43)); c.lineTo(X(0), Y(57)); c.stroke();
+    c.beginPath(); c.moveTo(X(100), Y(43)); c.lineTo(X(100), Y(57)); c.stroke();
 
-    /* Spieler */
-    var r = Math.max(6, Math.min(11, pb / 62));
+    /* Passlinien - sie machen das Spiel lesbar */
+    this.spur.forEach(function (l) {
+      c.save();
+      c.globalAlpha = Math.min(0.6, l.zeit * 0.7);
+      c.strokeStyle = l.schuss ? '#ffd45e' : '#ffffff';
+      c.lineWidth = l.schuss ? 2.4 : 1.8;
+      c.setLineDash(l.schuss ? [] : [5, 4]);
+      c.beginPath(); c.moveTo(X(l.x1), Y(l.y1)); c.lineTo(X(l.x2), Y(l.y2)); c.stroke();
+      c.restore();
+    });
+
+    var r = Math.max(6.5, Math.min(12, pb / 58));
+    var self = this;
     this.spieler.forEach(function (s) {
       var px = X(s.x), py = Y(s.y);
       c.beginPath();
-      c.ellipse(px, py + r * 0.75, r * 0.85, r * 0.35, 0, 0, Math.PI * 2);
-      c.fillStyle = 'rgba(0,0,0,.16)'; c.fill();
+      c.ellipse(px, py + r * 0.78, r * 0.85, r * 0.34, 0, 0, Math.PI * 2);
+      c.fillStyle = 'rgba(0,0,0,.17)'; c.fill();
+      if (s === self.traeger) {
+        c.beginPath(); c.arc(px, py, r + 3.2, 0, Math.PI * 2);
+        c.strokeStyle = 'rgba(255,255,255,.85)'; c.lineWidth = 2; c.stroke();
+      }
       c.beginPath(); c.arc(px, py, r, 0, Math.PI * 2);
       c.fillStyle = s.farbe; c.fill();
-      c.lineWidth = 1.6; c.strokeStyle = s.rand; c.stroke();
-      if (r >= 8) {
-        c.fillStyle = s.text;
-        c.font = '600 ' + Math.round(r * 0.82) + 'px -apple-system, system-ui, sans-serif';
-        c.textAlign = 'center'; c.textBaseline = 'middle';
-        c.fillText(s.kurz, px, py + 0.5);
-      }
+      c.lineWidth = 1.5; c.strokeStyle = s.rand; c.stroke();
+      c.fillStyle = s.text;
+      c.font = '600 ' + Math.round(r * 0.95) + 'px -apple-system, system-ui, sans-serif';
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(String(s.nummer), px, py + 0.5);
     });
 
-    /* Ball */
+    /* Ball mit Schatten - die Höhe macht lange Bälle sichtbar */
     var bx = X(this.ball.x), by = Y(this.ball.y);
-    var br = Math.max(3.5, r * 0.42);
+    var hoehe = this.ball.z * (ph / 100) * 2.2;
+    var br = Math.max(3.2, r * 0.4);
     c.beginPath();
-    c.ellipse(bx, by + br * 1.4, br * 0.9, br * 0.4, 0, 0, Math.PI * 2);
-    c.fillStyle = 'rgba(0,0,0,.2)'; c.fill();
-    c.beginPath(); c.arc(bx, by, br, 0, Math.PI * 2);
+    c.ellipse(bx, by + br * 1.3, br * (0.9 + this.ball.z * 0.05), br * 0.38, 0, 0, Math.PI * 2);
+    c.fillStyle = 'rgba(0,0,0,.24)'; c.fill();
+    c.beginPath(); c.arc(bx, by - hoehe, br, 0, Math.PI * 2);
     c.fillStyle = '#ffffff'; c.fill();
-    c.lineWidth = 1; c.strokeStyle = 'rgba(0,0,0,.45)'; c.stroke();
+    c.lineWidth = 1; c.strokeStyle = 'rgba(0,0,0,.4)'; c.stroke();
 
-    /* Kartenblitz */
     if (this.blitz) {
       c.fillStyle = this.blitz.farbe;
-      c.globalAlpha = Math.min(0.5, this.blitz.zeit * 0.5);
+      c.globalAlpha = Math.min(0.45, this.blitz.zeit * 0.5);
       c.fillRect(0, 0, b, h);
       c.globalAlpha = 1;
     }
@@ -9694,7 +10422,6 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   };
 
   Feld.prototype.setTempo = function (tempo) { this.tempo = TEMPO[tempo] || 1; };
-
   Feld.prototype.stop = function () {
     this.laeuft = false;
     if (this.raf) cancelAnimationFrame(this.raf);
@@ -9746,7 +10473,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var st = UI.S();
     var an = st.anstehendesSpiel;
     if (!an) return;
-    var liga = st.ligen[an.ligaId];
+    var f0 = partieFinden();
+    var liga = f0.liga;
     var mein = UI.meinKlub();
     var heim = st.klubs[an.heim], gast = st.klubs[an.gast];
     var gegner = an.heim === mein.id ? gast : heim;
@@ -9760,17 +10488,23 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       'margin-bottom:1rem;flex-wrap:wrap">' +
       UI.wappen(heim, 56) + '<b style="font-size:1.1rem">' + Util.esc(heim.kurz) + ' – ' +
       Util.esc(gast.kurz) + '</b>' + UI.wappen(gast, 56) + '</div>' +
-      '<p style="text-align:center" class="hinweis">' + an.spieltagNr + '. Spieltag ' +
-      Util.esc(liga.name) + ' · ' + (istHeim ? 'Heimspiel' : 'Auswärtsspiel') + ' gegen <b>' +
-      Util.esc(gegner.name) + '</b></p>';
+      '<p style="text-align:center" class="hinweis">' +
+      (an.pokal ? 'DFB-Pokal, ' + Util.esc(f0.runde.name)
+                : an.spieltagNr + '. Spieltag ' + Util.esc(liga.name)) +
+      ' · ' + (istHeim ? 'Heimspiel' : 'Auswärtsspiel') + ' gegen <b>' +
+      Util.esc(gegner.name) + '</b></p>' +
+      (an.pokal ? '<p class="hinweis" style="text-align:center">Bei Gleichstand nach 90 Minuten ' +
+        'folgen Verlängerung und, wenn nötig, Elfmeterschießen.</p>' : '');
 
+    var meineLiga = mein.ligaId ? st.ligen[mein.ligaId] : null;
+    var gLiga = gegner.ligaId ? st.ligen[gegner.ligaId] : null;
     html += '<div class="raster raster--3" style="margin:1rem 0">' +
       UI.kennzahl('Ihre Aufstellung', mein.aufstellung.formation,
         Match.MENTALITAET[mein.taktik.mentalitaet].name) +
-      UI.kennzahl('Ihre Form', UI.formIcons(liga.tabelle[mein.id].form),
-        'Platz ' + League.platzVon(liga, mein.id)) +
-      UI.kennzahl('Form des Gegners', UI.formIcons(liga.tabelle[gegner.id].form),
-        'Platz ' + League.platzVon(liga, gegner.id)) +
+      UI.kennzahl('Ihre Form', meineLiga ? UI.formIcons(meineLiga.tabelle[mein.id].form) : '–',
+        meineLiga ? 'Platz ' + League.platzVon(meineLiga, mein.id) + ' · ' + meineLiga.kurz : '') +
+      UI.kennzahl('Form des Gegners', gLiga ? UI.formIcons(gLiga.tabelle[gegner.id].form) : '–',
+        gLiga ? 'Platz ' + League.platzVon(gLiga, gegner.id) + ' · ' + gLiga.kurz : '') +
       '</div>';
 
     if (fehlend.length) {
@@ -9791,6 +10525,15 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   function partieFinden() {
     var st = UI.S();
     var an = st.anstehendesSpiel;
+    if (an.pokal) {
+      var runde = Pokal.runde(st.pokal, an.rundeNr);
+      var pp = runde.partien.filter(function (p) {
+        return p.heim === an.heim && p.gast === an.gast;
+      })[0];
+      var heimKlub = st.klubs[an.heim];
+      return { pokal: true, runde: runde, partie: pp,
+        liga: heimKlub.ligaId ? st.ligen[heimKlub.ligaId] : st.ligen.bl1 };
+    }
     var liga = st.ligen[an.ligaId];
     var stag = liga.spieltage[an.spieltagNr - 1];
     var partie = stag.partien.filter(function (p) {
@@ -9803,7 +10546,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var st = UI.S();
     var f = partieFinden();
     if (!f.partie || f.partie.th !== null) return;
-    var m = Game.spielSimulieren(st, f.liga, f.partie, f.stag.nr);
+    var m = f.pokal
+      ? Pokal.partieAustragen(st, f.runde, f.partie)
+      : Game.spielSimulieren(st, f.liga, f.partie, f.stag.nr);
     Game.tagAbschliessen(st);
     ergebnisFenster(m, f);
   }
@@ -9814,15 +10559,21 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var st = UI.S();
     var f = partieFinden();
     if (!f.partie || f.partie.th !== null) return;
-    var ctx = Game.matchKontext(st, f.liga, f.partie.heim, f.partie.gast);
-    ctx.spieltag = f.stag.nr;
-    var m = Match.neu(Game.rng, ctx);
+    var m;
+    if (f.pokal) {
+      m = Game.pokalSpielVorbereiten(st, f.liga, f.partie);
+    } else {
+      var ctx = Game.matchKontext(st, f.liga, f.partie.heim, f.partie.gast);
+      ctx.spieltag = f.stag.nr;
+      m = Match.neu(Game.rng, ctx);
+    }
 
     var heimFarbe = trikot(m.heimKlub, null);
     var gastFarbe = trikot(m.gastKlub, heimFarbe.fuellung);
 
     live = {
       match: m, liga: f.liga, partie: f.partie, stag: f.stag,
+      pokal: f.pokal ? { runde: f.runde } : null, verlaengert: false,
       tempo: 'normal', timer: null, laeuft: true,
       meinSeite: f.partie.heim === st.meinKlubId ? 'heim' : 'gast',
       gezeigt: 0, feld: null, ansicht: 'feld',
@@ -9850,7 +10601,17 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   function schritt() {
     if (!live) return;
     var m = live.match;
-    if (m.beendet) { beenden(); return; }
+    if (m.beendet) {
+      /* Im Pokal geht es bei Gleichstand weiter. */
+      if (live.pokal && !live.verlaengert && m.heim.tore === m.gast.tore) {
+        live.verlaengert = true;
+        live.partie.verlaengerung = true;
+        Match.verlaengern(m);
+        liveAktualisieren();
+        return;
+      }
+      beenden(); return;
+    }
     var neue = Match.minute(m);
     var kiSeite = live.meinSeite === 'heim' ? 'gast' : 'heim';
     if (m.minute === 60 || m.minute === 72 || m.minute === 81) {
@@ -9876,9 +10637,19 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var st = UI.S();
     var m = live.match;
     if (!m.beendet) Match.abpfiff(m);
-    Game.ergebnisVerbuchen(st, live.liga, live.partie, m, live.stag.nr);
+    if (live.pokal) {
+      if (m.heim.tore === m.gast.tore) {
+        live.partie.elfmeter = Match.elfmeterschiessen(m);
+        m.ereignisse.push({ min: 120, typ: 'tor',
+          text: 'Elfmeterschießen: ' + live.partie.elfmeter.text + '.' });
+      }
+      Pokal.abschliessen(st, live.pokal.runde, live.partie, m);
+    } else {
+      Game.ergebnisVerbuchen(st, live.liga, live.partie, m, live.stag.nr);
+    }
     Game.tagAbschliessen(st);
-    var f = { liga: live.liga, partie: live.partie, stag: live.stag };
+    var f = { liga: live.liga, partie: live.partie, stag: live.stag,
+      pokal: live.pokal ? true : false, runde: live.pokal ? live.pokal.runde : null };
     liveAktualisieren();
     setTimeout(function () {
       if (live && live.feld) live.feld.stop();
@@ -10142,6 +10913,10 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var fremde = istHeim ? f.partie.tg : f.partie.th;
     var gegner = st.klubs[istHeim ? f.partie.gast : f.partie.heim];
     var titel = eigene > fremde ? 'Sieg' : (eigene < fremde ? 'Niederlage' : 'Unentschieden');
+    if (f.pokal) {
+      var weiter = f.partie.sieger === mein.id;
+      titel = weiter ? 'Weiter im Pokal' : 'Pokal-Aus';
+    }
 
     var html = '<div style="text-align:center;margin-bottom:1.2rem">' +
       '<div style="font-size:2.3rem;font-weight:640;letter-spacing:-.03em">' +
@@ -10158,9 +10933,21 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       }).join('') + '</div>';
     }
 
-    html += '<h4 style="margin-top:1.2rem">Tabelle</h4>' + UI.tabelleHTML(f.liga, true);
+    if (f.pokal) {
+      var zusatz = f.partie.elfmeter ? f.partie.elfmeter.text
+        : (f.partie.verlaengerung ? 'nach Verlängerung' : '');
+      html = html.replace('</div></div>',
+        '</div>' + (zusatz ? '<div class="mini">' + Util.esc(zusatz) + '</div>' : '') + '</div>');
+      html += '<p style="text-align:center" class="hinweis">' +
+        (f.partie.sieger === mein.id
+          ? 'Sie stehen in der nächsten Runde.'
+          : 'Der Pokalwettbewerb ist für Sie beendet.') + '</p>';
+    } else {
+      html += '<h4 style="margin-top:1.2rem">Tabelle</h4>' + UI.tabelleHTML(f.liga, true);
+    }
 
-    var andere = f.stag.partien.filter(function (p) { return p !== f.partie && p.th !== null; });
+    var andere = (f.pokal ? f.runde.partien : f.stag.partien)
+      .filter(function (p) { return p !== f.partie && p.th !== null; });
     if (andere.length) {
       html += '<h4 style="margin-top:1.2rem">Weitere Ergebnisse</h4>' +
         '<div class="tabellenrahmen"><table class="liste"><tbody>' +
