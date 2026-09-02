@@ -9,6 +9,10 @@
   --gold: #ffd53c;
   --radius: 16px;
   --chrome: 120px;   /* Platz fuer Fusszeile und Raender */
+  /* Chakra Petch traegt die Anzeige, Bungee nur den Titel. Ohne Netz greifen
+     die Ersatzschriften, das Layout bleibt gleich. */
+  --ui: "Chakra Petch", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --display: "Bungee", "Arial Black", "Segoe UI", system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -21,7 +25,7 @@ body {
     radial-gradient(900px 600px at 85% 110%, #06304d 0%, transparent 60%),
     linear-gradient(180deg, var(--bg-2), var(--bg));
   color: var(--text);
-  font: 15px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  font: 500 15px/1.45 var(--ui);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -92,8 +96,9 @@ body {
 
 .val {
   font-size: clamp(20px, 3.4vw, 40px);
-  font-weight: 800;
-  letter-spacing: .02em;
+  font-weight: 700;
+  letter-spacing: .01em;
+  font-variant-numeric: tabular-nums;
 }
 
 .val--score { color: #fff; text-shadow: 0 0 14px rgba(255, 62, 165, .9), 0 0 30px rgba(255, 62, 165, .5); }
@@ -187,8 +192,9 @@ body {
   left: 50%;
   top: 32%;
   transform: translate(-50%, -50%) scale(.85);
-  font-size: clamp(15px, 2.6vw, 30px);
-  font-weight: 800;
+  font-family: var(--display);
+  font-size: clamp(13px, 2.2vw, 26px);
+  font-weight: 400;
   letter-spacing: .16em;
   text-transform: uppercase;
   text-align: center;
@@ -237,9 +243,10 @@ body {
 
 .card h1 {
   margin: 0 0 6px;
-  font-size: clamp(30px, 7vw, 62px);
-  font-weight: 900;
-  letter-spacing: .04em;
+  font-family: var(--display);
+  font-size: clamp(26px, 6vw, 54px);
+  font-weight: 400;
+  letter-spacing: .02em;
   line-height: 1;
   background: linear-gradient(92deg, #24e5ff, #9dff3c, #ffd53c, #ff3ea5, #24e5ff);
   background-size: 300% 100%;
@@ -282,7 +289,7 @@ body {
   color: var(--muted);
 }
 
-.statgrid b { font-size: clamp(15px, 2.4vw, 22px); font-weight: 800; }
+.statgrid b { font-size: clamp(15px, 2.4vw, 22px); font-weight: 700; font-variant-numeric: tabular-nums; }
 .statgrid b.hi { color: var(--gold); text-shadow: 0 0 14px rgba(255, 213, 60, .7); }
 
 #ovBtn {
@@ -292,7 +299,7 @@ body {
   padding: 12px 30px;
   border-radius: 999px;
   font: inherit;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: .16em;
   text-transform: uppercase;
   color: #12021c;

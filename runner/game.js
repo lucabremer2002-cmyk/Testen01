@@ -1252,7 +1252,7 @@
       ctx.restore();
 
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 19px system-ui, sans-serif';
+      ctx.font = 'bold 19px "Chakra Petch", system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       var sign = p.kind === 'shield' ? '●' : (p.kind === 'magnet' ? 'U' : (p.kind === 'x2' ? '2' : '◔'));
@@ -1478,14 +1478,14 @@
 
   function drawTexts() {
     ctx.textAlign = 'center';
-    ctx.font = '800 20px system-ui, sans-serif';
+    ctx.font = '700 20px "Chakra Petch", system-ui, sans-serif';
     for (var i = 0; i < G.texts.length; i++) {
       var f = G.texts[i];
       var t = 1 - f.life / f.max;
       var x = f.x - G.worldX;
       if (x < -160 || x > W + 160) continue;
       x = clamp(x, 96, W - 96);            // nie am Bildrand abschneiden
-      ctx.font = '800 ' + f.size + 'px system-ui, sans-serif';
+      ctx.font = '700 ' + f.size + 'px "Chakra Petch", system-ui, sans-serif';
       ctx.lineWidth = 4;
       ctx.strokeStyle = 'rgba(0,0,0,' + (t * 0.7) + ')';
       ctx.strokeText(f.text, x, f.y);

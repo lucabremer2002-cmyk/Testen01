@@ -1,7 +1,9 @@
 # Neon Dash
 
 Ein 2D-Endlosrunner fuer den Browser – reines HTML, CSS und JavaScript, ohne
-Framework, ohne Build-Schritt und ohne Abhaengigkeiten.
+Framework, ohne Build-Schritt und ohne Abhaengigkeiten. Die beiden Schriften
+kommen von Google Fonts; ohne Netzverbindung greifen Systemschriften, das
+Layout bleibt gleich.
 
 ## Spielen
 
