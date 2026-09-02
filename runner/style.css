@@ -1,18 +1,28 @@
+/*
+ * Drucklauf - Darstellung im Stil eines Risographie-Drucks.
+ * Die Seite ist ein Andruckbogen: Papier, Registermarken, Farbkontrollstreifen.
+ * Bewusst einfarbige Welt statt heller und dunkler Variante - ein Druck hat
+ * nur eine Fassung. Alle Farben stehen darum ausdruecklich hier.
+ */
+
 :root {
-  --bg: #06030f;
-  --bg-2: #120a26;
-  --text: #f2ecff;
-  --muted: #9d90c4;
-  --pink: #ff3ea5;
-  --cyan: #24e5ff;
-  --lime: #9dff3c;
-  --gold: #ffd53c;
-  --radius: 16px;
-  --chrome: 120px;   /* Platz fuer Fusszeile und Raender */
-  /* Chakra Petch traegt die Anzeige, Bungee nur den Titel. Ohne Netz greifen
-     die Ersatzschriften, das Layout bleibt gleich. */
-  --ui: "Chakra Petch", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
-  --display: "Bungee", "Arial Black", "Segoe UI", system-ui, sans-serif;
+  --papier: #f3ecd9;
+  --bogen: #ddd2ba;
+  --tinte: #22201e;
+  --tinte-hell: #6b645c;
+
+  --pink: #ff4f9a;
+  --orange: #ff6b2c;
+  --gelb: #ffc61e;
+  --gruen: #3f9e4d;
+  --aqua: #00a6a0;
+  --kobalt: #2f4bd8;
+  --violett: #7a4bd8;
+
+  --ui: "Azeret Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --display: "Anton", "Arial Black", Impact, system-ui, sans-serif;
+
+  --chrome: 150px;
 }
 
 * { box-sizing: border-box; }
@@ -20,40 +30,58 @@
 html, body { height: 100%; margin: 0; }
 
 body {
-  background:
-    radial-gradient(900px 600px at 20% -10%, #2b0b4d 0%, transparent 60%),
-    radial-gradient(900px 600px at 85% 110%, #06304d 0%, transparent 60%),
-    linear-gradient(180deg, var(--bg-2), var(--bg));
-  color: var(--text);
-  font: 500 15px/1.45 var(--ui);
+  background-color: var(--bogen);
+  /* Papierkorn als feines Punktmuster */
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(34, 32, 30, .07) 1px, transparent 0),
+    radial-gradient(circle at 5px 7px, rgba(34, 32, 30, .05) 1px, transparent 0);
+  background-size: 8px 8px, 13px 13px;
+  color: var(--tinte);
+  font: 400 14px/1.5 var(--ui);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 14px;
+  gap: 10px;
+  padding: 18px 14px;
   overflow-x: hidden;
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ------------------------------------------------------------------ Buehne */
+/* --------------------------------------------------------------- Andruckbogen */
+
+.sheet {
+  position: relative;
+  width: min(100%, 1180px, calc((100vh - var(--chrome)) * 16 / 9));
+  padding: 16px;
+}
+
+/* Registermarken in den vier Ecken, wie auf einem echten Andruck */
+.marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-size: 22px 22px;
+  background-position: left top, right top, left bottom, right bottom;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cg stroke='%2322201e' stroke-width='1' fill='none'%3E%3Ccircle cx='11' cy='11' r='6'/%3E%3Cpath d='M11 0v22M0 11h22'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cg stroke='%2322201e' stroke-width='1' fill='none'%3E%3Ccircle cx='11' cy='11' r='6'/%3E%3Cpath d='M11 0v22M0 11h22'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cg stroke='%2322201e' stroke-width='1' fill='none'%3E%3Ccircle cx='11' cy='11' r='6'/%3E%3Cpath d='M11 0v22M0 11h22'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cg stroke='%2322201e' stroke-width='1' fill='none'%3E%3Ccircle cx='11' cy='11' r='6'/%3E%3Cpath d='M11 0v22M0 11h22'/%3E%3C/g%3E%3C/svg%3E");
+}
 
 .stage {
   position: relative;
-  /* Breite zusaetzlich ueber die Hoehe begrenzen, damit die Buehne nie aus dem
-     Sichtfenster laeuft - besonders auf Telefonen im Querformat. */
-  width: min(100%, 1180px, calc((100vh - var(--chrome)) * 16 / 9));
+  width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: var(--radius);
   overflow: hidden;
-  background: #06030f;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, .09),
-    0 0 46px rgba(255, 62, 165, .28),
-    0 0 90px rgba(36, 229, 255, .16),
-    0 24px 60px rgba(0, 0, 0, .6);
+  background: var(--papier);
+  border: 2px solid var(--tinte);
+  /* Harter Versatzschatten statt Leuchten: der Druckstock liegt auf */
+  box-shadow: 7px 7px 0 rgba(34, 32, 30, .85);
 }
 
 #game {
@@ -63,16 +91,38 @@ body {
   touch-action: none;
 }
 
-/* --------------------------------------------------------------------- HUD */
+/* Farbkontrollstreifen unter dem Bogen */
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 9px;
+  letter-spacing: .22em;
+  color: var(--tinte-hell);
+}
+
+.strip::after {
+  content: "";
+  flex: 1;
+  height: 11px;
+  border: 1px solid var(--tinte);
+  background: linear-gradient(90deg,
+    var(--pink) 0 14.28%, var(--orange) 14.28% 28.56%, var(--gelb) 28.56% 42.84%,
+    var(--gruen) 42.84% 57.12%, var(--aqua) 57.12% 71.4%, var(--kobalt) 71.4% 85.68%,
+    var(--violett) 85.68% 100%);
+}
+
+/* ----------------------------------------------------------------------- HUD */
 
 .hud {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  padding: clamp(8px, 1.6vw, 18px);
+  padding: clamp(8px, 1.5vw, 16px);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -83,84 +133,92 @@ body {
   gap: 10px;
 }
 
-.hud__block { display: flex; flex-direction: column; line-height: 1.1; }
+.hud__block { display: flex; flex-direction: column; line-height: 1; }
 .hud__block--mid { align-items: center; text-align: center; }
 .hud__block--right { align-items: flex-end; text-align: right; }
 
 .lbl {
-  font-size: clamp(8px, 1vw, 11px);
-  letter-spacing: .22em;
+  font-size: clamp(8px, .95vw, 10px);
+  letter-spacing: .26em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--tinte-hell);
+  margin-bottom: 3px;
 }
 
 .val {
-  font-size: clamp(20px, 3.4vw, 40px);
-  font-weight: 700;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(24px, 4vw, 46px);
   letter-spacing: .01em;
-  font-variant-numeric: tabular-nums;
+  line-height: .92;
 }
 
-.val--score { color: #fff; text-shadow: 0 0 14px rgba(255, 62, 165, .9), 0 0 30px rgba(255, 62, 165, .5); }
-.val--dist  { color: var(--cyan); text-shadow: 0 0 14px rgba(36, 229, 255, .8); font-size: clamp(16px, 2.4vw, 28px); }
-.val--coins { color: var(--gold); text-shadow: 0 0 14px rgba(255, 213, 60, .8); }
+/* Fehlregister: die zweite Platte liegt leicht daneben */
+.val--score { color: var(--tinte); text-shadow: 2.5px 2px 0 var(--pink); }
+.val--dist  { color: var(--tinte); text-shadow: 2px 1.5px 0 var(--aqua); font-size: clamp(18px, 2.8vw, 32px); }
+.val--coins { color: var(--tinte); text-shadow: 2.5px 2px 0 var(--gelb); }
 
-.sub { font-size: clamp(9px, 1.1vw, 12px); color: var(--muted); letter-spacing: .1em; }
-.sub i { font-style: normal; color: #e6dcff; }
-
-.combo { color: var(--lime); font-weight: 700; text-shadow: 0 0 12px rgba(157, 255, 60, .7); }
-
-.zone {
-  font-size: clamp(9px, 1.1vw, 12px);
-  letter-spacing: .34em;
-  text-transform: uppercase;
-  color: #fff;
-  opacity: .8;
-  padding: 2px 10px;
-  border: 1px solid rgba(255, 255, 255, .2);
-  border-radius: 999px;
-  background: rgba(0, 0, 0, .28);
+.sub {
+  font-size: clamp(9px, 1vw, 11px);
+  letter-spacing: .1em;
+  color: var(--tinte-hell);
   margin-top: 4px;
 }
 
-/* Aktive Power-ups */
-.powers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 2px;
+.sub i { font-style: normal; color: var(--tinte); font-weight: 600; }
+.combo { color: var(--tinte); font-weight: 700; }
+
+/* Zonenschild als Gummistempel */
+.zone {
+  margin-top: 6px;
+  padding: 3px 10px;
+  font-size: clamp(8px, .95vw, 10px);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--tinte);
+  border: 1.5px solid var(--tinte);
+  transform: rotate(-1.4deg);
+  background: rgba(243, 236, 217, .6);
 }
 
+.powers { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+
 .pill {
-  --h: 200;
-  font-size: clamp(9px, 1vw, 11px);
-  font-weight: 700;
-  letter-spacing: .12em;
-  padding: 3px 10px;
-  border-radius: 999px;
-  color: hsl(var(--h) 100% 88%);
-  background: hsl(var(--h) 90% 50% / .18);
-  border: 1px solid hsl(var(--h) 100% 70% / .55);
-  box-shadow: 0 0 14px hsl(var(--h) 100% 60% / .45);
+  --ink: var(--tinte);
+  font-size: clamp(8px, .95vw, 10px);
+  font-weight: 600;
+  letter-spacing: .14em;
+  padding: 3px 8px;
+  color: var(--tinte);
+  border: 1.5px solid var(--ink);
+  background: color-mix(in srgb, var(--ink) 22%, transparent);
+  box-shadow: 2px 2px 0 var(--ink);
   white-space: nowrap;
 }
 
-/* Hyper-Leiste */
+/* Hyper-Leiste als gedruckte Segmentskala */
+/* Die Leiste sitzt ueber der dunklen Erdflaeche - sie braucht eigenes Papier. */
 .hyper {
   margin-top: auto;
-  width: min(46%, 340px);
+  width: fit-content;
+  max-width: min(58%, 360px);
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 5px 9px;
+  background: var(--papier);
+  border: 1.5px solid var(--tinte);
+  box-shadow: 3px 3px 0 rgba(34, 32, 30, .5);
 }
+
+.hyper__bar { min-width: 130px; }
 
 .hyper__bar {
   position: relative;
-  flex: 1;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .08);
-  border: 1px solid rgba(255, 255, 255, .16);
+  flex: 1 0 130px;
+  height: 13px;
+  border: 1.5px solid var(--tinte);
+  background: rgba(243, 236, 217, .7);
   overflow: hidden;
 }
 
@@ -168,63 +226,58 @@ body {
   position: absolute;
   inset: 0 auto 0 0;
   width: 0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #24e5ff, #9dff3c, #ffd53c, #ff3ea5);
-  box-shadow: 0 0 16px rgba(255, 62, 165, .8);
+  background:
+    repeating-linear-gradient(90deg, var(--pink) 0 9px, transparent 9px 12px),
+    var(--gelb);
   transition: width .08s linear;
 }
 
 .hyper__label {
-  font-size: clamp(9px, 1vw, 11px);
+  font-size: clamp(8px, .95vw, 10px);
   letter-spacing: .18em;
-  color: var(--muted);
+  color: var(--tinte-hell);
   white-space: nowrap;
 }
 
-.hyper.ready .hyper__label { color: #fff; animation: blink .7s steps(2, end) infinite; }
-.hyper.ready .hyper__bar { border-color: #fff; box-shadow: 0 0 20px rgba(255, 255, 255, .7); }
+.hyper.ready .hyper__label { color: var(--tinte); font-weight: 700; animation: blink .7s steps(2, end) infinite; }
+.hyper.ready .hyper__bar { box-shadow: 2px 2px 0 var(--tinte); }
 
-@keyframes blink { 50% { opacity: .35; } }
+@keyframes blink { 50% { opacity: .3; } }
 
-/* Kurznachrichten */
 .toast {
   position: absolute;
   left: 50%;
-  top: 32%;
-  transform: translate(-50%, -50%) scale(.85);
+  top: 30%;
+  transform: translate(-50%, -50%);
   font-family: var(--display);
-  font-size: clamp(13px, 2.2vw, 26px);
-  font-weight: 400;
-  letter-spacing: .16em;
+  font-size: clamp(16px, 3vw, 34px);
+  letter-spacing: .04em;
   text-transform: uppercase;
   text-align: center;
   opacity: 0;
-  color: #fff;
-  text-shadow: 0 0 18px currentColor, 0 4px 24px rgba(0, 0, 0, .7);
+  color: var(--tinte);
   white-space: nowrap;
 }
 
-.toast.show { animation: toast 1.5s cubic-bezier(.2, .9, .2, 1) forwards; }
+.toast.show { animation: toast 1.6s cubic-bezier(.2, .9, .2, 1) forwards; }
 
 @keyframes toast {
-  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
-  16%  { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
-  30%  { transform: translate(-50%, -50%) scale(1); }
-  75%  { opacity: 1; }
-  100% { opacity: 0; transform: translate(-50%, -90%) scale(1); }
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.7) rotate(-3deg); }
+  14%  { opacity: 1; transform: translate(-50%, -50%) scale(1.06) rotate(1deg); }
+  28%  { transform: translate(-50%, -50%) scale(1) rotate(-1deg); }
+  76%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -80%) scale(1) rotate(-1deg); }
 }
 
-/* ---------------------------------------------------------------- Overlays */
+/* ------------------------------------------------------------------ Overlays */
 
 .overlay {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 16px;
-  background: radial-gradient(120% 90% at 50% 40%, rgba(10, 4, 24, .72), rgba(4, 2, 10, .93));
-  backdrop-filter: blur(5px);
-  transition: opacity .18s ease;
+  padding: 14px;
+  background: rgba(243, 236, 217, .88);
 }
 
 .overlay[hidden] { display: none; }
@@ -235,181 +288,191 @@ body {
   overflow: auto;
   text-align: center;
   padding: clamp(14px, 3vw, 26px);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, .14);
-  background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .02));
-  box-shadow: 0 0 60px rgba(255, 62, 165, .25), 0 0 90px rgba(36, 229, 255, .18);
+  background: var(--papier);
+  border: 2px solid var(--tinte);
+  box-shadow: 8px 8px 0 var(--pink), 8px 8px 0 1.5px var(--tinte);
 }
 
 .card h1 {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   font-family: var(--display);
-  font-size: clamp(26px, 6vw, 54px);
   font-weight: 400;
-  letter-spacing: .02em;
-  line-height: 1;
-  background: linear-gradient(92deg, #24e5ff, #9dff3c, #ffd53c, #ff3ea5, #24e5ff);
-  background-size: 300% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: slide 6s linear infinite;
+  font-size: clamp(34px, 8vw, 74px);
+  line-height: .88;
+  letter-spacing: .01em;
+  text-transform: uppercase;
+  color: var(--tinte);
+  text-shadow: 4px 3px 0 var(--pink), 8px 6px 0 var(--aqua);
 }
 
-.card h1 span { -webkit-text-fill-color: transparent; }
-
-@keyframes slide { to { background-position: 300% 0; } }
+.card h1 span { color: var(--tinte); }
 
 .card p {
-  margin: 0 0 14px;
-  color: var(--muted);
-  font-size: clamp(12px, 1.6vw, 15px);
-  letter-spacing: .06em;
+  margin: 10px 0 16px;
+  color: var(--tinte-hell);
+  font-size: clamp(11px, 1.5vw, 13px);
+  letter-spacing: .08em;
 }
 
 .statgrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: 8px;
-  margin: 0 0 16px;
+  /* Acht Werte, vier Spalten: zwei volle Reihen ohne leere Zelle. */
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  margin: 0 0 18px;
+  border: 1.5px solid var(--tinte);
 }
 
 .statgrid > div {
   padding: 8px 6px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, .05);
-  border: 1px solid rgba(255, 255, 255, .1);
+  border-right: 1.5px solid var(--tinte);
+  border-bottom: 1.5px solid var(--tinte);
 }
 
 .statgrid span {
   display: block;
-  font-size: 10px;
+  font-size: 8.5px;
   letter-spacing: .18em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--tinte-hell);
+  margin-bottom: 3px;
 }
 
-.statgrid b { font-size: clamp(15px, 2.4vw, 22px); font-weight: 700; font-variant-numeric: tabular-nums; }
-.statgrid b.hi { color: var(--gold); text-shadow: 0 0 14px rgba(255, 213, 60, .7); }
+.statgrid b {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(16px, 2.4vw, 24px);
+  font-variant-numeric: tabular-nums;
+}
+
+.statgrid b.hi { color: var(--tinte); text-shadow: 2px 1.5px 0 var(--gelb); }
 
 #ovBtn {
   appearance: none;
-  border: 0;
   cursor: pointer;
-  padding: 12px 30px;
-  border-radius: 999px;
-  font: inherit;
-  font-weight: 700;
-  letter-spacing: .16em;
+  padding: 11px 28px;
+  font: 700 13px/1 var(--ui);
+  letter-spacing: .22em;
   text-transform: uppercase;
-  color: #12021c;
-  background: linear-gradient(92deg, #24e5ff, #9dff3c, #ffd53c, #ff3ea5);
-  background-size: 220% 100%;
-  box-shadow: 0 8px 30px rgba(255, 62, 165, .45);
-  transition: transform .12s ease, box-shadow .12s ease, background-position .4s ease;
+  color: var(--papier);
+  background: var(--tinte);
+  border: 2px solid var(--tinte);
+  box-shadow: 5px 5px 0 var(--pink);
+  transition: transform .1s ease, box-shadow .1s ease;
 }
 
-#ovBtn:hover { transform: translateY(-2px); background-position: 100% 0; box-shadow: 0 12px 36px rgba(36, 229, 255, .5); }
-#ovBtn:active { transform: translateY(0); }
+#ovBtn:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--aqua); }
+#ovBtn:active { transform: translate(3px, 3px); box-shadow: 2px 2px 0 var(--pink); }
+#ovBtn:focus-visible { outline: 3px solid var(--kobalt); outline-offset: 3px; }
 
 .legend {
   list-style: none;
-  margin: 16px 0 0;
-  padding: 0;
+  margin: 18px 0 0;
+  padding: 14px 0 0;
+  border-top: 1.5px solid var(--tinte);
   display: grid;
-  gap: 4px;
-  font-size: clamp(10px, 1.3vw, 12px);
-  color: var(--muted);
+  gap: 5px;
+  font-size: clamp(9.5px, 1.2vw, 11.5px);
+  color: var(--tinte-hell);
+  text-align: left;
 }
 
-/* ------------------------------------------------------ Touch-Bedienfelder */
+/* ------------------------------------------------------------ Touch-Bedienung */
 
 .touch {
   display: none;
-  gap: 12px;
+  gap: 11px;
   padding: 4px 12px;
   justify-content: center;
   align-items: center;
 }
 
 .touch button {
-  width: 62px;
-  height: 62px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
-  font-size: 22px;
-  color: #fff;
-  background: rgba(255, 255, 255, .09);
-  border: 1px solid rgba(255, 255, 255, .28);
-  backdrop-filter: blur(4px);
+  font-size: 20px;
+  color: var(--tinte);
+  background: var(--papier);
+  border: 2px solid var(--tinte);
+  box-shadow: 3px 3px 0 var(--tinte);
   cursor: pointer;
 }
 
-.touch button.big { width: 84px; height: 84px; font-size: 28px; background: rgba(255, 62, 165, .26); border-color: rgba(255, 62, 165, .7); }
-/* Der Zeiger wird beim Druecken festgehalten, darum faerbt eine Klasse statt
-   :active - sonst blieben abgerutschte Finger unsichtbar gedrueckt. */
-.touch button:active,
-.touch button.down { background: rgba(255, 255, 255, .3); border-color: rgba(255, 255, 255, .6); }
-.touch button.armed { border-color: #fff; box-shadow: 0 0 18px rgba(255, 255, 255, .8); }
-.touch__gap { flex: 0 1 26px; }
-
-@media (max-width: 520px) {
-  .touch { gap: 7px; }
-  .touch button { width: 50px; height: 50px; font-size: 18px; }
-  .touch button.big { width: 68px; height: 68px; font-size: 24px; }
-  .touch__gap { flex: 0 1 10px; }
+.touch button.big {
+  width: 78px;
+  height: 78px;
+  font-size: 26px;
+  background: var(--pink);
+  box-shadow: 4px 4px 0 var(--tinte);
 }
 
+.touch button:active,
+.touch button.down { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--tinte); }
+.touch button.armed { background: var(--gelb); }
+.touch__gap { flex: 0 1 24px; }
 
-
-/* ------------------------------------------------------------------- Fusszeile */
+/* -------------------------------------------------------------------- Fusszeile */
 
 .help {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 16px;
+  gap: 5px 14px;
   justify-content: center;
   align-items: center;
-  color: var(--muted);
-  font-size: 12px;
+  color: var(--tinte-hell);
+  font-size: 10.5px;
+  letter-spacing: .06em;
 }
 
-.help i { font-style: normal; color: #e6dcff; }
-.help a { color: var(--cyan); text-decoration: none; }
-.help a:hover { text-decoration: underline; }
+.help i { font-style: normal; color: var(--tinte); font-weight: 600; }
+.help a { color: var(--tinte); text-underline-offset: 3px; }
 
 kbd {
-  font: inherit;
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, .22);
-  background: rgba(255, 255, 255, .07);
-  color: #e6dcff;
+  font: 600 10px var(--ui);
+  padding: 2px 5px;
+  border: 1.5px solid var(--tinte);
+  background: var(--papier);
+  color: var(--tinte);
 }
 
 @media (max-width: 560px) {
-  body { padding: 6px; gap: 6px; }
-  .stage { border-radius: 12px; }
+  .statgrid { grid-template-columns: repeat(2, 1fr); }
+  body { padding: 8px 6px; gap: 6px; }
+  .sheet { padding: 12px; }
+  .strip { margin-top: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast.show { animation-duration: .01ms; }
+  .hyper.ready .hyper__label { animation: none; }
 }
 
 /* --------------------------------------------- Beruehrungsgeraete zuletzt */
 
 @media (pointer: coarse) {
-  :root { --chrome: 156px; }          /* Tastenreihe steht unter der Buehne */
+  :root { --chrome: 186px; }
   .touch { display: flex; }
   .help { display: none; }
 }
 
-/* Im Querformat ist die Hoehe knapp: Tasten ueber die Buehne legen. */
 @media (pointer: coarse) and (orientation: landscape) {
-  :root { --chrome: 24px; }
+  :root { --chrome: 60px; }
   .touch {
     position: fixed;
     inset: auto 0 0 0;
     justify-content: flex-end;
     align-items: flex-end;
-    padding: 10px 16px;
+    padding: 8px 14px;
     pointer-events: none;
   }
-  .touch button { pointer-events: auto; opacity: .82; }
+  .touch button { pointer-events: auto; }
+  .strip { display: none; }
+}
+
+@media (max-width: 520px) {
+  .touch { gap: 7px; }
+  .touch button { width: 48px; height: 48px; font-size: 17px; }
+  .touch button.big { width: 64px; height: 64px; font-size: 22px; }
+  .touch__gap { flex: 0 1 10px; }
 }

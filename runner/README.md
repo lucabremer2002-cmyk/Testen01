@@ -1,9 +1,13 @@
-# Neon Dash
+# Drucklauf
 
 Ein 2D-Endlosrunner fuer den Browser – reines HTML, CSS und JavaScript, ohne
 Framework, ohne Build-Schritt und ohne Abhaengigkeiten. Die beiden Schriften
 kommen von Google Fonts; ohne Netzverbindung greifen Systemschriften, das
 Layout bleibt gleich.
+
+Das Spiel sieht aus wie ein Risographie-Druck: Der Bildschirm ist ein
+Andruckbogen, auf dem die Welt in zwei Schmuckfarben gedruckt wurde. Der Name
+ist doppeldeutig – ein Druckgang ist auch ein Lauf.
 
 ## Spielen
 
@@ -72,33 +76,62 @@ dieselbe Schicht. Damit verhaelt sich jeder Sprung ueberall gleich:
 
 ## Features
 
-* **Endlose Strecke** aus sieben Bausteintypen – flache Passagen, Gruben,
-  Treppen aus Schwebeplattformen, Drohnenreihen, Saegen, Kistenwaende und
-  Schatzabschnitte. Die Schwierigkeit steigt mit der zurueckgelegten Strecke.
-* **Sieben Zonen** mit komplett eigener Farbwelt, die alle 650 Meter wechseln
-  und ineinander ueberblenden: Neonstadt, Kristalltal, Lavafeld,
-  Giftdschungel, Tiefsee, Sonnensturm, Magentawueste.
+* **Endlose Strecke** aus neun Bausteintypen – flache Passagen, Gruben,
+  Treppen aus Schwebeplattformen, Drohnenreihen, Saegen, Kistenwaende,
+  Sprungfedern, Schatzabschnitte und ab mittlerer Schwierigkeit ein gemischter
+  Abschnitt, der alle Hindernisarten hintereinander stellt. Jeder Baustein
+  streut zusaetzliche Stacheln in seine freien Luecken.
+* **Sieben Druckgaenge** mit je eigenem Farbpaar, die alle 650 Meter wechseln
+  und ineinander ueberblenden: Weideland, Steinbruch, Nebeltal, Duenenzug,
+  Hochmoor, Salzsee, Aschefeld.
 * **Sprunggefuehl** mit variabler Sprunghoehe, Doppelsprung, Coyote-Time,
   Eingabepuffer und laengerem Scheitelpunkt – Eingaben gehen praktisch nie
   verloren, und jede Eingabequelle fuehlt sich gleich an.
 * **Lenken** zwischen 115 und 415 Pixeln Bildschirmposition, um sich mehr Zeit
   zu verschaffen oder frueher am Ziel zu sein.
 * **Gamepad-Unterstuetzung** ueber die Gamepad-API, ohne Einrichtung.
+* **Sprungfedern** schleudern die Figur rund 300 Pixel hoch zu den hohen
+  Muenzreihen und sind nie toedlich.
+* **Broeckelnde Absaetze** tragen nach der Landung noch 450 Millisekunden.
 * **Vier Power-ups**: Schild (faengt einen Treffer ab), Magnet (zieht Muenzen
   an), doppelte Punkte und Zeitlupe.
 * **Hyper-Modus**: Muenzen und knappe Ausweichmanoever fuellen die Leiste. Ist
-  sie voll, fliegt die Figur sieben Sekunden lang als unverwundbarer
-  Regenbogenkomet, zerlegt jedes Hindernis und kassiert dreifache Punkte.
+  sie voll, fliegt die Figur sieben Sekunden lang unverwundbar durch alles
+  hindurch und kassiert dreifache Punkte.
 * **Kombo-System**: Jede Muenze ohne Unterbrechung erhoeht den Multiplikator
   (bis x8), nach 2,6 Sekunden ohne Muenze faellt er zurueck.
 * **Beinahe-Treffer**: Wer weniger als 26 Pixel an einem Hindernis
   vorbeikommt, bekommt Bonuspunkte, eine kurze Zeitlupe und Extraladung.
-* **Effekte**: Partikel, Bildschirmwackeln, Farbblitze, Geschwindigkeitslinien,
-  Nachziehspur, drei Parallaxebenen und ein Neonboden.
 * **Prozeduraler Ton** ueber WebAudio – Effekte und ein Basslauf, dessen Tempo
   mit der Geschwindigkeit steigt. Kein Audiomaterial noetig.
 * **Bestwert, weiteste Strecke und gesammelte Muenzen** werden im
   `localStorage` gesichert.
+
+## Das Aussehen
+
+Statt des ueblichen Neon-Looks ist die Darstellung als Risographie-Druck
+gebaut – ein Vervielfaeltigungsverfahren, das mit wenigen, sehr kraeftigen
+Schmuckfarben auf getoentem Papier arbeitet:
+
+* **Papier statt Schwarz.** Der Grund ist warmes Papier, die dunkelste Farbe
+  ist eine braunschwarze Tinte, nie reines Schwarz.
+* **Zwei Schmuckfarben je Druckgang.** Sieben Tinten (Fluor-Pink, Orange,
+  Gelb, Gruen, Aqua, Kobalt, Violett) ergeben sieben Farbpaare. Die Welt –
+  Himmel, Huegel, Baeume, Erde – wechselt mit dem Druckgang die Farbe.
+* **Die Akteure bleiben konstant.** Damit man sie ueberall erkennt: Gefahren
+  sind immer Fluor-Pink, Muenzen immer Gelb, die Figur immer Kobaltblau,
+  Sprungfedern immer Gruen. Bedeutung haengt nie von der Zone ab.
+* **Tinten mischen sich.** Alles wird im Multiplikationsmodus gezeichnet,
+  Ueberlagerungen ergeben echte Mischfarben. Vordergrundfiguren sparen vorher
+  Papier aus, damit sie nicht mit dem Hintergrund nachdunkeln.
+* **Fehlregister.** Die zweite Druckplatte liegt zwei bis drei Pixel versetzt
+  und verrutscht bei jedem Zonenwechsel neu – auch in der Anzeige.
+* **Rasterpunkte statt Verlaeufe** und **Papierkorn** ueber allem. Leuchten
+  gibt es nirgends: Tinte leuchtet nicht.
+* **Die Seite ist ein Andruckbogen** mit Registermarken in den Ecken und einem
+  Farbkontrollstreifen unter dem Bild.
+* **Schrift**: Anton als Plakatschrift fuer Titel und Einblendungen,
+  Azeret Mono fuer alle Zahlen und Beschriftungen.
 
 ## Wertung
 
@@ -109,6 +142,7 @@ dieselbe Schicht. Damit verhaelt sich jeder Sprung ueberall gleich:
 | Power-up eingesammelt | 120 × Multiplikator |
 | Knapp an einem Hindernis vorbei | 75 × Multiplikator |
 | Kiste per Dash zerlegt | 40 × Multiplikator |
+| Sprungfeder ausgeloest | 25 × Multiplikator |
 | Hindernis im Hyper-Modus zerlegt | 60 × Multiplikator |
 
 Der Multiplikator ist `1 + Kombo / 8` (hoechstens x8), verdoppelt sich mit dem
@@ -130,7 +164,11 @@ game.js      Spiellogik, Streckenerzeugung, Ton und Rendering
   CSS skaliert; die Aufloesung folgt `devicePixelRatio` (hoechstens 2×).
 * Grubenweiten werden aus der aktuellen Geschwindigkeit abgeleitet
   (`min(330, Tempo × 0,44)`) und liegen damit stets unter der Reichweite eines
-  einzelnen Sprungs – gemessen ueber 533 erzeugte Gruben braucht die breiteste
-  54 Prozent der Reichweite, jede Luecke ist ohne Doppelsprung ueberwindbar.
+  einzelnen Sprungs – gemessen ueber 669 erzeugte Gruben braucht die breiteste
+  57 Prozent der Reichweite, jede Luecke ist ohne Doppelsprung ueberwindbar.
+* Eine Platzierungspruefung haelt zwei Hindernisse mindestens 86 Pixel
+  auseinander, und die ersten 120 Pixel einer Insel hinter einer Grube bleiben
+  frei. Dichte gemessen: ein Hindernis alle 29 Meter in der Erzeugung, eine
+  Muenze alle vier Meter.
 * Objekte hinter der Kamera werden jeden Frame verworfen, die Partikelzahl ist
   auf 420 begrenzt.

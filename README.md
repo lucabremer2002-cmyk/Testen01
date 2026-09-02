@@ -78,5 +78,6 @@ game.js      Spiellogik und Rendering auf dem Canvas
 
 Neben Tetris liegt hier ein zweites eigenstaendiges Browser-Spiel:
 
-* **[Neon Dash](runner/)** (`runner/index.html`) – ein 2D-Endlosrunner mit
-  Doppelsprung, Rutschen, Dash, Power-ups, Hyper-Modus und sieben Farbzonen.
+* **[Drucklauf](runner/)** (`runner/index.html`) – ein 2D-Endlosrunner im
+  Risographie-Look mit Doppelsprung, Rutschen, Dash, Lenken, Sprungfedern,
+  Power-ups, Hyper-Modus und sieben Druckgaengen.

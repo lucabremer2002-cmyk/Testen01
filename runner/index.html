@@ -3,76 +3,81 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Neon Dash &ndash; 2D-Endlosrunner</title>
+<title>Drucklauf &ndash; 2D-Endlosrunner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Azeret+Mono:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230a0616'/><circle cx='6' cy='8' r='3' fill='%23ff3ea5'/><circle cx='11' cy='8' r='2' fill='%2300e5ff'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23f3ecd9'/><circle cx='6' cy='8' r='4' fill='%23ff4f9a'/><circle cx='10' cy='8' r='4' fill='%2300a6a0' opacity='.75'/></svg>">
 </head>
 <body>
 
-<div class="stage" id="stage">
-  <canvas id="game" width="960" height="540" aria-label="Spielfeld"></canvas>
+<div class="sheet">
+  <div class="marks" aria-hidden="true"></div>
 
-  <div class="hud" id="hud">
-    <div class="hud__row hud__row--top">
-      <div class="hud__block">
-        <span class="lbl">Punkte</span>
-        <b class="val val--score" id="score">0</b>
-        <span class="sub">Best <i id="best">0</i></span>
+  <div class="stage" id="stage">
+    <canvas id="game" width="960" height="540" aria-label="Spielfeld"></canvas>
+
+    <div class="hud" id="hud">
+      <div class="hud__row hud__row--top">
+        <div class="hud__block">
+          <span class="lbl">Punkte</span>
+          <b class="val val--score" id="score">0</b>
+          <span class="sub">Best <i id="best">0</i></span>
+        </div>
+
+        <div class="hud__block hud__block--mid">
+          <b class="val val--dist" id="meters">0 m</b>
+          <span class="zone" id="zone">Weideland</span>
+        </div>
+
+        <div class="hud__block hud__block--right">
+          <span class="lbl">M&uuml;nzen</span>
+          <b class="val val--coins" id="coins">0</b>
+          <span class="sub combo" id="combo"></span>
+        </div>
       </div>
 
-      <div class="hud__block hud__block--mid">
-        <b class="val val--dist" id="meters">0 m</b>
-        <span class="zone" id="zone">NEONSTADT</span>
+      <div class="powers" id="powers"></div>
+
+      <div class="hyper" id="hyperWrap">
+        <div class="hyper__bar"><i id="hyperFill"></i></div>
+        <span class="hyper__label" id="hyperLabel">HYPER 0%</span>
       </div>
 
-      <div class="hud__block hud__block--right">
-        <span class="lbl">M&uuml;nzen</span>
-        <b class="val val--coins" id="coins">0</b>
-        <span class="sub combo" id="combo"></span>
-      </div>
+      <div class="toast" id="toast" aria-live="polite"></div>
     </div>
 
-    <div class="powers" id="powers"></div>
-
-    <div class="hyper" id="hyperWrap">
-      <div class="hyper__bar"><i id="hyperFill"></i></div>
-      <span class="hyper__label" id="hyperLabel">HYPER 0%</span>
+    <div class="overlay" id="overlay">
+      <div class="card">
+        <h1 id="ovTitle">DRUCK<span>LAUF</span></h1>
+        <p id="ovText">Leertaste oder Tippen zum Starten</p>
+        <div class="statgrid" id="ovStats" hidden></div>
+        <button id="ovBtn" type="button">Andruck starten</button>
+        <ul class="legend">
+          <li><kbd>Leer</kbd> / <kbd>W</kbd> Springen &middot; halten = h&ouml;her &middot; nochmal = Doppelsprung</li>
+          <li><kbd>S</kbd> / <kbd>&darr;</kbd> Rutschen, solange gehalten &middot; in der Luft schneller fallen</li>
+          <li><kbd>A</kbd> <kbd>D</kbd> / <kbd>&larr;</kbd> <kbd>&rarr;</kbd> Zur&uuml;cknehmen und vorpreschen</li>
+          <li><kbd>Shift</kbd> / <kbd>X</kbd> Dash &middot; zerlegt Kisten</li>
+          <li><kbd>E</kbd> Hyper-Modus, wenn die Leiste voll ist</li>
+          <li><kbd>P</kbd> Pause &middot; <kbd>R</kbd> Neustart &middot; <kbd>M</kbd> Ton &middot; Gamepad wird erkannt</li>
+        </ul>
+      </div>
     </div>
-
-    <div class="toast" id="toast" aria-live="polite"></div>
   </div>
 
-  <div class="overlay" id="overlay">
-    <div class="card">
-      <h1 id="ovTitle">NEON<span>DASH</span></h1>
-      <p id="ovText">Leertaste oder Tippen zum Starten</p>
-      <div class="statgrid" id="ovStats" hidden></div>
-      <button id="ovBtn" type="button">Los geht&rsquo;s</button>
-      <ul class="legend">
-        <li><kbd>Leer</kbd> / <kbd>W</kbd> Springen &middot; halten = h&ouml;her &middot; nochmal = Doppelsprung</li>
-        <li><kbd>S</kbd> / <kbd>&darr;</kbd> Rutschen, solange gehalten &middot; in der Luft schneller fallen</li>
-        <li><kbd>A</kbd> <kbd>D</kbd> / <kbd>&larr;</kbd> <kbd>&rarr;</kbd> Zur&uuml;cknehmen und vorpreschen</li>
-        <li><kbd>Shift</kbd> / <kbd>X</kbd> Dash &middot; zerlegt Kisten</li>
-        <li><kbd>E</kbd> Hyper-Modus, wenn die Leiste voll ist</li>
-        <li><kbd>P</kbd> Pause &middot; <kbd>R</kbd> Neustart &middot; <kbd>M</kbd> Ton &middot; Gamepad wird erkannt</li>
-      </ul>
-    </div>
-  </div>
-
+  <div class="strip" aria-hidden="true">SIEBEN FARBEN</div>
 </div>
 
-  <div class="touch" id="touch">
-    <button type="button" data-act="left" aria-label="Zur&uuml;cknehmen">&#9664;</button>
-    <button type="button" data-act="right" aria-label="Vorpreschen">&#9654;</button>
-    <span class="touch__gap"></span>
-    <button type="button" data-act="slide" aria-label="Rutschen">&#9660;</button>
-    <button type="button" data-act="dash" aria-label="Dash">&raquo;</button>
-    <button type="button" data-act="hyper" id="btnHyper" aria-label="Hyper">&#10022;</button>
-    <button type="button" data-act="jump" class="big" aria-label="Springen">&#9650;</button>
-  </div>
+<div class="touch" id="touch">
+  <button type="button" data-act="left" aria-label="Zur&uuml;cknehmen">&#9664;</button>
+  <button type="button" data-act="right" aria-label="Vorpreschen">&#9654;</button>
+  <span class="touch__gap"></span>
+  <button type="button" data-act="slide" aria-label="Rutschen">&#9660;</button>
+  <button type="button" data-act="dash" aria-label="Dash">&raquo;</button>
+  <button type="button" data-act="hyper" id="btnHyper" aria-label="Hyper">&#10022;</button>
+  <button type="button" data-act="jump" class="big" aria-label="Springen">&#9650;</button>
+</div>
 
 <footer class="help">
   <span><kbd>Leer</kbd> Springen</span>

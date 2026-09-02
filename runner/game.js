@@ -1,5 +1,8 @@
 /*
- * NEON DASH - 2D-Endlosrunner ohne Framework und ohne Abhaengigkeiten.
+ * DRUCKLAUF - 2D-Endlosrunner ohne Framework und ohne Abhaengigkeiten.
+ *
+ * Die Darstellung ist als Risographie-Druck gebaut: Papier als Grund, zwei
+ * Schmuckfarben je Zone, versetzte Druckplatten, Rasterpunkte und Papierkorn.
  *
  * Enthalten sind unter anderem:
  *   - endlos erzeugte Strecke aus Bausteinen (Gruben, Treppen, Saegen, Drohnen)
@@ -64,27 +67,41 @@
   var ZONE_LENGTH = 650;        // Meter pro Zone
   var MAX_PARTS = 420;
 
-  var ZONES = [
-    { name: 'NEONSTADT',    hue: 288 },
-    { name: 'KRISTALLTAL',  hue: 190 },
-    { name: 'LAVAFELD',     hue: 8 },
-    { name: 'GIFTDSCHUNGEL', hue: 122 },
-    { name: 'TIEFSEE',      hue: 218 },
-    { name: 'SONNENSTURM',  hue: 42 },
-    { name: 'MAGENTAWUESTE', hue: 322 }
-  ];
-
-  var POWERS = {
-    shield: { label: 'SCHILD',  dur: 0,  hue: 190 },
-    magnet: { label: 'MAGNET',  dur: 9,  hue: 330 },
-    x2:     { label: 'X2',      dur: 10, hue: 48 },
-    slow:   { label: 'ZEITLUPE', dur: 6, hue: 265 }
+  // Riso-Schmuckfarben. Jede Zone ist ein eigener Druckgang aus zwei Tinten
+  // auf einem leicht anders getoenten Papier.
+  var INKS = {
+    pink:    { hex: '#ff4f9a', hue: 336 },
+    orange:  { hex: '#ff6b2c', hue: 19 },
+    gelb:    { hex: '#ffc61e', hue: 44 },
+    gruen:   { hex: '#3f9e4d', hue: 129 },
+    aqua:    { hex: '#00a6a0', hue: 178 },
+    kobalt:  { hex: '#2f4bd8', hue: 230 },
+    violett: { hex: '#7a4bd8', hue: 262 }
   };
 
-  var STORE_BEST = 'neondash.best';
-  var STORE_DIST = 'neondash.dist';
-  var STORE_COINS = 'neondash.coins';
-  var STORE_MUTE = 'neondash.mute';
+  var ZONES = [
+    { name: 'WEIDELAND',  a: 'gruen',   b: 'gelb',    paper: '#f3ecd9' },
+    { name: 'STEINBRUCH', a: 'orange',  b: 'kobalt',  paper: '#f4e7d5' },
+    { name: 'NEBELTAL',   a: 'aqua',    b: 'violett', paper: '#eeeade' },
+    { name: 'DUENENZUG',  a: 'gelb',    b: 'pink',    paper: '#f6edd8' },
+    { name: 'HOCHMOOR',   a: 'kobalt',  b: 'gruen',   paper: '#edeade' },
+    { name: 'SALZSEE',    a: 'pink',    b: 'aqua',    paper: '#f4ebe2' },
+    { name: 'ASCHEFELD',  a: 'violett', b: 'orange',  paper: '#eee8dc' }
+  ];
+
+  var PAPER_DARK = '#22201e';   // die dunkle Tinte, nie reines Schwarz
+
+  var POWERS = {
+    shield: { label: 'SCHILD',   dur: 0,  hue: 178, ink: '#00a6a0' },
+    magnet: { label: 'MAGNET',   dur: 9,  hue: 336, ink: '#ff4f9a' },
+    x2:     { label: 'X2',       dur: 10, hue: 44,  ink: '#ffc61e' },
+    slow:   { label: 'ZEITLUPE', dur: 6,  hue: 262, ink: '#7a4bd8' }
+  };
+
+  var STORE_BEST = 'drucklauf.best';
+  var STORE_DIST = 'drucklauf.dist';
+  var STORE_COINS = 'drucklauf.coins';
+  var STORE_MUTE = 'drucklauf.mute';
 
   // ------------------------------------------------------------ Hilfsfunktionen
 
@@ -94,10 +111,28 @@
   function randInt(a, b) { return Math.floor(a + Math.random() * (b - a + 1)); }
   function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
 
-  function hsl(h, s, l, a) {
+  function hex2rgb(h) {
+    return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)];
+  }
+
+  function mixRgb(a, b, t) {
+    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  }
+
+  function rgba(c, a) {
+    return 'rgba(' + (c[0] | 0) + ',' + (c[1] | 0) + ',' + (c[2] | 0) + ',' + (a === undefined ? 1 : a) + ')';
+  }
+
+  // Ordnet einem Farbwinkel die naechstgelegene Schmuckfarbe zu. So bleiben alle
+  // vorhandenen Aufrufe mit Farbwinkeln gueltig, drucken aber in echten Tinten.
+  function inkFromHue(h) {
     h = ((h % 360) + 360) % 360;
-    if (a === undefined) a = 1;
-    return 'hsla(' + h.toFixed(1) + ',' + s + '%,' + l + '%,' + a + ')';
+    var beste = null, abstand = 999;
+    for (var k in INKS) {
+      var d = Math.abs(((INKS[k].hue - h + 540) % 360) - 180);
+      if (d < abstand) { abstand = d; beste = INKS[k].hex; }
+    }
+    return beste;
   }
 
   // Stabiler Pseudozufall fuer die Hintergrundebenen: gleicher Index, gleiche Form.
@@ -373,8 +408,15 @@
       chunk: 0,
       lastPowerChunk: -99,
       zone: 0,
-      hue: ZONES[0].hue,
-      hueTarget: ZONES[0].hue,
+      hue: INKS[ZONES[0].a].hue,
+      hueTarget: INKS[ZONES[0].a].hue,
+      paper: hex2rgb(ZONES[0].paper),
+      paperT: hex2rgb(ZONES[0].paper),
+      inkA: hex2rgb(INKS[ZONES[0].a].hex),
+      inkAT: hex2rgb(INKS[ZONES[0].a].hex),
+      inkB: hex2rgb(INKS[ZONES[0].b].hex),
+      inkBT: hex2rgb(INKS[ZONES[0].b].hex),
+      versatz: [2.4, -1.6],     // Fehlregister der zweiten Druckplatte
 
       shake: 0,
       flash: 0,
@@ -699,7 +741,7 @@
   var toastTimer = null;
   function toast(text, hue) {
     el.toast.textContent = text;
-    el.toast.style.color = hsl(hue === undefined ? G.hue + 40 : hue, 100, 72);
+    el.toast.style.color = inkFromHue(hue === undefined ? G.hue : hue);
     el.toast.classList.remove('show');
     void el.toast.offsetWidth;                 // Animation neu starten
     el.toast.classList.add('show');
@@ -1212,16 +1254,26 @@
     var z = Math.floor(G.dist / ZONE_LENGTH) % ZONES.length;
     if (z !== G.zone) {
       G.zone = z;
-      G.hueTarget = ZONES[z].hue;
-      toast('ZONE: ' + ZONES[z].name, ZONES[z].hue);
-      flash(0.35, ZONES[z].hue);
-      el.zone.textContent = ZONES[z].name;
+      var Z = ZONES[z];
+      G.hueTarget = INKS[Z.a].hue;
+      G.paperT = hex2rgb(Z.paper);
+      G.inkAT = hex2rgb(INKS[Z.a].hex);
+      G.inkBT = hex2rgb(INKS[Z.b].hex);
+      // Beim Zonenwechsel verrutscht die zweite Platte neu.
+      G.versatz = [rand(1.6, 3.4) * (Math.random() < 0.5 ? -1 : 1), rand(-2.4, 2.4)];
+      toast('DRUCKGANG ' + (z + 1) + ' — ' + Z.name, INKS[Z.a].hue);
+      flash(0.3, INKS[Z.a].hue);
+      el.zone.textContent = Z.name + ' · ' + Z.a + '/' + Z.b;
       burst(G.worldX + G.screenX + PW / 2, G.py + G.h / 2, 40, {
-        minSpeed: 160, maxSpeed: 520, grav: 0, hue: ZONES[z].hue, hueSpread: 90, maxLife: 0.9
+        minSpeed: 160, maxSpeed: 520, grav: 0, hue: INKS[Z.a].hue, hueSpread: 90, maxLife: 0.9
       });
     }
+    var t = Math.min(1, dt * 1.6);
+    G.paper = mixRgb(G.paper, G.paperT, t);
+    G.inkA = mixRgb(G.inkA, G.inkAT, t);
+    G.inkB = mixRgb(G.inkB, G.inkBT, t);
     var d = ((G.hueTarget - G.hue + 540) % 360) - 180;
-    G.hue += d * Math.min(1, dt * 1.6);
+    G.hue += d * t;
   }
 
   function die(cause) {
@@ -1247,8 +1299,55 @@
   }
 
   // ------------------------------------------------------------------ Zeichnen
+  //
+  // Alles ist wie ein Risographie-Druck aufgebaut: Papier als Grund, darauf
+  // zwei Schmuckfarben im Multiplikationsmodus, die zweite Druckplatte leicht
+  // verrutscht, Flaechen mit Rasterpunkten statt Verlaeufen und Papierkorn
+  // ueber allem. Leuchteffekte gibt es keine - Tinte leuchtet nicht.
 
   var ctx = ctx2d;
+
+  // Die Welt wechselt mit jedem Druckgang die Farbe, die Akteure nie: was
+  // gefaehrlich ist, ist immer pink, Muenzen immer gelb, die Figur immer blau.
+  var GELB = '#ffc61e';
+  var PINK = '#ff4f9a';
+  var GRUEN = '#3f9e4d';
+  var FIGUR = '#2f4bd8';
+
+  function papier(a) { return rgba(G.paper, a); }
+  function tinteA(a) { return rgba(G.inkA, a); }
+  function tinteB(a) { return rgba(G.inkB, a); }
+  function tinte(a) { return 'rgba(34,32,30,' + (a === undefined ? 1 : a) + ')'; }
+
+  function multiplizieren() { ctx.globalCompositeOperation = 'multiply'; }
+  function normalModus() { ctx.globalCompositeOperation = 'source-over'; }
+
+  // Zweifarbiger Druck: die zweite Platte liegt um den Registerfehler versetzt.
+  function gedruckt(pfad, farbe, zweitfarbe) {
+    multiplizieren();
+    if (zweitfarbe) {
+      ctx.save();
+      ctx.translate(G.versatz[0], G.versatz[1]);
+      ctx.fillStyle = zweitfarbe;
+      pfad();
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.fillStyle = farbe;
+    pfad();
+    ctx.fill();
+    normalModus();
+  }
+
+  // Vordergrund: erst Papier aussparen, dann Tinte darauf drucken. So bleibt
+  // die Figur gleich hell, egal welche Huegel hinter ihr liegen.
+  function aufPapier(pfad, farbe, zweitfarbe) {
+    normalModus();
+    ctx.fillStyle = papier(1);
+    pfad();
+    ctx.fill();
+    gedruckt(pfad, farbe, zweitfarbe);
+  }
 
   function roundRect(x, y, w, h, r) {
     r = Math.min(r, w / 2, h / 2);
@@ -1265,164 +1364,223 @@
     ctx.closePath();
   }
 
-  function glow(color, blur) {
-    ctx.shadowColor = color;
-    ctx.shadowBlur = blur;
+  // ---- Rasterpunkte und Papierkorn
+
+  var rasterMuster = null, rasterSchluessel = '';
+  var kornMuster = null;
+
+  function rasterHolen() {
+    var key = (G.paper[0] | 0) + ',' + (G.paper[1] | 0) + ',' + (G.paper[2] | 0);
+    if (key !== rasterSchluessel || !rasterMuster) {
+      rasterSchluessel = key;
+      var c = document.createElement('canvas');
+      c.width = c.height = 6;
+      var g = c.getContext('2d');
+      g.fillStyle = rgba(G.paper, 1);
+      g.beginPath();
+      g.arc(3, 3, 1.75, 0, 6.2832);
+      g.fill();
+      rasterMuster = ctx.createPattern(c, 'repeat');
+    }
+    return rasterMuster;
   }
 
-  function noGlow() { ctx.shadowBlur = 0; }
+  // Papierfarbene Punkte ueber einer Tinte ergeben eine gerasterte Flaeche.
+  function raster(x, y, w, h, a) {
+    ctx.save();
+    ctx.globalAlpha = a === undefined ? 0.5 : a;
+    ctx.fillStyle = rasterHolen();
+    ctx.fillRect(x, y, w, h);
+    ctx.restore();
+  }
 
-  function drawSky() {
-    var h = G.hue;
-    var sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, hsl(h + 200, 70, 8));
-    sky.addColorStop(0.45, hsl(h + 20, 68, 18));
-    sky.addColorStop(0.78, hsl(h, 80, 30));
-    sky.addColorStop(1, hsl(h + 40, 85, 16));
-    ctx.fillStyle = sky;
+  function kornHolen() {
+    if (kornMuster) return kornMuster;
+    var c = document.createElement('canvas');
+    c.width = c.height = 96;
+    var g = c.getContext('2d');
+    var bild = g.createImageData(96, 96);
+    for (var i = 0; i < bild.data.length; i += 4) {
+      var v = 255 - Math.floor(Math.random() * 40);
+      bild.data[i] = bild.data[i + 1] = bild.data[i + 2] = v;
+      bild.data[i + 3] = 255;
+    }
+    g.putImageData(bild, 0, 0);
+    kornMuster = ctx.createPattern(c, 'repeat');
+    return kornMuster;
+  }
+
+  // ---- Hintergrund
+
+  // Silhouette einer Huegelkette an der Stelle x.
+  function huegelY(x, scroll, baseY, amp, wl, seed) {
+    var wx = (x + scroll) / wl;
+    return baseY - amp * (0.5 + 0.5 * Math.sin(wx + seed) * Math.cos(wx * 0.41 + seed * 1.7));
+  }
+
+  function huegel(scroll, baseY, amp, wl, farbe, seed, zweit) {
+    var zeichne = function () {
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (var x = 0; x <= W; x += 10) ctx.lineTo(x, huegelY(x, scroll, baseY, amp, wl, seed));
+      ctx.lineTo(W, H);
+      ctx.closePath();
+    };
+    gedruckt(zeichne, farbe, zweit);
+  }
+
+  function drawPaper() {
+    ctx.fillStyle = papier(1);
     ctx.fillRect(0, 0, W, H);
 
-    // Sterne
-    ctx.fillStyle = 'rgba(255,255,255,.75)';
-    for (var i = 0; i < 70; i++) {
-      var sx = (hash(i) * W * 3 - G.worldX * 0.03) % (W + 40);
-      if (sx < 0) sx += W + 40;
-      var sy = hash(i + 99) * (GROUND_Y - 130);
-      var tw = 0.4 + 0.6 * Math.abs(Math.sin(G.time * 1.6 + i));
-      ctx.globalAlpha = tw * 0.7;
-      ctx.fillRect(sx - 20, sy, 2, 2);
-    }
-    ctx.globalAlpha = 1;
-
-    // Sonne mit Ringen
-    var cx = W * 0.74, cy = GROUND_Y - 190;
-    var sun = ctx.createRadialGradient(cx, cy, 6, cx, cy, 120);
-    sun.addColorStop(0, hsl(h + 60, 100, 78, 1));
-    sun.addColorStop(0.4, hsl(h + 30, 100, 62, 0.55));
-    sun.addColorStop(1, hsl(h + 10, 100, 50, 0));
-    ctx.fillStyle = sun;
+    // Grosse Rasterscheibe als Sonne
+    var cx = W * 0.76, cy = GROUND_Y - 215;
+    var r = 92;
+    gedruckt(function () { ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832); },
+             tinteB(0.85), tinteA(0.45));
+    ctx.save();
     ctx.beginPath();
-    ctx.arc(cx, cy, 120, 0, 6.2832);
-    ctx.fill();
+    ctx.arc(cx, cy, r, 0, 6.2832);
+    ctx.clip();
+    raster(cx - r, cy - r, r * 2, r * 2, 0.42);
+    ctx.restore();
+    // Duenner Tintenring als Kante der Druckform
+    ctx.strokeStyle = tinte(0.35);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, 6.2832);
+    ctx.stroke();
 
-    ctx.strokeStyle = hsl(h + 70, 100, 70, 0.5);
-    ctx.lineWidth = 2;
-    for (var r = 0; r < 3; r++) {
-      var rr = 74 + r * 26 + Math.sin(G.time * 1.2 + r) * 5;
+    // Wolken aus weichen Klecksen
+    var wolkeScroll = G.worldX * 0.05;
+    for (var i = 0; i < 7; i++) {
+      var wx = (i * 340 - wolkeScroll % (7 * 340) + 7 * 340) % (7 * 340) - 120;
+      var wy = 60 + hash(i * 3.7) * 130;
+      var ws = 0.7 + hash(i + 21) * 0.7;
+      multiplizieren();
+      ctx.fillStyle = tinteA(0.16);
       ctx.beginPath();
-      ctx.arc(cx, cy, rr, 0, 6.2832);
+      ctx.arc(wx, wy, 34 * ws, 0, 6.2832);
+      ctx.arc(wx + 38 * ws, wy + 6 * ws, 26 * ws, 0, 6.2832);
+      ctx.arc(wx - 34 * ws, wy + 8 * ws, 22 * ws, 0, 6.2832);
+      ctx.fill();
+      normalModus();
+    }
+
+    // Voegel als kleine Haken
+    ctx.strokeStyle = tinte(0.45);
+    ctx.lineWidth = 2;
+    var vScroll = G.worldX * 0.09;
+    for (var v = 0; v < 5; v++) {
+      var vx = (v * 260 - vScroll % 1300 + 1300) % 1300 - 60;
+      var vy = 70 + hash(v + 55) * 90 + Math.sin(G.time * 1.6 + v) * 5;
+      var vs = 5 + hash(v + 8) * 4;
+      ctx.beginPath();
+      ctx.moveTo(vx - vs, vy);
+      ctx.quadraticCurveTo(vx, vy - vs * 0.8, vx + vs, vy);
       ctx.stroke();
     }
   }
 
-  function drawRange(scroll, step, baseY, minH, maxH, color, seed) {
-    ctx.fillStyle = color;
+  function drawHills() {
+    // Ferne Kette, stark gerastert
+    huegel(G.worldX * 0.06, GROUND_Y + 10, 150, 260, tinteB(0.4), 1.3, null);
+    ctx.save();
     ctx.beginPath();
-    var start = Math.floor(scroll / step) - 1;
-    var end = start + Math.ceil(W / step) + 3;
-    ctx.moveTo(start * step - scroll, H);
-    for (var i = start; i <= end; i++) {
-      var x = i * step - scroll;
-      var hh = minH + hash(i + seed) * (maxH - minH);
-      ctx.lineTo(x + step * 0.5, baseY - hh);
-      ctx.lineTo(x + step, baseY);
-    }
-    ctx.lineTo(end * step - scroll + step, H);
+    ctx.moveTo(0, H);
+    for (var x = 0; x <= W; x += 10) ctx.lineTo(x, huegelY(x, G.worldX * 0.06, GROUND_Y + 10, 150, 260, 1.3));
+    ctx.lineTo(W, H);
     ctx.closePath();
-    ctx.fill();
-  }
+    ctx.clip();
+    raster(0, 0, W, H, 0.55);
+    ctx.restore();
 
-  function drawSkyline(scroll, step, baseY, color, winHue, seed) {
-    for (var i = Math.floor(scroll / step) - 1; i <= Math.floor(scroll / step) + Math.ceil(W / step) + 1; i++) {
-      var x = i * step - scroll;
-      var w = step * (0.55 + hash(i + seed) * 0.3);
-      var hh = 70 + hash(i + seed + 3) * 170;
-      ctx.fillStyle = color;
-      ctx.fillRect(x, baseY - hh, w, hh);
-
-      // Fenster
-      ctx.fillStyle = hsl(winHue, 100, 66, 0.75);
-      var cols = Math.max(1, Math.floor(w / 14));
-      var rows = Math.max(1, Math.floor(hh / 20));
-      for (var c = 0; c < cols; c++) {
-        for (var r = 0; r < rows; r++) {
-          if (hash(i * 91 + c * 7 + r * 31 + seed) < 0.45) continue;
-          ctx.fillRect(x + 5 + c * 14, baseY - hh + 8 + r * 20, 5, 8);
-        }
-      }
+    // Mittlere Kette mit Baumreihe
+    var scroll = G.worldX * 0.16;
+    huegel(scroll, GROUND_Y + 26, 96, 175, tinteA(0.5), 4.1, tinteB(0.22));
+    for (var i = -1; i < 22; i++) {
+      var bx = i * 76 - (scroll % 76);
+      var by = huegelY(bx, scroll, GROUND_Y + 26, 96, 175, 4.1);
+      var idx = Math.floor((scroll + bx) / 76);
+      if (hash(idx * 1.7) < 0.42) continue;
+      var hoehe = 26 + hash(idx + 3) * 26;
+      multiplizieren();
+      ctx.fillStyle = tinteA(0.72);
+      ctx.beginPath();
+      ctx.moveTo(bx, by + 4);
+      ctx.lineTo(bx + 7, by - hoehe);
+      ctx.lineTo(bx + 14, by + 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillRect(bx + 6, by, 3, 6);
+      normalModus();
     }
-  }
 
-  function drawBackground() {
-    drawSky();
-    var h = G.hue;
-    drawRange(G.worldX * 0.08, 260, GROUND_Y - 40, 90, 220, hsl(h + 190, 55, 14), 5);
-    drawSkyline(G.worldX * 0.18, 96, GROUND_Y - 10, hsl(h + 210, 60, 10), h + 60, 17);
-    drawRange(G.worldX * 0.34, 190, GROUND_Y + 10, 50, 130, hsl(h + 230, 55, 8), 41);
-
-    // Horizontglut
-    var glowGrad = ctx.createLinearGradient(0, GROUND_Y - 90, 0, GROUND_Y + 10);
-    glowGrad.addColorStop(0, hsl(h + 40, 100, 60, 0));
-    glowGrad.addColorStop(1, hsl(h + 40, 100, 62, 0.32));
-    ctx.fillStyle = glowGrad;
-    ctx.fillRect(0, GROUND_Y - 90, W, 100);
+    // Nahe Kette, fast volle Deckung
+    huegel(G.worldX * 0.36, GROUND_Y + 46, 62, 130, tinteA(0.8), 8.4, tinteB(0.3));
   }
 
   function drawGround() {
-    var h = G.hue;
     for (var i = 0; i < G.platforms.length; i++) {
       var p = G.platforms[i];
       var x = p.x - G.worldX;
       if (x > W + 40 || x + p.w < -40) continue;
 
       if (p.solid) {
-        var g = ctx.createLinearGradient(0, p.y, 0, H);
-        g.addColorStop(0, hsl(h + 250, 62, 16));
-        g.addColorStop(1, hsl(h + 260, 70, 6));
-        ctx.fillStyle = g;
-        ctx.fillRect(x, p.y, p.w, H - p.y);
-
-        // Gitterlinien in der Bodenflaeche
-        ctx.strokeStyle = hsl(h + 60, 100, 62, 0.18);
-        ctx.lineWidth = 1;
+        // Gerasterte Erdflaeche mit handgeschnittener Oberkante
+        multiplizieren();
+        ctx.fillStyle = tinteA(0.3);
         ctx.beginPath();
-        for (var yy = p.y + 24; yy < H; yy += 26) {
-          ctx.moveTo(x, yy);
-          ctx.lineTo(x + p.w, yy);
+        ctx.moveTo(x, p.y + 3);
+        for (var sx = 0; sx <= p.w; sx += 12) {
+          ctx.lineTo(x + sx, p.y + Math.sin((p.x + sx) * 0.021) * 2.2);
         }
-        var off = -(G.worldX % 60);
-        for (var xx = off; xx < p.w + 60; xx += 60) {
-          var sx = x + xx;
-          if (sx < x || sx > x + p.w) continue;
-          ctx.moveTo(sx, p.y);
-          ctx.lineTo(sx + (H - p.y) * 0.35, H);
+        ctx.lineTo(x + p.w, H);
+        ctx.lineTo(x, H);
+        ctx.closePath();
+        ctx.fill();
+        normalModus();
+        raster(x, p.y, p.w, H - p.y, 0.68);
+
+        // Kraeftige Tintenkante
+        ctx.fillStyle = tinte(0.9);
+        ctx.beginPath();
+        ctx.moveTo(x, p.y + 6);
+        for (var kx = 0; kx <= p.w; kx += 12) {
+          ctx.lineTo(x + kx, p.y + Math.sin((p.x + kx) * 0.021) * 2.2);
         }
-        ctx.stroke();
+        ctx.lineTo(x + p.w, p.y + 6);
+        ctx.closePath();
+        ctx.fill();
 
-        glow(hsl(h + 60, 100, 60), 22);
-        ctx.fillStyle = hsl(h + 60, 100, 66);
-        ctx.fillRect(x, p.y - 4, p.w, 5);
-        noGlow();
-
-        // Laufende Leuchtstreifen
-        ctx.fillStyle = hsl(h + 130, 100, 72, 0.55);
-        var s0 = -((G.worldX * 1.4) % 90);
-        for (var s = s0; s < p.w + 90; s += 90) {
-          var px2 = x + s;
-          if (px2 + 34 < x || px2 > x + p.w) continue;
-          ctx.fillRect(Math.max(px2, x), p.y - 3, Math.min(34, x + p.w - Math.max(px2, x)), 3);
+        // Grasbueschel und Steine als Druckdetails
+        var schritt = 46;
+        var erste = Math.ceil((p.x) / schritt) * schritt;
+        for (var gx = erste; gx < p.x + p.w; gx += schritt) {
+          var hh = hash(gx * 0.013);
+          if (hh < 0.45) continue;
+          var sxx = gx - G.worldX;
+          ctx.strokeStyle = tinte(0.5);
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(sxx, p.y + 1);
+          ctx.lineTo(sxx + (hh - 0.5) * 8, p.y - 6 - hh * 5);
+          ctx.stroke();
         }
       } else {
+        // Absatz: Tintenbalken mit versetzter Zweitplatte
         var wackel = p.fuse > 0 ? Math.sin(G.time * 60) * 2.5 : 0;
         var rest = p.fuse > 0 ? p.fuse / CRUMBLE_FUSE : 1;
-        ctx.globalAlpha = p.fuse > 0 ? 0.45 + rest * 0.55 : 1;
-        glow(hsl(p.crumble ? 30 : h + 160, 100, 62), 18);
-        ctx.fillStyle = hsl(p.crumble ? 30 : h + 160, 90, 58);
-        roundRect(x + wackel, p.y, p.w, p.h, 8);
-        ctx.fill();
-        noGlow();
-        ctx.fillStyle = hsl(p.crumble ? 40 : h + 160, 100, 82, 0.9);
-        ctx.fillRect(x + 6 + wackel, p.y + 3, p.w - 12, 3);
+        ctx.globalAlpha = p.fuse > 0 ? 0.4 + rest * 0.6 : 1;
+        var px = x + wackel;
+        aufPapier(function () { roundRect(px, p.y, p.w, p.h, 4); },
+                  tinte(0.88), p.crumble ? PINK : tinteB(0.7));
+        ctx.fillStyle = papier(0.85);
+        for (var lx = 7; lx < p.w - 9; lx += 14) ctx.fillRect(px + lx, p.y + 7, 7, 2.5);
+        if (p.crumble) {
+          ctx.fillStyle = PINK;
+          ctx.fillRect(px, p.y + p.h - 3, p.w * rest, 3);
+        }
         ctx.globalAlpha = 1;
       }
     }
@@ -1434,19 +1592,19 @@
       var x = c.x - G.worldX;
       if (x < -40 || x > W + 40 || c.got) continue;
       var y = c.y + Math.sin(G.time * 3 + c.phase) * 3;
-      var squash = Math.abs(Math.cos(G.time * 3.4 + c.phase));
+      var breite = c.r * (0.3 + Math.abs(Math.cos(G.time * 3.4 + c.phase)) * 0.7);
 
-      glow('#ffd53c', 16);
-      ctx.fillStyle = '#ffd53c';
+      aufPapier(function () { ctx.beginPath(); ctx.ellipse(x, y, breite, c.r, 0, 0, 6.2832); },
+                GELB, tinteB(0.3));
+      ctx.strokeStyle = tinte(0.85);
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.ellipse(x, y, c.r * (0.25 + squash * 0.75), c.r, 0, 0, 6.2832);
-      ctx.fill();
-      noGlow();
-
-      ctx.fillStyle = 'rgba(255,255,255,.85)';
-      ctx.beginPath();
-      ctx.ellipse(x - c.r * 0.18 * squash, y - 3, c.r * 0.18 * squash + 0.6, c.r * 0.42, 0, 0, 6.2832);
-      ctx.fill();
+      ctx.ellipse(x, y, breite, c.r, 0, 0, 6.2832);
+      ctx.stroke();
+      if (breite > 5) {
+        ctx.fillStyle = tinte(0.8);
+        ctx.fillRect(x - 1.5, y - 4, 3, 8);
+      }
     }
   }
 
@@ -1457,170 +1615,164 @@
       if (x < -60 || x > W + 60 || p.got) continue;
       var y = p.y + Math.sin(G.time * 2.4 + p.phase) * 8;
       var def = POWERS[p.kind];
-      var rot = G.time * 1.3 + p.phase;
+      var kipp = Math.sin(G.time * 1.3 + p.phase) * 0.24;
 
       ctx.save();
       ctx.translate(x, y);
-      ctx.rotate(Math.sin(rot) * 0.35);
-      glow(hsl(def.hue, 100, 62), 26);
-      ctx.fillStyle = hsl(def.hue, 95, 55);
-      roundRect(-p.r, -p.r, p.r * 2, p.r * 2, 8);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,.9)';
-      ctx.lineWidth = 2;
+      ctx.rotate(kipp);
+      aufPapier(function () { roundRect(-p.r, -p.r, p.r * 2, p.r * 2, 5); }, def.ink, tinte(0.3));
+      ctx.strokeStyle = tinte(0.9);
+      ctx.lineWidth = 2.5;
+      roundRect(-p.r, -p.r, p.r * 2, p.r * 2, 5);
       ctx.stroke();
-      noGlow();
-      ctx.restore();
-
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 19px "Chakra Petch", system-ui, sans-serif';
+      ctx.fillStyle = papier(1);
+      ctx.font = '700 17px "Azeret Mono", ui-monospace, monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      var sign = p.kind === 'shield' ? '●' : (p.kind === 'magnet' ? 'U' : (p.kind === 'x2' ? '2' : '◔'));
-      ctx.fillText(sign, x, y + 1);
+      ctx.fillText(p.kind === 'shield' ? 'S' : (p.kind === 'magnet' ? 'M' : (p.kind === 'x2' ? '2' : 'Z')), 0, 1);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
+      ctx.restore();
 
-      // Leuchtring
-      ctx.strokeStyle = hsl(def.hue, 100, 70, 0.5);
+      // Strichkranz wie ein Stempel
+      ctx.strokeStyle = tinte(0.4);
       ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(x, y, p.r + 10 + Math.sin(G.time * 4 + p.phase) * 4, 0, 6.2832);
-      ctx.stroke();
+      for (var k = 0; k < 8; k++) {
+        var a = k / 8 * 6.2832 + G.time * 0.8;
+        var rr = p.r + 9;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+        ctx.lineTo(x + Math.cos(a) * (rr + 5), y + Math.sin(a) * (rr + 5));
+        ctx.stroke();
+      }
     }
   }
 
   function drawObstacles() {
-    var h = G.hue;
     for (var i = 0; i < G.obstacles.length; i++) {
       var o = G.obstacles[i];
       if (o.dead) continue;
       var b = obstacleBox(o);
       var x = o.x - G.worldX;
-      if (x < -120 || x > W + 120) continue;
+      if (x < -140 || x > W + 140) continue;
 
       if (o.type === 'spike') {
-        glow('#ff2d6f', 20);
-        ctx.fillStyle = '#ff2d6f';
+        var stachel = function () {
+          ctx.beginPath();
+          ctx.moveTo(x - 3, GROUND_Y + 2);
+          ctx.lineTo(x + o.w / 2, GROUND_Y - o.h - 4);
+          ctx.lineTo(x + o.w + 3, GROUND_Y + 2);
+          ctx.closePath();
+        };
+        aufPapier(stachel, PINK, tinteB(0.4));
+        ctx.strokeStyle = tinte(0.9);
+        ctx.lineWidth = 2.5;
+        stachel();
+        ctx.stroke();
+        ctx.fillStyle = papier(0.9);
         ctx.beginPath();
-        ctx.moveTo(x, GROUND_Y);
-        ctx.lineTo(x + o.w / 2, GROUND_Y - o.h);
-        ctx.lineTo(x + o.w, GROUND_Y);
-        ctx.closePath();
-        ctx.fill();
-        noGlow();
-        ctx.fillStyle = 'rgba(255,255,255,.65)';
-        ctx.beginPath();
-        ctx.moveTo(x + o.w / 2, GROUND_Y - o.h);
-        ctx.lineTo(x + o.w * 0.62, GROUND_Y - o.h * 0.35);
-        ctx.lineTo(x + o.w * 0.42, GROUND_Y - o.h * 0.35);
+        ctx.moveTo(x + o.w / 2, GROUND_Y - o.h + 4);
+        ctx.lineTo(x + o.w * 0.66, GROUND_Y - o.h * 0.35);
+        ctx.lineTo(x + o.w * 0.38, GROUND_Y - o.h * 0.35);
         ctx.closePath();
         ctx.fill();
 
       } else if (o.type === 'crate') {
-        glow(hsl(h + 30, 100, 60), 18);
-        ctx.fillStyle = hsl(h + 20, 70, 24);
-        roundRect(x, o.y, o.w, o.h, 6);
-        ctx.fill();
-        ctx.strokeStyle = hsl(h + 40, 100, 66);
-        ctx.lineWidth = 3;
+        aufPapier(function () { roundRect(x, o.y, o.w, o.h, 3); }, PINK, tinteB(0.5));
+        ctx.strokeStyle = tinte(0.9);
+        ctx.lineWidth = 2.5;
+        roundRect(x, o.y, o.w, o.h, 3);
         ctx.stroke();
-        noGlow();
-        ctx.strokeStyle = hsl(h + 40, 100, 66, 0.6);
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = tinte(0.75);
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(x + 5, o.y + 5);
-        ctx.lineTo(x + o.w - 5, o.y + o.h - 5);
-        ctx.moveTo(x + o.w - 5, o.y + 5);
-        ctx.lineTo(x + 5, o.y + o.h - 5);
+        ctx.moveTo(x + 6, o.y + 6);
+        ctx.lineTo(x + o.w - 6, o.y + o.h - 6);
+        ctx.moveTo(x + o.w - 6, o.y + 6);
+        ctx.lineTo(x + 6, o.y + o.h - 6);
         ctx.stroke();
 
       } else if (o.type === 'saw') {
         var cy = o.cy;
         ctx.save();
-        ctx.translate(x + o.r * 0.0, cy);
-        ctx.rotate(G.time * 9);
-        glow('#ff4bd8', 24);
-        ctx.fillStyle = '#2b0b2b';
-        ctx.beginPath();
-        ctx.arc(0, 0, o.r * 0.62, 0, 6.2832);
-        ctx.fill();
-        ctx.fillStyle = '#ff4bd8';
-        for (var t = 0; t < 10; t++) {
-          var a = (t / 10) * 6.2832;
+        ctx.translate(x, cy);
+        ctx.rotate(G.time * 7);
+        var zaehne = function () {
           ctx.beginPath();
-          ctx.moveTo(Math.cos(a) * o.r * 0.5, Math.sin(a) * o.r * 0.5);
-          ctx.lineTo(Math.cos(a + 0.16) * o.r, Math.sin(a + 0.16) * o.r);
-          ctx.lineTo(Math.cos(a + 0.42) * o.r * 0.5, Math.sin(a + 0.42) * o.r * 0.5);
+          for (var t = 0; t < 12; t++) {
+            var a = (t / 12) * 6.2832;
+            ctx.lineTo(Math.cos(a) * o.r * 0.62, Math.sin(a) * o.r * 0.62);
+            ctx.lineTo(Math.cos(a + 0.19) * o.r, Math.sin(a + 0.19) * o.r);
+            ctx.lineTo(Math.cos(a + 0.38) * o.r * 0.62, Math.sin(a + 0.38) * o.r * 0.62);
+          }
           ctx.closePath();
-          ctx.fill();
-        }
-        noGlow();
-        ctx.strokeStyle = 'rgba(255,255,255,.8)';
+        };
+        aufPapier(zaehne, PINK, tinteB(0.45));
+        ctx.strokeStyle = tinte(0.9);
         ctx.lineWidth = 2;
+        zaehne();
+        ctx.stroke();
+        ctx.fillStyle = papier(1);
         ctx.beginPath();
-        ctx.arc(0, 0, o.r * 0.28, 0, 6.2832);
+        ctx.arc(0, 0, o.r * 0.3, 0, 6.2832);
+        ctx.fill();
+        ctx.strokeStyle = tinte(0.9);
+        ctx.lineWidth = 2;
         ctx.stroke();
         ctx.restore();
 
       } else if (o.type === 'spring') {
         var stauch = Math.max(0, 1 - (G.time - o.used) * 4);
-        glow('#9dff3c', 20);
-        ctx.fillStyle = '#9dff3c';
-        roundRect(x, o.y + stauch * 10, o.w, o.h - stauch * 10, 6);
-        ctx.fill();
-        noGlow();
-        ctx.strokeStyle = 'rgba(0,0,0,.5)';
-        ctx.lineWidth = 2;
+        var py2 = o.y + stauch * 12;
+        aufPapier(function () { roundRect(x, py2, o.w, o.h - stauch * 12, 4); }, GRUEN, tinteB(0.4));
+        ctx.strokeStyle = tinte(0.85);
+        ctx.lineWidth = 2.4;
         ctx.beginPath();
-        for (var z = 0; z < 3; z++) {
-          ctx.moveTo(x + 8 + z * 14, o.y + o.h);
-          ctx.lineTo(x + 15 + z * 14, o.y + 6 + stauch * 8);
+        for (var z = 0; z < 4; z++) {
+          ctx.moveTo(x + 6 + z * 12, GROUND_Y);
+          ctx.lineTo(x + 13 + z * 12, py2 + 4);
         }
         ctx.stroke();
+        ctx.strokeRect(x, py2, o.w, Math.max(4, o.h - stauch * 12));
 
       } else if (o.type === 'drone') {
         var dy = b.y;
-        glow('#43e8ff', 20);
-        ctx.fillStyle = '#0d2b3d';
-        roundRect(x, dy, o.w, o.h, 12);
-        ctx.fill();
-        ctx.strokeStyle = '#43e8ff';
+        aufPapier(function () { roundRect(x, dy, o.w, o.h, 10); }, PINK, tinteB(0.5));
+        ctx.strokeStyle = tinte(0.9);
         ctx.lineWidth = 2.5;
+        roundRect(x, dy, o.w, o.h, 10);
         ctx.stroke();
-        noGlow();
-
-        var eye = 0.5 + 0.5 * Math.sin(G.time * 6 + o.phase);
-        ctx.fillStyle = 'rgba(255,80,120,' + (0.6 + eye * 0.4) + ')';
+        ctx.fillStyle = papier(1);
         ctx.beginPath();
-        ctx.arc(x + o.w * 0.5, dy + o.h * 0.5, 6, 0, 6.2832);
+        ctx.arc(x + o.w * 0.5, dy + o.h * 0.5, 6.5, 0, 6.2832);
         ctx.fill();
-
-        // Suchstrahl nach unten
-        var beam = ctx.createLinearGradient(0, dy + o.h, 0, GROUND_Y);
-        beam.addColorStop(0, 'rgba(67,232,255,.35)');
-        beam.addColorStop(1, 'rgba(67,232,255,0)');
-        ctx.fillStyle = beam;
+        ctx.fillStyle = tinte(0.9);
         ctx.beginPath();
-        ctx.moveTo(x + o.w * 0.35, dy + o.h);
-        ctx.lineTo(x + o.w * 0.65, dy + o.h);
-        ctx.lineTo(x + o.w * 0.95, GROUND_Y);
-        ctx.lineTo(x + o.w * 0.05, GROUND_Y);
-        ctx.closePath();
+        ctx.arc(x + o.w * 0.5, dy + o.h * 0.5, 3.4 + Math.sin(G.time * 6 + o.phase), 0, 6.2832);
         ctx.fill();
+        // Suchstrahl als Punktreihe
+        ctx.fillStyle = tinte(0.28);
+        for (var s2 = 0; s2 < 7; s2++) {
+          var t2 = s2 / 6;
+          var yy = dy + o.h + t2 * (GROUND_Y - dy - o.h);
+          ctx.beginPath();
+          ctx.arc(x + o.w * 0.5, yy, 1.5 + t2 * 3, 0, 6.2832);
+          ctx.fill();
+        }
       }
     }
   }
 
   function drawParticles() {
-    ctx.globalCompositeOperation = 'lighter';
+    multiplizieren();
     for (var i = 0; i < G.parts.length; i++) {
       var p = G.parts[i];
       var t = 1 - p.life / p.max;
       var x = p.x - G.worldX;
       if (x < -40 || x > W + 40) continue;
-      ctx.fillStyle = hsl(p.hue, 100, 62, t);
-      var s = p.size * t;
+      ctx.globalAlpha = Math.min(1, t * 1.2);
+      ctx.fillStyle = inkFromHue(p.hue);
+      var s = p.size * (0.5 + t * 0.5);
       if (p.square) ctx.fillRect(x - s, p.y - s, s * 2, s * 2);
       else {
         ctx.beginPath();
@@ -1628,163 +1780,179 @@
         ctx.fill();
       }
     }
-    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    normalModus();
   }
 
   function drawPlayer() {
     var x = G.screenX, y = G.py, h = G.h;
     var hyper = G.hyperT > 0;
-    var hue = hyper ? (G.time * 700) % 360 : (G.hue + 165) % 360;
+    // Im Hyper-Modus laeuft die Druckplatte durch alle Tinten.
+    var koerper = hyper ? inkFromHue(G.time * 700) : FIGUR;
 
-    // Nachziehende Spur
-    ctx.globalCompositeOperation = 'lighter';
+    // Nachziehende Spur als Geisterdrucke
+    multiplizieren();
     for (var i = 0; i < G.trail.length; i++) {
-      var t = G.trail[i];
-      var a = (i / G.trail.length) * (hyper ? 0.42 : (G.dashT > 0 ? 0.4 : 0.16));
-      ctx.fillStyle = hsl(hue + i * 6, 100, 62, a);
-      roundRect(t.x - G.worldX, t.y, PW, t.h, 10);
+      var tr = G.trail[i];
+      var a = (i / G.trail.length) * (hyper ? 0.4 : (G.dashT > 0 ? 0.35 : 0.12));
+      ctx.globalAlpha = a;
+      ctx.fillStyle = hyper ? inkFromHue(G.time * 700 + i * 40) : tinteB(1);
+      roundRect(tr.x - G.worldX, tr.y, PW, tr.h, 8);
       ctx.fill();
     }
-    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    normalModus();
 
     // Beine
     if (!G.sliding && G.onGround) {
-      ctx.strokeStyle = hsl(hue, 90, 45);
-      ctx.lineWidth = 6;
+      ctx.strokeStyle = tinte(0.9);
+      ctx.lineWidth = 5;
       ctx.lineCap = 'round';
       for (var l = 0; l < 2; l++) {
         var ph = G.run + l * Math.PI;
         ctx.beginPath();
-        ctx.moveTo(x + 10 + l * 14, y + h - 6);
-        ctx.lineTo(x + 10 + l * 14 + Math.cos(ph) * 10, y + h + 6 + Math.abs(Math.sin(ph)) * 2);
+        ctx.moveTo(x + 11 + l * 14, y + h - 4);
+        ctx.lineTo(x + 11 + l * 14 + Math.cos(ph) * 10, y + h + 7 + Math.abs(Math.sin(ph)) * 2);
         ctx.stroke();
       }
       ctx.lineCap = 'butt';
     }
 
-    // Koerper
     ctx.save();
-    if (G.inv > 0 && !hyper && Math.floor(G.time * 24) % 2 === 0) ctx.globalAlpha = 0.35;
-    var body = ctx.createLinearGradient(x, y, x + PW, y + h);
-    body.addColorStop(0, hsl(hue, 100, 68));
-    body.addColorStop(1, hsl(hue + 60, 100, 52));
-    glow(hsl(hue, 100, 60), hyper ? 40 : 22);
-    ctx.fillStyle = body;
-    roundRect(x, y, PW, h, 10);
-    ctx.fill();
-    noGlow();
-    ctx.strokeStyle = 'rgba(255,255,255,.85)';
-    ctx.lineWidth = 2;
+    if (G.inv > 0 && !hyper && Math.floor(G.time * 22) % 2 === 0) ctx.globalAlpha = 0.4;
+
+    aufPapier(function () { roundRect(x, y, PW, h, 8); }, koerper, tinteB(0.45));
+    ctx.save();
+    roundRect(x, y, PW, h, 8);
+    ctx.clip();
+    raster(x, y + h * 0.6, PW, h, 0.22);
+    ctx.restore();
+    ctx.strokeStyle = tinte(0.92);
+    ctx.lineWidth = 2.5;
+    roundRect(x, y, PW, h, 8);
     ctx.stroke();
 
-    // Augen
-    var ey = y + (G.sliding ? 9 : 16);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(x + 14, ey, 7, 9);
-    ctx.fillRect(x + 25, ey, 7, 9);
-    ctx.fillStyle = '#160a2a';
-    var look = clamp(G.vy / 900, -1, 1) * 2;
-    ctx.fillRect(x + 17, ey + 2 + look, 4, 5);
-    ctx.fillRect(x + 28, ey + 2 + look, 4, 5);
+    // Augen als ausgesparte Papierflaechen
+    var ey = y + (G.sliding ? 8 : 15);
+    ctx.fillStyle = papier(1);
+    ctx.fillRect(x + 13, ey, 8, 10);
+    ctx.fillRect(x + 24, ey, 8, 10);
+    ctx.fillStyle = tinte(0.92);
+    var blick = clamp(G.vy / 900, -1, 1) * 2;
+    ctx.fillRect(x + 16, ey + 3 + blick, 4, 5);
+    ctx.fillRect(x + 27, ey + 3 + blick, 4, 5);
     ctx.restore();
 
-    // Schild
+    // Schild als Stempelkranz
     if (G.shield > 0) {
-      var pulse = 0.6 + 0.4 * Math.sin(G.time * 6);
-      ctx.strokeStyle = hsl(190, 100, 70, pulse);
+      ctx.strokeStyle = POWERS.shield.ink;
       ctx.lineWidth = 3;
-      glow(hsl(190, 100, 65), 20);
+      ctx.setLineDash([7, 6]);
       ctx.beginPath();
-      ctx.arc(x + PW / 2, y + h / 2, 40, 0, 6.2832);
+      ctx.arc(x + PW / 2, y + h / 2, 38 + Math.sin(G.time * 5) * 2, 0, 6.2832);
       ctx.stroke();
-      noGlow();
+      ctx.setLineDash([]);
     }
 
-    // Magnetfeld
+    // Magnetfeld als konzentrische Rasterringe
     if (G.powers.magnet > 0) {
-      ctx.strokeStyle = hsl(330, 100, 70, 0.35);
+      ctx.strokeStyle = rgba(hex2rgb(POWERS.magnet.ink), 0.4);
       ctx.lineWidth = 2;
+      ctx.setLineDash([3, 9]);
       for (var m = 0; m < 3; m++) {
-        var rr = 60 + m * 40 + Math.sin(G.time * 3 + m) * 8;
         ctx.beginPath();
-        ctx.arc(x + PW / 2, y + h / 2, rr, 0, 6.2832);
+        ctx.arc(x + PW / 2, y + h / 2, 58 + m * 38 + Math.sin(G.time * 3 + m) * 6, 0, 6.2832);
         ctx.stroke();
       }
+      ctx.setLineDash([]);
     }
   }
 
   function drawTexts() {
     ctx.textAlign = 'center';
-    ctx.font = '700 20px "Chakra Petch", system-ui, sans-serif';
     for (var i = 0; i < G.texts.length; i++) {
       var f = G.texts[i];
       var t = 1 - f.life / f.max;
       var x = f.x - G.worldX;
       if (x < -160 || x > W + 160) continue;
-      x = clamp(x, 96, W - 96);            // nie am Bildrand abschneiden
-      ctx.font = '700 ' + f.size + 'px "Chakra Petch", system-ui, sans-serif';
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = 'rgba(0,0,0,' + (t * 0.7) + ')';
-      ctx.strokeText(f.text, x, f.y);
-      ctx.fillStyle = hsl(f.hue, 100, 70, t);
+      x = clamp(x, 96, W - 96);
+      ctx.font = f.size + 'px Anton, "Arial Black", system-ui, sans-serif';
+      ctx.globalAlpha = Math.min(1, t * 1.6);
+      // Zweitplatte versetzt: typischer Fehldruck
+      ctx.fillStyle = inkFromHue(f.hue);
+      ctx.fillText(f.text, x + 2.5, f.y + 2);
+      ctx.fillStyle = tinte(0.9);
       ctx.fillText(f.text, x, f.y);
+      ctx.globalAlpha = 1;
     }
     ctx.textAlign = 'left';
   }
 
-  function drawOverlayFx() {
-    // Geschwindigkeitslinien
-    var sf = clamp((G.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN), 0, 1) + (G.dashT > 0 ? 0.6 : 0) + (G.hyperT > 0 ? 0.7 : 0);
-    if (sf > 0.15) {
-      ctx.globalCompositeOperation = 'lighter';
-      for (var i = 0; i < 16; i++) {
-        var seed = Math.floor(G.time * 22) + i * 13;
+  function drawPrintFx() {
+    // Tempo als Tintenstriche
+    var sf = clamp((G.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN), 0, 1)
+           + (G.dashT > 0 ? 0.6 : 0) + (G.hyperT > 0 ? 0.7 : 0);
+    if (sf > 0.2) {
+      multiplizieren();
+      ctx.fillStyle = tinte(0.1 + 0.12 * Math.min(1, sf));
+      for (var i = 0; i < 14; i++) {
+        var seed = Math.floor(G.time * 20) + i * 13;
         var y = hash(seed) * H;
-        var len = 60 + hash(seed + 1) * 200 * sf;
-        var x = (hash(seed + 2) * (W + 300) - (G.time * 900 % (W + 300)));
-        ctx.fillStyle = hsl(G.hue + 160, 100, 75, 0.05 + 0.1 * sf);
+        var len = 40 + hash(seed + 1) * 160 * sf;
+        var x = hash(seed + 2) * (W + 300) - (G.time * 800 % (W + 300));
         ctx.fillRect(x, y, len, 2);
       }
-      ctx.globalCompositeOperation = 'source-over';
+      normalModus();
     }
 
     if (G.hyperT > 0) {
-      ctx.globalCompositeOperation = 'lighter';
-      var hg = ctx.createLinearGradient(0, 0, W, H);
-      hg.addColorStop(0, hsl(G.time * 700, 100, 60, 0.1));
-      hg.addColorStop(0.5, hsl(G.time * 700 + 120, 100, 60, 0.06));
-      hg.addColorStop(1, hsl(G.time * 700 + 240, 100, 60, 0.1));
-      ctx.fillStyle = hg;
+      multiplizieren();
+      ctx.fillStyle = rgba(hex2rgb(inkFromHue(G.time * 700)), 0.12);
       ctx.fillRect(0, 0, W, H);
-      ctx.globalCompositeOperation = 'source-over';
+      normalModus();
     }
 
     if (G.powers.slow > 0 || G.slowT > 0) {
-      ctx.fillStyle = hsl(265, 100, 60, 0.07);
+      multiplizieren();
+      ctx.fillStyle = rgba(hex2rgb(POWERS.slow.ink), 0.1);
       ctx.fillRect(0, 0, W, H);
+      normalModus();
     }
 
+    // Farbblitz als Tintenwaesche
     if (G.flash > 0) {
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = hsl(G.flashHue, 100, 65, Math.min(0.75, G.flash));
+      multiplizieren();
+      ctx.fillStyle = rgba(hex2rgb(inkFromHue(G.flashHue)), Math.min(0.45, G.flash * 0.5));
       ctx.fillRect(0, 0, W, H);
-      ctx.globalCompositeOperation = 'source-over';
+      normalModus();
     }
 
-    // Vignette
-    var vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.95);
-    vig.addColorStop(0, 'rgba(0,0,0,0)');
-    vig.addColorStop(1, 'rgba(0,0,0,.55)');
-    ctx.fillStyle = vig;
+    // Papierkorn ueber allem
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = kornHolen();
     ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+
+    // Angedrueckte Plattenkante
+    var rand2 = ctx.createLinearGradient(0, 0, 0, H);
+    rand2.addColorStop(0, 'rgba(34,32,30,.16)');
+    rand2.addColorStop(0.12, 'rgba(34,32,30,0)');
+    rand2.addColorStop(0.88, 'rgba(34,32,30,0)');
+    rand2.addColorStop(1, 'rgba(34,32,30,.14)');
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = rand2;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
   }
 
   function render() {
     ctx.save();
-    if (G.shake > 0.2) {
-      ctx.translate(rand(-G.shake, G.shake), rand(-G.shake, G.shake));
-    }
-    drawBackground();
+    if (G.shake > 0.2) ctx.translate(rand(-G.shake, G.shake), rand(-G.shake, G.shake));
+    drawPaper();
+    drawHills();
     drawGround();
     drawParticles();
     drawCoins();
@@ -1793,7 +1961,7 @@
     drawPlayer();
     drawTexts();
     ctx.restore();
-    drawOverlayFx();
+    drawPrintFx();
   }
 
   // ---------------------------------------------------------------------- HUD
@@ -1832,10 +2000,10 @@
       for (var i = 0; i < parts.length; i++) {
         var kind = parts[i][0];
         if (kind === '_dash') {
-          html += '<span class="pill" style="--h:0">DASH ' + parts[i][1] + '</span>';
+          html += '<span class="pill" style="--ink:#22201e">DASH ' + parts[i][1] + '</span>';
         } else {
           var def = POWERS[kind];
-          html += '<span class="pill" style="--h:' + def.hue + '">' + def.label +
+          html += '<span class="pill" style="--ink:' + def.ink + '">' + def.label +
                   (parts[i][1] ? ' ' + parts[i][1] : '') + '</span>';
         }
       }
@@ -1862,11 +2030,11 @@
 
   function showReady() {
     state = 'ready';
-    showOverlay('NEON<span>DASH</span>', 'Leertaste oder Tippen zum Starten', 'Los geht’s', null);
+    showOverlay('DRUCK<span>LAUF</span>', 'Leertaste oder Tippen zum Starten', 'Andruck starten', null);
   }
 
   function showPause() {
-    showOverlay('PAUSE', 'Weiter mit P, Enter oder Leertaste', 'Weiter', null);
+    showOverlay('PAUSE', 'Weiter mit P, Enter oder Leertaste', 'Weiterdrucken', null);
   }
 
   function stat(label, value, hi) {
@@ -1879,9 +2047,9 @@
                  cause === 'drone' ? 'Die Drohne hat dich getroffen.' :
                  cause === 'spike' ? 'In die Stacheln gelaufen.' : 'Gegen die Kiste gekracht.';
     showOverlay(
-      isBest ? 'NEUER<span> REKORD</span>' : 'AUS!',
+      isBest ? 'BESTER<span> ANDRUCK</span>' : 'MAKULATUR!',
       reason + ' Nochmal?',
-      'Neuer Versuch',
+      'Neuer Andruck',
       stat('Punkte', score.toLocaleString('de-DE'), isBest) +
       stat('Strecke', dist + ' m') +
       stat('Münzen', G.coins) +
@@ -1897,7 +2065,7 @@
     releaseAll();
     newGame();
     lastPowerKey = '';
-    el.zone.textContent = ZONES[0].name;
+    el.zone.textContent = ZONES[0].name + ' · ' + ZONES[0].a + '/' + ZONES[0].b;
     state = 'play';
     hideOverlay();
     Sound.resume();
@@ -2164,7 +2332,7 @@
 
   resize();
   newGame();
-  el.zone.textContent = ZONES[0].name;
+  el.zone.textContent = ZONES[0].name + ' · ' + ZONES[0].a + '/' + ZONES[0].b;
   el.best.textContent = records.best.toLocaleString('de-DE');
   el.soundState.textContent = Sound.isOn() ? 'an' : 'aus';
   showReady();
