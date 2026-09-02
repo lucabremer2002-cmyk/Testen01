@@ -73,3 +73,10 @@ index.html   Aufbau der Seite
 style.css    Darstellung, Layout und Responsive-Verhalten
 game.js      Spiellogik und Rendering auf dem Canvas
 ```
+
+## Weiteres Spiel im Projekt
+
+Neben Tetris liegt hier ein zweites eigenstaendiges Browser-Spiel:
+
+* **[Neon Dash](runner/)** (`runner/index.html`) – ein 2D-Endlosrunner mit
+  Doppelsprung, Rutschen, Dash, Power-ups, Hyper-Modus und sieben Farbzonen.
