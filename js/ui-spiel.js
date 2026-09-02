@@ -383,15 +383,23 @@
       seite.elf.map(function (pid) {
         var p = m.spieler[pid];
         var e = seite.eingesetzt[pid];
-        return '<tr class="klickbar" data-raus="' + pid + '"><td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
-          '<td>' + Util.esc(p.nachname) + '</td><td class="mitte">' + UI.fitnessBalken(p.fitness) + '</td>' +
+        var idx = seite.elf.indexOf(pid);
+        var sp = (Match.FORMATIONEN[seite.formation] || [])[idx];
+        return '<tr class="klickbar" data-raus="' + pid + '">' +
+          '<td class="mitte">' + UI.posMarke(sp ? sp[0] : p.pos) + '</td>' +
+          '<td>' + Util.esc(p.nachname) + '</td>' +
+          '<td class="mitte">' + UI.fitnessBalken(p.fitness) + '</td>' +
           '<td class="zahl">' + (e ? e.note.toFixed(1).replace('.', ',') : '') + '</td></tr>';
       }).join('') + '</tbody></table></div></div>' +
       '<div><h4>Auf der Bank</h4><div class="tabellenrahmen"><table class="liste"><tbody>' +
       seite.bank.map(function (pid) {
         var p = m.spieler[pid];
-        return '<tr class="klickbar" data-rein="' + pid + '"><td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
-          '<td>' + Util.esc(p.nachname) + '</td><td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td></tr>';
+        return '<tr class="klickbar" data-rein="' + pid + '">' +
+          '<td class="zahl mini" style="width:2.2em">' + (p.nummer || '') + '</td>' +
+          '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
+          '<td>' + Util.esc(p.nachname) + '</td>' +
+          '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
+          '<td class="eignung"></td></tr>';
       }).join('') + '</tbody></table></div></div></div>' +
       '<p class="mini" id="wechselInfo">Kein Spieler gewählt.</p>';
 
@@ -400,6 +408,31 @@
     ], true);
 
     var raus = null, rein = null;
+    var slots = Match.FORMATIONEN[seite.formation] || [];
+
+    /* Sobald feststeht, wer herausgeht, wird die Bank nach Eignung für
+       dessen Position sortiert - niemand steht plötzlich falsch. */
+    function bankSortieren(rausId) {
+      var idx = seite.elf.indexOf(rausId);
+      var slotPos = (slots[idx] && slots[idx][0]) ||
+        (m.spieler[rausId] ? m.spieler[rausId].pos : 'ZM');
+      var zeilen = Array.prototype.slice.call(inhalt.querySelectorAll('[data-rein]'));
+      zeilen.forEach(function (tr) {
+        var p = m.spieler[tr.dataset.rein];
+        var e = p ? Players.eignung(p.pos, slotPos) : 0;
+        tr.dataset.eignung = e;
+        var zelle = tr.querySelector('.eignung');
+        if (zelle) {
+          zelle.innerHTML = e >= 0.99 ? '<span class="marke marke--gut">passt</span>'
+            : (e >= 0.85 ? '<span class="marke">geht</span>'
+              : '<span class="marke marke--warn">' + Math.round(e * 100) + ' %</span>');
+        }
+      });
+      zeilen.sort(function (a, b) { return b.dataset.eignung - a.dataset.eignung; });
+      var koerper = zeilen.length ? zeilen[0].parentNode : null;
+      if (koerper) zeilen.forEach(function (tr) { koerper.appendChild(tr); });
+    }
+
     function pruefe() {
       var info = $('wechselInfo');
       if (raus && rein) {
@@ -426,6 +459,7 @@
           x.style.background = '';
         });
         tr.style.background = 'var(--akzent-weich)';
+        bankSortieren(raus);
         pruefe();
       };
     });

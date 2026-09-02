@@ -9,29 +9,29 @@
   'use strict';
 
   var STUFEN = [
-    { stufe: 1, name: 'Kreisebene', kosten: 0, unterhalt: 350,
+    { stufe: 1, name: 'Kreisebene', kosten: 0, unterhalt: 500,
       talente: [1, 2], bonus: -16,
       text: 'Ein paar engagierte Ehrenamtliche. Was hier durchkommt, ist Zufall.' },
-    { stufe: 2, name: 'Bezirksleistungszentrum', kosten: 220000, unterhalt: 1400,
+    { stufe: 2, name: 'Bezirksleistungszentrum', kosten: 220000, unterhalt: 3000,
       talente: [2, 3], bonus: -11,
       text: 'Feste Trainer, eigene Plätze. Der Verein wird in der Region wahrgenommen.' },
-    { stufe: 3, name: 'Nachwuchsleistungszentrum', kosten: 1400000, unterhalt: 6500,
+    { stufe: 3, name: 'Nachwuchsleistungszentrum', kosten: 1400000, unterhalt: 19000,
       talente: [2, 4], bonus: -6,
       text: 'Eigene Jahrgangsmannschaften und Athletiktrainer. Talente kommen von weiter her.' },
-    { stufe: 4, name: 'Zertifiziertes NLZ', kosten: 5200000, unterhalt: 19000,
+    { stufe: 4, name: 'Zertifiziertes NLZ', kosten: 5200000, unterhalt: 55000,
       talente: [3, 4], bonus: -2,
       text: 'Internat, Reha-Abteilung, eigene Spielphilosophie über alle Jahrgänge.' },
-    { stufe: 5, name: 'Eliteschule des Fußballs', kosten: 14000000, unterhalt: 44000,
+    { stufe: 5, name: 'Eliteschule des Fußballs', kosten: 14000000, unterhalt: 120000,
       talente: [3, 5], bonus: 3,
       text: 'Die besten Talente des Landes kommen von sich aus. Ein Aushängeschild.' }
   ];
 
   var SCOUTING = [
-    { stufe: 1, name: 'Ein Zettel im Trainerbüro', kosten: 0, unterhalt: 150, genauigkeit: 0.30 },
-    { stufe: 2, name: 'Nebenberufliche Scouts', kosten: 90000, unterhalt: 900, genauigkeit: 0.50 },
-    { stufe: 3, name: 'Regionales Scoutingnetz', kosten: 600000, unterhalt: 3800, genauigkeit: 0.68 },
-    { stufe: 4, name: 'Bundesweites Netz', kosten: 2400000, unterhalt: 11000, genauigkeit: 0.83 },
-    { stufe: 5, name: 'Datengestützte Analyse', kosten: 7000000, unterhalt: 26000, genauigkeit: 0.95 }
+    { stufe: 1, name: 'Ein Zettel im Trainerbüro', kosten: 0, unterhalt: 250, genauigkeit: 0.30 },
+    { stufe: 2, name: 'Nebenberufliche Scouts', kosten: 90000, unterhalt: 1800, genauigkeit: 0.50 },
+    { stufe: 3, name: 'Regionales Scoutingnetz', kosten: 600000, unterhalt: 7600, genauigkeit: 0.68 },
+    { stufe: 4, name: 'Bundesweites Netz', kosten: 2400000, unterhalt: 22000, genauigkeit: 0.83 },
+    { stufe: 5, name: 'Datengestützte Analyse', kosten: 7000000, unterhalt: 52000, genauigkeit: 0.95 }
   ];
 
   /* Der Jahrgang rückt Ende Juli nach. */
@@ -95,7 +95,8 @@
       p.potenzial = Util.clamp(Math.round(p.staerke + spielraum), p.staerke + 2, 99);
       p.jugend = true;
       p.jugendSeit = state.saison;
-      p.gehalt = Math.round(Players.gehaltsBasis(p.staerke, klub.ruf, p.alter) * 0.28);
+      p.gehalt = Math.round(Players.gehaltsBasis(p.staerke, klub.ruf, p.alter,
+        klub.international ? 1 : klub.stufe) * 0.28);
       p.vertragBis = state.saison + 2;
       p.marktwert = Players.marktwert(p, state.saison);
       p.einschaetzung = einschaetzung(rng, p, scoutStufe(j.scouting).genauigkeit);
@@ -152,7 +153,8 @@
 
   /* Was ein Talent für seinen ersten Profivertrag verlangt. */
   function vertragsforderung(spieler, klub) {
-    var basis = Players.gehaltsBasis(spieler.staerke, klub.ruf, spieler.alter);
+    var basis = Players.gehaltsBasis(spieler.staerke, klub.ruf, spieler.alter,
+      klub.international ? 1 : klub.stufe);
     var talentzuschlag = 1 + Math.max(0, spieler.potenzial - spieler.staerke) / 100 * 0.9;
     return Math.round(basis * talentzuschlag / 10) * 10;
   }

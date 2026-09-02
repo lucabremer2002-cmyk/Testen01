@@ -90,7 +90,8 @@
       '<button class="knopf knopf--haupt" id="fSuchen">Suchen</button>' +
       '<button class="knopf knopf--still" id="fReset">Zurücksetzen</button>' +
       '<span class="mini">Transferbudget <b>' + Fmt.money(mein.finanzen.transferbudget) +
-      '</b> · sofort verfügbar <b>' + Fmt.money(Game.verfuegbaresGeld(st, mein)) + '</b></span>' +
+      '</b> · sofort zahlbar <b>' + Fmt.money(Math.min(mein.finanzen.transferbudget,
+        Game.verfuegbarFuerTransfer(st, mein))) + '</b></span>' +
       '</div></div>';
 
     var treffer = Transfers.marktSuche(st, filter);
@@ -226,7 +227,7 @@
 
     if (v.phase === 'verein') {
       var vorschlag = Math.min(v.forderung, mein.finanzen.transferbudget,
-        Game.verfuegbaresGeld(st, mein));
+        Game.verfuegbarFuerTransfer(st, mein));
       html += '<h4>Ihr Angebot an ' + Util.esc(verkaeufer.name) + '</h4>' +
         '<div class="knopfreihe" style="margin-bottom:.8rem">' +
         '<button class="knopf knopf--klein" id="aErfuellen">Forderung erfüllen</button>' +
@@ -351,7 +352,7 @@
           '. Der Verein bewertet das mit <b>' + Fmt.money(wert) + '</b>';
         if (gesamt > wert) text += ' – Raten, Boni und Beteiligungen zählen weniger als Bargeld.';
         else text += '.';
-        var frei = Game.verfuegbaresGeld(st, mein);
+        var frei = Game.verfuegbarFuerTransfer(st, mein);
         if (a.sofort > frei) {
           text += ' <span class="schlecht">Die Sofortzahlung übersteigt Ihr freies Guthaben von ' +
             Fmt.money(frei) + '. Verteilen Sie den Betrag auf Raten.</span>';
@@ -372,7 +373,7 @@
       c.onchange = function () { v.tausch = tauschAuswahl(); rechne(); };
     });
 
-    var grenze = Math.min(mein.finanzen.transferbudget, Game.verfuegbaresGeld(st, mein));
+    var grenze = Math.min(mein.finanzen.transferbudget, Game.verfuegbarFuerTransfer(st, mein));
     var erf = $('aErfuellen');
     if (erf) erf.onclick = function () {
       var bar = Math.min(v.forderung, grenze);
@@ -412,7 +413,7 @@
     var verkaeufer = st.klubs[v.vonKlubId];
     var angebot = angebotLesen(v);
 
-    var frei = Game.verfuegbaresGeld(st, mein);
+    var frei = Game.verfuegbarFuerTransfer(st, mein);
     if (angebot.sofort > frei) {
       UI.toast('Die Sofortzahlung übersteigt Ihr freies Guthaben von ' + Fmt.money(frei) + '.');
       return;
@@ -776,7 +777,8 @@
 
     if (!b.vereinOk) { UI.toast(geber.name + ' lehnt diese Konditionen ab.'); return; }
     if (!b.spielerOk) { UI.toast('Der Spieler lehnt ab – ihm fehlt die Aussicht auf Spielzeit.'); return; }
-    if (richtung === 'rein' && angebot.gebuehr > mein.finanzen.transferbudget) {
+    if (richtung === 'rein' && angebot.gebuehr > Math.min(mein.finanzen.transferbudget,
+        Game.verfuegbarFuerTransfer(st, mein))) {
       UI.toast('Die Leihgebühr übersteigt Ihr Transferbudget.');
       return;
     }

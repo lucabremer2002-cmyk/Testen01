@@ -27,11 +27,70 @@
     }
   };
 
+  /* Der Kader wird nach Mannschaftsteilen gruppiert und in drei Ansichten
+     geteilt - so stehen nie mehr als sieben Spalten nebeneinander. */
+  var KADER_ANSICHTEN = [
+    { id: 'ueberblick', name: 'Überblick' },
+    { id: 'leistung', name: 'Leistung' },
+    { id: 'vertraege', name: 'Werte & Verträge' }
+  ];
+
+  var GRUPPEN = [
+    { id: 'TW', name: 'Torhüter' },
+    { id: 'ABW', name: 'Abwehr' },
+    { id: 'MIT', name: 'Mittelfeld' },
+    { id: 'ANG', name: 'Angriff' }
+  ];
+
+  function kaderSpalten(ansicht) {
+    if (ansicht === 'leistung') {
+      return ['<th class="zahl">Nr</th><th class="mitte">Pos</th><th>Spieler</th>' +
+        '<th class="zahl">Spiele</th><th class="zahl">Tore</th><th class="zahl">Vorlagen</th>' +
+        '<th class="zahl">Note</th><th class="zahl">Form</th>'];
+    }
+    if (ansicht === 'vertraege') {
+      return ['<th class="zahl">Nr</th><th class="mitte">Pos</th><th>Spieler</th>' +
+        '<th class="zahl">Alter</th><th class="zahl">Marktwert</th>' +
+        '<th class="zahl">Gehalt / Woche</th><th class="zahl">Vertrag bis</th>'];
+    }
+    return ['<th class="zahl">Nr</th><th class="mitte">Pos</th><th>Spieler</th>' +
+      '<th class="zahl">Alter</th><th class="zahl">Stärke</th><th class="mitte">Fitness</th>' +
+      '<th>Status</th>'];
+  }
+
+  function kaderZeile(p, ansicht, st) {
+    var kopf = '<td class="zahl mini">' + (p.nummer || '') + '</td>' +
+      '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
+      '<td><b>' + Util.esc(p.nachname) + '</b> <span class="mini">' +
+      Util.esc(p.vorname) + '</span></td>';
+    if (ansicht === 'leistung') {
+      return kopf +
+        '<td class="zahl">' + (p.stats.spiele || '–') + '</td>' +
+        '<td class="zahl">' + (p.stats.tore || '') + '</td>' +
+        '<td class="zahl">' + (p.stats.vorlagen || '') + '</td>' +
+        '<td class="zahl">' + UI.noteText(UI.noteSchnitt(p)) + '</td>' +
+        '<td class="zahl mini">' + p.form + '</td>';
+    }
+    if (ansicht === 'vertraege') {
+      var rest = p.vertragBis - st.saison;
+      var farbe = rest <= 0 ? 'schlecht' : (rest === 1 ? 'akzent' : '');
+      return kopf +
+        '<td class="zahl">' + p.alter + '</td>' +
+        '<td class="zahl">' + Fmt.money(p.marktwert) + '</td>' +
+        '<td class="zahl">' + Fmt.money(p.gehalt) + '</td>' +
+        '<td class="zahl ' + farbe + '">' + p.vertragBis + '</td>';
+    }
+    return kopf +
+      '<td class="zahl">' + p.alter + '</td>' +
+      '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
+      '<td class="mitte">' + UI.fitnessBalken(p.fitness) + '</td>' +
+      '<td>' + UI.zustand(p) + '</td>';
+  }
+
   UI.seiten.kader = function () {
     var st = UI.S(), mein = UI.meinKlub();
     var kader = Game.kaderVon(st, mein);
-    var sort = UI.daten.sort || 'pos';
-    kader = kader.slice().sort(SORTIER[sort] || SORTIER.pos);
+    var ansicht = UI.daten.ansicht || 'ueberblick';
 
     var gehaltWoche = Util.sum(kader, function (p) { return p.gehalt; });
     var budget = mein.finanzen.gehaltsbudget;
@@ -40,75 +99,59 @@
     var gesperrt = kader.filter(function (p) { return p.sperre > 0; }).length;
 
     var html = '<div class="raster raster--4">' +
-      UI.kennzahl('Spieler im Kader', String(kader.length), verletzt + ' verletzt, ' + gesperrt + ' gesperrt') +
+      UI.kennzahl('Spieler im Kader', String(kader.length),
+        verletzt + ' verletzt · ' + gesperrt + ' gesperrt') +
       UI.kennzahl('Kaderwert', Fmt.money(Util.sum(kader, function (p) { return p.marktwert; })), '') +
-      UI.kennzahl('Gehälter', Fmt.money(gehaltWoche) + ' / Woche', Fmt.money(gehaltWoche * 52) + ' im Jahr') +
-      UI.kennzahl('Gehaltsbudget', Fmt.pct(auslastung) + ' genutzt',
-        'Rahmen ' + Fmt.money(budget) + ' / Woche') +
+      UI.kennzahl('Lohnsumme', Fmt.money(gehaltWoche), 'pro Woche') +
+      UI.kennzahl('Gehaltsrahmen', Fmt.pct(auslastung) + ' genutzt',
+        'Rahmen ' + Fmt.money(budget)) +
       '</div>';
 
     if (auslastung > 1) {
-      html += '<div class="karte" style="border-color:#6b2a27"><p class="schlecht" style="margin:0">' +
-        'Die Gehaltssumme übersteigt den Rahmen des Vorstands um ' + Fmt.money(gehaltWoche - budget) +
-        ' pro Woche. Das belastet das Vertrauen.</p></div>';
+      html += '<div class="karte"><p class="schlecht" style="margin:0">Die Lohnsumme liegt ' +
+        Fmt.money(gehaltWoche - budget) + ' über dem Rahmen des Vorstands. ' +
+        'Solange das so bleibt, sinkt sein Vertrauen Woche für Woche.</p></div>';
     }
 
-    var spalten = [
-      ['pos', 'Pos', 'mitte'], ['name', 'Spieler', ''], ['alter', 'Alter', 'zahl'],
-      ['staerke', 'Stärke', 'zahl'], ['', 'Pot', 'zahl'], ['', 'Fitness', 'mitte'],
-      ['', 'Form', 'zahl'], ['tore', 'Tore', 'zahl'], ['', 'Vorl', 'zahl'],
-      ['note', 'Note', 'zahl'], ['marktwert', 'Marktwert', 'zahl'],
-      ['gehalt', 'Gehalt/Wo', 'zahl'], ['vertrag', 'Vertrag', 'zahl'], ['', 'Status', '']
-    ];
+    html += '<div class="reiter">' + KADER_ANSICHTEN.map(function (a) {
+      return '<button data-kaderansicht="' + a.id + '" class="' +
+        (a.id === ansicht ? 'aktiv' : '') + '">' + a.name + '</button>';
+    }).join('') + '</div>';
 
-    html += '<div class="karte"><div class="karte__kopf"><h3>Alle Spieler</h3>' +
-      '<span class="mini">Spalte anklicken zum Sortieren · Zeile anklicken für Details</span></div>' +
-      '<div class="tabellenrahmen"><table class="liste"><thead><tr>' +
-      spalten.map(function (s) {
-        return '<th class="' + s[2] + (s[0] ? ' klickbar" style="cursor:pointer" data-sort="' + s[0] + '"' : '"') + '>' +
-          s[1] + (sort === s[0] ? ' ▾' : '') + '</th>';
-      }).join('') + '</tr></thead><tbody>' +
-      kader.map(function (p) {
-        var rest = p.vertragBis - st.saison;
-        var vertragKlasse = rest <= 0 ? 'schlecht' : (rest === 1 ? 'akzent' : '');
-        return '<tr class="klickbar" data-spieler="' + p.id + '">' +
-          '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
-          '<td><b>' + Util.esc(p.name) + '</b> <span class="mini">' + Util.esc(p.nation) + '</span></td>' +
-          '<td class="zahl">' + p.alter + '</td>' +
-          '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
-          '<td class="zahl mini">' + p.potenzial + '</td>' +
-          '<td class="mitte">' + UI.fitnessBalken(p.fitness) + '</td>' +
-          '<td class="zahl mini">' + p.form + '</td>' +
-          '<td class="zahl">' + (p.stats.tore || '') + '</td>' +
-          '<td class="zahl">' + (p.stats.vorlagen || '') + '</td>' +
-          '<td class="zahl">' + UI.noteText(UI.noteSchnitt(p)) + '</td>' +
-          '<td class="zahl">' + Fmt.money(p.marktwert) + '</td>' +
-          '<td class="zahl">' + Fmt.money(p.gehalt) + '</td>' +
-          '<td class="zahl ' + vertragKlasse + '">' + p.vertragBis + '</td>' +
-          '<td>' + UI.zustand(p) + '</td></tr>';
-      }).join('') + '</tbody></table></div></div>';
+    html += '<div class="karte">';
+    GRUPPEN.forEach(function (grp) {
+      var teil = kader.filter(function (p) { return Players.GRUPPE[p.pos] === grp.id; })
+        .sort(function (a, b) { return b.staerke - a.staerke; });
+      if (!teil.length) return;
+      html += '<h4 class="gruppenkopf">' + grp.name +
+        ' <span class="mini">' + teil.length + '</span></h4>' +
+        '<div class="tabellenrahmen"><table class="liste"><thead><tr>' +
+        kaderSpalten(ansicht) + '</tr></thead><tbody>' +
+        teil.map(function (p) {
+          return '<tr class="klickbar" data-spieler="' + p.id + '">' +
+            kaderZeile(p, ansicht, st) + '</tr>';
+        }).join('') + '</tbody></table></div>';
+    });
+    html += '</div>';
 
     /* Verliehene Spieler stehen nicht im Kader, gehören aber dem Verein. */
     var verliehen = UI.verliehene();
     if (verliehen.length) {
-      html += '<div class="karte"><div class="karte__kopf"><h3>Verliehene Spieler</h3>' +
-        '<span class="mini">' + verliehen.length + ' Spieler, Rückkehr am Saisonende</span></div>' +
-        '<div class="tabellenrahmen"><table class="liste"><thead><tr><th class="mitte">Pos</th>' +
-        '<th>Spieler</th><th>Verein</th><th class="zahl">Alter</th><th class="zahl">Stärke</th>' +
-        '<th class="zahl">Ihr Gehaltsanteil</th><th class="zahl">Einsätze</th>' +
-        '<th class="zahl">Kaufoption</th></tr></thead><tbody>' +
+      html += '<div class="karte"><div class="karte__kopf"><h3>Verliehen</h3>' +
+        '<span class="mini">Rückkehr am Saisonende</span></div>' +
+        '<div class="tabellenrahmen"><table class="liste"><thead><tr>' +
+        '<th class="zahl">Nr</th><th class="mitte">Pos</th><th>Spieler</th><th>Verein</th>' +
+        '<th class="zahl">Stärke</th><th class="zahl">Ihr Anteil</th>' +
+        '<th class="zahl">Einsätze</th></tr></thead><tbody>' +
         verliehen.map(function (p) {
-          var zu = st.klubs[p.klubId];
           return '<tr class="klickbar" data-spieler="' + p.id + '">' +
+            '<td class="zahl mini">' + (p.nummer || '') + '</td>' +
             '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
             '<td>' + Util.esc(p.name) + '</td>' +
-            '<td>' + UI.klubZelle(zu, 18, true) + '</td>' +
-            '<td class="zahl">' + p.alter + '</td>' +
+            '<td>' + UI.klubZelle(st.klubs[p.klubId], 18, true) + '</td>' +
             '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
             '<td class="zahl">' + (p.leihe ? (100 - p.leihe.gehaltsanteil) + ' %' : '–') + '</td>' +
-            '<td class="zahl">' + p.stats.spiele + '</td>' +
-            '<td class="zahl mini">' + (p.leihe && p.leihe.kaufoption
-              ? Fmt.money(p.leihe.kaufoption) : '–') + '</td></tr>';
+            '<td class="zahl">' + p.stats.spiele + '</td></tr>';
         }).join('') + '</tbody></table></div></div>';
     }
     return html;
@@ -116,8 +159,8 @@
 
   UI.nachZeichnen.kader = function () {
     UI.spielerKlicks();
-    Array.prototype.forEach.call(document.querySelectorAll('[data-sort]'), function (th) {
-      th.onclick = function () { UI.wechsle('kader', { sort: th.dataset.sort }); };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-kaderansicht]'), function (b) {
+      b.onclick = function () { UI.wechsle('kader', { ansicht: b.dataset.kaderansicht }); };
     });
   };
 
@@ -151,35 +194,54 @@
 
     /* Spielfeld */
     html += '<div class="karte"><div class="karte__kopf"><h3>Startelf</h3>' +
-      '<div class="knopfreihe"><button class="knopf knopf--klein" id="btnAutoElf">Beste Elf</button></div></div>';
+      '<button class="knopf knopf--klein" id="btnAutoElf">Beste Elf</button></div>';
     html += '<div class="platz-feld" id="platzFeld">' +
       '<div class="linie mittellinie"></div><div class="linie mittelkreis"></div>' +
       '<div class="linie strafraum strafraum--unten"></div><div class="linie strafraum strafraum--oben"></div>';
     slots.forEach(function (slot, i) {
       var pid = auf.elf[i];
       var p = map[pid];
-      var problem = !p || p.verletztBis > st.tag || p.sperre > 0;
+      var raus = !p || p.verletztBis > st.tag || p.sperre > 0;
       var eignung = p ? Players.eignung(p.pos, slot[0]) : 0;
-      var warn = problem || eignung < 0.8;
+      var warn = raus || eignung < 0.88;
+      var titel = slot[0] + (p ? ' · ' + p.name + ' (' + p.pos + ', Eignung ' +
+        Math.round(eignung * 100) + ' %)' : ' · frei');
       html += '<div class="spielerchip' + (warn ? ' warn' : '') + '" data-slot="' + i + '" ' +
-        'style="left:' + slot[1] + '%;top:' + slot[2] + '%" ' +
-        'title="' + Util.esc(slot[0] + (p ? ' · ' + p.name + ' (' + p.pos + ')' : ' · leer')) + '">' +
-        '<div class="spielerchip__kreis">' + (p ? p.staerke : slot[0]) + '</div>' +
+        'style="left:' + slot[1] + '%;top:' + slot[2] + '%" title="' + Util.esc(titel) + '">' +
+        '<div class="spielerchip__kreis">' + (p ? (p.nummer || p.staerke) : '–') + '</div>' +
         '<div class="spielerchip__name">' + (p ? Util.esc(p.nachname) : '<i>frei</i>') + '</div>' +
         '<div class="spielerchip__note">' + slot[0] + '</div>' +
         '</div>';
     });
     html += '</div>';
-    html += '<div class="raster raster--3" style="margin-top:.8rem">' +
-      UI.kennzahl('Abwehr', werte.abw.toFixed(1), '') +
-      UI.kennzahl('Mittelfeld', werte.mit.toFixed(1), '') +
-      UI.kennzahl('Angriff', werte.ang.toFixed(1), '') +
+    html += '<div class="raster raster--3" style="margin-top:var(--s4)">' +
+      UI.kennzahl('Abwehr', werte.abw.toFixed(0), '') +
+      UI.kennzahl('Mittelfeld', werte.mit.toFixed(0), '') +
+      UI.kennzahl('Angriff', werte.ang.toFixed(0), '') +
       '</div>';
-    html += '<p class="mini" style="margin-top:.6em">Spieler auf dem Feld anklicken und danach einen zweiten Spieler ' +
-      'wählen, um zu tauschen. Rot umrandet heißt: verletzt, gesperrt oder auf ungewohnter Position.</p>';
+
+    /* Hinweise nur, wenn es wirklich etwas zu sagen gibt */
+    var probleme = [];
+    auf.elf.forEach(function (pid, i) {
+      var p = map[pid];
+      if (!p) { probleme.push(slots[i][0] + ' ist nicht besetzt.'); return; }
+      if (p.verletztBis > st.tag) probleme.push(p.nachname + ' ist verletzt.');
+      else if (p.sperre > 0) probleme.push(p.nachname + ' ist gesperrt.');
+      else if (Players.eignung(p.pos, slots[i][0]) < 0.88) {
+        probleme.push(p.nachname + ' spielt auf ' + slots[i][0] + ' statt ' + p.pos + '.');
+      }
+    });
+    if (probleme.length) {
+      html += '<div class="dossier__hinweise"><ul>' +
+        probleme.slice(0, 4).map(function (t) { return '<li>' + Util.esc(t) + '</li>'; }).join('') +
+        '</ul></div>';
+    } else {
+      html += '<p class="mini" style="margin-top:var(--s3)">Alle elf stehen auf ihrer Position ' +
+        'und sind einsatzbereit. Zum Tauschen einen Spieler anklicken, dann einen zweiten.</p>';
+    }
     html += '</div>';
 
-    /* Rechte Spalte: Taktik und Bank */
+    /* Rechte Spalte */
     html += '<div>';
     html += '<div class="karte"><div class="karte__kopf"><h3>Taktik</h3></div>' +
       '<div class="formularraster">' +
@@ -195,7 +257,8 @@
       auswahlFeld('Spielweise', 'taktSpielweise', Object.keys(Match.SPIELWEISE).map(function (k) {
         return [k, Match.SPIELWEISE[k].name];
       }), mein.taktik.spielweise) +
-      auswahlFeld('Zweikampfhärte', 'taktHaerte', [['fair', 'Fair'], ['normal', 'Normal'], ['hart', 'Hart']], mein.taktik.haerte) +
+      auswahlFeld('Zweikampfhärte', 'taktHaerte',
+        [['fair', 'Fair'], ['normal', 'Normal'], ['hart', 'Hart']], mein.taktik.haerte) +
       '</div></div>';
 
     var aufFeld = {};
@@ -205,10 +268,11 @@
 
     html += '<div class="karte"><div class="karte__kopf"><h3>Ersatzbank</h3>' +
       '<span class="mini">' + bank.length + ' von 9</span></div>' +
-      spielerListe(bank, st, 'bank') + '</div>';
+      spielerListe(bank, st, false) + '</div>';
 
-    html += '<div class="karte"><div class="karte__kopf"><h3>Übrige Spieler</h3></div>' +
-      spielerListe(rest, st, 'rest') + '</div>';
+    html += '<div class="karte"><div class="karte__kopf"><h3>Übrige Spieler</h3>' +
+      '<span class="mini">' + rest.length + '</span></div>' +
+      spielerListe(rest, st, true) + '</div>';
     html += '</div></div>';
     return html;
   };
@@ -220,17 +284,31 @@
       }).join('') + '</select></label>';
   }
 
-  function spielerListe(liste, st, art) {
+  /* Spielerliste nach Mannschaftsteilen gegliedert - so findet man den
+     passenden Ersatz sofort. */
+  function spielerListe(liste, st, gruppiert) {
     if (!liste.length) return '<p class="leer">Niemand.</p>';
-    return '<div class="tabellenrahmen"><table class="liste"><tbody>' +
-      liste.sort(function (a, b) { return b.staerke - a.staerke; }).map(function (p) {
-        return '<tr class="klickbar" data-tausch="' + p.id + '" data-art="' + art + '">' +
-          '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
-          '<td>' + Util.esc(p.nachname) + '</td>' +
-          '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
-          '<td class="mitte">' + UI.fitnessBalken(p.fitness) + '</td>' +
-          '<td>' + UI.zustand(p) + '</td></tr>';
-      }).join('') + '</tbody></table></div>';
+    function tabelle(teil) {
+      return '<div class="tabellenrahmen"><table class="liste"><tbody>' +
+        teil.sort(function (a, b) { return b.staerke - a.staerke; }).map(function (p) {
+          return '<tr class="klickbar" data-tausch="' + p.id + '">' +
+            '<td class="zahl mini" style="width:2.2em">' + (p.nummer || '') + '</td>' +
+            '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
+            '<td>' + Util.esc(p.nachname) + '</td>' +
+            '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
+            '<td class="mitte">' + UI.fitnessBalken(p.fitness) + '</td>' +
+            '<td>' + UI.zustand(p) + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    if (!gruppiert) return tabelle(liste);
+    var teile = [
+      ['TW', 'Torhüter'], ['ABW', 'Abwehr'], ['MIT', 'Mittelfeld'], ['ANG', 'Angriff']
+    ];
+    return teile.map(function (t) {
+      var teil = liste.filter(function (p) { return Players.GRUPPE[p.pos] === t[0]; });
+      if (!teil.length) return '';
+      return '<h4 class="gruppenkopf">' + t[1] + '</h4>' + tabelle(teil);
+    }).join('');
   }
 
   function tausche(idA, idB) {

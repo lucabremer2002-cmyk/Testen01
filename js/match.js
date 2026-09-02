@@ -90,27 +90,40 @@
         var w = { TW: 0, IV: 1, ST: 2, ZM: 3, DM: 3, OM: 4, LV: 5, RV: 5, LA: 6, RA: 6, LM: 7, RM: 7 };
         return (w[a.pos] || 8) - (w[b.pos] || 8);
       });
+    /* Erst nach gelernter Position besetzen. Nur wenn dort niemand mehr
+       frei ist, wird die Anforderung schrittweise gelockert - so steht kein
+       Innenverteidiger plötzlich im Sturm. */
     reihenfolge.forEach(function (eintrag) {
       var beste = null, besteW = -1;
-      for (var i = 0; i < verfuegbar.length; i++) {
-        var p = verfuegbar[i];
-        if (vergeben[p.id]) continue;
-        var w = wirkung(p, eintrag.pos);
-        if (w > besteW) { besteW = w; beste = p; }
+      var schwellen = [1.0, 0.88, 0.75, 0];
+      for (var st = 0; st < schwellen.length && !beste; st++) {
+        for (var i = 0; i < verfuegbar.length; i++) {
+          var p = verfuegbar[i];
+          if (vergeben[p.id]) continue;
+          if (Players.eignung(p.pos, eintrag.pos) < schwellen[st]) continue;
+          var w = wirkung(p, eintrag.pos);
+          if (w > besteW) { besteW = w; beste = p; }
+        }
       }
       if (beste) { vergeben[beste.id] = true; elf[eintrag.i] = beste.id; }
     });
-    /* Bank: die naechstbesten Spieler, mind. ein Torwart. */
+    /* Bank: ein Ersatztorwart und für jede Mannschaftsteil mindestens eine
+       Alternative, danach die stärksten Übrigen. */
     var rest = verfuegbar.filter(function (p) { return !vergeben[p.id]; });
     rest.sort(function (a, b) { return b.staerke - a.staerke; });
     var bank = [];
-    var tw = rest.filter(function (p) { return p.pos === 'TW'; })[0];
-    if (tw) { bank.push(tw.id); }
-    rest.forEach(function (p) {
-      if (bank.length >= 9) return;
-      if (tw && p.id === tw.id) return;
-      bank.push(p.id);
+    var drin = {};
+    function aufBank(p) {
+      if (!p || drin[p.id] || bank.length >= 9) return;
+      drin[p.id] = true; bank.push(p.id);
+    }
+    aufBank(rest.filter(function (p) { return p.pos === 'TW'; })[0]);
+    ['ABW', 'MIT', 'ANG'].forEach(function (grp) {
+      aufBank(rest.filter(function (p) {
+        return Players.GRUPPE[p.pos] === grp && !drin[p.id];
+      })[0]);
     });
+    rest.forEach(aufBank);
     return { formation: formation, elf: elf.filter(Boolean), bank: bank };
   }
 
@@ -423,7 +436,7 @@
         karte(m, seite, min, m.rng.chance(0.016));
       }
       /* Verletzungen */
-      if (m.rng.next() < 0.0011 * (seite.taktik.haerte === 'hart' ? 1.3 : 1)) {
+      if (m.rng.next() < 0.0005 * (seite.taktik.haerte === 'hart' ? 1.3 : 1)) {
         verletzung(m, seite, min);
       }
     }

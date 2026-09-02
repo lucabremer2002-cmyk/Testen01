@@ -89,8 +89,14 @@ einen Blick erkennbar, ohne fremdes Markenmaterial zu übernehmen.
 ## Was Sie tun können
 
 ### Kader und Aufstellung
-- Vollständige Kaderübersicht mit Stärke, Potenzial, Form, Fitness, Moral,
-  Noten, Toren, Vorlagen, Karten, Marktwert, Gehalt und Vertragsende
+- Kader nach Mannschaftsteilen gruppiert, in drei Ansichten geteilt
+  (Überblick, Leistung, Werte & Verträge) – nie mehr als sieben Spalten
+  nebeneinander, jeder Spieler mit Rückennummer
+- **Positionstreue**: Die automatische Aufstellung besetzt jede Stelle mit
+  einem Spieler, der sie gelernt hat, und lockert die Anforderung erst,
+  wenn wirklich niemand mehr frei ist. Die Ersatzbank deckt immer alle
+  Mannschaftsteile ab, und im Wechselfenster wird sie nach Eignung für die
+  frei werdende Position sortiert.
 - Zehn Attribute je Spieler (Tempo, Technik, Zweikampf, Passspiel, Abschluss,
   Kopfball, Kondition, Übersicht, Stellungsspiel, Reflexe), positionsabhängig
   gewichtet
@@ -116,7 +122,9 @@ einen Blick erkennbar, ohne fremdes Markenmaterial zu übernehmen.
   Sofortergebnis
 - Während des Spiels wechseln (bis zu fünf) und die Taktik umstellen
 - Ballbesitz, Torschüsse, Ecken, Karten, Einzelnoten nach Schulnotensystem
-- Verletzungen, Gelbsperren (fünfte Gelbe) und Platzverweise mit Sperren
+- Verletzungen sind selten und meist kurz: rund zwei pro Verein und Saison,
+  im Schnitt zwölf Tage Ausfall; schwere Verletzungen bleiben die Ausnahme
+- Gelbsperren (fünfte Gelbe) und Platzverweise mit Sperren
 
 ### Transfermarkt und Verhandlungen
 
@@ -213,15 +221,33 @@ geplanten Zustand.
 
 ### Finanzen
 
-Wöchentliche Abrechnung mit Spielergehältern, Trainerstab, Stadionunterhalt,
-Jugendarbeit, Sponsoreneinnahmen, Medienerlösen nach Tabellenplatz,
-Merchandising, Spieltagseinnahmen, Europapokalgeldern, Kreditraten und
-Transferraten – aufgeschlüsselt nach Posten für die laufende Saison.
+Die Bilanz ist an der Kostenstruktur echter Vereine gebaut. Einnahmen aus
+Medienerlösen (nach Tabellenplatz gestaffelt), Sponsoring, Spieltag,
+Merchandising, Prämien und Europapokal stehen vier Ausgabenblöcken gegenüber:
+
+- **Kader** – Spielergehälter und Erfolgsprämien an die Mannschaft
+- **Betrieb** – Trainerstab und Geschäftsstelle, Verwaltung und Marketing,
+  Spielbetrieb (Reisen, Ordnungsdienst, Ausrüstung), Stadionbetrieb,
+  Jugendarbeit, Liga- und Verbandsabgaben
+- **Transfers** – Ablösen, Raten, Handgelder, Beraterhonorare und die
+  Abschreibung auf die Spielerwerte
+- **Kapital & Steuern** – Kreditraten, Überziehungszinsen und eine
+  progressive Steuer auf den Jahresüberschuss
+
+Über alle 186 Vereine gemessen liegt die Gewinnmarge im Median bei 7–10 %,
+rund ein Drittel der Vereine schreibt rote Zahlen, und die Gehaltsquote
+beträgt in der Bundesliga 44 %, in der Regionalliga 50 % der Einnahmen.
+Wer schlecht wirtschaftet, rutscht ins Minus.
 
 **Transferkredit.** Reicht das Transferbudget für einen Wunschspieler nicht,
 lässt es sich bei der Bank aufstocken. Der Kredit erhöht Kontostand und
 Transferbudget gleichermaßen; die Wochenrate läuft unabhängig davon weiter,
 ob sich der Einkauf sportlich auszahlt.
+
+**Gehaltsrahmen.** Der Vorstand gibt eine Lohnsumme frei. Wer sie
+überschreitet, verliert Woche für Woche Vertrauen – der Rahmen ist keine
+Empfehlung. Zur Winterpause prüft der Vorstand die Halbjahreszahlen und
+passt Transferbudget und Gehaltsrahmen an.
 
 **Betriebsreserve.** Acht Wochen laufende Kosten bleiben unangetastet. Alles
 darüber ist *frei verfügbar* – für Einkäufe, Stadionbau und Jugendarbeit.

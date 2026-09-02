@@ -458,10 +458,45 @@
         (summeE - summeA >= 0 ? 'Überschuss' : 'Fehlbetrag')) +
       '</div>';
 
+    /* Ausgaben in Blöcke gliedern - eine Liste aus zwölf Posten ist nicht
+       zu lesen. */
+    var BLOECKE = [
+      { name: 'Kader', posten: ['Spielergehälter', 'Erfolgsprämien'] },
+      { name: 'Betrieb', posten: ['Personal', 'Verwaltung', 'Spielbetrieb',
+        'Stadionunterhalt', 'Jugendarbeit', 'Abgaben'] },
+      { name: 'Transfers', posten: ['Transferausgaben', 'Transferraten', 'Handgelder',
+        'Beraterhonorare', 'Leihgebühren', 'Abschreibungen'] },
+      { name: 'Kapital & Steuern', posten: ['Kreditrate', 'Kredittilgung',
+        'Überziehungszinsen', 'Steuern', 'Stadionausbau'] }
+    ];
+
     html += '<div class="raster raster--2">';
-    html += '<div class="karte"><div class="karte__kopf"><h3>Einnahmen</h3></div>' + posten(einnahmen, summeE, 'var(--gut)') + '</div>';
-    html += '<div class="karte"><div class="karte__kopf"><h3>Ausgaben</h3></div>' + posten(ausgaben, summeA, 'var(--schlecht)') + '</div>';
-    html += '</div>';
+    html += '<div class="karte"><div class="karte__kopf"><h3>Einnahmen</h3>' +
+      '<span class="mini">' + Fmt.money(summeE) + '</span></div>' +
+      posten(einnahmen, summeE, 'var(--gut)') + '</div>';
+
+    html += '<div class="karte"><div class="karte__kopf"><h3>Ausgaben</h3>' +
+      '<span class="mini">' + Fmt.money(summeA) + '</span></div>';
+    var gezeigt = {};
+    BLOECKE.forEach(function (b) {
+      var teil = {}, summe = 0;
+      b.posten.forEach(function (k2) {
+        if (ausgaben[k2]) { teil[k2] = ausgaben[k2]; summe += ausgaben[k2]; gezeigt[k2] = true; }
+      });
+      if (!summe) return;
+      html += '<h4 class="gruppenkopf">' + b.name + ' <span class="mini">' + Fmt.money(summe) +
+        ' · ' + Math.round(100 * summe / Math.max(1, summeA)) + ' %</span></h4>' +
+        posten(teil, summeA, 'var(--schlecht)', true);
+    });
+    var uebrig = {}, uebrigSumme = 0;
+    Object.keys(ausgaben).forEach(function (k2) {
+      if (!gezeigt[k2]) { uebrig[k2] = ausgaben[k2]; uebrigSumme += ausgaben[k2]; }
+    });
+    if (uebrigSumme) {
+      html += '<h4 class="gruppenkopf">Sonstiges</h4>' +
+        posten(uebrig, summeA, 'var(--schlecht)', true);
+    }
+    html += '</div></div>';
 
     /* Vorschau und Deckungsvorschläge */
     var wochen = Math.max(1, st.tag / 7);
@@ -532,9 +567,23 @@
     html += '</div>';
 
     html += '<div class="karte"><div class="karte__kopf"><h3>Budgets</h3></div>' +
+      '<div class="dossier" style="margin-bottom:var(--s4)">' +
+      '<div class="dossier__zeile"><span class="dossier__label">Kontostand</span>' +
+      '<span class="dossier__wert">' + Fmt.money(fin.kontostand) + '</span></div>' +
+      '<div class="dossier__zeile"><span class="dossier__label">abzüglich Betriebsreserve</span>' +
+      '<span class="dossier__wert">' + Fmt.money(reserve) +
+      ' <span class="mini">acht Wochen laufende Kosten</span></span></div>' +
+      '<div class="dossier__zeile"><span class="dossier__label">frei verfügbar</span>' +
+      '<span class="dossier__wert"><b>' + Fmt.money(frei) + '</b>' +
+      ' <span class="mini">für Käufe, Bau und Jugendarbeit</span></span></div>' +
+      '<div class="dossier__zeile"><span class="dossier__label">Transferbudget</span>' +
+      '<span class="dossier__wert">' + Fmt.money(fin.transferbudget) +
+      ' <span class="mini">vom Vorstand freigegeben, zur Winterpause neu bewertet</span></span></div>' +
+      '</div>' +
       '<div class="raster raster--3">' +
       UI.kennzahl('Transferbudget', Fmt.money(fin.transferbudget),
-        'davon sofort zahlbar ' + Fmt.money(Math.min(fin.transferbudget, Game.verfuegbaresGeld(st, mein)))) +
+        'davon sofort zahlbar ' + Fmt.money(Math.min(fin.transferbudget,
+          Game.verfuegbarFuerTransfer(st, mein)))) +
       UI.kennzahl('Gehaltsrahmen', Fmt.money(fin.gehaltsbudget) + ' / Woche',
         'genutzt: ' + Fmt.money(Util.sum(kader, function (p) { return p.gehalt; }))) +
       UI.kennzahl('Geschätzter Jahresumsatz',
@@ -564,7 +613,7 @@
     });
   };
 
-  function posten(obj, summe, farbe) {
+  function posten(obj, summe, farbe, ohneGesamt) {
     var keys = Object.keys(obj).sort(function (a, b) { return obj[b] - obj[a]; });
     if (!keys.length) return '<p class="hinweis">Noch keine Buchungen in dieser Saison.</p>';
     return keys.map(function (k) {
@@ -574,7 +623,9 @@
         '<span>' + Util.esc(k) + '</span><b>' + Fmt.money(obj[k]) + '</b></div>' +
         '<div class="balken" style="width:100%"><i style="width:' + anteil.toFixed(1) + '%;background:' + farbe + '"></i></div>' +
         '</div>';
-    }).join('') + '<div style="border-top:1px solid var(--line);margin-top:.6em;padding-top:.5em;' +
+    }).join('');
+    if (ohneGesamt) return liste;
+    return liste + '<div style="border-top:1px solid var(--line);margin-top:.6em;padding-top:.5em;' +
       'display:flex;justify-content:space-between"><b>Gesamt</b><b>' + Fmt.money(summe) + '</b></div>';
   }
 })(typeof window !== 'undefined' ? window : globalThis);

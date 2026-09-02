@@ -111,10 +111,16 @@
 
   /* Wochengehalt. Ueber alle vier Ligen kalibriert: ein Bundesliga-Star
      landet bei rund 20 Mio. im Jahr, ein Regionalliga-Profi bei rund 40.000. */
-  function gehaltsBasis(staerke, klubRuf, alter) {
+  /* Der Ligastandard bestimmt das Gehaltsniveau stärker als das Ansehen
+     allein: In der Bundesliga sind alle Spieler Vollprofis, in der
+     Regionalliga arbeitet ein Teil des Kaders nebenher. */
+  var LIGA_GEHALT = { 1: 1.75, 2: 1.45, 3: 1.20, 4: 0.68 };
+
+  function gehaltsBasis(staerke, klubRuf, alter, ligastufe) {
     var lw = leistungswert(staerke, alter === undefined ? 26 : alter);
     var jahr = Math.pow(lw, 0.80) * 10;
-    var rf = 0.50 + Math.pow(klubRuf / 100, 1.35) * 0.80;
+    var lf = LIGA_GEHALT[Util.clamp(ligastufe || 1, 1, 4)];
+    var rf = lf * (0.78 + Math.pow(klubRuf / 100, 1.25) * 0.45);
     return Math.max(120, Math.round(jahr * rf / 52));
   }
 
@@ -194,7 +200,7 @@
       karriere: []
     };
     p.staerke = staerkeAus(p.attrs, pos);
-    p.gehalt = Math.round(gehaltsBasis(p.staerke, opt.klubRuf, p.alter) * rng.float(0.86, 1.16));
+    p.gehalt = Math.round(gehaltsBasis(p.staerke, opt.klubRuf, p.alter, opt.stufe) * rng.float(0.86, 1.16));
     p.marktwert = marktwert(p, saison);
     return p;
   }
@@ -227,7 +233,8 @@
         for (var versuch = 0; versuch < 14; versuch++) {
           neuerSpieler = spielerErzeugen(rng, {
             pos: pos, alter: alter, staerke: st, nation: nationFn(rng),
-            klubId: klub.id, klubRuf: klub.ruf, saison: saison
+            klubId: klub.id, klubRuf: klub.ruf, saison: saison,
+            stufe: klub.international ? 1 : klub.stufe
           });
           if (!belegt[neuerSpieler.nachname]) break;
         }
@@ -268,19 +275,36 @@
     return p.staerke - alt;
   }
 
+  /* Verletzungen mit Gewichtung: Die allermeisten Blessuren sind harmlos,
+     schwere Verletzungen bleiben die seltene Ausnahme. Das dritte Feld ist
+     das Gewicht in der Ziehung. */
   var VERLETZUNGEN = [
-    ['Muskelfaserriss', 14, 32], ['Bänderriss', 42, 90], ['Zerrung', 5, 14],
-    ['Prellung', 3, 9], ['Meniskusschaden', 35, 80], ['Kreuzbandriss', 150, 260],
-    ['Mittelfußbruch', 45, 95], ['Sprunggelenksverletzung', 12, 30],
-    ['Schulterverletzung', 18, 40], ['Gehirnerschütterung', 7, 16],
-    ['Adduktorenprobleme', 8, 20], ['Achillessehnenreizung', 20, 45]
+    ['Prellung', 2, 6, 26],
+    ['Zerrung', 4, 10, 22],
+    ['Muskelfaserriss', 10, 22, 14],
+    ['Adduktorenprobleme', 6, 14, 11],
+    ['Sprunggelenksverletzung', 8, 20, 9],
+    ['Gehirnerschütterung', 6, 12, 6],
+    ['Schulterverletzung', 12, 28, 4],
+    ['Achillessehnenreizung', 14, 32, 3],
+    ['Meniskusschaden', 28, 60, 2.2],
+    ['Bänderriss', 35, 70, 1.6],
+    ['Mittelfußbruch', 38, 75, 1.0],
+    ['Kreuzbandriss', 130, 210, 0.4]
   ];
 
   function verletzen(rng, p, heute) {
-    var v = rng.pick(VERLETZUNGEN);
+    var summe = 0, i;
+    for (i = 0; i < VERLETZUNGEN.length; i++) summe += VERLETZUNGEN[i][3];
+    var r = rng.next() * summe;
+    var v = VERLETZUNGEN[0];
+    for (i = 0; i < VERLETZUNGEN.length; i++) {
+      r -= VERLETZUNGEN[i][3];
+      if (r <= 0) { v = VERLETZUNGEN[i]; break; }
+    }
     var tage = rng.int(v[1], v[2]);
     /* aeltere Spieler brauchen laenger */
-    if (p.alter > 30) tage = Math.round(tage * 1.25);
+    if (p.alter > 30) tage = Math.round(tage * 1.2);
     p.verletzung = v[0];
     p.verletztBis = heute + tage;
     return { art: v[0], tage: tage };
@@ -295,6 +319,7 @@
     ALTERS_FAKTOR: ALTERS_FAKTOR,
     marktwert: marktwert,
     gehaltsBasis: gehaltsBasis,
+    LIGA_GEHALT: LIGA_GEHALT,
     leistungswert: leistungswert,
     altersFaktor: altersFaktor,
     spielerErzeugen: spielerErzeugen,

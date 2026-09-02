@@ -458,6 +458,14 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 .form i.U { background: var(--fill); color: var(--text-2); }
 .form i.N { background: var(--schlecht-weich); color: var(--schlecht); }
 
+.gruppenkopf {
+  margin: var(--s5) 0 var(--s2); color: var(--text-2);
+  font-size: var(--t-footnote); font-weight: 600; letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.karte > .gruppenkopf:first-child { margin-top: 0; }
+.gruppenkopf .mini { font-weight: 400; text-transform: none; letter-spacing: 0; }
+
 /* ---------- Stärke, Marken ---------- */
 .staerke { display: inline-flex; align-items: center; gap: var(--s2); }
 .staerke b { min-width: 1.8em; text-align: right; font-weight: 550; }
@@ -553,7 +561,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 /* ---------- Modal ---------- */
 .modal {
   position: fixed; inset: 0; background: rgba(0, 0, 0, .3);
-  display: grid; place-items: center; z-index: 100; padding: var(--s4);
+  display: grid; place-items: center; z-index: 300; padding: var(--s4);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   animation: modalEin .2s ease;
 }
@@ -654,7 +662,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   position: fixed; left: 50%; bottom: var(--s6); transform: translateX(-50%);
   background: var(--text); color: var(--surface);
   padding: .65em 1.2em; border-radius: var(--r-pille);
-  z-index: 300; box-shadow: var(--schweben); max-width: 90vw; text-align: center;
+  z-index: 400; box-shadow: var(--schweben); max-width: 90vw; text-align: center;
   font-size: var(--t-subhead); font-weight: 500;
   animation: einblenden .22s ease;
 }
@@ -1069,16 +1077,16 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
   var LIGEN = [
     { id: 'bl1', name: 'Bundesliga', kurz: 'BL', stufe: 1, teams: BUNDESLIGA,
-      tvGeld: 50000000, siegPraemie: 900000, aufstieg: 0, direktAb: 2, relegation: 1,
+      tvGeld: 50000000, siegPraemie: 130000, aufstieg: 0, direktAb: 2, relegation: 1,
       farbe: '#e11d48' },
     { id: 'bl2', name: '2. Bundesliga', kurz: '2.BL', stufe: 2, teams: BUNDESLIGA2,
-      tvGeld: 12000000, siegPraemie: 260000, aufstieg: 2, direktAb: 2, relegation: 1,
+      tvGeld: 12000000, siegPraemie: 42000, aufstieg: 2, direktAb: 2, relegation: 1,
       farbe: '#f59e0b' },
     { id: 'l3', name: '3. Liga', kurz: '3.L', stufe: 3, teams: LIGA3,
-      tvGeld: 1300000, siegPraemie: 45000, aufstieg: 2, direktAb: 3, relegation: 1,
+      tvGeld: 1300000, siegPraemie: 9000, aufstieg: 2, direktAb: 3, relegation: 1,
       farbe: '#22c55e' },
     { id: 'rlw', name: 'Regionalliga West', kurz: 'RLW', stufe: 4, teams: REGIONALLIGA_WEST,
-      tvGeld: 180000, siegPraemie: 6000, aufstieg: 1, direktAb: 3, relegation: 0,
+      tvGeld: 180000, siegPraemie: 1500, aufstieg: 1, direktAb: 3, relegation: 0,
       farbe: '#38bdf8' }
   ];
 
@@ -1607,10 +1615,16 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
   /* Wochengehalt. Ueber alle vier Ligen kalibriert: ein Bundesliga-Star
      landet bei rund 20 Mio. im Jahr, ein Regionalliga-Profi bei rund 40.000. */
-  function gehaltsBasis(staerke, klubRuf, alter) {
+  /* Der Ligastandard bestimmt das Gehaltsniveau stärker als das Ansehen
+     allein: In der Bundesliga sind alle Spieler Vollprofis, in der
+     Regionalliga arbeitet ein Teil des Kaders nebenher. */
+  var LIGA_GEHALT = { 1: 1.75, 2: 1.45, 3: 1.20, 4: 0.68 };
+
+  function gehaltsBasis(staerke, klubRuf, alter, ligastufe) {
     var lw = leistungswert(staerke, alter === undefined ? 26 : alter);
     var jahr = Math.pow(lw, 0.80) * 10;
-    var rf = 0.50 + Math.pow(klubRuf / 100, 1.35) * 0.80;
+    var lf = LIGA_GEHALT[Util.clamp(ligastufe || 1, 1, 4)];
+    var rf = lf * (0.78 + Math.pow(klubRuf / 100, 1.25) * 0.45);
     return Math.max(120, Math.round(jahr * rf / 52));
   }
 
@@ -1690,7 +1704,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       karriere: []
     };
     p.staerke = staerkeAus(p.attrs, pos);
-    p.gehalt = Math.round(gehaltsBasis(p.staerke, opt.klubRuf, p.alter) * rng.float(0.86, 1.16));
+    p.gehalt = Math.round(gehaltsBasis(p.staerke, opt.klubRuf, p.alter, opt.stufe) * rng.float(0.86, 1.16));
     p.marktwert = marktwert(p, saison);
     return p;
   }
@@ -1723,7 +1737,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         for (var versuch = 0; versuch < 14; versuch++) {
           neuerSpieler = spielerErzeugen(rng, {
             pos: pos, alter: alter, staerke: st, nation: nationFn(rng),
-            klubId: klub.id, klubRuf: klub.ruf, saison: saison
+            klubId: klub.id, klubRuf: klub.ruf, saison: saison,
+            stufe: klub.international ? 1 : klub.stufe
           });
           if (!belegt[neuerSpieler.nachname]) break;
         }
@@ -1764,19 +1779,36 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     return p.staerke - alt;
   }
 
+  /* Verletzungen mit Gewichtung: Die allermeisten Blessuren sind harmlos,
+     schwere Verletzungen bleiben die seltene Ausnahme. Das dritte Feld ist
+     das Gewicht in der Ziehung. */
   var VERLETZUNGEN = [
-    ['Muskelfaserriss', 14, 32], ['Bänderriss', 42, 90], ['Zerrung', 5, 14],
-    ['Prellung', 3, 9], ['Meniskusschaden', 35, 80], ['Kreuzbandriss', 150, 260],
-    ['Mittelfußbruch', 45, 95], ['Sprunggelenksverletzung', 12, 30],
-    ['Schulterverletzung', 18, 40], ['Gehirnerschütterung', 7, 16],
-    ['Adduktorenprobleme', 8, 20], ['Achillessehnenreizung', 20, 45]
+    ['Prellung', 2, 6, 26],
+    ['Zerrung', 4, 10, 22],
+    ['Muskelfaserriss', 10, 22, 14],
+    ['Adduktorenprobleme', 6, 14, 11],
+    ['Sprunggelenksverletzung', 8, 20, 9],
+    ['Gehirnerschütterung', 6, 12, 6],
+    ['Schulterverletzung', 12, 28, 4],
+    ['Achillessehnenreizung', 14, 32, 3],
+    ['Meniskusschaden', 28, 60, 2.2],
+    ['Bänderriss', 35, 70, 1.6],
+    ['Mittelfußbruch', 38, 75, 1.0],
+    ['Kreuzbandriss', 130, 210, 0.4]
   ];
 
   function verletzen(rng, p, heute) {
-    var v = rng.pick(VERLETZUNGEN);
+    var summe = 0, i;
+    for (i = 0; i < VERLETZUNGEN.length; i++) summe += VERLETZUNGEN[i][3];
+    var r = rng.next() * summe;
+    var v = VERLETZUNGEN[0];
+    for (i = 0; i < VERLETZUNGEN.length; i++) {
+      r -= VERLETZUNGEN[i][3];
+      if (r <= 0) { v = VERLETZUNGEN[i]; break; }
+    }
     var tage = rng.int(v[1], v[2]);
     /* aeltere Spieler brauchen laenger */
-    if (p.alter > 30) tage = Math.round(tage * 1.25);
+    if (p.alter > 30) tage = Math.round(tage * 1.2);
     p.verletzung = v[0];
     p.verletztBis = heute + tage;
     return { art: v[0], tage: tage };
@@ -1791,6 +1823,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     ALTERS_FAKTOR: ALTERS_FAKTOR,
     marktwert: marktwert,
     gehaltsBasis: gehaltsBasis,
+    LIGA_GEHALT: LIGA_GEHALT,
     leistungswert: leistungswert,
     altersFaktor: altersFaktor,
     spielerErzeugen: spielerErzeugen,
@@ -2067,27 +2100,40 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         var w = { TW: 0, IV: 1, ST: 2, ZM: 3, DM: 3, OM: 4, LV: 5, RV: 5, LA: 6, RA: 6, LM: 7, RM: 7 };
         return (w[a.pos] || 8) - (w[b.pos] || 8);
       });
+    /* Erst nach gelernter Position besetzen. Nur wenn dort niemand mehr
+       frei ist, wird die Anforderung schrittweise gelockert - so steht kein
+       Innenverteidiger plötzlich im Sturm. */
     reihenfolge.forEach(function (eintrag) {
       var beste = null, besteW = -1;
-      for (var i = 0; i < verfuegbar.length; i++) {
-        var p = verfuegbar[i];
-        if (vergeben[p.id]) continue;
-        var w = wirkung(p, eintrag.pos);
-        if (w > besteW) { besteW = w; beste = p; }
+      var schwellen = [1.0, 0.88, 0.75, 0];
+      for (var st = 0; st < schwellen.length && !beste; st++) {
+        for (var i = 0; i < verfuegbar.length; i++) {
+          var p = verfuegbar[i];
+          if (vergeben[p.id]) continue;
+          if (Players.eignung(p.pos, eintrag.pos) < schwellen[st]) continue;
+          var w = wirkung(p, eintrag.pos);
+          if (w > besteW) { besteW = w; beste = p; }
+        }
       }
       if (beste) { vergeben[beste.id] = true; elf[eintrag.i] = beste.id; }
     });
-    /* Bank: die naechstbesten Spieler, mind. ein Torwart. */
+    /* Bank: ein Ersatztorwart und für jede Mannschaftsteil mindestens eine
+       Alternative, danach die stärksten Übrigen. */
     var rest = verfuegbar.filter(function (p) { return !vergeben[p.id]; });
     rest.sort(function (a, b) { return b.staerke - a.staerke; });
     var bank = [];
-    var tw = rest.filter(function (p) { return p.pos === 'TW'; })[0];
-    if (tw) { bank.push(tw.id); }
-    rest.forEach(function (p) {
-      if (bank.length >= 9) return;
-      if (tw && p.id === tw.id) return;
-      bank.push(p.id);
+    var drin = {};
+    function aufBank(p) {
+      if (!p || drin[p.id] || bank.length >= 9) return;
+      drin[p.id] = true; bank.push(p.id);
+    }
+    aufBank(rest.filter(function (p) { return p.pos === 'TW'; })[0]);
+    ['ABW', 'MIT', 'ANG'].forEach(function (grp) {
+      aufBank(rest.filter(function (p) {
+        return Players.GRUPPE[p.pos] === grp && !drin[p.id];
+      })[0]);
     });
+    rest.forEach(aufBank);
     return { formation: formation, elf: elf.filter(Boolean), bank: bank };
   }
 
@@ -2400,7 +2446,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         karte(m, seite, min, m.rng.chance(0.016));
       }
       /* Verletzungen */
-      if (m.rng.next() < 0.0011 * (seite.taktik.haerte === 'hart' ? 1.3 : 1)) {
+      if (m.rng.next() < 0.0005 * (seite.taktik.haerte === 'hart' ? 1.3 : 1)) {
         verletzung(m, seite, min);
       }
     }
@@ -2653,7 +2699,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
   function sponsorWert(ruf, slotAnteil, stufe) {
     var basis = 150000000 * Math.pow(Math.max(12, ruf) / 96, 6.6);
-    var stufenBonus = stufe === 1 ? 1.0 : (stufe === 2 ? 0.82 : (stufe === 3 ? 0.7 : 0.6));
+    /* Außerhalb der Bundesliga bricht das Sponsoring stark ein - auch ein
+       großer Name bekommt in der 2. Liga nur einen Bruchteil. */
+    var stufenBonus = stufe === 1 ? 1.0 : (stufe === 2 ? 0.6 : (stufe === 3 ? 0.62 : 0.6));
     return basis * slotAnteil * stufenBonus;
   }
 
@@ -2903,10 +2951,13 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     return { text: 'Fertiggestellt: ' + a.name + '.' };
   }
 
+  /* Ein Stadion kostet im Betrieb weit mehr als seine Instandhaltung:
+     Pacht, Energie, Reinigung, Rasenpflege, Sicherheitstechnik. Für einen
+     Bundesligisten sind das zweistellige Millionenbeträge im Jahr. */
   function unterhaltWoche(fin, stufe) {
     var kap = kapazitaet(fin.stadion);
-    var stufenFaktor = stufe === 1 ? 1.0 : (stufe === 2 ? 0.8 : (stufe === 3 ? 0.5 : 0.32));
-    var basis = kap * 0.42 * stufenFaktor;   /* Betriebskosten je Platz und Woche */
+    var stufenFaktor = stufe === 1 ? 1.0 : (stufe === 2 ? 0.75 : (stufe === 3 ? 0.35 : 0.08));
+    var basis = kap * 5.5 * stufenFaktor;   /* Betriebskosten je Platz und Woche */
     var mod = 0;
     Object.keys(fin.stadion.module).forEach(function (k) {
       var m = Util.byId(MODULE, k);
@@ -3414,7 +3465,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   /* Gehaltsforderung für einen neuen Vertrag. */
   function gehaltsforderung(spieler, klub, rolleId, jahre, istVerlaengerung) {
     var rolle = Util.byId(ROLLEN, rolleId) || ROLLEN[2];
-    var basis = Players.gehaltsBasis(spieler.staerke, klub.ruf, spieler.alter);
+    var basis = Players.gehaltsBasis(spieler.staerke, klub.ruf, spieler.alter,
+      klub.international ? 1 : klub.stufe);
     var f = rolle.faktor;
     if (spieler.alter >= 30) f *= 1.08;
     if (spieler.alter <= 21) f *= 0.88;
@@ -3893,29 +3945,29 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   'use strict';
 
   var STUFEN = [
-    { stufe: 1, name: 'Kreisebene', kosten: 0, unterhalt: 350,
+    { stufe: 1, name: 'Kreisebene', kosten: 0, unterhalt: 500,
       talente: [1, 2], bonus: -16,
       text: 'Ein paar engagierte Ehrenamtliche. Was hier durchkommt, ist Zufall.' },
-    { stufe: 2, name: 'Bezirksleistungszentrum', kosten: 220000, unterhalt: 1400,
+    { stufe: 2, name: 'Bezirksleistungszentrum', kosten: 220000, unterhalt: 3000,
       talente: [2, 3], bonus: -11,
       text: 'Feste Trainer, eigene Plätze. Der Verein wird in der Region wahrgenommen.' },
-    { stufe: 3, name: 'Nachwuchsleistungszentrum', kosten: 1400000, unterhalt: 6500,
+    { stufe: 3, name: 'Nachwuchsleistungszentrum', kosten: 1400000, unterhalt: 19000,
       talente: [2, 4], bonus: -6,
       text: 'Eigene Jahrgangsmannschaften und Athletiktrainer. Talente kommen von weiter her.' },
-    { stufe: 4, name: 'Zertifiziertes NLZ', kosten: 5200000, unterhalt: 19000,
+    { stufe: 4, name: 'Zertifiziertes NLZ', kosten: 5200000, unterhalt: 55000,
       talente: [3, 4], bonus: -2,
       text: 'Internat, Reha-Abteilung, eigene Spielphilosophie über alle Jahrgänge.' },
-    { stufe: 5, name: 'Eliteschule des Fußballs', kosten: 14000000, unterhalt: 44000,
+    { stufe: 5, name: 'Eliteschule des Fußballs', kosten: 14000000, unterhalt: 120000,
       talente: [3, 5], bonus: 3,
       text: 'Die besten Talente des Landes kommen von sich aus. Ein Aushängeschild.' }
   ];
 
   var SCOUTING = [
-    { stufe: 1, name: 'Ein Zettel im Trainerbüro', kosten: 0, unterhalt: 150, genauigkeit: 0.30 },
-    { stufe: 2, name: 'Nebenberufliche Scouts', kosten: 90000, unterhalt: 900, genauigkeit: 0.50 },
-    { stufe: 3, name: 'Regionales Scoutingnetz', kosten: 600000, unterhalt: 3800, genauigkeit: 0.68 },
-    { stufe: 4, name: 'Bundesweites Netz', kosten: 2400000, unterhalt: 11000, genauigkeit: 0.83 },
-    { stufe: 5, name: 'Datengestützte Analyse', kosten: 7000000, unterhalt: 26000, genauigkeit: 0.95 }
+    { stufe: 1, name: 'Ein Zettel im Trainerbüro', kosten: 0, unterhalt: 250, genauigkeit: 0.30 },
+    { stufe: 2, name: 'Nebenberufliche Scouts', kosten: 90000, unterhalt: 1800, genauigkeit: 0.50 },
+    { stufe: 3, name: 'Regionales Scoutingnetz', kosten: 600000, unterhalt: 7600, genauigkeit: 0.68 },
+    { stufe: 4, name: 'Bundesweites Netz', kosten: 2400000, unterhalt: 22000, genauigkeit: 0.83 },
+    { stufe: 5, name: 'Datengestützte Analyse', kosten: 7000000, unterhalt: 52000, genauigkeit: 0.95 }
   ];
 
   /* Der Jahrgang rückt Ende Juli nach. */
@@ -3979,7 +4031,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       p.potenzial = Util.clamp(Math.round(p.staerke + spielraum), p.staerke + 2, 99);
       p.jugend = true;
       p.jugendSeit = state.saison;
-      p.gehalt = Math.round(Players.gehaltsBasis(p.staerke, klub.ruf, p.alter) * 0.28);
+      p.gehalt = Math.round(Players.gehaltsBasis(p.staerke, klub.ruf, p.alter,
+        klub.international ? 1 : klub.stufe) * 0.28);
       p.vertragBis = state.saison + 2;
       p.marktwert = Players.marktwert(p, state.saison);
       p.einschaetzung = einschaetzung(rng, p, scoutStufe(j.scouting).genauigkeit);
@@ -4036,7 +4089,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
   /* Was ein Talent für seinen ersten Profivertrag verlangt. */
   function vertragsforderung(spieler, klub) {
-    var basis = Players.gehaltsBasis(spieler.staerke, klub.ruf, spieler.alter);
+    var basis = Players.gehaltsBasis(spieler.staerke, klub.ruf, spieler.alter,
+      klub.international ? 1 : klub.stufe);
     var talentzuschlag = 1 + Math.max(0, spieler.potenzial - spieler.staerke) / 100 * 0.9;
     return Math.round(basis * talentzuschlag / 10) * 10;
   }
@@ -4356,6 +4410,13 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     return Math.max(0, Math.round(k.finanzen.kontostand - betriebsreserve(state, k)));
   }
 
+  /* Für einen vom Vorstand freigegebenen Transfer darf tiefer in die Kasse
+     gegriffen werden als für freiwillige Bauvorhaben - aber nie so tief,
+     dass der laufende Betrieb kippt. */
+  function verfuegbarFuerTransfer(state, k) {
+    return Math.max(0, Math.round(k.finanzen.kontostand - wochenkosten(state, k) * 4));
+  }
+
   /* =================== Postfach & Nachrichten =================== */
 
   function post(state, betreff, text, art, daten) {
@@ -4572,6 +4633,10 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         Finance.buchen(k.finanzen, state.tag, 'Prämie', 'Siegprämie ' + liga.name,
           liga.siegPraemie, 'Prämien');
       }
+      /* Die Mannschaft bekommt ihre Erfolgsprämie - ein echter Kostenblock. */
+      var wochenlohn = Util.sum(kaderVon(state, k), function (p) { return p.gehalt; });
+      Finance.buchen(k.finanzen, state.tag, 'Prämie', 'Erfolgsprämie an die Mannschaft',
+        -Math.round(wochenlohn * 0.16), 'Erfolgsprämien');
       var bonus = 0;
       Object.keys(k.finanzen.sponsoren).forEach(function (sl) {
         var sp = k.finanzen.sponsoren[sl];
@@ -4644,11 +4709,32 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
           -Math.round(jugendKosten), 'Jugendarbeit');
       }
 
-      /* Personal, Nachwuchs, Stadionunterhalt. In den unteren Ligen arbeitet
-         ein grosser Teil des Vereins ehrenamtlich - entsprechend guenstiger. */
-      var personalQuote = [0.26, 0.26, 0.22, 0.16, 0.11][Math.min(4, stufe)];
-      var personal = gehalt * personalQuote + 2500 * (5 - Math.min(4, stufe));
-      Finance.buchen(fin, state.tag, 'Personal', 'Trainerstab & Verwaltung', -Math.round(personal), 'Personal');
+      /* Personal neben dem Kader: Trainerstab, Scouting, Geschäftsstelle.
+         In den unteren Ligen arbeitet vieles ehrenamtlich. */
+      var umsatzWoche = Finance.jahresUmsatzSchaetzung(k, fin, stufe) / 52;
+      var personalQuote = [0.42, 0.42, 0.34, 0.22, 0.14][Math.min(4, stufe)];
+      /* Kleine Vereine führen eine schlanke Geschäftsstelle - der Apparat
+         wächst nicht schneller als die Einnahmen. */
+      var personal = Math.min(gehalt * personalQuote, umsatzWoche * 0.16) +
+        2500 * (5 - Math.min(4, stufe));
+      Finance.buchen(fin, state.tag, 'Personal', 'Trainerstab & Geschäftsstelle',
+        -Math.round(personal), 'Personal');
+
+      /* Weitere Betriebskosten, die jeder Verein trägt. */
+      var verwaltungsQuote = [0.13, 0.13, 0.10, 0.07, 0.04][Math.min(4, stufe)];
+      Finance.buchen(fin, state.tag, 'Verwaltung', 'Verwaltung, Marketing, Recht',
+        -Math.round(umsatzWoche * verwaltungsQuote), 'Verwaltung');
+      var spielbetriebQuote = [0.07, 0.07, 0.06, 0.05, 0.035][Math.min(4, stufe)];
+      Finance.buchen(fin, state.tag, 'Spielbetrieb', 'Reisen, Ordnungsdienst, Ausrüstung',
+        -Math.round(umsatzWoche * spielbetriebQuote), 'Spielbetrieb');
+
+      /* Abschreibung auf den Kaderwert - der grosse Posten jeder echten
+         Vereinsbilanz, den man sonst nirgends sieht. */
+      var kaderwert = Util.sum(kader, function (p) { return p.marktwert; });
+      var abschreibungsQuote = stufe <= 2 ? 0.16 : (stufe === 3 ? 0.09 : 0.05);
+      Finance.buchen(fin, state.tag, 'Transfer', 'Abschreibung auf Spielerwerte',
+        -Math.round(kaderwert * abschreibungsQuote / 52), 'Abschreibungen');
+
       /* Mitgliedsbeitraege, Vereinsheim, kleine Sponsoren */
       var sonstige = Finance.grundNachfrage(k.ruf) * 0.55 + 900;
       Finance.buchen(fin, state.tag, 'Sonstiges', 'Mitgliedsbeiträge & Sonstiges', Math.round(sonstige), 'Sonstige Einnahmen');
@@ -4670,6 +4756,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         var faktor = 0.40 + 1.40 * Math.pow(rel, 1.6);
         var tv = liga.tvGeld * faktor / 52;
         Finance.buchen(fin, state.tag, 'TV-Geld', 'Medienerlöse', Math.round(tv), 'TV-Gelder');
+        /* Abgabe an Liga und Verband */
+        Finance.buchen(fin, state.tag, 'Abgaben', 'Liga- und Verbandsabgaben',
+          -Math.round(tv * 0.055), 'Abgaben');
       }
       if (k.europapokal) {
         Finance.buchen(fin, state.tag, 'Europapokal', k.europapokal.name, Math.round(k.europapokal.betrag / 52), 'Europapokal');
@@ -4721,6 +4810,26 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var mein = state.klubs[state.meinKlubId];
     if (mein) {
       var fin = mein.finanzen;
+
+      /* Der Gehaltsrahmen ist keine Empfehlung: Wer ihn dauerhaft reisst,
+         verliert das Vertrauen des Vorstands. */
+      var lohnsumme = Util.sum(kaderVon(state, mein), function (p) {
+        return p.leihe ? p.gehalt * p.leihe.gehaltsanteil / 100 : p.gehalt;
+      });
+      if (lohnsumme > fin.gehaltsbudget) {
+        var ueber = (lohnsumme - fin.gehaltsbudget) / Math.max(1, fin.gehaltsbudget);
+        mein.vorstand.vertrauen = Util.clamp(
+          mein.vorstand.vertrauen - Math.min(1.2, ueber * 4), 0, 100);
+        if (!fin.lohnWarnung || state.tag - fin.lohnWarnung > 56) {
+          fin.lohnWarnung = state.tag;
+          post(state, 'Gehaltsrahmen überschritten',
+            'Die Lohnsumme liegt mit ' + Fmt.money(lohnsumme) + ' pro Woche um ' +
+            Fmt.pct(ueber) + ' über dem Rahmen von ' + Fmt.money(fin.gehaltsbudget) +
+            '. Der Vorstand sieht das mit wachsendem Unbehagen.', 'warnung');
+        }
+      } else {
+        fin.lohnWarnung = 0;
+      }
       if (fin.kontostand < 0 && fin.dispoTage >= 28 && !fin.punktabzugGedroht) {
         fin.punktabzugGedroht = true;
         post(state, 'Ernste Finanzlage', 'Das Konto ist seit vier Wochen im Minus. Der Verband droht mit Punktabzug, ' +
@@ -5117,6 +5226,12 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         Finance.buchen(kaeufer.finanzen, state.tag, 'Transfer', 'Verpflichtung ' + spieler.name +
           (verkaeufer ? ' von ' + verkaeufer.name : ''), -sofort, 'Transferausgaben');
       }
+      /* Beraterhonorar - faellt bei jedem Wechsel an. */
+      var honorar = Math.round((abloese > 0 ? abloese : spieler.marktwert * 0.35) * 0.08);
+      if (honorar > 0) {
+        Finance.buchen(kaeufer.finanzen, state.tag, 'Transfer',
+          'Beraterhonorar ' + spieler.name, -honorar, 'Beraterhonorare');
+      }
       /* Nur der Bargeldanteil belastet das Transferbudget - Tauschspieler
          kosten kein Geld. */
       var barAnteil = abloese - (struktur && struktur.tauschWert ? struktur.tauschWert : 0);
@@ -5147,7 +5262,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         Finance.buchen(kaeufer.finanzen, state.tag, 'Transfer', 'Handgeld ' + spieler.name, -vertrag.handgeld, 'Handgelder');
       }
     } else {
-      spieler.gehalt = Players.gehaltsBasis(spieler.staerke, kaeufer.ruf, spieler.alter);
+      spieler.gehalt = Players.gehaltsBasis(spieler.staerke, kaeufer.ruf, spieler.alter,
+        kaeufer.international ? 1 : kaeufer.stufe);
       spieler.vertragBis = state.saison + Game.rng.int(2, 4);
     }
     spieler.marktwert = Players.marktwert(spieler, state.saison);
@@ -5308,6 +5424,29 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       'transfer', { verhandlungId: 'v_ki_' + state.tag + '_' + spieler.id });
   }
 
+  /* Bleibt ein Sponsorenplatz zu lange leer, schliesst die Geschaeftsstelle
+     selbst ab - allerdings zum schwaechsten vorliegenden Angebot. Wer sich
+     kuemmert, holt mehr heraus; wer nicht, verliert nicht gleich alles. */
+  function sponsorenNotabschluss(state) {
+    var mein = state.klubs[state.meinKlubId];
+    if (!mein) return;
+    var fin = mein.finanzen;
+    Finance.SLOTS.forEach(function (slot) {
+      if (fin.sponsoren[slot.id]) return;
+      var angebote = (fin.sponsorAngebote || {})[slot.id];
+      if (!angebote || !angebote.length) return;
+      var schwaechstes = angebote.slice().sort(function (a, b) {
+        return a.fixJahr - b.fixJahr;
+      })[0];
+      Finance.sponsorAbschliessen(fin, schwaechstes, state.saison, state.tag);
+      post(state, 'Geschäftsstelle hat unterschrieben',
+        'Der Platz „' + slot.name + '" war noch frei. Die Geschäftsstelle hat deshalb den ' +
+        'Vertrag mit ' + schwaechstes.firma + ' über ' + Fmt.money(schwaechstes.fixJahr) +
+        ' im Jahr unterzeichnet – das schwächste der drei Angebote. Kümmern Sie sich ' +
+        'künftig früher darum, ist mehr drin.', 'geld');
+    });
+  }
+
   /* Sponsorenangebote auffrischen. */
   function sponsorenPruefen(state) {
     var mein = state.klubs[state.meinKlubId];
@@ -5340,12 +5479,30 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     state.letzteSpieltagErgebnisse = [];
 
     taeglicheEreignisse(state);
+
+    /* Zum Winterfenster prüft der Vorstand die Lage neu und passt das
+       Transferbudget an das an, was der Verein bis dahin erwirtschaftet hat. */
+    if (state.tag === 184) {
+      Object.keys(state.klubs).forEach(function (id) {
+        var k = state.klubs[id];
+        if (k.finanzen) budgetsSetzen(state, k);
+      });
+      var meinK = state.klubs[state.meinKlubId];
+      if (meinK) {
+        post(state, 'Winterfenster: Budget angepasst',
+          'Der Vorstand hat die Halbjahreszahlen geprüft. Ihr Transferbudget beträgt jetzt ' +
+          Fmt.money(meinK.finanzen.transferbudget) + ', der Gehaltsrahmen ' +
+          Fmt.money(meinK.finanzen.gehaltsbudget) + ' pro Woche.', 'geld');
+      }
+    }
+
     kiTransfers(state);
     if (state.tag % 7 === 0) {
       wochenAbrechnung(state);
       sponsorenPruefen(state);
       verhandlungenPruefen(state);
     }
+    if (state.tag === 35) sponsorenNotabschluss(state);
 
     /* Spieltage heute? */
     var heute = [];
@@ -5465,7 +5622,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   Game.wochenkosten = wochenkosten;
   Game.betriebsreserve = betriebsreserve;
   Game.verfuegbaresGeld = verfuegbaresGeld;
+  Game.verfuegbarFuerTransfer = verfuegbarFuerTransfer;
   Game.sponsorenPruefen = sponsorenPruefen;
+  Game.sponsorenNotabschluss = sponsorenNotabschluss;
 })(typeof window !== 'undefined' ? window : globalThis);
 
 /* ===== js/save.js ===== */
@@ -6036,7 +6195,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       tab.forEach(function (z, i) {
         var k = state.klubs[z.klubId];
         var faktor = 1 - i / Math.max(1, n - 1);
-        var praemie = Math.round(liga.tvGeld * 0.22 * (0.4 + faktor * 1.2));
+        var praemie = Math.round(liga.tvGeld * 0.08 * (0.4 + faktor * 1.2));
         Finance.buchen(k.finanzen, state.tag, 'Prämie', 'Platzprämie ' + liga.name + ' (Platz ' + (i + 1) + ')', praemie, 'Prämien');
       });
       var meister = state.klubs[tab[0].klubId];
@@ -6101,6 +6260,29 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         state.klubs[kid].europapokal = europa[i];
       });
     }
+
+    /* Steuern auf den Saisonueberschuss - der letzte Regulator, damit ein
+       gut gefuehrter Verein Gewinn macht, aber kein Vermoegen anhaeuft. */
+    Object.keys(state.klubs).forEach(function (id) {
+      var k = state.klubs[id];
+      if (!k.finanzen) return;
+      var ein = Util.sum(Object.keys(k.finanzen.saison.einnahmen), function (kk) {
+        return k.finanzen.saison.einnahmen[kk];
+      });
+      var aus = Util.sum(Object.keys(k.finanzen.saison.ausgaben), function (kk) {
+        return k.finanzen.saison.ausgaben[kk];
+      });
+      var gewinn = ein - aus;
+      if (gewinn > 0) {
+        /* Progressiv: ein maßvoller Überschuss bleibt weitgehend im Verein,
+           ein sehr hoher wird deutlich stärker belastet. */
+        var milde = Math.min(gewinn, ein * 0.10);
+        var hoch = Math.max(0, gewinn - milde);
+        var steuer = milde * 0.25 + hoch * 0.45;
+        Finance.buchen(k.finanzen, state.tag, 'Steuern', 'Steuern auf den Jahresüberschuss',
+          -Math.round(steuer), 'Steuern');
+      }
+    });
 
     bericht.meinKlub = meinSaisonfazit(state, bericht);
     return bericht;
@@ -6446,7 +6628,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
           fp.klubId = klub.id;
           fp.nummer = Players.nummerFuerKader(fp, Game.kaderVon(state, klub));
           fp.vertragBis = state.saison + 1 + Game.rng.int(1, 3);
-          fp.gehalt = Players.gehaltsBasis(fp.staerke, klub.ruf, fp.alter);
+          fp.gehalt = Players.gehaltsBasis(fp.staerke, klub.ruf, fp.alter,
+            klub.international ? 1 : klub.stufe);
           klub.kader.push(fp.id);
           fehlt--;
         }
@@ -7585,11 +7768,70 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     }
   };
 
+  /* Der Kader wird nach Mannschaftsteilen gruppiert und in drei Ansichten
+     geteilt - so stehen nie mehr als sieben Spalten nebeneinander. */
+  var KADER_ANSICHTEN = [
+    { id: 'ueberblick', name: 'Überblick' },
+    { id: 'leistung', name: 'Leistung' },
+    { id: 'vertraege', name: 'Werte & Verträge' }
+  ];
+
+  var GRUPPEN = [
+    { id: 'TW', name: 'Torhüter' },
+    { id: 'ABW', name: 'Abwehr' },
+    { id: 'MIT', name: 'Mittelfeld' },
+    { id: 'ANG', name: 'Angriff' }
+  ];
+
+  function kaderSpalten(ansicht) {
+    if (ansicht === 'leistung') {
+      return ['<th class="zahl">Nr</th><th class="mitte">Pos</th><th>Spieler</th>' +
+        '<th class="zahl">Spiele</th><th class="zahl">Tore</th><th class="zahl">Vorlagen</th>' +
+        '<th class="zahl">Note</th><th class="zahl">Form</th>'];
+    }
+    if (ansicht === 'vertraege') {
+      return ['<th class="zahl">Nr</th><th class="mitte">Pos</th><th>Spieler</th>' +
+        '<th class="zahl">Alter</th><th class="zahl">Marktwert</th>' +
+        '<th class="zahl">Gehalt / Woche</th><th class="zahl">Vertrag bis</th>'];
+    }
+    return ['<th class="zahl">Nr</th><th class="mitte">Pos</th><th>Spieler</th>' +
+      '<th class="zahl">Alter</th><th class="zahl">Stärke</th><th class="mitte">Fitness</th>' +
+      '<th>Status</th>'];
+  }
+
+  function kaderZeile(p, ansicht, st) {
+    var kopf = '<td class="zahl mini">' + (p.nummer || '') + '</td>' +
+      '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
+      '<td><b>' + Util.esc(p.nachname) + '</b> <span class="mini">' +
+      Util.esc(p.vorname) + '</span></td>';
+    if (ansicht === 'leistung') {
+      return kopf +
+        '<td class="zahl">' + (p.stats.spiele || '–') + '</td>' +
+        '<td class="zahl">' + (p.stats.tore || '') + '</td>' +
+        '<td class="zahl">' + (p.stats.vorlagen || '') + '</td>' +
+        '<td class="zahl">' + UI.noteText(UI.noteSchnitt(p)) + '</td>' +
+        '<td class="zahl mini">' + p.form + '</td>';
+    }
+    if (ansicht === 'vertraege') {
+      var rest = p.vertragBis - st.saison;
+      var farbe = rest <= 0 ? 'schlecht' : (rest === 1 ? 'akzent' : '');
+      return kopf +
+        '<td class="zahl">' + p.alter + '</td>' +
+        '<td class="zahl">' + Fmt.money(p.marktwert) + '</td>' +
+        '<td class="zahl">' + Fmt.money(p.gehalt) + '</td>' +
+        '<td class="zahl ' + farbe + '">' + p.vertragBis + '</td>';
+    }
+    return kopf +
+      '<td class="zahl">' + p.alter + '</td>' +
+      '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
+      '<td class="mitte">' + UI.fitnessBalken(p.fitness) + '</td>' +
+      '<td>' + UI.zustand(p) + '</td>';
+  }
+
   UI.seiten.kader = function () {
     var st = UI.S(), mein = UI.meinKlub();
     var kader = Game.kaderVon(st, mein);
-    var sort = UI.daten.sort || 'pos';
-    kader = kader.slice().sort(SORTIER[sort] || SORTIER.pos);
+    var ansicht = UI.daten.ansicht || 'ueberblick';
 
     var gehaltWoche = Util.sum(kader, function (p) { return p.gehalt; });
     var budget = mein.finanzen.gehaltsbudget;
@@ -7598,75 +7840,59 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var gesperrt = kader.filter(function (p) { return p.sperre > 0; }).length;
 
     var html = '<div class="raster raster--4">' +
-      UI.kennzahl('Spieler im Kader', String(kader.length), verletzt + ' verletzt, ' + gesperrt + ' gesperrt') +
+      UI.kennzahl('Spieler im Kader', String(kader.length),
+        verletzt + ' verletzt · ' + gesperrt + ' gesperrt') +
       UI.kennzahl('Kaderwert', Fmt.money(Util.sum(kader, function (p) { return p.marktwert; })), '') +
-      UI.kennzahl('Gehälter', Fmt.money(gehaltWoche) + ' / Woche', Fmt.money(gehaltWoche * 52) + ' im Jahr') +
-      UI.kennzahl('Gehaltsbudget', Fmt.pct(auslastung) + ' genutzt',
-        'Rahmen ' + Fmt.money(budget) + ' / Woche') +
+      UI.kennzahl('Lohnsumme', Fmt.money(gehaltWoche), 'pro Woche') +
+      UI.kennzahl('Gehaltsrahmen', Fmt.pct(auslastung) + ' genutzt',
+        'Rahmen ' + Fmt.money(budget)) +
       '</div>';
 
     if (auslastung > 1) {
-      html += '<div class="karte" style="border-color:#6b2a27"><p class="schlecht" style="margin:0">' +
-        'Die Gehaltssumme übersteigt den Rahmen des Vorstands um ' + Fmt.money(gehaltWoche - budget) +
-        ' pro Woche. Das belastet das Vertrauen.</p></div>';
+      html += '<div class="karte"><p class="schlecht" style="margin:0">Die Lohnsumme liegt ' +
+        Fmt.money(gehaltWoche - budget) + ' über dem Rahmen des Vorstands. ' +
+        'Solange das so bleibt, sinkt sein Vertrauen Woche für Woche.</p></div>';
     }
 
-    var spalten = [
-      ['pos', 'Pos', 'mitte'], ['name', 'Spieler', ''], ['alter', 'Alter', 'zahl'],
-      ['staerke', 'Stärke', 'zahl'], ['', 'Pot', 'zahl'], ['', 'Fitness', 'mitte'],
-      ['', 'Form', 'zahl'], ['tore', 'Tore', 'zahl'], ['', 'Vorl', 'zahl'],
-      ['note', 'Note', 'zahl'], ['marktwert', 'Marktwert', 'zahl'],
-      ['gehalt', 'Gehalt/Wo', 'zahl'], ['vertrag', 'Vertrag', 'zahl'], ['', 'Status', '']
-    ];
+    html += '<div class="reiter">' + KADER_ANSICHTEN.map(function (a) {
+      return '<button data-kaderansicht="' + a.id + '" class="' +
+        (a.id === ansicht ? 'aktiv' : '') + '">' + a.name + '</button>';
+    }).join('') + '</div>';
 
-    html += '<div class="karte"><div class="karte__kopf"><h3>Alle Spieler</h3>' +
-      '<span class="mini">Spalte anklicken zum Sortieren · Zeile anklicken für Details</span></div>' +
-      '<div class="tabellenrahmen"><table class="liste"><thead><tr>' +
-      spalten.map(function (s) {
-        return '<th class="' + s[2] + (s[0] ? ' klickbar" style="cursor:pointer" data-sort="' + s[0] + '"' : '"') + '>' +
-          s[1] + (sort === s[0] ? ' ▾' : '') + '</th>';
-      }).join('') + '</tr></thead><tbody>' +
-      kader.map(function (p) {
-        var rest = p.vertragBis - st.saison;
-        var vertragKlasse = rest <= 0 ? 'schlecht' : (rest === 1 ? 'akzent' : '');
-        return '<tr class="klickbar" data-spieler="' + p.id + '">' +
-          '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
-          '<td><b>' + Util.esc(p.name) + '</b> <span class="mini">' + Util.esc(p.nation) + '</span></td>' +
-          '<td class="zahl">' + p.alter + '</td>' +
-          '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
-          '<td class="zahl mini">' + p.potenzial + '</td>' +
-          '<td class="mitte">' + UI.fitnessBalken(p.fitness) + '</td>' +
-          '<td class="zahl mini">' + p.form + '</td>' +
-          '<td class="zahl">' + (p.stats.tore || '') + '</td>' +
-          '<td class="zahl">' + (p.stats.vorlagen || '') + '</td>' +
-          '<td class="zahl">' + UI.noteText(UI.noteSchnitt(p)) + '</td>' +
-          '<td class="zahl">' + Fmt.money(p.marktwert) + '</td>' +
-          '<td class="zahl">' + Fmt.money(p.gehalt) + '</td>' +
-          '<td class="zahl ' + vertragKlasse + '">' + p.vertragBis + '</td>' +
-          '<td>' + UI.zustand(p) + '</td></tr>';
-      }).join('') + '</tbody></table></div></div>';
+    html += '<div class="karte">';
+    GRUPPEN.forEach(function (grp) {
+      var teil = kader.filter(function (p) { return Players.GRUPPE[p.pos] === grp.id; })
+        .sort(function (a, b) { return b.staerke - a.staerke; });
+      if (!teil.length) return;
+      html += '<h4 class="gruppenkopf">' + grp.name +
+        ' <span class="mini">' + teil.length + '</span></h4>' +
+        '<div class="tabellenrahmen"><table class="liste"><thead><tr>' +
+        kaderSpalten(ansicht) + '</tr></thead><tbody>' +
+        teil.map(function (p) {
+          return '<tr class="klickbar" data-spieler="' + p.id + '">' +
+            kaderZeile(p, ansicht, st) + '</tr>';
+        }).join('') + '</tbody></table></div>';
+    });
+    html += '</div>';
 
     /* Verliehene Spieler stehen nicht im Kader, gehören aber dem Verein. */
     var verliehen = UI.verliehene();
     if (verliehen.length) {
-      html += '<div class="karte"><div class="karte__kopf"><h3>Verliehene Spieler</h3>' +
-        '<span class="mini">' + verliehen.length + ' Spieler, Rückkehr am Saisonende</span></div>' +
-        '<div class="tabellenrahmen"><table class="liste"><thead><tr><th class="mitte">Pos</th>' +
-        '<th>Spieler</th><th>Verein</th><th class="zahl">Alter</th><th class="zahl">Stärke</th>' +
-        '<th class="zahl">Ihr Gehaltsanteil</th><th class="zahl">Einsätze</th>' +
-        '<th class="zahl">Kaufoption</th></tr></thead><tbody>' +
+      html += '<div class="karte"><div class="karte__kopf"><h3>Verliehen</h3>' +
+        '<span class="mini">Rückkehr am Saisonende</span></div>' +
+        '<div class="tabellenrahmen"><table class="liste"><thead><tr>' +
+        '<th class="zahl">Nr</th><th class="mitte">Pos</th><th>Spieler</th><th>Verein</th>' +
+        '<th class="zahl">Stärke</th><th class="zahl">Ihr Anteil</th>' +
+        '<th class="zahl">Einsätze</th></tr></thead><tbody>' +
         verliehen.map(function (p) {
-          var zu = st.klubs[p.klubId];
           return '<tr class="klickbar" data-spieler="' + p.id + '">' +
+            '<td class="zahl mini">' + (p.nummer || '') + '</td>' +
             '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
             '<td>' + Util.esc(p.name) + '</td>' +
-            '<td>' + UI.klubZelle(zu, 18, true) + '</td>' +
-            '<td class="zahl">' + p.alter + '</td>' +
+            '<td>' + UI.klubZelle(st.klubs[p.klubId], 18, true) + '</td>' +
             '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
             '<td class="zahl">' + (p.leihe ? (100 - p.leihe.gehaltsanteil) + ' %' : '–') + '</td>' +
-            '<td class="zahl">' + p.stats.spiele + '</td>' +
-            '<td class="zahl mini">' + (p.leihe && p.leihe.kaufoption
-              ? Fmt.money(p.leihe.kaufoption) : '–') + '</td></tr>';
+            '<td class="zahl">' + p.stats.spiele + '</td></tr>';
         }).join('') + '</tbody></table></div></div>';
     }
     return html;
@@ -7674,8 +7900,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
   UI.nachZeichnen.kader = function () {
     UI.spielerKlicks();
-    Array.prototype.forEach.call(document.querySelectorAll('[data-sort]'), function (th) {
-      th.onclick = function () { UI.wechsle('kader', { sort: th.dataset.sort }); };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-kaderansicht]'), function (b) {
+      b.onclick = function () { UI.wechsle('kader', { ansicht: b.dataset.kaderansicht }); };
     });
   };
 
@@ -7709,35 +7935,54 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
     /* Spielfeld */
     html += '<div class="karte"><div class="karte__kopf"><h3>Startelf</h3>' +
-      '<div class="knopfreihe"><button class="knopf knopf--klein" id="btnAutoElf">Beste Elf</button></div></div>';
+      '<button class="knopf knopf--klein" id="btnAutoElf">Beste Elf</button></div>';
     html += '<div class="platz-feld" id="platzFeld">' +
       '<div class="linie mittellinie"></div><div class="linie mittelkreis"></div>' +
       '<div class="linie strafraum strafraum--unten"></div><div class="linie strafraum strafraum--oben"></div>';
     slots.forEach(function (slot, i) {
       var pid = auf.elf[i];
       var p = map[pid];
-      var problem = !p || p.verletztBis > st.tag || p.sperre > 0;
+      var raus = !p || p.verletztBis > st.tag || p.sperre > 0;
       var eignung = p ? Players.eignung(p.pos, slot[0]) : 0;
-      var warn = problem || eignung < 0.8;
+      var warn = raus || eignung < 0.88;
+      var titel = slot[0] + (p ? ' · ' + p.name + ' (' + p.pos + ', Eignung ' +
+        Math.round(eignung * 100) + ' %)' : ' · frei');
       html += '<div class="spielerchip' + (warn ? ' warn' : '') + '" data-slot="' + i + '" ' +
-        'style="left:' + slot[1] + '%;top:' + slot[2] + '%" ' +
-        'title="' + Util.esc(slot[0] + (p ? ' · ' + p.name + ' (' + p.pos + ')' : ' · leer')) + '">' +
-        '<div class="spielerchip__kreis">' + (p ? p.staerke : slot[0]) + '</div>' +
+        'style="left:' + slot[1] + '%;top:' + slot[2] + '%" title="' + Util.esc(titel) + '">' +
+        '<div class="spielerchip__kreis">' + (p ? (p.nummer || p.staerke) : '–') + '</div>' +
         '<div class="spielerchip__name">' + (p ? Util.esc(p.nachname) : '<i>frei</i>') + '</div>' +
         '<div class="spielerchip__note">' + slot[0] + '</div>' +
         '</div>';
     });
     html += '</div>';
-    html += '<div class="raster raster--3" style="margin-top:.8rem">' +
-      UI.kennzahl('Abwehr', werte.abw.toFixed(1), '') +
-      UI.kennzahl('Mittelfeld', werte.mit.toFixed(1), '') +
-      UI.kennzahl('Angriff', werte.ang.toFixed(1), '') +
+    html += '<div class="raster raster--3" style="margin-top:var(--s4)">' +
+      UI.kennzahl('Abwehr', werte.abw.toFixed(0), '') +
+      UI.kennzahl('Mittelfeld', werte.mit.toFixed(0), '') +
+      UI.kennzahl('Angriff', werte.ang.toFixed(0), '') +
       '</div>';
-    html += '<p class="mini" style="margin-top:.6em">Spieler auf dem Feld anklicken und danach einen zweiten Spieler ' +
-      'wählen, um zu tauschen. Rot umrandet heißt: verletzt, gesperrt oder auf ungewohnter Position.</p>';
+
+    /* Hinweise nur, wenn es wirklich etwas zu sagen gibt */
+    var probleme = [];
+    auf.elf.forEach(function (pid, i) {
+      var p = map[pid];
+      if (!p) { probleme.push(slots[i][0] + ' ist nicht besetzt.'); return; }
+      if (p.verletztBis > st.tag) probleme.push(p.nachname + ' ist verletzt.');
+      else if (p.sperre > 0) probleme.push(p.nachname + ' ist gesperrt.');
+      else if (Players.eignung(p.pos, slots[i][0]) < 0.88) {
+        probleme.push(p.nachname + ' spielt auf ' + slots[i][0] + ' statt ' + p.pos + '.');
+      }
+    });
+    if (probleme.length) {
+      html += '<div class="dossier__hinweise"><ul>' +
+        probleme.slice(0, 4).map(function (t) { return '<li>' + Util.esc(t) + '</li>'; }).join('') +
+        '</ul></div>';
+    } else {
+      html += '<p class="mini" style="margin-top:var(--s3)">Alle elf stehen auf ihrer Position ' +
+        'und sind einsatzbereit. Zum Tauschen einen Spieler anklicken, dann einen zweiten.</p>';
+    }
     html += '</div>';
 
-    /* Rechte Spalte: Taktik und Bank */
+    /* Rechte Spalte */
     html += '<div>';
     html += '<div class="karte"><div class="karte__kopf"><h3>Taktik</h3></div>' +
       '<div class="formularraster">' +
@@ -7753,7 +7998,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       auswahlFeld('Spielweise', 'taktSpielweise', Object.keys(Match.SPIELWEISE).map(function (k) {
         return [k, Match.SPIELWEISE[k].name];
       }), mein.taktik.spielweise) +
-      auswahlFeld('Zweikampfhärte', 'taktHaerte', [['fair', 'Fair'], ['normal', 'Normal'], ['hart', 'Hart']], mein.taktik.haerte) +
+      auswahlFeld('Zweikampfhärte', 'taktHaerte',
+        [['fair', 'Fair'], ['normal', 'Normal'], ['hart', 'Hart']], mein.taktik.haerte) +
       '</div></div>';
 
     var aufFeld = {};
@@ -7763,10 +8009,11 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
     html += '<div class="karte"><div class="karte__kopf"><h3>Ersatzbank</h3>' +
       '<span class="mini">' + bank.length + ' von 9</span></div>' +
-      spielerListe(bank, st, 'bank') + '</div>';
+      spielerListe(bank, st, false) + '</div>';
 
-    html += '<div class="karte"><div class="karte__kopf"><h3>Übrige Spieler</h3></div>' +
-      spielerListe(rest, st, 'rest') + '</div>';
+    html += '<div class="karte"><div class="karte__kopf"><h3>Übrige Spieler</h3>' +
+      '<span class="mini">' + rest.length + '</span></div>' +
+      spielerListe(rest, st, true) + '</div>';
     html += '</div></div>';
     return html;
   };
@@ -7778,17 +8025,31 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       }).join('') + '</select></label>';
   }
 
-  function spielerListe(liste, st, art) {
+  /* Spielerliste nach Mannschaftsteilen gegliedert - so findet man den
+     passenden Ersatz sofort. */
+  function spielerListe(liste, st, gruppiert) {
     if (!liste.length) return '<p class="leer">Niemand.</p>';
-    return '<div class="tabellenrahmen"><table class="liste"><tbody>' +
-      liste.sort(function (a, b) { return b.staerke - a.staerke; }).map(function (p) {
-        return '<tr class="klickbar" data-tausch="' + p.id + '" data-art="' + art + '">' +
-          '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
-          '<td>' + Util.esc(p.nachname) + '</td>' +
-          '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
-          '<td class="mitte">' + UI.fitnessBalken(p.fitness) + '</td>' +
-          '<td>' + UI.zustand(p) + '</td></tr>';
-      }).join('') + '</tbody></table></div>';
+    function tabelle(teil) {
+      return '<div class="tabellenrahmen"><table class="liste"><tbody>' +
+        teil.sort(function (a, b) { return b.staerke - a.staerke; }).map(function (p) {
+          return '<tr class="klickbar" data-tausch="' + p.id + '">' +
+            '<td class="zahl mini" style="width:2.2em">' + (p.nummer || '') + '</td>' +
+            '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
+            '<td>' + Util.esc(p.nachname) + '</td>' +
+            '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
+            '<td class="mitte">' + UI.fitnessBalken(p.fitness) + '</td>' +
+            '<td>' + UI.zustand(p) + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    if (!gruppiert) return tabelle(liste);
+    var teile = [
+      ['TW', 'Torhüter'], ['ABW', 'Abwehr'], ['MIT', 'Mittelfeld'], ['ANG', 'Angriff']
+    ];
+    return teile.map(function (t) {
+      var teil = liste.filter(function (p) { return Players.GRUPPE[p.pos] === t[0]; });
+      if (!teil.length) return '';
+      return '<h4 class="gruppenkopf">' + t[1] + '</h4>' + tabelle(teil);
+    }).join('');
   }
 
   function tausche(idA, idB) {
@@ -8029,7 +8290,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       '<button class="knopf knopf--haupt" id="fSuchen">Suchen</button>' +
       '<button class="knopf knopf--still" id="fReset">Zurücksetzen</button>' +
       '<span class="mini">Transferbudget <b>' + Fmt.money(mein.finanzen.transferbudget) +
-      '</b> · sofort verfügbar <b>' + Fmt.money(Game.verfuegbaresGeld(st, mein)) + '</b></span>' +
+      '</b> · sofort zahlbar <b>' + Fmt.money(Math.min(mein.finanzen.transferbudget,
+        Game.verfuegbarFuerTransfer(st, mein))) + '</b></span>' +
       '</div></div>';
 
     var treffer = Transfers.marktSuche(st, filter);
@@ -8165,7 +8427,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
     if (v.phase === 'verein') {
       var vorschlag = Math.min(v.forderung, mein.finanzen.transferbudget,
-        Game.verfuegbaresGeld(st, mein));
+        Game.verfuegbarFuerTransfer(st, mein));
       html += '<h4>Ihr Angebot an ' + Util.esc(verkaeufer.name) + '</h4>' +
         '<div class="knopfreihe" style="margin-bottom:.8rem">' +
         '<button class="knopf knopf--klein" id="aErfuellen">Forderung erfüllen</button>' +
@@ -8290,7 +8552,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
           '. Der Verein bewertet das mit <b>' + Fmt.money(wert) + '</b>';
         if (gesamt > wert) text += ' – Raten, Boni und Beteiligungen zählen weniger als Bargeld.';
         else text += '.';
-        var frei = Game.verfuegbaresGeld(st, mein);
+        var frei = Game.verfuegbarFuerTransfer(st, mein);
         if (a.sofort > frei) {
           text += ' <span class="schlecht">Die Sofortzahlung übersteigt Ihr freies Guthaben von ' +
             Fmt.money(frei) + '. Verteilen Sie den Betrag auf Raten.</span>';
@@ -8311,7 +8573,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       c.onchange = function () { v.tausch = tauschAuswahl(); rechne(); };
     });
 
-    var grenze = Math.min(mein.finanzen.transferbudget, Game.verfuegbaresGeld(st, mein));
+    var grenze = Math.min(mein.finanzen.transferbudget, Game.verfuegbarFuerTransfer(st, mein));
     var erf = $('aErfuellen');
     if (erf) erf.onclick = function () {
       var bar = Math.min(v.forderung, grenze);
@@ -8351,7 +8613,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     var verkaeufer = st.klubs[v.vonKlubId];
     var angebot = angebotLesen(v);
 
-    var frei = Game.verfuegbaresGeld(st, mein);
+    var frei = Game.verfuegbarFuerTransfer(st, mein);
     if (angebot.sofort > frei) {
       UI.toast('Die Sofortzahlung übersteigt Ihr freies Guthaben von ' + Fmt.money(frei) + '.');
       return;
@@ -8715,7 +8977,8 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 
     if (!b.vereinOk) { UI.toast(geber.name + ' lehnt diese Konditionen ab.'); return; }
     if (!b.spielerOk) { UI.toast('Der Spieler lehnt ab – ihm fehlt die Aussicht auf Spielzeit.'); return; }
-    if (richtung === 'rein' && angebot.gebuehr > mein.finanzen.transferbudget) {
+    if (richtung === 'rein' && angebot.gebuehr > Math.min(mein.finanzen.transferbudget,
+        Game.verfuegbarFuerTransfer(st, mein))) {
       UI.toast('Die Leihgebühr übersteigt Ihr Transferbudget.');
       return;
     }
@@ -9473,10 +9736,45 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         (summeE - summeA >= 0 ? 'Überschuss' : 'Fehlbetrag')) +
       '</div>';
 
+    /* Ausgaben in Blöcke gliedern - eine Liste aus zwölf Posten ist nicht
+       zu lesen. */
+    var BLOECKE = [
+      { name: 'Kader', posten: ['Spielergehälter', 'Erfolgsprämien'] },
+      { name: 'Betrieb', posten: ['Personal', 'Verwaltung', 'Spielbetrieb',
+        'Stadionunterhalt', 'Jugendarbeit', 'Abgaben'] },
+      { name: 'Transfers', posten: ['Transferausgaben', 'Transferraten', 'Handgelder',
+        'Beraterhonorare', 'Leihgebühren', 'Abschreibungen'] },
+      { name: 'Kapital & Steuern', posten: ['Kreditrate', 'Kredittilgung',
+        'Überziehungszinsen', 'Steuern', 'Stadionausbau'] }
+    ];
+
     html += '<div class="raster raster--2">';
-    html += '<div class="karte"><div class="karte__kopf"><h3>Einnahmen</h3></div>' + posten(einnahmen, summeE, 'var(--gut)') + '</div>';
-    html += '<div class="karte"><div class="karte__kopf"><h3>Ausgaben</h3></div>' + posten(ausgaben, summeA, 'var(--schlecht)') + '</div>';
-    html += '</div>';
+    html += '<div class="karte"><div class="karte__kopf"><h3>Einnahmen</h3>' +
+      '<span class="mini">' + Fmt.money(summeE) + '</span></div>' +
+      posten(einnahmen, summeE, 'var(--gut)') + '</div>';
+
+    html += '<div class="karte"><div class="karte__kopf"><h3>Ausgaben</h3>' +
+      '<span class="mini">' + Fmt.money(summeA) + '</span></div>';
+    var gezeigt = {};
+    BLOECKE.forEach(function (b) {
+      var teil = {}, summe = 0;
+      b.posten.forEach(function (k2) {
+        if (ausgaben[k2]) { teil[k2] = ausgaben[k2]; summe += ausgaben[k2]; gezeigt[k2] = true; }
+      });
+      if (!summe) return;
+      html += '<h4 class="gruppenkopf">' + b.name + ' <span class="mini">' + Fmt.money(summe) +
+        ' · ' + Math.round(100 * summe / Math.max(1, summeA)) + ' %</span></h4>' +
+        posten(teil, summeA, 'var(--schlecht)', true);
+    });
+    var uebrig = {}, uebrigSumme = 0;
+    Object.keys(ausgaben).forEach(function (k2) {
+      if (!gezeigt[k2]) { uebrig[k2] = ausgaben[k2]; uebrigSumme += ausgaben[k2]; }
+    });
+    if (uebrigSumme) {
+      html += '<h4 class="gruppenkopf">Sonstiges</h4>' +
+        posten(uebrig, summeA, 'var(--schlecht)', true);
+    }
+    html += '</div></div>';
 
     /* Vorschau und Deckungsvorschläge */
     var wochen = Math.max(1, st.tag / 7);
@@ -9547,9 +9845,23 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     html += '</div>';
 
     html += '<div class="karte"><div class="karte__kopf"><h3>Budgets</h3></div>' +
+      '<div class="dossier" style="margin-bottom:var(--s4)">' +
+      '<div class="dossier__zeile"><span class="dossier__label">Kontostand</span>' +
+      '<span class="dossier__wert">' + Fmt.money(fin.kontostand) + '</span></div>' +
+      '<div class="dossier__zeile"><span class="dossier__label">abzüglich Betriebsreserve</span>' +
+      '<span class="dossier__wert">' + Fmt.money(reserve) +
+      ' <span class="mini">acht Wochen laufende Kosten</span></span></div>' +
+      '<div class="dossier__zeile"><span class="dossier__label">frei verfügbar</span>' +
+      '<span class="dossier__wert"><b>' + Fmt.money(frei) + '</b>' +
+      ' <span class="mini">für Käufe, Bau und Jugendarbeit</span></span></div>' +
+      '<div class="dossier__zeile"><span class="dossier__label">Transferbudget</span>' +
+      '<span class="dossier__wert">' + Fmt.money(fin.transferbudget) +
+      ' <span class="mini">vom Vorstand freigegeben, zur Winterpause neu bewertet</span></span></div>' +
+      '</div>' +
       '<div class="raster raster--3">' +
       UI.kennzahl('Transferbudget', Fmt.money(fin.transferbudget),
-        'davon sofort zahlbar ' + Fmt.money(Math.min(fin.transferbudget, Game.verfuegbaresGeld(st, mein)))) +
+        'davon sofort zahlbar ' + Fmt.money(Math.min(fin.transferbudget,
+          Game.verfuegbarFuerTransfer(st, mein)))) +
       UI.kennzahl('Gehaltsrahmen', Fmt.money(fin.gehaltsbudget) + ' / Woche',
         'genutzt: ' + Fmt.money(Util.sum(kader, function (p) { return p.gehalt; }))) +
       UI.kennzahl('Geschätzter Jahresumsatz',
@@ -9579,7 +9891,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     });
   };
 
-  function posten(obj, summe, farbe) {
+  function posten(obj, summe, farbe, ohneGesamt) {
     var keys = Object.keys(obj).sort(function (a, b) { return obj[b] - obj[a]; });
     if (!keys.length) return '<p class="hinweis">Noch keine Buchungen in dieser Saison.</p>';
     return keys.map(function (k) {
@@ -9589,7 +9901,9 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
         '<span>' + Util.esc(k) + '</span><b>' + Fmt.money(obj[k]) + '</b></div>' +
         '<div class="balken" style="width:100%"><i style="width:' + anteil.toFixed(1) + '%;background:' + farbe + '"></i></div>' +
         '</div>';
-    }).join('') + '<div style="border-top:1px solid var(--line);margin-top:.6em;padding-top:.5em;' +
+    }).join('');
+    if (ohneGesamt) return liste;
+    return liste + '<div style="border-top:1px solid var(--line);margin-top:.6em;padding-top:.5em;' +
       'display:flex;justify-content:space-between"><b>Gesamt</b><b>' + Fmt.money(summe) + '</b></div>';
   }
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -10827,15 +11141,23 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
       seite.elf.map(function (pid) {
         var p = m.spieler[pid];
         var e = seite.eingesetzt[pid];
-        return '<tr class="klickbar" data-raus="' + pid + '"><td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
-          '<td>' + Util.esc(p.nachname) + '</td><td class="mitte">' + UI.fitnessBalken(p.fitness) + '</td>' +
+        var idx = seite.elf.indexOf(pid);
+        var sp = (Match.FORMATIONEN[seite.formation] || [])[idx];
+        return '<tr class="klickbar" data-raus="' + pid + '">' +
+          '<td class="mitte">' + UI.posMarke(sp ? sp[0] : p.pos) + '</td>' +
+          '<td>' + Util.esc(p.nachname) + '</td>' +
+          '<td class="mitte">' + UI.fitnessBalken(p.fitness) + '</td>' +
           '<td class="zahl">' + (e ? e.note.toFixed(1).replace('.', ',') : '') + '</td></tr>';
       }).join('') + '</tbody></table></div></div>' +
       '<div><h4>Auf der Bank</h4><div class="tabellenrahmen"><table class="liste"><tbody>' +
       seite.bank.map(function (pid) {
         var p = m.spieler[pid];
-        return '<tr class="klickbar" data-rein="' + pid + '"><td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
-          '<td>' + Util.esc(p.nachname) + '</td><td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td></tr>';
+        return '<tr class="klickbar" data-rein="' + pid + '">' +
+          '<td class="zahl mini" style="width:2.2em">' + (p.nummer || '') + '</td>' +
+          '<td class="mitte">' + UI.posMarke(p.pos) + '</td>' +
+          '<td>' + Util.esc(p.nachname) + '</td>' +
+          '<td class="zahl">' + UI.staerkeBalken(p.staerke) + '</td>' +
+          '<td class="eignung"></td></tr>';
       }).join('') + '</tbody></table></div></div></div>' +
       '<p class="mini" id="wechselInfo">Kein Spieler gewählt.</p>';
 
@@ -10844,6 +11166,31 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
     ], true);
 
     var raus = null, rein = null;
+    var slots = Match.FORMATIONEN[seite.formation] || [];
+
+    /* Sobald feststeht, wer herausgeht, wird die Bank nach Eignung für
+       dessen Position sortiert - niemand steht plötzlich falsch. */
+    function bankSortieren(rausId) {
+      var idx = seite.elf.indexOf(rausId);
+      var slotPos = (slots[idx] && slots[idx][0]) ||
+        (m.spieler[rausId] ? m.spieler[rausId].pos : 'ZM');
+      var zeilen = Array.prototype.slice.call(inhalt.querySelectorAll('[data-rein]'));
+      zeilen.forEach(function (tr) {
+        var p = m.spieler[tr.dataset.rein];
+        var e = p ? Players.eignung(p.pos, slotPos) : 0;
+        tr.dataset.eignung = e;
+        var zelle = tr.querySelector('.eignung');
+        if (zelle) {
+          zelle.innerHTML = e >= 0.99 ? '<span class="marke marke--gut">passt</span>'
+            : (e >= 0.85 ? '<span class="marke">geht</span>'
+              : '<span class="marke marke--warn">' + Math.round(e * 100) + ' %</span>');
+        }
+      });
+      zeilen.sort(function (a, b) { return b.dataset.eignung - a.dataset.eignung; });
+      var koerper = zeilen.length ? zeilen[0].parentNode : null;
+      if (koerper) zeilen.forEach(function (tr) { koerper.appendChild(tr); });
+    }
+
     function pruefe() {
       var info = $('wechselInfo');
       if (raus && rein) {
@@ -10870,6 +11217,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
           x.style.background = '';
         });
         tr.style.background = 'var(--akzent-weich)';
+        bankSortieren(raus);
         pruefe();
       };
     });

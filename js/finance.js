@@ -52,7 +52,9 @@
 
   function sponsorWert(ruf, slotAnteil, stufe) {
     var basis = 150000000 * Math.pow(Math.max(12, ruf) / 96, 6.6);
-    var stufenBonus = stufe === 1 ? 1.0 : (stufe === 2 ? 0.82 : (stufe === 3 ? 0.7 : 0.6));
+    /* Außerhalb der Bundesliga bricht das Sponsoring stark ein - auch ein
+       großer Name bekommt in der 2. Liga nur einen Bruchteil. */
+    var stufenBonus = stufe === 1 ? 1.0 : (stufe === 2 ? 0.6 : (stufe === 3 ? 0.62 : 0.6));
     return basis * slotAnteil * stufenBonus;
   }
 
@@ -302,10 +304,13 @@
     return { text: 'Fertiggestellt: ' + a.name + '.' };
   }
 
+  /* Ein Stadion kostet im Betrieb weit mehr als seine Instandhaltung:
+     Pacht, Energie, Reinigung, Rasenpflege, Sicherheitstechnik. Für einen
+     Bundesligisten sind das zweistellige Millionenbeträge im Jahr. */
   function unterhaltWoche(fin, stufe) {
     var kap = kapazitaet(fin.stadion);
-    var stufenFaktor = stufe === 1 ? 1.0 : (stufe === 2 ? 0.8 : (stufe === 3 ? 0.5 : 0.32));
-    var basis = kap * 0.42 * stufenFaktor;   /* Betriebskosten je Platz und Woche */
+    var stufenFaktor = stufe === 1 ? 1.0 : (stufe === 2 ? 0.75 : (stufe === 3 ? 0.35 : 0.08));
+    var basis = kap * 5.5 * stufenFaktor;   /* Betriebskosten je Platz und Woche */
     var mod = 0;
     Object.keys(fin.stadion.module).forEach(function (k) {
       var m = Util.byId(MODULE, k);

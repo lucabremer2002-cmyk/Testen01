@@ -450,6 +450,14 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 .form i.U { background: var(--fill); color: var(--text-2); }
 .form i.N { background: var(--schlecht-weich); color: var(--schlecht); }
 
+.gruppenkopf {
+  margin: var(--s5) 0 var(--s2); color: var(--text-2);
+  font-size: var(--t-footnote); font-weight: 600; letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.karte > .gruppenkopf:first-child { margin-top: 0; }
+.gruppenkopf .mini { font-weight: 400; text-transform: none; letter-spacing: 0; }
+
 /* ---------- Stärke, Marken ---------- */
 .staerke { display: inline-flex; align-items: center; gap: var(--s2); }
 .staerke b { min-width: 1.8em; text-align: right; font-weight: 550; }
@@ -545,7 +553,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
 /* ---------- Modal ---------- */
 .modal {
   position: fixed; inset: 0; background: rgba(0, 0, 0, .3);
-  display: grid; place-items: center; z-index: 100; padding: var(--s4);
+  display: grid; place-items: center; z-index: 300; padding: var(--s4);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   animation: modalEin .2s ease;
 }
@@ -646,7 +654,7 @@ table.liste td.mitte, table.liste th.mitte { text-align: center; }
   position: fixed; left: 50%; bottom: var(--s6); transform: translateX(-50%);
   background: var(--text); color: var(--surface);
   padding: .65em 1.2em; border-radius: var(--r-pille);
-  z-index: 300; box-shadow: var(--schweben); max-width: 90vw; text-align: center;
+  z-index: 400; box-shadow: var(--schweben); max-width: 90vw; text-align: center;
   font-size: var(--t-subhead); font-weight: 500;
   animation: einblenden .22s ease;
 }

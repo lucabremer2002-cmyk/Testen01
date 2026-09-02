@@ -71,7 +71,7 @@
       tab.forEach(function (z, i) {
         var k = state.klubs[z.klubId];
         var faktor = 1 - i / Math.max(1, n - 1);
-        var praemie = Math.round(liga.tvGeld * 0.22 * (0.4 + faktor * 1.2));
+        var praemie = Math.round(liga.tvGeld * 0.08 * (0.4 + faktor * 1.2));
         Finance.buchen(k.finanzen, state.tag, 'Prämie', 'Platzprämie ' + liga.name + ' (Platz ' + (i + 1) + ')', praemie, 'Prämien');
       });
       var meister = state.klubs[tab[0].klubId];
@@ -136,6 +136,29 @@
         state.klubs[kid].europapokal = europa[i];
       });
     }
+
+    /* Steuern auf den Saisonueberschuss - der letzte Regulator, damit ein
+       gut gefuehrter Verein Gewinn macht, aber kein Vermoegen anhaeuft. */
+    Object.keys(state.klubs).forEach(function (id) {
+      var k = state.klubs[id];
+      if (!k.finanzen) return;
+      var ein = Util.sum(Object.keys(k.finanzen.saison.einnahmen), function (kk) {
+        return k.finanzen.saison.einnahmen[kk];
+      });
+      var aus = Util.sum(Object.keys(k.finanzen.saison.ausgaben), function (kk) {
+        return k.finanzen.saison.ausgaben[kk];
+      });
+      var gewinn = ein - aus;
+      if (gewinn > 0) {
+        /* Progressiv: ein maßvoller Überschuss bleibt weitgehend im Verein,
+           ein sehr hoher wird deutlich stärker belastet. */
+        var milde = Math.min(gewinn, ein * 0.10);
+        var hoch = Math.max(0, gewinn - milde);
+        var steuer = milde * 0.25 + hoch * 0.45;
+        Finance.buchen(k.finanzen, state.tag, 'Steuern', 'Steuern auf den Jahresüberschuss',
+          -Math.round(steuer), 'Steuern');
+      }
+    });
 
     bericht.meinKlub = meinSaisonfazit(state, bericht);
     return bericht;
@@ -481,7 +504,8 @@
           fp.klubId = klub.id;
           fp.nummer = Players.nummerFuerKader(fp, Game.kaderVon(state, klub));
           fp.vertragBis = state.saison + 1 + Game.rng.int(1, 3);
-          fp.gehalt = Players.gehaltsBasis(fp.staerke, klub.ruf, fp.alter);
+          fp.gehalt = Players.gehaltsBasis(fp.staerke, klub.ruf, fp.alter,
+            klub.international ? 1 : klub.stufe);
           klub.kader.push(fp.id);
           fehlt--;
         }

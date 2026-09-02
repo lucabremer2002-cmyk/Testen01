@@ -108,16 +108,16 @@
 
   var LIGEN = [
     { id: 'bl1', name: 'Bundesliga', kurz: 'BL', stufe: 1, teams: BUNDESLIGA,
-      tvGeld: 50000000, siegPraemie: 900000, aufstieg: 0, direktAb: 2, relegation: 1,
+      tvGeld: 50000000, siegPraemie: 130000, aufstieg: 0, direktAb: 2, relegation: 1,
       farbe: '#e11d48' },
     { id: 'bl2', name: '2. Bundesliga', kurz: '2.BL', stufe: 2, teams: BUNDESLIGA2,
-      tvGeld: 12000000, siegPraemie: 260000, aufstieg: 2, direktAb: 2, relegation: 1,
+      tvGeld: 12000000, siegPraemie: 42000, aufstieg: 2, direktAb: 2, relegation: 1,
       farbe: '#f59e0b' },
     { id: 'l3', name: '3. Liga', kurz: '3.L', stufe: 3, teams: LIGA3,
-      tvGeld: 1300000, siegPraemie: 45000, aufstieg: 2, direktAb: 3, relegation: 1,
+      tvGeld: 1300000, siegPraemie: 9000, aufstieg: 2, direktAb: 3, relegation: 1,
       farbe: '#22c55e' },
     { id: 'rlw', name: 'Regionalliga West', kurz: 'RLW', stufe: 4, teams: REGIONALLIGA_WEST,
-      tvGeld: 180000, siegPraemie: 6000, aufstieg: 1, direktAb: 3, relegation: 0,
+      tvGeld: 180000, siegPraemie: 1500, aufstieg: 1, direktAb: 3, relegation: 0,
       farbe: '#38bdf8' }
   ];
 

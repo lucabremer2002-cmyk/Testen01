@@ -89,7 +89,8 @@
   /* Gehaltsforderung für einen neuen Vertrag. */
   function gehaltsforderung(spieler, klub, rolleId, jahre, istVerlaengerung) {
     var rolle = Util.byId(ROLLEN, rolleId) || ROLLEN[2];
-    var basis = Players.gehaltsBasis(spieler.staerke, klub.ruf, spieler.alter);
+    var basis = Players.gehaltsBasis(spieler.staerke, klub.ruf, spieler.alter,
+      klub.international ? 1 : klub.stufe);
     var f = rolle.faktor;
     if (spieler.alter >= 30) f *= 1.08;
     if (spieler.alter <= 21) f *= 0.88;

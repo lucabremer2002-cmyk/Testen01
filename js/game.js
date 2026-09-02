@@ -243,6 +243,13 @@
     return Math.max(0, Math.round(k.finanzen.kontostand - betriebsreserve(state, k)));
   }
 
+  /* Für einen vom Vorstand freigegebenen Transfer darf tiefer in die Kasse
+     gegriffen werden als für freiwillige Bauvorhaben - aber nie so tief,
+     dass der laufende Betrieb kippt. */
+  function verfuegbarFuerTransfer(state, k) {
+    return Math.max(0, Math.round(k.finanzen.kontostand - wochenkosten(state, k) * 4));
+  }
+
   /* =================== Postfach & Nachrichten =================== */
 
   function post(state, betreff, text, art, daten) {
@@ -459,6 +466,10 @@
         Finance.buchen(k.finanzen, state.tag, 'Prämie', 'Siegprämie ' + liga.name,
           liga.siegPraemie, 'Prämien');
       }
+      /* Die Mannschaft bekommt ihre Erfolgsprämie - ein echter Kostenblock. */
+      var wochenlohn = Util.sum(kaderVon(state, k), function (p) { return p.gehalt; });
+      Finance.buchen(k.finanzen, state.tag, 'Prämie', 'Erfolgsprämie an die Mannschaft',
+        -Math.round(wochenlohn * 0.16), 'Erfolgsprämien');
       var bonus = 0;
       Object.keys(k.finanzen.sponsoren).forEach(function (sl) {
         var sp = k.finanzen.sponsoren[sl];
@@ -531,11 +542,32 @@
           -Math.round(jugendKosten), 'Jugendarbeit');
       }
 
-      /* Personal, Nachwuchs, Stadionunterhalt. In den unteren Ligen arbeitet
-         ein grosser Teil des Vereins ehrenamtlich - entsprechend guenstiger. */
-      var personalQuote = [0.26, 0.26, 0.22, 0.16, 0.11][Math.min(4, stufe)];
-      var personal = gehalt * personalQuote + 2500 * (5 - Math.min(4, stufe));
-      Finance.buchen(fin, state.tag, 'Personal', 'Trainerstab & Verwaltung', -Math.round(personal), 'Personal');
+      /* Personal neben dem Kader: Trainerstab, Scouting, Geschäftsstelle.
+         In den unteren Ligen arbeitet vieles ehrenamtlich. */
+      var umsatzWoche = Finance.jahresUmsatzSchaetzung(k, fin, stufe) / 52;
+      var personalQuote = [0.42, 0.42, 0.34, 0.22, 0.14][Math.min(4, stufe)];
+      /* Kleine Vereine führen eine schlanke Geschäftsstelle - der Apparat
+         wächst nicht schneller als die Einnahmen. */
+      var personal = Math.min(gehalt * personalQuote, umsatzWoche * 0.16) +
+        2500 * (5 - Math.min(4, stufe));
+      Finance.buchen(fin, state.tag, 'Personal', 'Trainerstab & Geschäftsstelle',
+        -Math.round(personal), 'Personal');
+
+      /* Weitere Betriebskosten, die jeder Verein trägt. */
+      var verwaltungsQuote = [0.13, 0.13, 0.10, 0.07, 0.04][Math.min(4, stufe)];
+      Finance.buchen(fin, state.tag, 'Verwaltung', 'Verwaltung, Marketing, Recht',
+        -Math.round(umsatzWoche * verwaltungsQuote), 'Verwaltung');
+      var spielbetriebQuote = [0.07, 0.07, 0.06, 0.05, 0.035][Math.min(4, stufe)];
+      Finance.buchen(fin, state.tag, 'Spielbetrieb', 'Reisen, Ordnungsdienst, Ausrüstung',
+        -Math.round(umsatzWoche * spielbetriebQuote), 'Spielbetrieb');
+
+      /* Abschreibung auf den Kaderwert - der grosse Posten jeder echten
+         Vereinsbilanz, den man sonst nirgends sieht. */
+      var kaderwert = Util.sum(kader, function (p) { return p.marktwert; });
+      var abschreibungsQuote = stufe <= 2 ? 0.16 : (stufe === 3 ? 0.09 : 0.05);
+      Finance.buchen(fin, state.tag, 'Transfer', 'Abschreibung auf Spielerwerte',
+        -Math.round(kaderwert * abschreibungsQuote / 52), 'Abschreibungen');
+
       /* Mitgliedsbeitraege, Vereinsheim, kleine Sponsoren */
       var sonstige = Finance.grundNachfrage(k.ruf) * 0.55 + 900;
       Finance.buchen(fin, state.tag, 'Sonstiges', 'Mitgliedsbeiträge & Sonstiges', Math.round(sonstige), 'Sonstige Einnahmen');
@@ -557,6 +589,9 @@
         var faktor = 0.40 + 1.40 * Math.pow(rel, 1.6);
         var tv = liga.tvGeld * faktor / 52;
         Finance.buchen(fin, state.tag, 'TV-Geld', 'Medienerlöse', Math.round(tv), 'TV-Gelder');
+        /* Abgabe an Liga und Verband */
+        Finance.buchen(fin, state.tag, 'Abgaben', 'Liga- und Verbandsabgaben',
+          -Math.round(tv * 0.055), 'Abgaben');
       }
       if (k.europapokal) {
         Finance.buchen(fin, state.tag, 'Europapokal', k.europapokal.name, Math.round(k.europapokal.betrag / 52), 'Europapokal');
@@ -608,6 +643,26 @@
     var mein = state.klubs[state.meinKlubId];
     if (mein) {
       var fin = mein.finanzen;
+
+      /* Der Gehaltsrahmen ist keine Empfehlung: Wer ihn dauerhaft reisst,
+         verliert das Vertrauen des Vorstands. */
+      var lohnsumme = Util.sum(kaderVon(state, mein), function (p) {
+        return p.leihe ? p.gehalt * p.leihe.gehaltsanteil / 100 : p.gehalt;
+      });
+      if (lohnsumme > fin.gehaltsbudget) {
+        var ueber = (lohnsumme - fin.gehaltsbudget) / Math.max(1, fin.gehaltsbudget);
+        mein.vorstand.vertrauen = Util.clamp(
+          mein.vorstand.vertrauen - Math.min(1.2, ueber * 4), 0, 100);
+        if (!fin.lohnWarnung || state.tag - fin.lohnWarnung > 56) {
+          fin.lohnWarnung = state.tag;
+          post(state, 'Gehaltsrahmen überschritten',
+            'Die Lohnsumme liegt mit ' + Fmt.money(lohnsumme) + ' pro Woche um ' +
+            Fmt.pct(ueber) + ' über dem Rahmen von ' + Fmt.money(fin.gehaltsbudget) +
+            '. Der Vorstand sieht das mit wachsendem Unbehagen.', 'warnung');
+        }
+      } else {
+        fin.lohnWarnung = 0;
+      }
       if (fin.kontostand < 0 && fin.dispoTage >= 28 && !fin.punktabzugGedroht) {
         fin.punktabzugGedroht = true;
         post(state, 'Ernste Finanzlage', 'Das Konto ist seit vier Wochen im Minus. Der Verband droht mit Punktabzug, ' +
@@ -1004,6 +1059,12 @@
         Finance.buchen(kaeufer.finanzen, state.tag, 'Transfer', 'Verpflichtung ' + spieler.name +
           (verkaeufer ? ' von ' + verkaeufer.name : ''), -sofort, 'Transferausgaben');
       }
+      /* Beraterhonorar - faellt bei jedem Wechsel an. */
+      var honorar = Math.round((abloese > 0 ? abloese : spieler.marktwert * 0.35) * 0.08);
+      if (honorar > 0) {
+        Finance.buchen(kaeufer.finanzen, state.tag, 'Transfer',
+          'Beraterhonorar ' + spieler.name, -honorar, 'Beraterhonorare');
+      }
       /* Nur der Bargeldanteil belastet das Transferbudget - Tauschspieler
          kosten kein Geld. */
       var barAnteil = abloese - (struktur && struktur.tauschWert ? struktur.tauschWert : 0);
@@ -1034,7 +1095,8 @@
         Finance.buchen(kaeufer.finanzen, state.tag, 'Transfer', 'Handgeld ' + spieler.name, -vertrag.handgeld, 'Handgelder');
       }
     } else {
-      spieler.gehalt = Players.gehaltsBasis(spieler.staerke, kaeufer.ruf, spieler.alter);
+      spieler.gehalt = Players.gehaltsBasis(spieler.staerke, kaeufer.ruf, spieler.alter,
+        kaeufer.international ? 1 : kaeufer.stufe);
       spieler.vertragBis = state.saison + Game.rng.int(2, 4);
     }
     spieler.marktwert = Players.marktwert(spieler, state.saison);
@@ -1195,6 +1257,29 @@
       'transfer', { verhandlungId: 'v_ki_' + state.tag + '_' + spieler.id });
   }
 
+  /* Bleibt ein Sponsorenplatz zu lange leer, schliesst die Geschaeftsstelle
+     selbst ab - allerdings zum schwaechsten vorliegenden Angebot. Wer sich
+     kuemmert, holt mehr heraus; wer nicht, verliert nicht gleich alles. */
+  function sponsorenNotabschluss(state) {
+    var mein = state.klubs[state.meinKlubId];
+    if (!mein) return;
+    var fin = mein.finanzen;
+    Finance.SLOTS.forEach(function (slot) {
+      if (fin.sponsoren[slot.id]) return;
+      var angebote = (fin.sponsorAngebote || {})[slot.id];
+      if (!angebote || !angebote.length) return;
+      var schwaechstes = angebote.slice().sort(function (a, b) {
+        return a.fixJahr - b.fixJahr;
+      })[0];
+      Finance.sponsorAbschliessen(fin, schwaechstes, state.saison, state.tag);
+      post(state, 'Geschäftsstelle hat unterschrieben',
+        'Der Platz „' + slot.name + '" war noch frei. Die Geschäftsstelle hat deshalb den ' +
+        'Vertrag mit ' + schwaechstes.firma + ' über ' + Fmt.money(schwaechstes.fixJahr) +
+        ' im Jahr unterzeichnet – das schwächste der drei Angebote. Kümmern Sie sich ' +
+        'künftig früher darum, ist mehr drin.', 'geld');
+    });
+  }
+
   /* Sponsorenangebote auffrischen. */
   function sponsorenPruefen(state) {
     var mein = state.klubs[state.meinKlubId];
@@ -1227,12 +1312,30 @@
     state.letzteSpieltagErgebnisse = [];
 
     taeglicheEreignisse(state);
+
+    /* Zum Winterfenster prüft der Vorstand die Lage neu und passt das
+       Transferbudget an das an, was der Verein bis dahin erwirtschaftet hat. */
+    if (state.tag === 184) {
+      Object.keys(state.klubs).forEach(function (id) {
+        var k = state.klubs[id];
+        if (k.finanzen) budgetsSetzen(state, k);
+      });
+      var meinK = state.klubs[state.meinKlubId];
+      if (meinK) {
+        post(state, 'Winterfenster: Budget angepasst',
+          'Der Vorstand hat die Halbjahreszahlen geprüft. Ihr Transferbudget beträgt jetzt ' +
+          Fmt.money(meinK.finanzen.transferbudget) + ', der Gehaltsrahmen ' +
+          Fmt.money(meinK.finanzen.gehaltsbudget) + ' pro Woche.', 'geld');
+      }
+    }
+
     kiTransfers(state);
     if (state.tag % 7 === 0) {
       wochenAbrechnung(state);
       sponsorenPruefen(state);
       verhandlungenPruefen(state);
     }
+    if (state.tag === 35) sponsorenNotabschluss(state);
 
     /* Spieltage heute? */
     var heute = [];
@@ -1352,5 +1455,7 @@
   Game.wochenkosten = wochenkosten;
   Game.betriebsreserve = betriebsreserve;
   Game.verfuegbaresGeld = verfuegbaresGeld;
+  Game.verfuegbarFuerTransfer = verfuegbarFuerTransfer;
   Game.sponsorenPruefen = sponsorenPruefen;
+  Game.sponsorenNotabschluss = sponsorenNotabschluss;
 })(typeof window !== 'undefined' ? window : globalThis);
