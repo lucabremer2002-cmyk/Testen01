@@ -41,9 +41,9 @@
   var LEAN_SPEED = 360;         // px/s beim Lenken
   var LEAN_HOME = 175;          // px/s zurueck auf die Grundposition
 
-  var SPEED_MIN = 360;
-  var SPEED_MAX = 960;
-  var SPEED_RAMP = 26000;       // Weltpixel bis zur Hoechstgeschwindigkeit
+  var SPEED_MIN = 310;          // gemuetlicher Start
+  var SPEED_MAX = 980;
+  var SPEED_RAMP = 34000;       // Weltpixel bis zur Hoechstgeschwindigkeit
 
   var DASH_TIME = 0.26;
   var DASH_CD = 1.05;
@@ -58,6 +58,7 @@
   var PH_SLIDE = 26;            // Hoehe rutschend
 
   var SPRING_V = 1280;          // Absprunggeschwindigkeit einer Sprungfeder
+  var LIFT_AMP = 62;            // Ausschlag einer Hebebuehne
   var CRUMBLE_FUSE = 0.45;      // so lange traegt eine broeckelnde Plattform
 
   var HYPER_TIME = 7;
@@ -65,6 +66,30 @@
   var HYPER_PER_NEAR = 5;
 
   var ZONE_LENGTH = 650;        // Meter pro Zone
+  var MEILENSTEIN = 250;        // Meter zwischen zwei Zwischenrufen
+
+  // Jede Hindernisart wird einzeln eingefuehrt und einmal erklaert, bevor sie
+  // sich unter die anderen mischt. Der Anfang bleibt dadurch ruhig und die
+  // Strecke wird ueber die ersten drei Kilometer stetig voller.
+  var STUFEN = [
+    { ab: 120,  art: 'spike',   name: 'STACHELN',        hinweis: 'Drueberspringen' },
+    { ab: 280,  art: 'pit',     name: 'GRUBEN',          hinweis: 'Taste halten springt weiter' },
+    { ab: 460,  art: 'crate',   name: 'KISTEN',          hinweis: 'Der Dash zerlegt sie' },
+    { ab: 680,  art: 'drone',   name: 'DROHNEN',         hinweis: 'Drunter durchrutschen' },
+    { ab: 950,  art: 'spring',  name: 'SPRUNGFEDERN',    hinweis: 'Hoch zu den Muenzen' },
+    { ab: 1250, art: 'saw',     name: 'SAEGEN',          hinweis: 'Den richtigen Moment abwarten' },
+    { ab: 1600, art: 'gate',    name: 'TORE',            hinweis: 'Durch die Luecke oder durchdashen' },
+    { ab: 2000, art: 'lift',    name: 'HEBEBUEHNEN',     hinweis: 'Mitfahren' },
+    { ab: 2450, art: 'crumble', name: 'MUERBE ABSAETZE', hinweis: 'Nicht stehenbleiben' },
+    { ab: 3000, art: 'mix',     name: 'ALLES AUF EINMAL', hinweis: 'Viel Glueck' }
+  ];
+
+  function freigeschaltet(art) {
+    for (var i = 0; i < STUFEN.length; i++) {
+      if (STUFEN[i].art === art) return G.dist >= STUFEN[i].ab;
+    }
+    return true;
+  }
   var MAX_PARTS = 420;
 
   // Riso-Schmuckfarben. Jede Zone ist ein eigener Druckgang aus zwei Tinten
@@ -309,11 +334,14 @@
     hyperWrap: document.getElementById('hyperWrap'),
     hyperFill: document.getElementById('hyperFill'),
     hyperLabel: document.getElementById('hyperLabel'),
+    bestWrap: document.getElementById('bestWrap'),
+    bestFill: document.getElementById('bestFill'),
     toast: document.getElementById('toast'),
     overlay: document.getElementById('overlay'),
     ovTitle: document.getElementById('ovTitle'),
     ovText: document.getElementById('ovText'),
     ovStats: document.getElementById('ovStats'),
+    ovExtra: document.getElementById('ovExtra'),
     ovBtn: document.getElementById('ovBtn'),
     touch: document.getElementById('touch'),
     fsBtn: document.getElementById('fsBtn'),
@@ -326,8 +354,137 @@
   var records = {
     best: parseInt(load(STORE_BEST, '0'), 10) || 0,
     dist: parseInt(load(STORE_DIST, '0'), 10) || 0,
-    coins: parseInt(load(STORE_COINS, '0'), 10) || 0
+    coins: parseInt(load(STORE_COINS, '0'), 10) || 0,
+    meter: parseInt(load('drucklauf.meter', '0'), 10) || 0,
+    rang: parseInt(load('drucklauf.rang', '0'), 10) || 0
   };
+
+  // Wie oft eine Hindernisart schon erklaert wurde - nach dreimal reicht es.
+  function zaehlerLesen(art) {
+    return parseInt(load('drucklauf.gesehen.' + art, '0'), 10) || 0;
+  }
+
+  function zaehlerSchreiben(art, wert) {
+    save('drucklauf.gesehen.' + art, wert);
+  }
+
+  // ---------------------------------------------------------------- Auftraege
+  //
+  // Drei Auftraege laufen immer mit und ueberdauern den Tod. Sie geben jedem
+  // Lauf ein Ziel ausser der Punktzahl: Auch ein missratener Lauf bringt einen
+  // Auftrag ein Stueck weiter. Erfuellte werden durch etwas groessere ersetzt.
+  var AUFTRAGSARTEN = [
+    { id: 'muenzen', feld: 'coins',      basis: 22,   wachstum: 10,  text: 'Sammle {z} Muenzen in einem Lauf' },
+    { id: 'strecke', feld: 'dist',       basis: 350,  wachstum: 170, text: 'Komm {z} Meter weit' },
+    { id: 'knapp',   feld: 'nearMisses', basis: 3,    wachstum: 2,   text: 'Weiche {z}-mal knapp aus' },
+    { id: 'kombo',   feld: 'bestCombo',  basis: 10,   wachstum: 5,   text: 'Halte eine Kombo von {z}' },
+    { id: 'hyper',   feld: 'hyperUses',  basis: 1,    wachstum: 1,   text: 'Zuende {z}-mal den Hyper-Modus' },
+    { id: 'federn',  feld: 'springs',    basis: 3,    wachstum: 2,   text: 'Nutze {z} Sprungfedern' },
+    { id: 'dash',    feld: 'dashBreaks', basis: 3,    wachstum: 2,   text: 'Zerlege {z} Kisten per Dash' },
+    { id: 'punkte',  feld: 'score',      basis: 1500, wachstum: 800, text: 'Hole {z} Punkte in einem Lauf' },
+    { id: 'gmuenzen', feld: 'coins', gesamt: true, basis: 120, wachstum: 90,  text: 'Sammle {z} Muenzen insgesamt' },
+    { id: 'gmeter',   feld: 'meter', gesamt: true, basis: 2500, wachstum: 1800, text: 'Lauf {z} Meter insgesamt' }
+  ];
+
+  var RAENGE = ['ANLEGER', 'SETZER', 'DRUCKER', 'FARBMISCHER',
+                'ANDRUCKMEISTER', 'DRUCKMEISTER', 'SCHWARZKUENSTLER'];
+  // Mit jedem Rang bekommt die Figur eine neue Tinte - sichtbarer Fortschritt.
+  var FIGUR_TINTEN = ['#2f4bd8', '#7a4bd8', '#00a6a0', '#3f9e4d', '#ff6b2c'];
+
+  function rangStufe() { return Math.floor(records.rang / 3); }
+  function rangName() { return RAENGE[Math.min(RAENGE.length - 1, rangStufe())]; }
+  function figurTinte() { return FIGUR_TINTEN[Math.min(FIGUR_TINTEN.length - 1, rangStufe())]; }
+
+  function auftragArt(id) {
+    for (var i = 0; i < AUFTRAGSARTEN.length; i++) {
+      if (AUFTRAGSARTEN[i].id === id) return AUFTRAGSARTEN[i];
+    }
+    return AUFTRAGSARTEN[0];
+  }
+
+  var auftraege = [];
+
+  function auftragWuerfeln(vermeiden) {
+    var frei = [];
+    for (var i = 0; i < AUFTRAGSARTEN.length; i++) {
+      if (vermeiden.indexOf(AUFTRAGSARTEN[i].id) < 0) frei.push(AUFTRAGSARTEN[i]);
+    }
+    if (!frei.length) frei = AUFTRAGSARTEN;
+    var art = pick(frei);
+    var stufe = rangStufe();
+    return {
+      id: art.id,
+      ziel: Math.round(art.basis + art.wachstum * stufe),
+      start: art.gesamt ? records[art.feld] : 0,
+      fertig: false
+    };
+  }
+
+  function auftraegeLaden() {
+    try {
+      var roh = JSON.parse(load('drucklauf.auftraege', 'null'));
+      if (roh && roh.length === 3) {
+        auftraege = roh;
+        // Erfuellte gleich ersetzen, sonst wuerde ein Neuladen den Rang
+        // ein zweites Mal vergeben.
+        auftraegeNachziehen();
+        return;
+      }
+    } catch (e) { /* neu wuerfeln */ }
+    auftraege = [];
+    while (auftraege.length < 3) {
+      var ids = auftraege.map(function (a) { return a.id; });
+      auftraege.push(auftragWuerfeln(ids));
+    }
+    auftraegeSichern();
+  }
+
+  function auftraegeSichern() {
+    try { save('drucklauf.auftraege', JSON.stringify(auftraege)); } catch (e) { /* egal */ }
+  }
+
+  function auftragStand(a) {
+    var art = auftragArt(a.id);
+    if (art.gesamt) return Math.max(0, records[art.feld] - a.start);
+    if (!G) return 0;
+    return Math.floor(G[art.feld] || 0);
+  }
+
+  function auftraegePruefen(still) {
+    for (var i = 0; i < auftraege.length; i++) {
+      var a = auftraege[i];
+      if (a.fertig) continue;
+      if (auftragStand(a) < a.ziel) continue;
+      a.fertig = true;
+      records.rang++;
+      save('drucklauf.rang', records.rang);
+      auftraegeSichern();
+      if (still) continue;      // am Laufende nur vermerken, nicht feiern
+      var bonus = 400 * multiplier();
+      G.score += bonus;
+      G.meter = Math.min(100, G.meter + 12);
+      toast('AUFTRAG ERFUELLT', INKS.gruen.hue, auftragArt(a.id).text.replace('{z}', a.ziel));
+      floatText(G.worldX + G.screenX, G.py - 40, '+' + bonus, INKS.gruen.hue, 26);
+      flash(0.35, INKS.gruen.hue);
+      Sound.hyper();
+      burst(G.worldX + G.screenX + PW / 2, G.py + G.h / 2, 50, {
+        minSpeed: 120, maxSpeed: 480, grav: 300, hue: INKS.gruen.hue, hueSpread: 90, maxLife: 1
+      });
+    }
+  }
+
+  // Erfuellte Auftraege werden erst nach dem Lauf ersetzt, damit die Meldung
+  // im Lauf stehen bleibt.
+  function auftraegeNachziehen() {
+    var neu = false;
+    for (var i = 0; i < auftraege.length; i++) {
+      if (!auftraege[i].fertig) continue;
+      var ids = auftraege.map(function (a) { return a.id; });
+      auftraege[i] = auftragWuerfeln(ids);
+      neu = true;
+    }
+    if (neu) auftraegeSichern();
+  }
 
   var state = 'ready';          // ready | play | pause | over
   var G = null;                 // Laufender Spielzustand
@@ -410,6 +567,14 @@
       genX: 0,
       chunk: 0,
       lastPowerChunk: -99,
+      lastRegenChunk: -99,
+      letzterChunk: '',
+      regenAnkuendigen: false,
+      stufeIndex: 0,
+      meilenstein: 0,
+      springs: 0,
+      dashBreaks: 0,
+      rekordGeknackt: false,
       zone: 0,
       hue: INKS[ZONES[0].a].hue,
       hueTarget: INKS[ZONES[0].a].hue,
@@ -440,6 +605,17 @@
     G.platforms.push({ x: x, y: y, w: w, h: 18, solid: false, crumble: !!broeckelt, fuse: -1 });
   }
 
+  // Fester Riegel - baut Tore und alles, was nicht Kiste ist.
+  function block(x, y, w, h) {
+    G.obstacles.push({ type: 'block', x: x, y: y, w: w, h: h, dead: 0, gap: 999, passed: false });
+  }
+
+  // Hebebuehne: ein Absatz, der auf und ab faehrt.
+  function hebebuehne(x, y, w, amp) {
+    G.platforms.push({ x: x, y: y, w: w, h: 18, solid: false, crumble: false, fuse: -1,
+                       basis: y, amp: amp, spd: rand(0.9, 1.5), phase: Math.random() * 6.283 });
+  }
+
   function spring(x) {
     G.obstacles.push({ type: 'spring', x: x, y: GROUND_Y - 20, w: 56, h: 20,
                        used: -9, dead: 0, gap: 999, passed: true });
@@ -459,6 +635,7 @@
 
   // Streut zusaetzliche Stacheln in die freien Luecken eines Abschnitts.
   function streue(x, len, anzahl) {
+    if (!freigeschaltet('spike')) return;
     for (var i = 0; i < anzahl; i++) {
       for (var versuch = 0; versuch < 8; versuch++) {
         var sx = x + rand(150, len - 110);
@@ -521,31 +698,54 @@
   }
 
   function buildChunk() {
-    var d = clamp(G.dist / 2200, 0, 1);          // Schwierigkeit 0..1
+    // Die Schwierigkeit zieht erst nach den ersten hundert Metern an und
+    // braucht danach fast drei Kilometer bis zum Anschlag.
+    var d = clamp((G.dist - 100) / 2800, 0, 1);
     var i = G.chunk++;
 
-    if (i < 1) { chunkStart(560); return; }      // kurzer, hindernisfreier Anlauf
-
-    // Alle paar Bausteine gibt es garantiert etwas zu holen.
+    if (i < 1) { chunkStart(560); return; }
     if (i - G.lastPowerChunk >= 6) { chunkTreasure(d); return; }
+    if (G.dist > 320 && i - G.lastRegenChunk >= 13) { chunkMuenzregen(d); return; }
 
-    var r = Math.random();
-    if (r < 0.13) chunkFlat(rand(330, 430), d);
-    else if (r < 0.29) chunkPit(d);
-    else if (r < 0.42) chunkStairs(d);
-    else if (r < 0.55) chunkDrones(d);
-    else if (r < 0.68) chunkSaws(d);
-    else if (r < 0.79) chunkCrates(d);
-    else if (r < 0.87) chunkSprings(d);
-    else if (r < 0.95 && d > 0.25) chunkGauntlet(d);
+    // In den Topf kommt nur, was die Strecke schon freigeschaltet hat. Die
+    // Bausteine, die eine eigene Bewegung verlangen - rutschen, abwarten,
+    // treffen - liegen doppelt darin, sonst kaemen sie zu selten dran.
+    var topf = ['flat'];
+    if (freigeschaltet('spike')) topf.push('rhythmus');
+    if (freigeschaltet('pit')) topf.push('pit', 'pit');
+    if (freigeschaltet('crate')) topf.push('crates', 'crates');
+    if (freigeschaltet('drone')) topf.push('drones', 'drones');
+    if (freigeschaltet('spring')) topf.push('springs');
+    if (freigeschaltet('saw')) topf.push('saws', 'saws');
+    if (freigeschaltet('gate')) topf.push('tore', 'tore');
+    if (freigeschaltet('lift')) topf.push('lifte');
+    if (G.dist > 520) topf.push('stairs');
+    if (freigeschaltet('mix')) topf.push('gauntlet', 'gauntlet');
+    topf.push('treasure');
+
+    // Nie zweimal dasselbe hintereinander - das faellt sofort auf.
+    var wahl = pick(topf);
+    if (wahl === G.letzterChunk && topf.length > 3) wahl = pick(topf);
+    G.letzterChunk = wahl;
+    if (wahl === 'flat') chunkFlat(rand(330, 440), d);
+    else if (wahl === 'rhythmus') chunkRhythmus(d);
+    else if (wahl === 'pit') chunkPit(d);
+    else if (wahl === 'stairs') chunkStairs(d);
+    else if (wahl === 'drones') chunkDrones(d);
+    else if (wahl === 'saws') chunkSaws(d);
+    else if (wahl === 'crates') chunkCrates(d);
+    else if (wahl === 'springs') chunkSprings(d);
+    else if (wahl === 'tore') chunkTore(d);
+    else if (wahl === 'lifte') chunkLifte(d);
+    else if (wahl === 'gauntlet') chunkGauntlet(d);
     else chunkTreasure(d);
   }
 
-  // Die ersten Bausteine bleiben leer: die Figur startet bei x = PLAYER_X und
+  // Die ersten Meter bleiben leer: die Figur startet bei x = PLAYER_X und
   // braucht Anlauf, bevor das erste Hindernis auftauchen darf.
   function chunkStart(len) {
     ground(G.genX, len);
-    coinLine(G.genX + 380, GROUND_Y - 60, 7, 38);
+    coinLine(G.genX + 340, GROUND_Y - 60, 8, 36);
     G.genX += len;
   }
 
@@ -553,9 +753,25 @@
     var x = G.genX;
     ground(x, len);
     streue(x, len, 1 + Math.round(d * 2));
-    if (Math.random() < 0.45) crate(x + rand(180, len - 120), false);
+    if (freigeschaltet('crate') && Math.random() < 0.45) crate(x + rand(180, len - 120), false);
     if (Math.random() < 0.5) ledge(x + rand(120, len - 220), GROUND_Y - rand(150, 210), rand(120, 190));
     coinLine(x + 80, GROUND_Y - 60, randInt(5, 9), 38);
+    G.genX += len;
+  }
+
+  // Gleichmaessiger Takt: identische Hindernisse in festem Abstand. Das laesst
+  // sich einrhythmisieren und fuehlt sich beim Treffen richtig gut an.
+  function chunkRhythmus(d) {
+    var x = G.genX;
+    var abstand = rand(190, 250) - d * 30;
+    var n = randInt(3, 5);
+    var len = abstand * n + 260;
+    ground(x, len);
+    for (var i = 0; i < n; i++) {
+      var sx = x + 170 + i * abstand;
+      spike(sx);
+      coinArc(sx - 46, GROUND_Y - 96, 3, 92, 34);
+    }
     G.genX += len;
   }
 
@@ -565,19 +781,20 @@
     ground(x, lead);
     // Die Luecke bleibt immer springbar: Flugzeit mal aktuelle Geschwindigkeit.
     var maxGap = Math.min(330, G.speed * 0.44);
-    var gap = clamp(rand(120, 150 + d * 200), 110, maxGap);
-    var pits = 1 + (Math.random() < 0.3 + d * 0.4 ? 1 : 0) + (Math.random() < d * 0.35 ? 1 : 0);
+    var gap = clamp(rand(115, 145 + d * 200), 105, maxGap);
+    var pits = 1 + (Math.random() < 0.25 + d * 0.4 ? 1 : 0) + (Math.random() < d * 0.35 ? 1 : 0);
     var cursor = x + lead;
 
     for (var p = 0; p < pits; p++) {
       coinArc(cursor + 14, GROUND_Y - 74, 5, gap - 28, 56);
-      // Ueber breiten Gruben haengt manchmal ein broeckelnder Absatz.
-      if (gap > 190 && Math.random() < 0.45) ledge(cursor + gap * 0.3, GROUND_Y - 150, gap * 0.4, true);
+      if (gap > 190 && freigeschaltet('crumble') && Math.random() < 0.45) {
+        ledge(cursor + gap * 0.3, GROUND_Y - 150, gap * 0.4, true);
+      }
       cursor += gap;
       var island = p === pits - 1 ? rand(260, 360) : rand(150, 210);
       ground(cursor, island);
       // Die ersten 120 px einer Insel bleiben frei - dort landet man.
-      if (island > 240) streue(cursor + 120, island - 120, Math.random() < 0.5 + d * 0.4 ? 1 : 0);
+      if (island > 240) streue(cursor + 120, island - 120, Math.random() < 0.4 + d * 0.4 ? 1 : 0);
       cursor += island;
     }
     G.genX = cursor;
@@ -592,7 +809,7 @@
     var cx = x + 110;
     for (var i = 0; i < steps; i++) {
       var w = rand(100, 150);
-      ledge(cx, y, w, d > 0.4 && Math.random() < 0.35);
+      ledge(cx, y, w, freigeschaltet('crumble') && d > 0.4 && Math.random() < 0.35);
       coinLine(cx + 24, y - 44, Math.max(2, Math.round(w / 40)), 38);
       cx += w + rand(55, 95);
       y -= i < steps / 2 ? 74 : -74;
@@ -614,7 +831,6 @@
       cx += rand(150, 215);
       if (cx > x + len - 80) break;
     }
-    // Zwischen den Drohnen stehen Stacheln: rutschen allein reicht nicht.
     streue(x, len, 1 + Math.round(d * 2));
     G.genX += len;
   }
@@ -649,7 +865,6 @@
       cx += rand(160, 230);
       if (cx > x + len - 80) break;
     }
-    // Ein Absatz darueber belohnt den, der oben bleibt.
     if (Math.random() < 0.7) {
       ledge(x + 200, GROUND_Y - 190, rand(180, 240));
       coinLine(x + 230, GROUND_Y - 238, 5, 38);
@@ -658,7 +873,6 @@
     G.genX += len;
   }
 
-  // Sprungfedern schleudern die Figur zu den hohen Muenzreihen hinauf.
   function chunkSprings(d) {
     var x = G.genX;
     var len = rand(520, 680);
@@ -669,7 +883,9 @@
       spring(cx);
       coinLine(cx - 20, GROUND_Y - 200, 6, 34);
       coinLine(cx + 10, GROUND_Y - 330, 5, 34);
-      if (Math.random() < 0.6) ledge(cx + 120, GROUND_Y - 260, rand(140, 200), d > 0.3);
+      if (Math.random() < 0.6) {
+        ledge(cx + 120, GROUND_Y - 260, rand(140, 200), freigeschaltet('crumble') && d > 0.3);
+      }
       cx += rand(230, 300);
       if (cx > x + len - 110) break;
     }
@@ -677,7 +893,48 @@
     G.genX += len;
   }
 
-  // Gemischter Abschnitt: alles auf einmal, erst ab mittlerer Schwierigkeit.
+  // Tor: unten ein Riegel, oben ein Sturz. Dazwischen bleibt eine Luecke, die
+  // man mit der richtigen Sprunghoehe trifft - oder man dasht einfach hindurch.
+  function chunkTore(d) {
+    var x = G.genX;
+    var len = rand(520, 700);
+    ground(x, len);
+    var n = randInt(1, 2 + Math.round(d));
+    var cx = x + 180;
+    for (var i = 0; i < n; i++) {
+      var unten = 44 + d * 14;                       // Hoehe des Bodenriegels
+      var luecke = 116 - d * 22;                     // lichte Weite darueber
+      block(cx, GROUND_Y - unten, 40, unten);
+      block(cx, 0, 40, GROUND_Y - unten - luecke);
+      coinLine(cx + 4, GROUND_Y - unten - luecke * 0.5, 1, 0);
+      coinArc(cx - 130, GROUND_Y - unten - luecke * 0.5, 4, 110, 12);
+      cx += rand(240, 320);
+      if (cx > x + len - 120) break;
+    }
+    streue(x, len, Math.round(d));
+    G.genX += len;
+  }
+
+  // Hebebuehnen ueber einer breiten Grube: mitfahren statt springen.
+  function chunkLifte(d) {
+    var x = G.genX;
+    var lead = rand(180, 240);
+    ground(x, lead);
+    var kluft = rand(300, 380);
+    var cx = x + lead;
+    hebebuehne(cx + 40, GROUND_Y - 130, 120, LIFT_AMP);
+    coinLine(cx + 60, GROUND_Y - 200, 4, 34);
+    if (kluft > 340) {
+      hebebuehne(cx + 200, GROUND_Y - 190, 110, LIFT_AMP * 0.8);
+      coinLine(cx + 215, GROUND_Y - 260, 3, 34);
+    }
+    cx += kluft;
+    var insel = rand(280, 360);
+    ground(cx, insel);
+    streue(cx + 120, insel - 120, Math.round(d));
+    G.genX = cx + insel;
+  }
+
   function chunkGauntlet(d) {
     var x = G.genX;
     var len = rand(620, 820);
@@ -694,6 +951,20 @@
     }
     coinWave(x + 120, GROUND_Y - 150, 12, 40, 50);
     if (Math.random() < 0.5) ledge(x + 180, GROUND_Y - 230, rand(160, 220));
+    G.genX += len;
+  }
+
+  // Muenzregen: kurze Belohnungsstrecke ohne Gefahr, aber randvoll.
+  function chunkMuenzregen(d) {
+    var x = G.genX;
+    var len = rand(560, 680);
+    ground(x, len);
+    G.lastRegenChunk = G.chunk;
+    G.regenAnkuendigen = true;
+    for (var reihe = 0; reihe < 4; reihe++) {
+      coinWave(x + 90 + reihe * 18, GROUND_Y - 60 - reihe * 52, 13, 36, 26);
+    }
+    if (Math.random() < 0.5) spring(x + len * 0.5);
     G.genX += len;
   }
 
@@ -738,12 +1009,21 @@
   }
 
   function floatText(x, y, text, hue, size) {
+    // Gleiche Meldung kurz hintereinander wuerde sich nur uebereinanderlegen.
+    var letzte = G.texts[G.texts.length - 1];
+    if (letzte && letzte.text === text && letzte.life < 0.25) return;
     G.texts.push({ x: x, y: y, text: text, hue: hue, size: size || 20, life: 0, max: 0.9 });
   }
 
   var toastTimer = null;
-  function toast(text, hue) {
-    el.toast.textContent = text;
+  function toast(text, hue, unterzeile) {
+    if (unterzeile) {
+      el.toast.innerHTML = '<b></b><small></small>';
+      el.toast.firstChild.textContent = text;
+      el.toast.lastChild.textContent = unterzeile;
+    } else {
+      el.toast.textContent = text;
+    }
     el.toast.style.color = inkFromHue(hue === undefined ? G.hue : hue);
     el.toast.classList.remove('show');
     void el.toast.offsetWidth;                 // Animation neu starten
@@ -1041,6 +1321,8 @@
     updateObstacles(px);
     updateParticles(dt);
     updateZone(dt);
+    updateStufen();
+    auftraegePruefen();
   }
 
   function cull() {
@@ -1057,6 +1339,7 @@
     var out = [];
     for (var i = 0; i < G.platforms.length; i++) {
       var p = G.platforms[i];
+      if (p.amp) p.y = p.basis + Math.sin(G.time * p.spd + p.phase) * p.amp;
       if (p.fuse > 0) {
         p.fuse -= dt;
         if (p.fuse <= 0) {
@@ -1165,6 +1448,7 @@
           G.onGround = false;
           G.cutArmed = false;            // ein Federsprung wird nie gekappt
           endSlide();
+          G.springs++;
           G.score += 25 * multiplier();
           G.meter = Math.min(100, G.meter + 2);
           Sound.spring();
@@ -1188,8 +1472,9 @@
           floatText(b.x, b.y - 10, 'ZERLEGT +' + (60 * multiplier()), (G.time * 260) % 360, 20);
           continue;
         }
-        if (G.dashT > 0 && o.type === 'crate') {
+        if (G.dashT > 0 && (o.type === 'crate' || o.type === 'block')) {
           killObstacle(o, 30);
+          G.dashBreaks++;
           G.score += 40 * multiplier();
           G.meter = Math.min(100, G.meter + 3);
           floatText(b.x, b.y - 10, 'DASH +' + (40 * multiplier()), 30, 20);
@@ -1253,6 +1538,52 @@
     G.texts = t;
   }
 
+  // Neue Hindernisart, Meilenstein, Bestmarke - alles, was den Lauf gliedert.
+  function updateStufen() {
+    while (G.stufeIndex < STUFEN.length && G.dist >= STUFEN[G.stufeIndex].ab) {
+      var stufe = STUFEN[G.stufeIndex++];
+      var gesehen = zaehlerLesen(stufe.art);
+      if (gesehen < 3) {
+        zaehlerSchreiben(stufe.art, gesehen + 1);
+        toast('NEU: ' + stufe.name, INKS.pink.hue, stufe.hinweis);
+      } else {
+        toast(stufe.name, INKS.pink.hue);
+      }
+      flash(0.25, INKS.pink.hue);
+      Sound.power();
+    }
+
+    var m = Math.floor(G.dist / MEILENSTEIN);
+    if (m > G.meilenstein) {
+      G.meilenstein = m;
+      var bonus = 50 * multiplier();
+      G.score += bonus;
+      floatText(G.worldX + G.screenX, G.py - 30, m * MEILENSTEIN + ' M  +' + bonus, INKS.aqua.hue, 24);
+      Sound.near();
+      burst(G.worldX + G.screenX + PW / 2, G.py + G.h / 2, 16, {
+        minSpeed: 90, maxSpeed: 300, grav: 400, hue: INKS.aqua.hue, hueSpread: 60
+      });
+    }
+
+    if (G.regenAnkuendigen) {
+      G.regenAnkuendigen = false;
+      toast('MUENZREGEN', INKS.gelb.hue);
+    }
+
+    // Bestmarke des bisher weitesten Laufs
+    if (!G.rekordGeknackt && records.dist > 60 && G.dist >= records.dist) {
+      G.rekordGeknackt = true;
+      toast('BESTMARKE!', INKS.gelb.hue, 'ab hier ist alles neu');
+      flash(0.5, INKS.gelb.hue);
+      shake(10);
+      G.score += 300 * multiplier();
+      Sound.hyper();
+      burst(G.worldX + G.screenX + PW / 2, G.py + G.h / 2, 60, {
+        minSpeed: 140, maxSpeed: 520, grav: 200, hue: INKS.gelb.hue, hueSpread: 120, maxLife: 1
+      });
+    }
+  }
+
   function updateZone(dt) {
     var z = Math.floor(G.dist / ZONE_LENGTH) % ZONES.length;
     if (z !== G.zone) {
@@ -1297,6 +1628,9 @@
     if (dist > records.dist) { records.dist = dist; save(STORE_DIST, dist); }
     records.coins += G.coins;
     save(STORE_COINS, records.coins);
+    records.meter += dist;
+    save('drucklauf.meter', records.meter);
+    auftraegePruefen(true);
 
     showOver(score, dist, isBest, cause);
   }
@@ -1599,6 +1933,38 @@
     }
   }
 
+  // Die Bestmarke steht dort, wo der bisher weiteste Lauf endete.
+  function drawBestmarke() {
+    if (records.dist <= 60) return;
+    var x = records.dist * PX_PER_M - G.worldX;
+    if (x < -40 || x > W + 40) return;
+
+    ctx.strokeStyle = tinte(0.5);
+    ctx.lineWidth = 3;
+    ctx.setLineDash([10, 8]);
+    ctx.beginPath();
+    ctx.moveTo(x, 40);
+    ctx.lineTo(x, GROUND_Y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    var wimpel = function () {
+      ctx.beginPath();
+      ctx.moveTo(x, 52);
+      ctx.lineTo(x + 66, 70);
+      ctx.lineTo(x, 88);
+      ctx.closePath();
+    };
+    aufPapier(wimpel, GELB, tinteB(0.5));
+    ctx.strokeStyle = tinte(0.9);
+    ctx.lineWidth = 2.5;
+    wimpel();
+    ctx.stroke();
+    ctx.fillStyle = tinte(0.9);
+    ctx.font = '700 12px "Azeret Mono", ui-monospace, monospace';
+    ctx.fillText('BEST', x + 9, 75);
+  }
+
   function drawCoins() {
     for (var i = 0; i < G.coinList.length; i++) {
       var c = G.coinList[i];
@@ -1705,6 +2071,22 @@
         ctx.lineTo(x + 6, o.y + o.h - 6);
         ctx.stroke();
 
+      } else if (o.type === 'block') {
+        aufPapier(function () { roundRect(x, o.y, o.w, o.h, 2); }, PINK, tinteB(0.5));
+        ctx.strokeStyle = tinte(0.9);
+        ctx.lineWidth = 2.5;
+        roundRect(x, o.y, o.w, o.h, 2);
+        ctx.stroke();
+        // Schraffur wie ein gedruckter Balken
+        ctx.strokeStyle = tinte(0.55);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (var sh = 8; sh < o.h; sh += 14) {
+          ctx.moveTo(x + 4, o.y + sh);
+          ctx.lineTo(x + o.w - 4, o.y + sh - 8);
+        }
+        ctx.stroke();
+
       } else if (o.type === 'saw') {
         var cy = o.cy;
         ctx.save();
@@ -1801,7 +2183,7 @@
     var x = G.screenX, y = G.py, h = G.h;
     var hyper = G.hyperT > 0;
     // Im Hyper-Modus laeuft die Druckplatte durch alle Tinten.
-    var koerper = hyper ? inkFromHue(G.time * 700) : FIGUR;
+    var koerper = hyper ? inkFromHue(G.time * 700) : figurTinte();
 
     // Nachziehende Spur als Geisterdrucke
     multiplizieren();
@@ -1936,6 +2318,7 @@
     drawPaper();
     drawHills();
     drawGround();
+    drawBestmarke();
     drawParticles();
     drawCoins();
     drawPickups();
@@ -1958,6 +2341,18 @@
 
     var m = multiplier();
     el.combo.textContent = G.combo > 1 ? ('KOMBO ' + G.combo + '  x' + m) : (m > 1 ? 'x' + m : '');
+
+    // Wie weit bin ich im Vergleich zum bisher besten Lauf?
+    if (el.bestWrap) {
+      if (records.dist > 60) {
+        el.bestWrap.hidden = false;
+        var anteil = Math.min(100, G.dist / records.dist * 100);
+        el.bestFill.style.width = anteil.toFixed(1) + '%';
+        el.bestWrap.classList.toggle('voll', G.dist >= records.dist);
+      } else {
+        el.bestWrap.hidden = true;
+      }
+    }
 
     el.hyperFill.style.width = G.meter.toFixed(1) + '%';
     if (G.hyperT > 0) {
@@ -1995,7 +2390,22 @@
 
   // ----------------------------------------------------------- Zustandswechsel
 
-  function showOverlay(title, text, btn, statsHtml) {
+  function auftraegeHtml() {
+    var html = '<h2 class="auftraege__titel">Auftr&auml;ge &middot; Rang ' + rangName() + '</h2>';
+    for (var i = 0; i < auftraege.length; i++) {
+      var a = auftraege[i];
+      var art = auftragArt(a.id);
+      var stand = Math.min(a.ziel, Math.floor(auftragStand(a)));
+      var anteil = Math.max(0, Math.min(100, Math.round(stand / a.ziel * 100)));
+      html += '<div class="auftrag' + (a.fertig ? ' fertig' : '') + '">'
+            + '<span>' + art.text.replace('{z}', a.ziel) + '</span>'
+            + '<b>' + (a.fertig ? 'erf&uuml;llt' : stand + ' / ' + a.ziel) + '</b>'
+            + '<i style="width:' + anteil + '%"></i></div>';
+    }
+    return html;
+  }
+
+  function showOverlay(title, text, btn, statsHtml, extraHtml) {
     el.ovTitle.innerHTML = title;
     el.ovText.textContent = text;
     el.ovBtn.textContent = btn;
@@ -2005,6 +2415,10 @@
     } else {
       el.ovStats.hidden = true;
     }
+    if (el.ovExtra) {
+      el.ovExtra.innerHTML = extraHtml || '';
+      el.ovExtra.hidden = !extraHtml;
+    }
     el.overlay.hidden = false;
   }
 
@@ -2012,7 +2426,8 @@
 
   function showReady() {
     state = 'ready';
-    showOverlay('DRUCK<span>LAUF</span>', 'Leertaste oder Tippen zum Starten', 'Andruck starten', null);
+    showOverlay('DRUCK<span>LAUF</span>', 'Leertaste oder Tippen zum Starten',
+                'Andruck starten', null, auftraegeHtml());
   }
 
   function showPause() {
@@ -2039,11 +2454,13 @@
       stat('Knapp vorbei', G.nearMisses) +
       stat('Hyper', G.hyperUses + 'x') +
       stat('Bestwert', records.best.toLocaleString('de-DE')) +
-      stat('Münzen gesamt', records.coins)
+      stat('Münzen gesamt', records.coins),
+      auftraegeHtml()
     );
   }
 
   function startGame() {
+    auftraegeNachziehen();
     releaseAll();
     newGame();
     lastPowerKey = '';
@@ -2386,6 +2803,7 @@
     try { ziel.style.backgroundImage = 'url(' + c.toDataURL('image/png') + ')'; } catch (e) { /* egal */ }
   }());
 
+  auftraegeLaden();
   resize();
   vollbildKnopfPflegen();
   newGame();

@@ -98,36 +98,80 @@ dieselbe Schicht. Damit verhaelt sich jeder Sprung ueberall gleich:
 
 ## Features
 
-* **Endlose Strecke** aus neun Bausteintypen – flache Passagen, Gruben,
-  Treppen aus Schwebeplattformen, Drohnenreihen, Saegen, Kistenwaende,
-  Sprungfedern, Schatzabschnitte und ab mittlerer Schwierigkeit ein gemischter
-  Abschnitt, der alle Hindernisarten hintereinander stellt. Jeder Baustein
-  streut zusaetzliche Stacheln in seine freien Luecken.
-* **Sieben Druckgaenge** mit je eigenem Farbpaar, die alle 650 Meter wechseln
-  und ineinander ueberblenden: Weideland, Steinbruch, Nebeltal, Duenenzug,
-  Hochmoor, Salzsee, Aschefeld.
+### Die Strecke waechst mit
+
+Jede Hindernisart wird einzeln eingefuehrt, einmal erklaert und mischt sich
+erst danach unter die anderen. Der Anfang ist dadurch ruhig, und die Strecke
+wird ueber die ersten drei Kilometer stetig voller:
+
+| ab | neu | Loesung |
+| --- | --- | --- |
+| 0 m | nur Boden und Muenzen | – |
+| 120 m | Stacheln | drueberspringen |
+| 280 m | Gruben | Taste halten springt weiter |
+| 460 m | Kisten | Dash zerlegt sie |
+| 680 m | Drohnen | drunter durchrutschen |
+| 950 m | Sprungfedern | hoch zu den Muenzen |
+| 1250 m | Saegen | den richtigen Moment abwarten |
+| 1600 m | Tore | durch die Luecke oder durchdashen |
+| 2000 m | Hebebuehnen | mitfahren |
+| 2450 m | muerbe Absaetze | nicht stehenbleiben |
+| 3000 m | alles gemischt | viel Glueck |
+
+Gemessen ueber die erzeugte Strecke: 0 Hindernisse je 100 Meter auf den ersten
+200 Metern, dann 2,0 – 2,9 – 3,1 – 4,0 – 4,4. Die Geschwindigkeit steigt von
+310 auf 980 Pixel je Sekunde und braucht dafuer knapp drei Kilometer.
+
+### Auftraege und Rang
+
+Drei Auftraege laufen immer mit, ueberdauern den Tod und werden nach
+Erfuellung durch etwas groessere ersetzt. Auch ein missratener Lauf bringt
+einen davon ein Stueck weiter – es gibt also immer einen Grund fuer den
+naechsten Versuch, nicht nur die Punktzahl.
+
+* Zehn Auftragsarten, teils fuer einen einzelnen Lauf (Muenzen, Strecke,
+  Kombo, knappe Ausweichmanoever, Sprungfedern, Dash-Treffer, Punkte,
+  Hyper-Modi), teils ueber alle Laeufe hinweg (Muenzen gesamt, Meter gesamt).
+* Jeder erfuellte Auftrag zaehlt fuer den **Rang**: Anleger, Setzer, Drucker,
+  Farbmischer, Andruckmeister, Druckmeister, Schwarzkuenstler.
+* Mit jedem Rang bekommt die Figur eine **neue Tinte** – sichtbarer
+  Fortschritt, der ueber Laeufe hinweg bleibt.
+
+### Bestmarke
+
+Dort, wo der bisher weiteste Lauf endete, steht eine Fahne auf der Strecke.
+Eine Leiste unter der Streckenanzeige zeigt, wie weit man im Vergleich dazu
+ist. Wer die Marke passiert, bekommt Punkte, einen Farbblitz und die Meldung
+„ab hier ist alles neu".
+
+### Weitere Bausteine und Elemente
+
+* **Neun Bausteintypen**: flache Passagen, Taktabschnitte mit gleichmaessig
+  gesetzten Stacheln, Gruben, Treppen, Drohnenreihen, Saegen, Kistenwaende,
+  Sprungfedern, Tore, Hebebuehnen, Schatzabschnitte, Muenzregen und ein
+  gemischter Abschnitt. Nie kommt derselbe Typ zweimal hintereinander.
+* **Tore** aus einem Bodenriegel und einem Sturz mit einer Luecke dazwischen –
+  entweder mit der richtigen Sprunghoehe treffen oder durchdashen.
+* **Hebebuehnen**, die ueber einer breiten Kluft auf und ab fahren.
+* **Sprungfedern** schleudern die Figur rund 300 Pixel hoch und sind nie
+  toedlich. **Broeckelnde Absaetze** tragen nach der Landung noch 450 ms.
+* **Muenzregen**: alle paar Bausteine eine kurze, randvolle Belohnungsstrecke.
+* **Meilensteine** alle 250 Meter mit Punktebonus.
+* **Sieben Druckgaenge** mit je eigenem Farbpaar, die alle 650 Meter wechseln.
+
+### Steuerung und Belohnung
+
 * **Sprunggefuehl** mit variabler Sprunghoehe, Doppelsprung, Coyote-Time,
-  Eingabepuffer und laengerem Scheitelpunkt – Eingaben gehen praktisch nie
-  verloren, und jede Eingabequelle fuehlt sich gleich an.
-* **Lenken** zwischen 115 und 415 Pixeln Bildschirmposition, um sich mehr Zeit
-  zu verschaffen oder frueher am Ziel zu sein.
+  Eingabepuffer und laengerem Scheitelpunkt.
+* **Lenken** zwischen 115 und 415 Pixeln Bildschirmposition.
 * **Gamepad-Unterstuetzung** ueber die Gamepad-API, ohne Einrichtung.
-* **Sprungfedern** schleudern die Figur rund 300 Pixel hoch zu den hohen
-  Muenzreihen und sind nie toedlich.
-* **Broeckelnde Absaetze** tragen nach der Landung noch 450 Millisekunden.
-* **Vier Power-ups**: Schild (faengt einen Treffer ab), Magnet (zieht Muenzen
-  an), doppelte Punkte und Zeitlupe.
-* **Hyper-Modus**: Muenzen und knappe Ausweichmanoever fuellen die Leiste. Ist
-  sie voll, fliegt die Figur sieben Sekunden lang unverwundbar durch alles
-  hindurch und kassiert dreifache Punkte.
-* **Kombo-System**: Jede Muenze ohne Unterbrechung erhoeht den Multiplikator
-  (bis x8), nach 2,6 Sekunden ohne Muenze faellt er zurueck.
-* **Beinahe-Treffer**: Wer weniger als 26 Pixel an einem Hindernis
-  vorbeikommt, bekommt Bonuspunkte, eine kurze Zeitlupe und Extraladung.
-* **Prozeduraler Ton** ueber WebAudio – Effekte und ein Basslauf, dessen Tempo
-  mit der Geschwindigkeit steigt. Kein Audiomaterial noetig.
-* **Bestwert, weiteste Strecke und gesammelte Muenzen** werden im
-  `localStorage` gesichert.
+* **Vier Power-ups**: Schild, Magnet, doppelte Punkte, Zeitlupe.
+* **Hyper-Modus**: Muenzen und knappe Ausweichmanoever fuellen die Leiste,
+  dann sieben Sekunden unverwundbar durch alles hindurch, dreifache Punkte.
+* **Kombo-System** bis x8 und **Beinahe-Treffer** mit Bonus und Zeitlupe.
+* **Prozeduraler Ton** ueber WebAudio, Tempo steigt mit der Geschwindigkeit.
+* **Bestwert, weiteste Strecke, Muenzen, Rang und Auftraege** liegen im
+  `localStorage`.
 
 ## Das Aussehen
 
@@ -165,6 +209,9 @@ Schmuckfarben auf getoentem Papier arbeitet:
 | Knapp an einem Hindernis vorbei | 75 × Multiplikator |
 | Kiste per Dash zerlegt | 40 × Multiplikator |
 | Sprungfeder ausgeloest | 25 × Multiplikator |
+| Meilenstein alle 250 m | 50 × Multiplikator |
+| Bestmarke passiert | 300 × Multiplikator |
+| Auftrag erfuellt | 400 × Multiplikator |
 | Hindernis im Hyper-Modus zerlegt | 60 × Multiplikator |
 
 Der Multiplikator ist `1 + Kombo / 8` (hoechstens x8), verdoppelt sich mit dem

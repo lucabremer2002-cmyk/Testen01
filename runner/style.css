@@ -283,6 +283,19 @@ body {
   white-space: nowrap;
 }
 
+.toast b { display: block; font-weight: 400; }
+
+.toast small {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--ui);
+  font-size: clamp(9px, 1.2vw, 12px);
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: none;
+  color: var(--tinte);
+}
+
 .toast.show { animation: toast 1.6s cubic-bezier(.2, .9, .2, 1) forwards; }
 
 @keyframes toast {
@@ -371,6 +384,73 @@ body {
 
 .statgrid b.hi { color: var(--tinte); text-shadow: 2px 1.5px 0 var(--gelb); }
 
+/* Auftragsliste: das Ziel jedes Laufs neben der reinen Punktzahl */
+.auftraege {
+  margin: 0 0 18px;
+  border: 1.5px solid var(--tinte);
+  text-align: left;
+}
+
+.auftraege[hidden] { display: none; }
+
+.auftraege__titel {
+  margin: 0;
+  padding: 7px 10px;
+  font: 600 9.5px/1.2 var(--ui);
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--papier);
+  background: var(--tinte);
+}
+
+.auftrag {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px 10px;
+  border-top: 1.5px solid var(--tinte);
+  font-size: clamp(10px, 1.3vw, 12px);
+}
+
+.auftrag:first-of-type { border-top: 0; }
+.auftrag span { color: var(--tinte); }
+.auftrag b { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* Fortschritt als gedruckter Balken am unteren Rand der Zeile */
+.auftrag i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  background: repeating-linear-gradient(90deg, var(--aqua) 0 7px, transparent 7px 10px);
+}
+
+.auftrag.fertig { color: var(--tinte-hell); }
+.auftrag.fertig b { color: var(--gruen); }
+.auftrag.fertig i { background: var(--gruen); }
+
+/* Leiste zur eigenen Bestmarke, direkt unter der Streckenanzeige */
+.bestbar {
+  width: clamp(70px, 12vw, 130px);
+  height: 5px;
+  margin: 5px 0 1px;
+  border: 1.5px solid var(--tinte);
+  background: rgba(243, 236, 217, .7);
+}
+
+.bestbar[hidden] { display: none; }
+
+.bestbar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--gelb);
+}
+
+.bestbar.voll i { background: var(--pink); }
+
 #ovBtn {
   appearance: none;
   cursor: pointer;
@@ -408,6 +488,7 @@ body {
 .fsbtn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--aqua); }
 
 .drehen {
+  display: none;              /* nur auf Beruehrungsgeraeten eingeblendet */
   margin: 10px 0 0 !important;
   font-size: 10.5px !important;
   letter-spacing: .1em;
