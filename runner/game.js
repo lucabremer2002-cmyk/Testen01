@@ -362,7 +362,11 @@
     dist: parseInt(load(STORE_DIST, '0'), 10) || 0,
     coins: parseInt(load(STORE_COINS, '0'), 10) || 0,
     meter: parseInt(load('drucklauf.meter', '0'), 10) || 0,
-    rang: parseInt(load('drucklauf.rang', '0'), 10) || 0
+    rang: parseInt(load('drucklauf.rang', '0'), 10) || 0,
+    bank: parseInt(load('drucklauf.bank', '0'), 10) || 0,
+    platten: parseInt(load('drucklauf.platten', '0'), 10) || 0,
+    haut: load('drucklauf.haut', 'kobalt'),
+    gekauft: (load('drucklauf.gekauft', '') || '').split(',').filter(function (x) { return x; })
   };
 
   // Wie oft eine Hindernisart schon erklaert wurde - nach dreimal reicht es.
@@ -394,12 +398,91 @@
 
   var RAENGE = ['ANLEGER', 'SETZER', 'DRUCKER', 'FARBMISCHER',
                 'ANDRUCKMEISTER', 'DRUCKMEISTER', 'SCHWARZKUENSTLER'];
-  // Mit jedem Rang bekommt die Figur eine neue Tinte - sichtbarer Fortschritt.
-  var FIGUR_TINTEN = ['#2f4bd8', '#7a4bd8', '#00a6a0', '#3f9e4d', '#ff6b2c'];
 
   function rangStufe() { return Math.floor(records.rang / 3); }
   function rangName() { return RAENGE[Math.min(RAENGE.length - 1, rangStufe())]; }
-  function figurTinte() { return FIGUR_TINTEN[Math.min(FIGUR_TINTEN.length - 1, rangStufe())]; }
+
+  // ------------------------------------------------------------- Druckarten
+  //
+  // Die Figur wird nicht umgezogen, sondern anders gedruckt. Zwoelf Druckarten,
+  // freigeschaltet auf drei Wegen: gekauft von den gesammelten Muenzen,
+  // verdient durch eine Leistung, oder erarbeitet durch seltene Druckplatten,
+  // die nur auf langen Laeufen auftauchen. Der Trefferkoerper bleibt immer
+  // gleich - eine Druckart ist nie ein Vorteil, nur ein Anblick.
+  var HAEUTE = [
+    { id: 'kobalt',    name: 'KOBALT',      art: 'voll',      ink: '#2f4bd8', frei: { typ: 'start' } },
+    { id: 'zinnober',  name: 'ZINNOBER',    art: 'voll',      ink: '#ff6b2c', frei: { typ: 'muenzen', wert: 150 } },
+    { id: 'laub',      name: 'LAUB',        art: 'voll',      ink: '#3f9e4d', frei: { typ: 'muenzen', wert: 400 } },
+    { id: 'veilchen',  name: 'VEILCHEN',    art: 'voll',      ink: '#7a4bd8', frei: { typ: 'muenzen', wert: 800 } },
+    { id: 'raster',    name: 'RASTER',      art: 'raster',    ink: '#00a6a0', frei: { typ: 'muenzen', wert: 1400 } },
+    { id: 'duplex',    name: 'DUPLEX',      art: 'duplex',    ink: '#ff4f9a', ink2: '#00a6a0', frei: { typ: 'muenzen', wert: 2400 } },
+    { id: 'gold',      name: 'GOLDSCHNITT', art: 'gold',      ink: '#ffc61e', frei: { typ: 'muenzen', wert: 4000 } },
+    { id: 'umriss',    name: 'UMRISS',      art: 'umriss',    ink: '#2f4bd8', frei: { typ: 'rang', wert: 6 } },
+    { id: 'negativ',   name: 'NEGATIV',     art: 'negativ',   ink: '#22201e', frei: { typ: 'strecke', wert: 1500 } },
+    { id: 'fehldruck', name: 'FEHLDRUCK',   art: 'fehldruck', ink: '#ff4f9a', frei: { typ: 'platten', wert: 3 } },
+    { id: 'schablone', name: 'SCHABLONE',   art: 'schablone', ink: '#22201e', frei: { typ: 'platten', wert: 7 } },
+    { id: 'regenbogen', name: 'REGENBOGEN', art: 'regenbogen', ink: '#ff4f9a', frei: { typ: 'platten', wert: 12 } }
+  ];
+
+  function hautFinden(id) {
+    for (var i = 0; i < HAEUTE.length; i++) if (HAEUTE[i].id === id) return HAEUTE[i];
+    return HAEUTE[0];
+  }
+
+  function hautGekauft(id) {
+    return records.gekauft.indexOf(id) >= 0;
+  }
+
+  // Verdiente Druckarten schalten sich von selbst frei, gekaufte muss man holen.
+  function hautOffen(h) {
+    if (h.frei.typ === 'start') return true;
+    if (hautGekauft(h.id)) return true;
+    if (h.frei.typ === 'rang') return records.rang >= h.frei.wert;
+    if (h.frei.typ === 'strecke') return records.dist >= h.frei.wert;
+    if (h.frei.typ === 'platten') return records.platten >= h.frei.wert;
+    return false;
+  }
+
+  function hautBedingung(h) {
+    if (h.frei.typ === 'muenzen') return h.frei.wert + ' Münzen';
+    if (h.frei.typ === 'rang') return h.frei.wert + ' Aufträge';
+    if (h.frei.typ === 'strecke') return h.frei.wert + ' m in einem Lauf';
+    if (h.frei.typ === 'platten') return h.frei.wert + ' Druckplatten';
+    return '';
+  }
+
+  function hautKaufen(id) {
+    var h = hautFinden(id);
+    if (h.frei.typ !== 'muenzen' || hautGekauft(id)) return false;
+    if (records.bank < h.frei.wert) return false;
+    records.bank -= h.frei.wert;
+    records.gekauft.push(id);
+    save('drucklauf.bank', records.bank);
+    save('drucklauf.gekauft', records.gekauft.join(','));
+    hautWaehlen(id);
+    return true;
+  }
+
+  function hautWaehlen(id) {
+    var h = hautFinden(id);
+    if (!hautOffen(h)) return false;
+    records.haut = id;
+    save('drucklauf.haut', id);
+    return true;
+  }
+
+  function aktiveHaut() {
+    var h = hautFinden(records.haut);
+    return hautOffen(h) ? h : HAEUTE[0];
+  }
+
+  // Welche Druckart ist als naechste dran? Das gibt der Anzeige ein Ziel.
+  function naechsteHaut() {
+    for (var i = 0; i < HAEUTE.length; i++) {
+      if (!hautOffen(HAEUTE[i])) return HAEUTE[i];
+    }
+    return null;
+  }
 
   function auftragArt(id) {
     for (var i = 0; i < AUFTRAGSARTEN.length; i++) {
@@ -578,6 +661,10 @@
       chunk: 0,
       lastPowerChunk: -99,
       lastRegenChunk: -99,
+      platteGesetzt: false,
+      platteGeholt: 0,
+      rauschT: 0,
+      neuFrei: [],
       letzterChunk: '',
       regenAnkuendigen: false,
       stufeIndex: 0,
@@ -699,6 +786,17 @@
 
   function pickup(x, y, kind) {
     G.pickups.push({ x: x, y: y, r: 20, kind: kind, got: false, phase: Math.random() * 6.283 });
+  }
+
+  // Druckplatten sind selten, hoechstens eine je Lauf und erst ab 600 Metern -
+  // sie belohnen ausdauernde Laeufe, nicht Glueck in der ersten Minute.
+  function platteVersuchen(x, y) {
+    if (G.platteGesetzt || G.dist < 600) return false;
+    var chance = Math.min(0.5, 0.1 + (G.dist - 600) / 9000);
+    if (Math.random() > chance) return false;
+    G.platteGesetzt = true;
+    G.pickups.push({ x: x, y: y, r: 24, kind: 'platte', got: false, phase: 0 });
+    return true;
   }
 
   // Ein Baustein der Strecke; jeder setzt G.genX weiter.
@@ -985,7 +1083,10 @@
     G.lastPowerChunk = G.chunk;
 
     var kinds = ['shield', 'magnet', 'x2', 'slow'];
-    pickup(x + len * 0.5, GROUND_Y - rand(110, 190), pick(kinds));
+    var mitte = x + len * 0.5;
+    if (!platteVersuchen(mitte, GROUND_Y - rand(120, 200))) {
+      pickup(mitte, GROUND_Y - rand(110, 190), pick(kinds));
+    }
 
     var style = Math.random();
     if (style < 0.34) coinWave(x + 100, GROUND_Y - 130, 15, 36, 54);
@@ -1190,6 +1291,10 @@
     if (G.inv > 0) G.inv -= dt;
     if (G.slideCD > 0) G.slideCD -= dt;
     if (G.slowT > 0) G.slowT -= dt;
+    if (G.rauschT > 0) {
+      G.rauschT -= dt;
+      if (G.rauschT <= 0) toast('RAUSCH VORBEI', INKS.aqua.hue);
+    }
     if (G.hyperT > 0) {
       G.hyperT -= dt;
       if (G.hyperT <= 0) { toast('HYPER VORBEI', 200); G.vy = 0; }
@@ -1425,12 +1530,22 @@
     if (G.combo > G.bestCombo) G.bestCombo = G.combo;
     if (G.hyperT <= 0) G.meter = Math.min(100, G.meter + HYPER_PER_COIN);
 
-    var m = multiplier();
+    var m = multiplier() * (G.rauschT > 0 ? 2 : 1);
     G.score += 10 * m;
     Sound.coin(G.combo);
     burst(c.x, c.y, 8, {
       minSpeed: 60, maxSpeed: 240, grav: 500, hue: 48, hueSpread: 26, maxLife: 0.5, maxSize: 5
     });
+
+    // Farbrausch: alle 20 Muenzen in Folge druckt die Welt kurz in allen
+    // Farben - und jede Muenze zaehlt doppelt.
+    if (G.combo > 0 && G.combo % 20 === 0) {
+      G.rauschT = 5;
+      toast('FARBRAUSCH', INKS.pink.hue, 'Münzen zählen doppelt');
+      flash(0.4, INKS.pink.hue);
+      Sound.hyper();
+      burst(c.x, c.y, 40, { minSpeed: 120, maxSpeed: 460, grav: 0, hueSpread: 180, maxLife: 0.9 });
+    }
 
     if (G.combo > 0 && G.combo % 10 === 0) {
       floatText(c.x, c.y - 26, 'KOMBO x' + m, 96, 24);
@@ -1449,6 +1564,24 @@
       if (!aabb(box, pb)) continue;
 
       p.got = true;
+
+      if (p.kind === 'platte') {
+        records.platten++;
+        G.platteGeholt++;
+        save('drucklauf.platten', records.platten);
+        G.score += 500 * multiplier();
+        G.meter = Math.min(100, G.meter + 25);
+        Sound.hyper();
+        rumpeln([30, 40, 30, 40, 100]);
+        shake(12);
+        flash(0.5, INKS.gelb.hue);
+        toast('DRUCKPLATTE ' + records.platten, INKS.gelb.hue, 'schaltet neue Druckarten frei');
+        burst(p.x, p.y, 70, {
+          minSpeed: 130, maxSpeed: 520, grav: 260, hueSpread: 180, maxLife: 1.1, maxSize: 8
+        });
+        continue;
+      }
+
       var def = POWERS[p.kind];
       if (p.kind === 'shield') { G.shield = 1; }
       else { G.powers[p.kind] = def.dur; }
@@ -1669,6 +1802,8 @@
     if (dist > records.dist) { records.dist = dist; save(STORE_DIST, dist); }
     records.coins += G.coins;
     save(STORE_COINS, records.coins);
+    records.bank += G.coins;
+    save('drucklauf.bank', records.bank);
     records.meter += dist;
     save('drucklauf.meter', records.meter);
     auftraegePruefen(true);
@@ -1693,8 +1828,8 @@
   var FIGUR = '#2f4bd8';
 
   function papier(a) { return rgba(G.paper, a); }
-  function tinteA(a) { return rgba(G.inkA, a); }
-  function tinteB(a) { return rgba(G.inkB, a); }
+  function tinteA(a) { return rgba(F.a || G.inkA, a); }
+  function tinteB(a) { return rgba(F.b || G.inkB, a); }
   function tinte(a) { return 'rgba(34,32,30,' + (a === undefined ? 1 : a) + ')'; }
 
   // Zwei Tinten uebereinander multiplizieren sich. Fuer den Hintergrund rechnen
@@ -1795,14 +1930,17 @@
 
   var F = {};
   function farbenSetzen() {
+    // Im Farbrausch wechseln die beiden Druckfarben im Sekundentakt durch.
+    F.a = G.rauschT > 0 ? hex2rgb(inkFromHue(G.time * 520)) : G.inkA;
+    F.b = G.rauschT > 0 ? hex2rgb(inkFromHue(G.time * 520 + 150)) : G.inkB;
     F.papier = rgba(G.paper, 1);
-    F.fern = aufPapierFarbe(G.inkB, 0.4);
-    F.mittel = aufPapierFarbe(G.inkA, 0.5);
-    F.baum = aufPapierFarbe(G.inkA, 0.76);
-    F.nah = aufPapierFarbe(G.inkA, 0.8);
-    F.erde = aufPapierFarbe(G.inkA, 0.34);
-    F.wolke = rgba(aufPapierFarbe(G.inkA, 0.16), 1);
-    F.sonne = aufPapierFarbe(G.inkB, 0.8);
+    F.fern = aufPapierFarbe(F.b, 0.4);
+    F.mittel = aufPapierFarbe(F.a, 0.5);
+    F.baum = aufPapierFarbe(F.a, 0.76);
+    F.nah = aufPapierFarbe(F.a, 0.8);
+    F.erde = aufPapierFarbe(F.a, 0.34);
+    F.wolke = rgba(aufPapierFarbe(F.a, 0.16), 1);
+    F.sonne = aufPapierFarbe(F.b, 0.8);
   }
 
   // ---- Hintergrund
@@ -2034,6 +2172,36 @@
       var x = p.x - G.worldX;
       if (x < -60 || x > W + 60 || p.got) continue;
       var y = p.y + Math.sin(G.time * 2.4 + p.phase) * 8;
+
+      if (p.kind === 'platte') {
+        // Eine Druckplatte: gerastertes Metall mit Tintenrand und Funken.
+        var pw = 46, ph = 34;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(Math.sin(G.time * 1.6) * 0.16);
+        aufPapier(function () { roundRect(-pw / 2, -ph / 2, pw, ph, 3); }, GELB, tinte(0.4));
+        ctx.fillStyle = rasterFuellung(hex2rgb(GELB), G.paper);
+        roundRect(-pw / 2 + 4, -ph / 2 + 4, pw - 8, ph - 8, 2);
+        ctx.fill();
+        ctx.strokeStyle = tinte(0.9);
+        ctx.lineWidth = 2.5;
+        roundRect(-pw / 2, -ph / 2, pw, ph, 3);
+        ctx.stroke();
+        ctx.restore();
+        // Funken ringsum
+        ctx.strokeStyle = tinte(0.55);
+        ctx.lineWidth = 2;
+        for (var f = 0; f < 6; f++) {
+          var fa = f / 6 * 6.2832 + G.time * 1.1;
+          var fr = 34 + Math.sin(G.time * 4 + f) * 4;
+          ctx.beginPath();
+          ctx.moveTo(x + Math.cos(fa) * fr, y + Math.sin(fa) * fr);
+          ctx.lineTo(x + Math.cos(fa) * (fr + 7), y + Math.sin(fa) * (fr + 7));
+          ctx.stroke();
+        }
+        continue;
+      }
+
       var def = POWERS[p.kind];
       var kipp = Math.sin(G.time * 1.3 + p.phase) * 0.24;
 
@@ -2220,11 +2388,131 @@
     normalModus();
   }
 
+  // Jede Druckart ist eine andere Art, denselben Koerper zu drucken.
+  function hautMalen(haut, bx, by, bw, bh, farbe) {
+    var form = function () { roundRect(bx, by, bw, bh, 8); };
+
+    if (haut.art === 'umriss') {
+      normalModus();
+      ctx.fillStyle = papier(1);
+      form();
+      ctx.fill();
+      ctx.strokeStyle = farbe;
+      ctx.lineWidth = 5;
+      form();
+      ctx.stroke();
+      return;
+    }
+
+    if (haut.art === 'raster') {
+      normalModus();
+      ctx.fillStyle = papier(1);
+      form();
+      ctx.fill();
+      ctx.fillStyle = rasterFuellung(hex2rgb(farbe), G.paper);
+      form();
+      ctx.fill();
+      return;
+    }
+
+    if (haut.art === 'duplex') {
+      aufPapier(form, farbe, tinteB(0.4));
+      ctx.save();
+      form();
+      ctx.clip();
+      ctx.fillStyle = haut.ink2;
+      ctx.fillRect(bx, by + bh * 0.5, bw, bh * 0.5);
+      ctx.restore();
+      return;
+    }
+
+    if (haut.art === 'fehldruck') {
+      // Drei Platten, alle daneben - der gewollte Fehldruck.
+      normalModus();
+      ctx.fillStyle = papier(1);
+      form();
+      ctx.fill();
+      multiplizieren();
+      var versatz = [[-3.5, 2], [3, -2.5], [0, 0]];
+      var tinten = ['#ff4f9a', '#00a6a0', '#ffc61e'];
+      for (var i = 0; i < 3; i++) {
+        ctx.save();
+        ctx.translate(versatz[i][0], versatz[i][1]);
+        ctx.fillStyle = tinten[i];
+        form();
+        ctx.fill();
+        ctx.restore();
+      }
+      normalModus();
+      return;
+    }
+
+    if (haut.art === 'schablone') {
+      // Schablone: nur die Aussparungen sind bedruckt.
+      normalModus();
+      ctx.fillStyle = papier(1);
+      form();
+      ctx.fill();
+      ctx.save();
+      form();
+      ctx.clip();
+      ctx.fillStyle = tinte(0.9);
+      for (var sy = by - bw; sy < by + bh; sy += 9) {
+        ctx.fillRect(bx - 4, sy, bw + 8, 5);
+      }
+      ctx.restore();
+      return;
+    }
+
+    if (haut.art === 'negativ') {
+      aufPapier(form, tinte(0.92), tinteB(0.5));
+      return;
+    }
+
+    if (haut.art === 'gold') {
+      aufPapier(form, farbe, tinte(0.25));
+      ctx.save();
+      form();
+      ctx.clip();
+      ctx.fillStyle = papier(0.75);
+      ctx.beginPath();
+      ctx.moveTo(bx - 6, by + bh * 0.62);
+      ctx.lineTo(bx + bw + 6, by + bh * 0.22);
+      ctx.lineTo(bx + bw + 6, by + bh * 0.38);
+      ctx.lineTo(bx - 6, by + bh * 0.78);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
+    if (haut.art === 'regenbogen') {
+      normalModus();
+      ctx.fillStyle = papier(1);
+      form();
+      ctx.fill();
+      ctx.save();
+      form();
+      ctx.clip();
+      multiplizieren();
+      for (var b = 0; b < 6; b++) {
+        ctx.fillStyle = inkFromHue(G.time * 260 + b * 60);
+        ctx.fillRect(bx, by + bh / 6 * b, bw, bh / 6 + 1);
+      }
+      normalModus();
+      ctx.restore();
+      return;
+    }
+
+    aufPapier(form, farbe, tinteB(0.45));
+  }
+
   function drawPlayer() {
     var x = G.screenX, y = G.py, h = G.h;
     var hyper = G.hyperT > 0;
+    var haut = aktiveHaut();
     // Im Hyper-Modus laeuft die Druckplatte durch alle Tinten.
-    var koerper = hyper ? inkFromHue(G.time * 700) : figurTinte();
+    var koerper = hyper ? inkFromHue(G.time * 700) : haut.ink;
 
     // Nachziehende Spur als Geisterdrucke
     multiplizieren();
@@ -2265,7 +2553,7 @@
     var bx = x - (bw - PW) / 2;
     var by = y + h - bh;
 
-    aufPapier(function () { roundRect(bx, by, bw, bh, 8); }, koerper, tinteB(0.45));
+    hautMalen(hyper ? { art: 'voll', ink: koerper } : haut, bx, by, bw, bh, koerper);
     ctx.strokeStyle = tinte(0.92);
     ctx.lineWidth = 2.5;
     roundRect(bx, by, bw, bh, 8);
@@ -2441,6 +2729,42 @@
 
   // ----------------------------------------------------------- Zustandswechsel
 
+  var aktiverReiter = 'auftraege';
+
+  function reiterHtml() {
+    var neu = naechsteHaut();
+    var hinweis = neu ? ' &middot; n&auml;chste: ' + neu.name : ' &middot; alle offen';
+    return '<div class="reiter">'
+      + '<button type="button" data-reiter="auftraege"' + (aktiverReiter === 'auftraege' ? ' class="an"' : '') + '>Auftr&auml;ge</button>'
+      + '<button type="button" data-reiter="farben"' + (aktiverReiter === 'farben' ? ' class="an"' : '') + '>Druckfarben</button>'
+      + '<span class="reiter__stand">' + records.bank + ' M&uuml;nzen &middot; '
+      + records.platten + ' Platten' + hinweis + '</span></div>';
+  }
+
+  function haeuteHtml() {
+    var html = '<div class="haeute">';
+    for (var i = 0; i < HAEUTE.length; i++) {
+      var h = HAEUTE[i];
+      var offen = hautOffen(h);
+      var gewaehlt = aktiveHaut().id === h.id;
+      var kaufbar = !offen && h.frei.typ === 'muenzen' && records.bank >= h.frei.wert;
+      var stand = gewaehlt ? 'in Gebrauch' : (offen ? 'w&auml;hlen' : (kaufbar ? 'kaufen' : hautBedingung(h)));
+      html += '<button type="button" class="haut haut--' + h.art
+            + (offen ? ' offen' : '') + (gewaehlt ? ' gewaehlt' : '') + (kaufbar ? ' kaufbar' : '')
+            + '" data-haut="' + h.id + '" style="--ink:' + h.ink + ';--ink2:' + (h.ink2 || h.ink) + '">'
+            + '<i class="haut__probe"></i><span>' + h.name + '</span><b>' + stand + '</b></button>';
+    }
+    return html + '</div>';
+  }
+
+  function extraHtml() {
+    return reiterHtml() + (aktiverReiter === 'farben' ? haeuteHtml() : auftraegeHtml());
+  }
+
+  function extraNeuZeichnen() {
+    if (el.ovExtra) el.ovExtra.innerHTML = extraHtml();
+  }
+
   function auftraegeHtml() {
     var html = '<h2 class="auftraege__titel">Auftr&auml;ge &middot; Rang ' + rangName() + '</h2>';
     for (var i = 0; i < auftraege.length; i++) {
@@ -2478,7 +2802,7 @@
   function showReady() {
     state = 'ready';
     showOverlay('DRUCK<span>LAUF</span>', 'Leertaste oder Tippen zum Starten',
-                'Andruck starten', null, auftraegeHtml());
+                'Andruck starten', null, extraHtml());
   }
 
   function showPause() {
@@ -2506,7 +2830,7 @@
       stat('Hyper', G.hyperUses + 'x') +
       stat('Bestwert', records.best.toLocaleString('de-DE')) +
       stat('Münzen gesamt', records.coins),
-      auftraegeHtml()
+      extraHtml()
     );
   }
 
@@ -2781,9 +3105,36 @@
     else startGame();
   });
 
+  if (el.ovExtra) {
+    el.ovExtra.addEventListener('click', function (e) {
+      var reiter = e.target.closest ? e.target.closest('[data-reiter]') : null;
+      if (reiter) {
+        aktiverReiter = reiter.getAttribute('data-reiter');
+        extraNeuZeichnen();
+        return;
+      }
+      var knopf = e.target.closest ? e.target.closest('[data-haut]') : null;
+      if (!knopf) return;
+      var id = knopf.getAttribute('data-haut');
+      var h = hautFinden(id);
+      if (hautOffen(h)) {
+        if (hautWaehlen(id)) { Sound.power(); extraNeuZeichnen(); }
+      } else if (hautKaufen(id)) {
+        Sound.hyper();
+        extraNeuZeichnen();
+      } else {
+        knopf.classList.remove('nein');
+        void knopf.offsetWidth;
+        knopf.classList.add('nein');
+      }
+    });
+    el.ovExtra.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+  }
+
   // Ein Tippen irgendwo auf das Overlay startet ebenfalls.
   el.overlay.addEventListener('pointerdown', function (e) {
     if (e.target === el.ovBtn || e.target === el.fsBtn) return;
+    if (el.ovExtra && el.ovExtra.contains && el.ovExtra.contains(e.target)) return;
     e.preventDefault();
     Sound.resume();
     if (state === 'pause') togglePause();

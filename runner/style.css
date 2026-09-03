@@ -411,6 +411,123 @@ body {
 
 .statgrid b.hi { color: var(--tinte); text-shadow: 2px 1.5px 0 var(--gelb); }
 
+/* Reiter zwischen Auftragsliste und Druckfarben */
+.reiter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  border-bottom: 1.5px solid var(--tinte);
+  background: var(--tinte);
+}
+
+.reiter button {
+  appearance: none;
+  cursor: pointer;
+  padding: 7px 14px;
+  font: 600 9.5px/1.2 var(--ui);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--papier);
+  background: transparent;
+  border: 0;
+  border-right: 1.5px solid var(--papier);
+}
+
+.reiter button.an { color: var(--tinte); background: var(--papier); }
+.reiter button:focus-visible { outline: 2px solid var(--gelb); outline-offset: -4px; }
+
+.reiter__stand {
+  flex: 1;
+  min-width: 140px;
+  padding: 6px 10px;
+  font-size: 8.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--papier);
+  text-align: right;
+  opacity: .8;
+}
+
+/* Druckfarben: die Sammlung, an der man sich entlanghangelt */
+.haeute {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 0;
+}
+
+.haut {
+  appearance: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 8px;
+  background: var(--papier);
+  border: 0;
+  border-right: 1.5px solid var(--tinte);
+  border-bottom: 1.5px solid var(--tinte);
+  text-align: left;
+  font: inherit;
+  opacity: .45;
+}
+
+.haut.offen, .haut.kaufbar { opacity: 1; }
+.haut.gewaehlt { background: var(--gelb); }
+.haut:focus-visible { outline: 2px solid var(--kobalt); outline-offset: -3px; }
+
+.haut span {
+  font: 700 9px/1.2 var(--ui);
+  letter-spacing: .12em;
+  color: var(--tinte);
+}
+
+.haut b {
+  font: 400 8.5px/1.2 var(--ui);
+  letter-spacing: .06em;
+  color: var(--tinte-hell);
+}
+
+.haut.kaufbar b { color: var(--gruen); font-weight: 700; }
+.haut.gewaehlt b { color: var(--tinte); font-weight: 700; }
+
+/* Vorschau der Druckart - dieselbe Idee wie im Spiel, nur in CSS */
+.haut__probe {
+  width: 100%;
+  height: 26px;
+  border: 1.5px solid var(--tinte);
+  background: var(--ink);
+}
+
+.haut--raster .haut__probe {
+  background:
+    radial-gradient(circle at 3px 3px, var(--papier) 1.6px, transparent 0) 0 0 / 6px 6px,
+    var(--ink);
+}
+
+.haut--duplex .haut__probe { background: linear-gradient(180deg, var(--ink) 50%, var(--ink2) 50%); }
+.haut--umriss .haut__probe { background: var(--papier); box-shadow: inset 0 0 0 4px var(--ink); }
+.haut--negativ .haut__probe { background: var(--tinte); }
+.haut--gold .haut__probe { background: linear-gradient(112deg, var(--ink) 40%, var(--papier) 48%, var(--ink) 56%); }
+.haut--fehldruck .haut__probe {
+  background: var(--pink);
+  box-shadow: inset 5px -3px 0 rgba(0, 166, 160, .85), inset -5px 3px 0 rgba(255, 198, 30, .8);
+}
+.haut--schablone .haut__probe {
+  background: repeating-linear-gradient(180deg, var(--tinte) 0 5px, var(--papier) 5px 9px);
+}
+.haut--regenbogen .haut__probe {
+  background: linear-gradient(180deg, var(--pink), var(--orange), var(--gelb), var(--gruen), var(--aqua), var(--kobalt));
+}
+
+.haut.nein { animation: nein .3s ease; }
+
+@keyframes nein {
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
 /* Auftragsliste: das Ziel jedes Laufs neben der reinen Punktzahl */
 .auftraege {
   margin: 0 0 18px;
@@ -422,6 +539,7 @@ body {
 
 .auftraege__titel {
   margin: 0;
+  border-top: 1.5px solid var(--tinte);
   padding: 7px 10px;
   font: 600 9.5px/1.2 var(--ui);
   letter-spacing: .22em;
@@ -616,6 +734,7 @@ kbd {
 
 @media (prefers-reduced-motion: reduce) {
   .toast.show { animation-duration: .01ms; }
+  .haut.nein { animation: none; }
   .hyper.ready .hyper__label { animation: none; }
 }
 

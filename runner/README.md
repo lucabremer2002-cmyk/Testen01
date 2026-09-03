@@ -145,6 +145,49 @@ naechsten Versuch, nicht nur die Punktzahl.
 * Mit jedem Rang bekommt die Figur eine **neue Tinte** – sichtbarer
   Fortschritt, der ueber Laeufe hinweg bleibt.
 
+### Druckfarben sammeln
+
+Zwoelf **Druckarten** – die Figur wird nicht umgezogen, sondern anders
+gedruckt. Der Trefferkoerper bleibt immer gleich, eine Druckart ist nie ein
+Vorteil, nur ein Anblick. Freigeschaltet wird auf drei Wegen:
+
+| Druckart | Aussehen | Freischaltung |
+| --- | --- | --- |
+| Kobalt | volle Tinte | von Anfang an |
+| Zinnober / Laub / Veilchen | volle Tinte | 150 / 400 / 800 Muenzen |
+| Raster | gerasterte Flaeche | 1400 Muenzen |
+| Duplex | zweifarbig geteilt | 2400 Muenzen |
+| Goldschnitt | Gold mit Glanzstreifen | 4000 Muenzen |
+| Umriss | nur Kontur auf Papier | 6 erfuellte Auftraege |
+| Negativ | volle dunkle Tinte | 1500 m in einem Lauf |
+| Fehldruck | drei versetzte Platten | 3 Druckplatten |
+| Schablone | gestreifte Aussparung | 7 Druckplatten |
+| Regenbogen | alle Tinten in Bewegung | 12 Druckplatten |
+
+Muenzen sind damit eine Waehrung mit Verwendung: was man einsammelt, laesst
+sich ausgeben. Gekaufte und verdiente Druckarten stehen im selben Raster,
+umschalten geht jederzeit auf dem Startschirm.
+
+### Druckplatten
+
+Seltene Sammelstuecke, die nur auf langen Laeufen auftauchen: fruehestens ab
+600 Metern, hoechstens eine je Lauf, und die Wahrscheinlichkeit steigt mit der
+Strecke. Gemessen ueber je 40 Laeufe fand eine Platte in
+
+* 0 % der Laeufe bis 400 m,
+* 8 % bis 900 m,
+* 43 % bis 1600 m,
+* 75 % bis 2600 m.
+
+Wer die letzte Druckart will, muss also wirklich weit kommen – nicht oft
+starten.
+
+### Farbrausch
+
+Alle zwanzig Muenzen in ununterbrochener Folge druckt die Welt fuenf Sekunden
+lang in wechselnden Farben, und jede Muenze zaehlt doppelt. Der Rausch haengt
+allein an der Kombo: er ist verdient, nicht zufaellig.
+
 ### Bestmarke
 
 Dort, wo der bisher weiteste Lauf endete, steht eine Fahne auf der Strecke.
@@ -178,8 +221,8 @@ ist. Wer die Marke passiert, bekommt Punkte, einen Farbblitz und die Meldung
   dann sieben Sekunden unverwundbar durch alles hindurch, dreifache Punkte.
 * **Kombo-System** bis x8 und **Beinahe-Treffer** mit Bonus und Zeitlupe.
 * **Prozeduraler Ton** ueber WebAudio, Tempo steigt mit der Geschwindigkeit.
-* **Bestwert, weiteste Strecke, Muenzen, Rang und Auftraege** liegen im
-  `localStorage`.
+* **Bestwert, weiteste Strecke, Muenzen, Guthaben, Druckplatten, Rang,
+  Auftraege und die gewaehlte Druckart** liegen im `localStorage`.
 
 ## Wie sich die Physik verhaelt
 
@@ -248,6 +291,8 @@ Schmuckfarben auf getoentem Papier arbeitet:
 | Meilenstein alle 250 m | 50 × Multiplikator |
 | Bestmarke passiert | 300 × Multiplikator |
 | Auftrag erfuellt | 400 × Multiplikator |
+| Druckplatte gefunden | 500 × Multiplikator |
+| Muenze im Farbrausch | doppelt |
 | Hindernis im Hyper-Modus zerlegt | 60 × Multiplikator |
 
 Der Multiplikator ist `1 + Kombo / 8` (hoechstens x8), verdoppelt sich mit dem
