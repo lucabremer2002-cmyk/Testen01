@@ -39,10 +39,32 @@ Steuerkreuz unten rutscht, B und die Schultertasten sind der Dash, Y zuendet
 den Hyper-Modus, der linke Stick und das Steuerkreuz lenken, Start pausiert.
 
 **Beruehrung**: Die gesamte Spielflaeche ist die Sprungtaste – der Sprung
-loest beim Aufsetzen des Fingers aus, laenger halten springt hoeher. Darunter
-liegt eine Knopfreihe fuer Lenken, Rutschen, Dash und Hyper. Wischgesten auf
+loest beim Aufsetzen des Fingers aus, laenger halten springt hoeher. Dazu
+kommt eine Knopfreihe fuer Lenken, Rutschen, Dash und Hyper. Wischgesten auf
 der Flaeche gehen ebenfalls: nach unten rutscht, nach rechts loest den Dash
 aus, nach oben zuendet den Hyper-Modus.
+
+## Auf dem Telefon
+
+Das Spiel ist fuer Querformat gebaut – ein Endlosrunner braucht Blick nach
+vorn, im Hochformat bleibt davon ein schmaler Streifen uebrig.
+
+* **Quer halten.** Dann fuellt das Bild den Schirm randlos: keine Raender,
+  keine Registermarken, keine Fusszeile. Gemessen auf einem 844 × 390
+  grossen Schirm: 100 Prozent der Hoehe statt 25 Prozent im Hochformat.
+* **Daumenzonen.** Im Querformat liegen die Lenkknoepfe unten links und
+  Rutschen, Dash, Hyper und Springen unten rechts, halbdurchsichtig ueber dem
+  Bild.
+* **Vollbild.** Auf dem Startschirm gibt es einen Knopf, der ins Vollbild
+  wechselt und dabei versucht, das Querformat festzuhalten. Wo der Browser
+  das nicht erlaubt – etwa in einem eingebetteten Rahmen oder auf iPhones –
+  verschwindet der Knopf von selbst.
+* **Sparmodus.** Bleiben mehr als 40 Bilder in Folge unter 33 Millisekunden
+  zurueck, fallen Wolken, Voegel, Baeume, Grasbueschel, Tempostriche und der
+  groesste Teil der Nachziehspur weg, bis es wieder rund laeuft.
+* Die Aufloesung der Zeichenflaeche ist auf Beruehrungsgeraeten auf das
+  1,25-fache begrenzt; mehr bringt bei 960 Punkten Breite nichts und kostet
+  nur Tempo.
 
 ### Zuruecknehmen und vorpreschen
 
@@ -172,3 +194,10 @@ game.js      Spiellogik, Streckenerzeugung, Ton und Rendering
   Muenze alle vier Meter.
 * Objekte hinter der Kamera werden jeden Frame verworfen, die Partikelzahl ist
   auf 420 begrenzt.
+* Der Hintergrund rechnet die Tintenmischung vorweg aus und zeichnet deckend,
+  statt pro Form den Mischmodus zu wechseln; Wolken, Baeume, Voegel und
+  Grasbueschel liegen in je einem gebuendelten Pfad, und die Rasterpunkte sind
+  ein zwischengespeichertes Muster statt einer Flaechenueberlagerung.
+  Papierkorn und Plattenkante liegen als CSS-Ebene ueber der Flaeche.
+  Gemessen bei vierfach gedrosselter Rechenleistung: 37 statt 6 Bilder je
+  Sekunde.

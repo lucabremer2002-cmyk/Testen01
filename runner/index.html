@@ -17,6 +17,7 @@
 
   <div class="stage" id="stage">
     <canvas id="game" width="960" height="540" aria-label="Spielfeld"></canvas>
+    <div class="korn" id="korn" aria-hidden="true"></div>
 
     <div class="hud" id="hud">
       <div class="hud__row hud__row--top">
@@ -54,6 +55,8 @@
         <p id="ovText">Leertaste oder Tippen zum Starten</p>
         <div class="statgrid" id="ovStats" hidden></div>
         <button id="ovBtn" type="button">Andruck starten</button>
+        <button id="fsBtn" type="button" class="fsbtn" hidden>Vollbild &amp; quer</button>
+        <p class="drehen" id="drehen" hidden>Quer halten gibt gut doppelt so viel Bild.</p>
         <ul class="legend">
           <li><kbd>Leer</kbd> / <kbd>W</kbd> Springen &middot; halten = h&ouml;her &middot; nochmal = Doppelsprung</li>
           <li><kbd>S</kbd> / <kbd>&darr;</kbd> Rutschen, solange gehalten &middot; in der Luft schneller fallen</li>
@@ -65,6 +68,8 @@
       </div>
     </div>
   </div>
+
+  <p class="drehhinweis">Quer halten &#8631; doppelt so viel Bild</p>
 
   <div class="strip" aria-hidden="true">SIEBEN FARBEN</div>
 </div>

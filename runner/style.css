@@ -29,6 +29,8 @@
 
 html, body { height: 100%; margin: 0; }
 
+html { overscroll-behavior: none; }
+
 body {
   background-color: var(--bogen);
   /* Papierkorn als feines Punktmuster */
@@ -48,6 +50,7 @@ body {
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
 }
 
 /* --------------------------------------------------------------- Andruckbogen */
@@ -89,6 +92,27 @@ body {
   width: 100%;
   height: 100%;
   touch-action: none;
+}
+
+/* Papierkorn und angedrueckte Plattenkante als eigene Ebene: das uebernimmt
+   der Compositor, statt jedes Bild neu auf die Zeichenflaeche zu malen. */
+.korn {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  opacity: .55;
+  background-repeat: repeat;
+  background-size: 96px 96px;
+}
+
+.korn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    rgba(34, 32, 30, .18) 0%, rgba(34, 32, 30, 0) 12%,
+    rgba(34, 32, 30, 0) 88%, rgba(34, 32, 30, .16) 100%);
 }
 
 /* Farbkontrollstreifen unter dem Bogen */
@@ -365,6 +389,45 @@ body {
 #ovBtn:active { transform: translate(3px, 3px); box-shadow: 2px 2px 0 var(--pink); }
 #ovBtn:focus-visible { outline: 3px solid var(--kobalt); outline-offset: 3px; }
 
+/* Vollbild nur dort anbieten, wo es auch etwas bringt */
+.fsbtn {
+  display: none;
+  margin: 10px auto 0;
+  padding: 9px 20px;
+  font: 600 11px/1 var(--ui);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--tinte);
+  background: var(--papier);
+  border: 2px solid var(--tinte);
+  box-shadow: 4px 4px 0 var(--aqua);
+  cursor: pointer;
+}
+
+.fsbtn[hidden] { display: none; }
+.fsbtn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--aqua); }
+
+.drehen {
+  margin: 10px 0 0 !important;
+  font-size: 10.5px !important;
+  letter-spacing: .1em;
+}
+
+.drehen[hidden] { display: none; }
+
+/* Hinweisband unter der Buehne - nur im Hochformat, nie ueber dem Bild */
+.drehhinweis {
+  display: none;
+  margin: 10px auto 0;
+  width: fit-content;
+  padding: 5px 14px;
+  font-size: 10px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--papier);
+  background: var(--tinte);
+}
+
 .legend {
   list-style: none;
   margin: 18px 0 0;
@@ -454,25 +517,54 @@ kbd {
   :root { --chrome: 186px; }
   .touch { display: flex; }
   .help { display: none; }
+  .fsbtn { display: block; }
+  .drehen { display: block; }
+  .touch button { touch-action: manipulation; }
 }
 
+/* Hochformat: Bild so breit wie moeglich, Hinweis aufs Drehen */
+@media (pointer: coarse) and (orientation: portrait) {
+  body { padding: 6px 0; }
+  .sheet { padding: 6px 4px; }
+  .marks, .strip { display: none; }
+  .drehhinweis { display: block; }
+}
+
+/* Querformat: randlos, das Bild bekommt den ganzen Schirm */
 @media (pointer: coarse) and (orientation: landscape) {
-  :root { --chrome: 60px; }
+  body { padding: 0; gap: 0; justify-content: center; }
+  .sheet { width: 100vw; width: 100dvw; padding: 0; }
+  .marks, .strip { display: none; }
+  .stage {
+    width: min(100vw, calc(100vh * 16 / 9));
+    width: min(100dvw, calc(100dvh * 16 / 9));
+    margin: 0 auto;
+    border: 0;
+    box-shadow: none;
+  }
+  /* Daumenzonen: lenken links, handeln rechts */
   .touch {
     position: fixed;
     inset: auto 0 0 0;
-    justify-content: flex-end;
-    align-items: flex-end;
-    padding: 8px 14px;
+    padding: 10px 16px;
+    gap: 10px;
     pointer-events: none;
   }
-  .touch button { pointer-events: auto; }
-  .strip { display: none; }
+  .touch__gap { flex: 1 1 auto; }
+  .touch button { pointer-events: auto; opacity: .78; }
+  .touch button.big { opacity: .88; }
+  /* Die Hyper-Leiste muss ueber der Knopfreihe bleiben */
+  .hud { padding-bottom: 74px; }
 }
 
 @media (max-width: 520px) {
   .touch { gap: 7px; }
-  .touch button { width: 48px; height: 48px; font-size: 17px; }
-  .touch button.big { width: 64px; height: 64px; font-size: 22px; }
+  .touch button { width: 50px; height: 50px; font-size: 17px; }
+  .touch button.big { width: 66px; height: 66px; font-size: 22px; }
   .touch__gap { flex: 0 1 10px; }
+}
+
+/* Im Querformat duerfen die Knoepfe wieder auseinanderruecken */
+@media (pointer: coarse) and (orientation: landscape) and (max-width: 960px) {
+  .touch__gap { flex: 1 1 auto; }
 }

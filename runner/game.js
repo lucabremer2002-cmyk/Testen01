@@ -316,6 +316,9 @@
     ovStats: document.getElementById('ovStats'),
     ovBtn: document.getElementById('ovBtn'),
     touch: document.getElementById('touch'),
+    fsBtn: document.getElementById('fsBtn'),
+    drehen: document.getElementById('drehen'),
+    sheet: document.querySelector('.sheet'),
     btnHyper: document.getElementById('btnHyper'),
     soundState: document.getElementById('soundState')
   };
@@ -1319,6 +1322,42 @@
   function tinteB(a) { return rgba(G.inkB, a); }
   function tinte(a) { return 'rgba(34,32,30,' + (a === undefined ? 1 : a) + ')'; }
 
+  // Zwei Tinten uebereinander multiplizieren sich. Fuer den Hintergrund rechnen
+  // wir das Ergebnis vorweg aus und zeichnen deckend - das spart pro Bild
+  // dutzende Wechsel des Mischmodus, die auf Telefonen teuer sind.
+  function multRgb(a, b) {
+    return [a[0] * b[0] / 255, a[1] * b[1] / 255, a[2] * b[2] / 255];
+  }
+
+  function aufPapierFarbe(ink, deckung) {
+    return multRgb(G.paper, mixRgb([255, 255, 255], ink, deckung));
+  }
+
+  // Rasterfuellung als Muster: eine Flaeche, ein Fuellvorgang.
+  var musterVorrat = {};
+  function rasterFuellung(grund, punkt) {
+    var key = (grund[0] | 0) + '_' + (grund[1] | 0) + '_' + (grund[2] | 0) + '_'
+            + (punkt[0] | 0) + '_' + (punkt[1] | 0) + '_' + (punkt[2] | 0);
+    var vorhanden = musterVorrat[key];
+    if (vorhanden) return vorhanden;
+    var c = document.createElement('canvas');
+    c.width = c.height = 6;
+    var g = c.getContext('2d');
+    g.fillStyle = rgba(grund, 1);
+    g.fillRect(0, 0, 6, 6);
+    g.fillStyle = rgba(punkt, 1);
+    g.beginPath();
+    g.arc(3, 3, 1.75, 0, 6.2832);
+    g.fill();
+    var muster = ctx.createPattern(c, 'repeat');
+    // Der Vorrat bleibt klein: bei einem Zonenwechsel kommen wenige Toene dazu.
+    var anzahl = 0;
+    for (var k in musterVorrat) anzahl++;
+    if (anzahl > 40) musterVorrat = {};
+    musterVorrat[key] = muster;
+    return muster;
+  }
+
   function multiplizieren() { ctx.globalCompositeOperation = 'multiply'; }
   function normalModus() { ctx.globalCompositeOperation = 'source-over'; }
 
@@ -1364,50 +1403,31 @@
     ctx.closePath();
   }
 
-  // ---- Rasterpunkte und Papierkorn
+  // ---- Sparmodus
 
-  var rasterMuster = null, rasterSchluessel = '';
-  var kornMuster = null;
+  // Auf schwachen Geraeten fallen zuerst die teuren Zierden weg.
+  var sparsam = false;
+  var langsameBilder = 0;
 
-  function rasterHolen() {
-    var key = (G.paper[0] | 0) + ',' + (G.paper[1] | 0) + ',' + (G.paper[2] | 0);
-    if (key !== rasterSchluessel || !rasterMuster) {
-      rasterSchluessel = key;
-      var c = document.createElement('canvas');
-      c.width = c.height = 6;
-      var g = c.getContext('2d');
-      g.fillStyle = rgba(G.paper, 1);
-      g.beginPath();
-      g.arc(3, 3, 1.75, 0, 6.2832);
-      g.fill();
-      rasterMuster = ctx.createPattern(c, 'repeat');
-    }
-    return rasterMuster;
+  function tempoPruefen(dt) {
+    if (dt > 0.030) langsameBilder++;
+    else if (langsameBilder > 0) langsameBilder--;
+    if (!sparsam && langsameBilder > 40) sparsam = true;
+    else if (sparsam && langsameBilder === 0) sparsam = false;
   }
 
-  // Papierfarbene Punkte ueber einer Tinte ergeben eine gerasterte Flaeche.
-  function raster(x, y, w, h, a) {
-    ctx.save();
-    ctx.globalAlpha = a === undefined ? 0.5 : a;
-    ctx.fillStyle = rasterHolen();
-    ctx.fillRect(x, y, w, h);
-    ctx.restore();
-  }
+  // ---- Farben dieses Bildes, einmal vorweg berechnet
 
-  function kornHolen() {
-    if (kornMuster) return kornMuster;
-    var c = document.createElement('canvas');
-    c.width = c.height = 96;
-    var g = c.getContext('2d');
-    var bild = g.createImageData(96, 96);
-    for (var i = 0; i < bild.data.length; i += 4) {
-      var v = 255 - Math.floor(Math.random() * 40);
-      bild.data[i] = bild.data[i + 1] = bild.data[i + 2] = v;
-      bild.data[i + 3] = 255;
-    }
-    g.putImageData(bild, 0, 0);
-    kornMuster = ctx.createPattern(c, 'repeat');
-    return kornMuster;
+  var F = {};
+  function farbenSetzen() {
+    F.papier = rgba(G.paper, 1);
+    F.fern = aufPapierFarbe(G.inkB, 0.4);
+    F.mittel = aufPapierFarbe(G.inkA, 0.5);
+    F.baum = aufPapierFarbe(G.inkA, 0.76);
+    F.nah = aufPapierFarbe(G.inkA, 0.8);
+    F.erde = aufPapierFarbe(G.inkA, 0.34);
+    F.wolke = rgba(aufPapierFarbe(G.inkA, 0.16), 1);
+    F.sonne = aufPapierFarbe(G.inkB, 0.8);
   }
 
   // ---- Hintergrund
@@ -1418,153 +1438,146 @@
     return baseY - amp * (0.5 + 0.5 * Math.sin(wx + seed) * Math.cos(wx * 0.41 + seed * 1.7));
   }
 
-  function huegel(scroll, baseY, amp, wl, farbe, seed, zweit) {
-    var zeichne = function () {
-      ctx.beginPath();
-      ctx.moveTo(0, H);
-      for (var x = 0; x <= W; x += 10) ctx.lineTo(x, huegelY(x, scroll, baseY, amp, wl, seed));
-      ctx.lineTo(W, H);
-      ctx.closePath();
-    };
-    gedruckt(zeichne, farbe, zweit);
+  function huegelPfad(scroll, baseY, amp, wl, seed, schritt) {
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (var x = 0; x <= W; x += schritt) ctx.lineTo(x, huegelY(x, scroll, baseY, amp, wl, seed));
+    ctx.lineTo(W, huegelY(W, scroll, baseY, amp, wl, seed));
+    ctx.lineTo(W, H);
+    ctx.closePath();
   }
 
   function drawPaper() {
-    ctx.fillStyle = papier(1);
+    ctx.fillStyle = F.papier;
     ctx.fillRect(0, 0, W, H);
 
-    // Grosse Rasterscheibe als Sonne
-    var cx = W * 0.76, cy = GROUND_Y - 215;
-    var r = 92;
-    gedruckt(function () { ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832); },
-             tinteB(0.85), tinteA(0.45));
-    ctx.save();
+    // Sonne als grosse Rasterscheibe
+    var cx = W * 0.76, cy = GROUND_Y - 215, r = 92;
+    ctx.fillStyle = rasterFuellung(F.sonne, G.paper);
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, 6.2832);
-    ctx.clip();
-    raster(cx - r, cy - r, r * 2, r * 2, 0.42);
-    ctx.restore();
-    // Duenner Tintenring als Kante der Druckform
-    ctx.strokeStyle = tinte(0.35);
+    ctx.fill();
+    ctx.strokeStyle = tinte(0.3);
     ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, 6.2832);
     ctx.stroke();
 
-    // Wolken aus weichen Klecksen
+    if (sparsam) return;
+
+    // Alle Wolken in einem einzigen Zug
     var wolkeScroll = G.worldX * 0.05;
+    ctx.fillStyle = F.wolke;
+    ctx.beginPath();
     for (var i = 0; i < 7; i++) {
-      var wx = (i * 340 - wolkeScroll % (7 * 340) + 7 * 340) % (7 * 340) - 120;
+      var wx = (i * 340 - wolkeScroll % 2380 + 2380) % 2380 - 120;
       var wy = 60 + hash(i * 3.7) * 130;
       var ws = 0.7 + hash(i + 21) * 0.7;
-      multiplizieren();
-      ctx.fillStyle = tinteA(0.16);
-      ctx.beginPath();
+      ctx.moveTo(wx + 34 * ws, wy);
       ctx.arc(wx, wy, 34 * ws, 0, 6.2832);
+      ctx.moveTo(wx + 64 * ws, wy + 6 * ws);
       ctx.arc(wx + 38 * ws, wy + 6 * ws, 26 * ws, 0, 6.2832);
+      ctx.moveTo(wx - 12 * ws, wy + 8 * ws);
       ctx.arc(wx - 34 * ws, wy + 8 * ws, 22 * ws, 0, 6.2832);
-      ctx.fill();
-      normalModus();
     }
+    ctx.fill();
 
-    // Voegel als kleine Haken
-    ctx.strokeStyle = tinte(0.45);
+    // Voegel ebenfalls in einem Zug
+    ctx.strokeStyle = tinte(0.42);
     ctx.lineWidth = 2;
+    ctx.beginPath();
     var vScroll = G.worldX * 0.09;
     for (var v = 0; v < 5; v++) {
       var vx = (v * 260 - vScroll % 1300 + 1300) % 1300 - 60;
       var vy = 70 + hash(v + 55) * 90 + Math.sin(G.time * 1.6 + v) * 5;
       var vs = 5 + hash(v + 8) * 4;
-      ctx.beginPath();
       ctx.moveTo(vx - vs, vy);
       ctx.quadraticCurveTo(vx, vy - vs * 0.8, vx + vs, vy);
-      ctx.stroke();
     }
+    ctx.stroke();
   }
 
   function drawHills() {
-    // Ferne Kette, stark gerastert
-    huegel(G.worldX * 0.06, GROUND_Y + 10, 150, 260, tinteB(0.4), 1.3, null);
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(0, H);
-    for (var x = 0; x <= W; x += 10) ctx.lineTo(x, huegelY(x, G.worldX * 0.06, GROUND_Y + 10, 150, 260, 1.3));
-    ctx.lineTo(W, H);
-    ctx.closePath();
-    ctx.clip();
-    raster(0, 0, W, H, 0.55);
-    ctx.restore();
+    var schritt = sparsam ? 30 : 16;
 
-    // Mittlere Kette mit Baumreihe
+    huegelPfad(G.worldX * 0.06, GROUND_Y + 10, 150, 260, 1.3, schritt);
+    ctx.fillStyle = rasterFuellung(F.fern, G.paper);
+    ctx.fill();
+
     var scroll = G.worldX * 0.16;
-    huegel(scroll, GROUND_Y + 26, 96, 175, tinteA(0.5), 4.1, tinteB(0.22));
-    for (var i = -1; i < 22; i++) {
-      var bx = i * 76 - (scroll % 76);
-      var by = huegelY(bx, scroll, GROUND_Y + 26, 96, 175, 4.1);
-      var idx = Math.floor((scroll + bx) / 76);
-      if (hash(idx * 1.7) < 0.42) continue;
-      var hoehe = 26 + hash(idx + 3) * 26;
-      multiplizieren();
-      ctx.fillStyle = tinteA(0.72);
+    huegelPfad(scroll, GROUND_Y + 26, 96, 175, 4.1, schritt);
+    ctx.fillStyle = rgba(F.mittel, 1);
+    ctx.fill();
+
+    // Baumreihe: ein Pfad, ein Fuellvorgang
+    if (!sparsam) {
+      ctx.fillStyle = rgba(F.baum, 1);
       ctx.beginPath();
-      ctx.moveTo(bx, by + 4);
-      ctx.lineTo(bx + 7, by - hoehe);
-      ctx.lineTo(bx + 14, by + 4);
-      ctx.closePath();
+      for (var i = -1; i < 22; i++) {
+        var bx = i * 76 - (scroll % 76);
+        var idx = Math.floor((scroll + bx) / 76);
+        if (hash(idx * 1.7) < 0.42) continue;
+        var by = huegelY(bx, scroll, GROUND_Y + 26, 96, 175, 4.1);
+        var hoehe = 26 + hash(idx + 3) * 26;
+        ctx.moveTo(bx, by + 4);
+        ctx.lineTo(bx + 7, by - hoehe);
+        ctx.lineTo(bx + 14, by + 4);
+        ctx.closePath();
+        ctx.moveTo(bx + 6, by);
+        ctx.rect(bx + 6, by, 3, 6);
+      }
       ctx.fill();
-      ctx.fillRect(bx + 6, by, 3, 6);
-      normalModus();
     }
 
-    // Nahe Kette, fast volle Deckung
-    huegel(G.worldX * 0.36, GROUND_Y + 46, 62, 130, tinteA(0.8), 8.4, tinteB(0.3));
+    huegelPfad(G.worldX * 0.36, GROUND_Y + 46, 62, 130, 8.4, schritt);
+    ctx.fillStyle = rgba(F.nah, 1);
+    ctx.fill();
   }
 
   function drawGround() {
+    var erdMuster = rasterFuellung(F.erde, G.paper);
     for (var i = 0; i < G.platforms.length; i++) {
       var p = G.platforms[i];
       var x = p.x - G.worldX;
       if (x > W + 40 || x + p.w < -40) continue;
 
       if (p.solid) {
-        // Gerasterte Erdflaeche mit handgeschnittener Oberkante
-        multiplizieren();
-        ctx.fillStyle = tinteA(0.3);
+        // Erdflaeche: ein Pfad, eine Rasterfuellung
+        // Ein Pixel Ueberstand an beiden Seiten, sonst blitzt an der Naht
+        // zweier Bodenstuecke eine helle Linie durch.
         ctx.beginPath();
-        ctx.moveTo(x, p.y + 3);
-        for (var sx = 0; sx <= p.w; sx += 12) {
+        ctx.moveTo(x - 1, H);
+        ctx.lineTo(x - 1, p.y);
+        for (var sx = 0; sx <= p.w; sx += 16) {
           ctx.lineTo(x + sx, p.y + Math.sin((p.x + sx) * 0.021) * 2.2);
         }
-        ctx.lineTo(x + p.w, H);
-        ctx.lineTo(x, H);
+        ctx.lineTo(x + p.w + 1, p.y + Math.sin((p.x + p.w) * 0.021) * 2.2);
+        ctx.lineTo(x + p.w + 1, H);
         ctx.closePath();
+        ctx.fillStyle = erdMuster;
         ctx.fill();
-        normalModus();
-        raster(x, p.y, p.w, H - p.y, 0.68);
 
-        // Kraeftige Tintenkante
-        ctx.fillStyle = tinte(0.9);
+        // Kraeftige Tintenkante als Strich statt als Flaeche
+        ctx.strokeStyle = tinte(0.9);
+        ctx.lineWidth = 5;
         ctx.beginPath();
-        ctx.moveTo(x, p.y + 6);
-        for (var kx = 0; kx <= p.w; kx += 12) {
+        for (var kx = 0; kx <= p.w; kx += 16) {
           ctx.lineTo(x + kx, p.y + Math.sin((p.x + kx) * 0.021) * 2.2);
         }
-        ctx.lineTo(x + p.w, p.y + 6);
-        ctx.closePath();
-        ctx.fill();
+        ctx.stroke();
 
-        // Grasbueschel und Steine als Druckdetails
-        var schritt = 46;
-        var erste = Math.ceil((p.x) / schritt) * schritt;
-        for (var gx = erste; gx < p.x + p.w; gx += schritt) {
-          var hh = hash(gx * 0.013);
-          if (hh < 0.45) continue;
-          var sxx = gx - G.worldX;
+        // Grasbueschel gebuendelt in einem Zug
+        if (!sparsam) {
           ctx.strokeStyle = tinte(0.5);
           ctx.lineWidth = 1.6;
           ctx.beginPath();
-          ctx.moveTo(sxx, p.y + 1);
-          ctx.lineTo(sxx + (hh - 0.5) * 8, p.y - 6 - hh * 5);
+          var schritt = 46;
+          var erste = Math.ceil(p.x / schritt) * schritt;
+          for (var gx = erste; gx < p.x + p.w; gx += schritt) {
+            var hh = hash(gx * 0.013);
+            if (hh < 0.45) continue;
+            var sxx = gx - G.worldX;
+            ctx.moveTo(sxx, p.y + 1);
+            ctx.lineTo(sxx + (hh - 0.5) * 8, p.y - 6 - hh * 5);
+          }
           ctx.stroke();
         }
       } else {
@@ -1792,7 +1805,8 @@
 
     // Nachziehende Spur als Geisterdrucke
     multiplizieren();
-    for (var i = 0; i < G.trail.length; i++) {
+    var abVon = sparsam ? Math.max(0, G.trail.length - 4) : 0;
+    for (var i = abVon; i < G.trail.length; i++) {
       var tr = G.trail[i];
       var a = (i / G.trail.length) * (hyper ? 0.4 : (G.dashT > 0 ? 0.35 : 0.12));
       ctx.globalAlpha = a;
@@ -1822,11 +1836,6 @@
     if (G.inv > 0 && !hyper && Math.floor(G.time * 22) % 2 === 0) ctx.globalAlpha = 0.4;
 
     aufPapier(function () { roundRect(x, y, PW, h, 8); }, koerper, tinteB(0.45));
-    ctx.save();
-    roundRect(x, y, PW, h, 8);
-    ctx.clip();
-    raster(x, y + h * 0.6, PW, h, 0.22);
-    ctx.restore();
     ctx.strokeStyle = tinte(0.92);
     ctx.lineWidth = 2.5;
     roundRect(x, y, PW, h, 8);
@@ -1889,66 +1898,39 @@
   }
 
   function drawPrintFx() {
-    // Tempo als Tintenstriche
+    // Tempo als Tintenstriche, gebuendelt in einem Pfad
     var sf = clamp((G.speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN), 0, 1)
            + (G.dashT > 0 ? 0.6 : 0) + (G.hyperT > 0 ? 0.7 : 0);
-    if (sf > 0.2) {
-      multiplizieren();
-      ctx.fillStyle = tinte(0.1 + 0.12 * Math.min(1, sf));
-      for (var i = 0; i < 14; i++) {
+    if (sf > 0.2 && !sparsam) {
+      ctx.fillStyle = tinte(0.1 + 0.1 * Math.min(1, sf));
+      ctx.beginPath();
+      for (var i = 0; i < 12; i++) {
         var seed = Math.floor(G.time * 20) + i * 13;
         var y = hash(seed) * H;
         var len = 40 + hash(seed + 1) * 160 * sf;
         var x = hash(seed + 2) * (W + 300) - (G.time * 800 % (W + 300));
-        ctx.fillRect(x, y, len, 2);
+        ctx.rect(x, y, len, 2);
       }
-      normalModus();
+      ctx.fill();
     }
 
-    if (G.hyperT > 0) {
+    // Waschungen: selten genug, um den Mischmodus zu rechtfertigen
+    var wasch = null, staerke = 0;
+    if (G.flash > 0) { wasch = inkFromHue(G.flashHue); staerke = Math.min(0.45, G.flash * 0.5); }
+    else if (G.hyperT > 0) { wasch = inkFromHue(G.time * 700); staerke = 0.12; }
+    else if (G.powers.slow > 0 || G.slowT > 0) { wasch = POWERS.slow.ink; staerke = 0.1; }
+    if (wasch) {
       multiplizieren();
-      ctx.fillStyle = rgba(hex2rgb(inkFromHue(G.time * 700)), 0.12);
+      ctx.fillStyle = rgba(hex2rgb(wasch), staerke);
       ctx.fillRect(0, 0, W, H);
       normalModus();
     }
-
-    if (G.powers.slow > 0 || G.slowT > 0) {
-      multiplizieren();
-      ctx.fillStyle = rgba(hex2rgb(POWERS.slow.ink), 0.1);
-      ctx.fillRect(0, 0, W, H);
-      normalModus();
-    }
-
-    // Farbblitz als Tintenwaesche
-    if (G.flash > 0) {
-      multiplizieren();
-      ctx.fillStyle = rgba(hex2rgb(inkFromHue(G.flashHue)), Math.min(0.45, G.flash * 0.5));
-      ctx.fillRect(0, 0, W, H);
-      normalModus();
-    }
-
-    // Papierkorn ueber allem
-    ctx.save();
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.55;
-    ctx.fillStyle = kornHolen();
-    ctx.fillRect(0, 0, W, H);
-    ctx.restore();
-
-    // Angedrueckte Plattenkante
-    var rand2 = ctx.createLinearGradient(0, 0, 0, H);
-    rand2.addColorStop(0, 'rgba(34,32,30,.16)');
-    rand2.addColorStop(0.12, 'rgba(34,32,30,0)');
-    rand2.addColorStop(0.88, 'rgba(34,32,30,0)');
-    rand2.addColorStop(1, 'rgba(34,32,30,.14)');
-    ctx.save();
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = rand2;
-    ctx.fillRect(0, 0, W, H);
-    ctx.restore();
+    // Papierkorn und Plattenkante liegen als CSS-Ebene ueber der Flaeche -
+    // das erledigt der Compositor und kostet kein Bild pro Sekunde.
   }
 
   function render() {
+    farbenSetzen();
     ctx.save();
     if (G.shake > 0.2) ctx.translate(rand(-G.shake, G.shake), rand(-G.shake, G.shake));
     drawPaper();
@@ -2256,6 +2238,59 @@
     toast('GAMEPAD BEREIT', 140);
   });
 
+  // ------------------------------------------------------------------ Vollbild
+  //
+  // Auf dem Telefon ist Querformat im Vollbild der einzige Weg zu einem
+  // Bild, auf dem man wirklich etwas sieht. Wo der Browser das nicht erlaubt
+  // (etwa in einem eingebetteten Rahmen oder auf iPhones), verschwindet der
+  // Knopf, und es bleibt beim Hinweis aufs Drehen.
+  var vollbildMoeglich = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+
+  function imVollbild() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+
+  function vollbildUmschalten() {
+    var ziel = el.sheet || document.documentElement;
+    if (imVollbild()) {
+      var raus = document.exitFullscreen || document.webkitExitFullscreen;
+      if (raus) { try { raus.call(document); } catch (e) { /* egal */ } }
+      return;
+    }
+    var rein = ziel.requestFullscreen || ziel.webkitRequestFullscreen;
+    if (!rein) { el.fsBtn.hidden = true; return; }
+    var versprechen;
+    try { versprechen = rein.call(ziel, { navigationUI: 'hide' }); } catch (e) { versprechen = null; }
+    var danach = function () {
+      // Querformat festhalten, wo der Browser es zulaesst.
+      if (screen.orientation && screen.orientation.lock) {
+        try {
+          var l = screen.orientation.lock('landscape');
+          if (l && l.catch) l.catch(function () { /* nicht erlaubt, kein Problem */ });
+        } catch (e) { /* egal */ }
+      }
+    };
+    if (versprechen && versprechen.then) versprechen.then(danach, function () { el.fsBtn.hidden = true; });
+    else danach();
+  }
+
+  function vollbildKnopfPflegen() {
+    if (!el.fsBtn) return;
+    el.fsBtn.hidden = !vollbildMoeglich;
+    el.fsBtn.textContent = imVollbild() ? 'Vollbild verlassen' : 'Vollbild & quer';
+    if (el.drehen) el.drehen.hidden = imVollbild();
+  }
+
+  if (el.fsBtn) {
+    el.fsBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      vollbildUmschalten();
+    });
+    el.fsBtn.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+    document.addEventListener('fullscreenchange', function () { vollbildKnopfPflegen(); resize(); });
+    document.addEventListener('webkitfullscreenchange', function () { vollbildKnopfPflegen(); resize(); });
+  }
+
   el.ovBtn.addEventListener('click', function (e) {
     e.stopPropagation();
     Sound.resume();
@@ -2265,7 +2300,7 @@
 
   // Ein Tippen irgendwo auf das Overlay startet ebenfalls.
   el.overlay.addEventListener('pointerdown', function (e) {
-    if (e.target === el.ovBtn) return;
+    if (e.target === el.ovBtn || e.target === el.fsBtn) return;
     e.preventDefault();
     Sound.resume();
     if (state === 'pause') togglePause();
@@ -2279,7 +2314,10 @@
   // ------------------------------------------------------------------- Schleife
 
   function resize() {
-    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Auf Telefonen kostet jede zusaetzliche Bildpunktebene spuerbar Tempo,
+    // und die Flaeche rechnet ohnehin schon mit 960 Punkten Breite.
+    var grob = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    var dpr = Math.min(window.devicePixelRatio || 1, grob ? 1.25 : 2);
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2297,6 +2335,7 @@
     var dt = (now - lastFrame) / 1000;
     lastFrame = now;
     if (dt > 0.25) dt = 0.25;
+    tempoPruefen(dt);
 
     // Zeitlupe: kurzer Effekt bei Beinahe-Treffern, laenger per Power-up
     var target = 1;
@@ -2330,7 +2369,25 @@
 
   // -------------------------------------------------------------------- Start
 
+  // Papierkorn einmal erzeugen und als CSS-Ebene ueber die Flaeche legen.
+  (function kornEbene() {
+    var ziel = document.getElementById('korn');
+    if (!ziel) return;
+    var c = document.createElement('canvas');
+    c.width = c.height = 96;
+    var g = c.getContext('2d');
+    var bild = g.createImageData(96, 96);
+    for (var i = 0; i < bild.data.length; i += 4) {
+      var v = 255 - Math.floor(Math.random() * 40);
+      bild.data[i] = bild.data[i + 1] = bild.data[i + 2] = v;
+      bild.data[i + 3] = 255;
+    }
+    g.putImageData(bild, 0, 0);
+    try { ziel.style.backgroundImage = 'url(' + c.toDataURL('image/png') + ')'; } catch (e) { /* egal */ }
+  }());
+
   resize();
+  vollbildKnopfPflegen();
   newGame();
   el.zone.textContent = ZONES[0].name + ' · ' + ZONES[0].a + '/' + ZONES[0].b;
   el.best.textContent = records.best.toLocaleString('de-DE');
