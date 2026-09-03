@@ -38,11 +38,13 @@ python3 -m http.server 8000
 Steuerkreuz unten rutscht, B und die Schultertasten sind der Dash, Y zuendet
 den Hyper-Modus, der linke Stick und das Steuerkreuz lenken, Start pausiert.
 
-**Beruehrung**: Die gesamte Spielflaeche ist die Sprungtaste – der Sprung
-loest beim Aufsetzen des Fingers aus, laenger halten springt hoeher. Dazu
-kommt eine Knopfreihe fuer Lenken, Rutschen, Dash und Hyper. Wischgesten auf
-der Flaeche gehen ebenfalls: nach unten rutscht, nach rechts loest den Dash
-aus, nach oben zuendet den Hyper-Modus.
+**Beruehrung**: Die Spielflaeche ist in zwei Zonen geteilt – **linke Haelfte
+rutschen, rechte Haelfte springen**. Beide loesen beim Aufsetzen des Fingers
+aus, halten laesst hoeher springen beziehungsweise laenger rutschen, und beide
+Daumen duerfen gleichzeitig liegen. Uebrig bleiben vier kleine Knoepfe: Lenken
+unten links, Dash und Hyper unten rechts. Wischgesten gehen zusaetzlich: nach
+rechts loest den Dash aus, nach oben den Hyper-Modus, nach unten wechselt vom
+Sprung aufs Rutschen.
 
 ## Auf dem Telefon
 
@@ -52,9 +54,15 @@ vorn, im Hochformat bleibt davon ein schmaler Streifen uebrig.
 * **Quer halten.** Dann fuellt das Bild den Schirm randlos: keine Raender,
   keine Registermarken, keine Fusszeile. Gemessen auf einem 844 × 390
   grossen Schirm: 100 Prozent der Hoehe statt 25 Prozent im Hochformat.
-* **Daumenzonen.** Im Querformat liegen die Lenkknoepfe unten links und
-  Rutschen, Dash, Hyper und Springen unten rechts, halbdurchsichtig ueber dem
-  Bild.
+* **Zwei Zonen statt vieler Knoepfe.** Die beiden Bewegungen, die im Takt
+  sitzen muessen, bekommen je eine Bildschirmhaelfte: die groesstmoegliche
+  Trefferflaeche, kein Zielen noetig, keine Verzoegerung durch
+  Gestenerkennung, und beide Daumen duerfen gleichzeitig liegen. Nur die
+  selteneren Befehle sind Knoepfe – und der Hyper-Knopf bleibt gedaempft, bis
+  die Leiste voll ist.
+* **Kurzes Ruetteln** ueber die Vibration-API bei den wenigen Momenten, die es
+  tragen: Tod, Hyper-Modus, erfuellter Auftrag, passierte Bestmarke. Nicht bei
+  jedem Sprung, und aus, wenn der Ton aus ist.
 * **Vollbild.** Auf dem Startschirm gibt es einen Knopf, der ins Vollbild
   wechselt und dabei versucht, das Querformat festzuhalten. Wo der Browser
   das nicht erlaubt – etwa in einem eingebetteten Rahmen oder auf iPhones –
@@ -172,6 +180,34 @@ ist. Wer die Marke passiert, bekommt Punkte, einen Farbblitz und die Meldung
 * **Prozeduraler Ton** ueber WebAudio, Tempo steigt mit der Geschwindigkeit.
 * **Bestwert, weiteste Strecke, Muenzen, Rang und Auftraege** liegen im
   `localStorage`.
+
+## Wie sich die Physik verhaelt
+
+Die Werte folgen den ueblichen Kniffen aus dem Plattformer-Handwerk. Wichtig
+war dabei, immer nur eine Familie von Werten zu aendern und danach neu zu
+messen, statt an mehreren Schrauben gleichzeitig zu drehen.
+
+* **Weiche Schwerkraft beim Steigen, harte beim Fallen.** Nahe dem
+  Scheitelpunkt (unter 190 px/s) wirken nur 62 Prozent der Schwerkraft, beim
+  Fallen 125 Prozent. Oben bleibt Zeit zum Zielen, unten wird die Landung
+  knackig.
+* **Endgeschwindigkeit im Fall: 1350 px/s.** Ohne diese Grenze wird ein Sturz
+  aus grosser Hoehe so schnell, dass er nicht mehr zu steuern ist.
+* **Nachsichtiger Trefferkoerper.** Fuer Hindernisse wird die Figur um 5 px an
+  den Seiten und 4 px oben und unten kleiner geprueft, als sie gezeichnet ist.
+  Was nur die Ecke streift, toetet nicht mehr – der haeufigste Grund fuer ein
+  „das war doch gar nicht getroffen".
+* **Schnellfall nur auf frischen Druck.** Die Rutschtaste zieht die Figur in
+  der Luft nur dann nach unten, wenn sie dort frisch gedrueckt wurde. Ein
+  Daumen, der auf der Rutschzone liegen bleibt, wuerde sonst jeden Sprung
+  sofort wieder abwuergen.
+* **Rutschen schiebt an** (+140 px/s) und ist damit mehr als nur Ausweichen –
+  dafuer ist es nach 1,2 Sekunden vorbei.
+* **Stauchen und Strecken.** Beim Absprung streckt sich die Figur, bei der
+  Landung staucht sie sich – umso staerker, je haerter der Aufprall. Die
+  Fuesse bleiben dabei stehen.
+* **Fester Zeitschritt von 1/120 s**, hoechstens zehn pro Bild: die Physik
+  bleibt unabhaengig von der Bildrate gleich.
 
 ## Das Aussehen
 

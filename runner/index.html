@@ -19,6 +19,10 @@
     <canvas id="game" width="960" height="540" aria-label="Spielfeld"></canvas>
     <div class="korn" id="korn" aria-hidden="true"></div>
 
+    <div class="zonen" id="zonen" aria-hidden="true">
+      <span>&#9660; Rutschen</span><span>Springen &#9650;</span>
+    </div>
+
     <div class="hud" id="hud">
       <div class="hud__row hud__row--top">
         <div class="hud__block">
@@ -66,6 +70,7 @@
           <li><kbd>Shift</kbd> / <kbd>X</kbd> Dash &middot; zerlegt Kisten</li>
           <li><kbd>E</kbd> Hyper-Modus, wenn die Leiste voll ist</li>
           <li><kbd>P</kbd> Pause &middot; <kbd>R</kbd> Neustart &middot; <kbd>M</kbd> Ton &middot; Gamepad wird erkannt</li>
+          <li class="nurtouch">Am Bildschirm: <b>linke H&auml;lfte rutschen</b>, <b>rechte H&auml;lfte springen</b> &middot; nach rechts wischen = Dash</li>
         </ul>
       </div>
     </div>
@@ -80,10 +85,8 @@
   <button type="button" data-act="left" aria-label="Zur&uuml;cknehmen">&#9664;</button>
   <button type="button" data-act="right" aria-label="Vorpreschen">&#9654;</button>
   <span class="touch__gap"></span>
-  <button type="button" data-act="slide" aria-label="Rutschen">&#9660;</button>
-  <button type="button" data-act="dash" aria-label="Dash">&raquo;</button>
   <button type="button" data-act="hyper" id="btnHyper" aria-label="Hyper">&#10022;</button>
-  <button type="button" data-act="jump" class="big" aria-label="Springen">&#9650;</button>
+  <button type="button" data-act="dash" class="big" aria-label="Dash">&raquo;</button>
 </div>
 
 <footer class="help">

@@ -306,6 +306,33 @@ body {
   100% { opacity: 0; transform: translate(-50%, -80%) scale(1) rotate(-1deg); }
 }
 
+/* Zwei Beruehrungszonen - in den ersten Metern kurz beschriftet */
+.zonen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .35s ease;
+}
+
+.zonen span {
+  position: absolute;
+  bottom: 13%;                /* tief genug, um das Spielgeschehen freizulassen */
+  font: 600 clamp(9px, 1.4vw, 12px) var(--ui);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--papier);
+  background: var(--tinte);
+  padding: 5px 11px;
+}
+
+.zonen span:first-child { left: 12%; }
+.zonen span:last-child { right: 12%; }
+.zonen.an { opacity: .92; }
+
+.nurtouch { display: none; }
+
 /* ------------------------------------------------------------------ Overlays */
 
 .overlay {
@@ -595,12 +622,17 @@ kbd {
 /* --------------------------------------------- Beruehrungsgeraete zuletzt */
 
 @media (pointer: coarse) {
-  :root { --chrome: 186px; }
+  :root { --chrome: 176px; }
   .touch { display: flex; }
   .help { display: none; }
   .fsbtn { display: block; }
   .drehen { display: block; }
+  .zonen { display: block; }
+  .nurtouch { display: list-item; }
   .touch button { touch-action: manipulation; }
+  /* Der Hyperknopf bleibt gedaempft, bis die Leiste voll ist. */
+  .touch button[data-act="hyper"] { opacity: .5; }
+  .touch button[data-act="hyper"].armed { opacity: 1; background: var(--gelb); }
 }
 
 /* Hochformat: Bild so breit wie moeglich, Hinweis aufs Drehen */
@@ -632,8 +664,10 @@ kbd {
     pointer-events: none;
   }
   .touch__gap { flex: 1 1 auto; }
-  .touch button { pointer-events: auto; opacity: .78; }
-  .touch button.big { opacity: .88; }
+  .touch button { pointer-events: auto; opacity: .72; }
+  .touch button.big { opacity: .85; }
+  .touch button[data-act="hyper"] { opacity: .45; }
+  .touch button[data-act="hyper"].armed { opacity: 1; }
   /* Die Hyper-Leiste muss ueber der Knopfreihe bleiben */
   .hud { padding-bottom: 74px; }
 }

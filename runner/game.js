@@ -32,6 +32,10 @@
   var COYOTE = 0.12;            // Gnadenfrist nach dem Verlassen der Kante
   var INPUT_BUFFER = 0.15;      // so lange wartet ein zu frueh gedrueckter Knopf
   var FAST_FALL = 2.6;
+  var MAX_FALL = 1350;          // Endgeschwindigkeit im Fall - darunter bleibt
+                                // auch ein tiefer Sturz noch steuerbar
+  var HIT_X = 5;                // Nachsicht am Trefferkoerper: die Figur wird
+  var HIT_Y = 4;                // schmaler geprueft, als sie gezeichnet wird
   var APEX_VY = 190;            // Geschwindigkeitsfenster um den Scheitelpunkt
   var APEX_GRAVITY = 0.62;      // dort haengt die Figur laenger in der Luft
   var FALL_GRAVITY = 1.25;      // dafuer faellt sie danach zackiger
@@ -49,6 +53,7 @@
   var DASH_CD = 1.05;
   var DASH_BOOST = 640;
 
+  var SLIDE_BOOST = 140;        // Rutschen schiebt spuerbar an
   var SLIDE_MIN = 0.20;         // kuerzestes Rutschen, damit ein Tipp nicht zuckt
   var SLIDE_MAX = 1.20;         // laenger nur, solange etwas ueber dem Kopf haengt
   var SLIDE_CD = 0.20;
@@ -348,6 +353,7 @@
     drehen: document.getElementById('drehen'),
     sheet: document.querySelector('.sheet'),
     btnHyper: document.getElementById('btnHyper'),
+    zonen: document.getElementById('zonen'),
     soundState: document.getElementById('soundState')
   };
 
@@ -464,6 +470,7 @@
       G.score += bonus;
       G.meter = Math.min(100, G.meter + 12);
       toast('AUFTRAG ERFUELLT', INKS.gruen.hue, auftragArt(a.id).text.replace('{z}', a.ziel));
+      rumpeln([30, 50, 60]);
       floatText(G.worldX + G.screenX, G.py - 40, '+' + bonus, INKS.gruen.hue, 26);
       flash(0.35, INKS.gruen.hue);
       Sound.hyper();
@@ -546,6 +553,9 @@
       inv: 0,
       shield: 0,
       run: 0,                   // Laufanimation
+      squash: 0,                // >0 gestaucht (Landung), <0 gestreckt (Absprung)
+      fastFall: false,
+      rutschVorher: false,
       screenX: PLAYER_X,        // Bildschirmposition, per Lenken verschiebbar
       lean: 0,
       jumpAge: 9,               // Zeit seit dem letzten Absprung
@@ -1033,6 +1043,13 @@
   }
 
   function shake(amount) { G.shake = Math.max(G.shake, amount); }
+
+  // Kurzes Ruetteln auf Geraeten, die das koennen - nur bei den wenigen
+  // Momenten, die es tragen, nicht bei jedem Sprung.
+  function rumpeln(muster) {
+    if (!Sound.isOn() || !navigator.vibrate) return;
+    try { navigator.vibrate(muster); } catch (e) { /* egal */ }
+  }
   function flash(amount, hue) { G.flash = Math.max(G.flash, amount); G.flashHue = hue === undefined ? G.hue : hue; }
   function slowmo(seconds) { G.slowT = Math.max(G.slowT, seconds); }
 
@@ -1055,6 +1072,7 @@
       G.coyote = 0;
       G.jumpAge = 0;
       G.cutArmed = true;
+      G.squash = -0.35;                  // beim Absprung streckt sie sich
       endSlide();
       Sound.jump();
       burst(G.worldX + G.screenX + PW / 2, G.py + G.h, 10, {
@@ -1065,6 +1083,7 @@
       G.jumps = 2;
       G.jumpAge = 0;
       G.cutArmed = true;
+      G.squash = -0.28;
       endSlide();
       Sound.dJump();
       burst(G.worldX + G.screenX + PW / 2, G.py + G.h / 2, 18, {
@@ -1129,6 +1148,7 @@
     endSlide();
     Sound.hyper();
     shake(16);
+    rumpeln([25, 40, 25, 40, 60]);
     flash(0.85, G.hue + 180);
     toast('HYPER!', 55);
     burst(G.worldX + G.screenX + PW / 2, G.py + G.h / 2, 90, {
@@ -1184,13 +1204,18 @@
       G.comboTimer -= dt;
       if (G.comboTimer <= 0 && G.combo > 0) G.combo = 0;
     }
+    if (G.squash !== 0) {
+      G.squash += (0 - G.squash) * Math.min(1, dt * 11);
+      if (Math.abs(G.squash) < 0.005) G.squash = 0;
+    }
     if (G.shake > 0) G.shake = Math.max(0, G.shake - dt * 26);
     if (G.flash > 0) G.flash = Math.max(0, G.flash - dt * 2.4);
 
     // --- Vorwaertsbewegung
     var ramp = clamp(G.worldX / SPEED_RAMP, 0, 1);
     G.speed = lerp(SPEED_MIN, SPEED_MAX, ramp * ramp * 0.55 + ramp * 0.45);
-    var speed = G.speed + (G.dashT > 0 ? DASH_BOOST : 0) + (G.hyperT > 0 ? 340 : 0);
+    var speed = G.speed + (G.dashT > 0 ? DASH_BOOST : 0) + (G.hyperT > 0 ? 340 : 0)
+              + (G.sliding ? SLIDE_BOOST : 0);
     var moved = speed * dt;
     G.worldX += moved;
     G.dist = G.worldX / PX_PER_M;
@@ -1230,6 +1255,14 @@
       input.slide.buffer = 0;
       startSlide();
     }
+    // Schnellfall nur, wenn die Taste in der Luft frisch gedrueckt wird. Sonst
+    // wuerde ein Daumen, der auf der Rutschzone liegen bleibt, jeden Sprung
+    // sofort wieder zu Boden ziehen.
+    var rutschJetzt = held('slide');
+    if (!G.onGround && rutschJetzt && !G.rutschVorher) G.fastFall = true;
+    if (G.onGround || !rutschJetzt) G.fastFall = false;
+    G.rutschVorher = rutschJetzt;
+
     if (G.sliding) {
       G.slideT += dt;
       var blockiert = !canStand();
@@ -1270,8 +1303,9 @@
       var g = GRAVITY;
       if (Math.abs(G.vy) < APEX_VY) g *= APEX_GRAVITY;   // laengerer Scheitelpunkt
       else if (G.vy > 0) g *= FALL_GRAVITY;              // danach zackiger Fall
-      if (!G.onGround && held('slide')) g = GRAVITY * FAST_FALL;
+      if (!G.onGround && G.fastFall) g = GRAVITY * FAST_FALL;
       G.vy += g * dt;
+      if (G.vy > MAX_FALL) G.vy = MAX_FALL;
       G.py += G.vy * dt;
     }
 
@@ -1290,6 +1324,8 @@
       }
       if (landed) {
         if (!G.onGround) {
+          // Je haerter der Aufprall, desto staerker staucht die Figur.
+          G.squash = clamp(G.vy / 1100, 0, 1) * 0.55;
           Sound.land();
           burst(px + PW / 2, G.py + G.h, 8, {
             angle: -Math.PI / 2, spread: 1.2, minSpeed: 40, maxSpeed: 160, grav: 800, hue: G.hue + 150
@@ -1430,7 +1466,10 @@
   }
 
   function updateObstacles(px) {
-    var box = { x: px, y: G.py, w: PW, h: G.h };
+    // Der Trefferkoerper ist etwas kleiner als die gezeichnete Figur. Damit
+    // toetet nicht mehr, was nur die Ecke streift - der haeufigste Grund fuer
+    // ein "das war doch gar nicht getroffen".
+    var box = { x: px + HIT_X, y: G.py + HIT_Y, w: PW - HIT_X * 2, h: G.h - HIT_Y * 2 };
 
     for (var i = 0; i < G.obstacles.length; i++) {
       var o = G.obstacles[i];
@@ -1574,6 +1613,7 @@
     if (!G.rekordGeknackt && records.dist > 60 && G.dist >= records.dist) {
       G.rekordGeknackt = true;
       toast('BESTMARKE!', INKS.gelb.hue, 'ab hier ist alles neu');
+      rumpeln([20, 30, 20, 30, 90]);
       flash(0.5, INKS.gelb.hue);
       shake(10);
       G.score += 300 * multiplier();
@@ -1615,6 +1655,7 @@
     state = 'over';
     Sound.hit();
     shake(24);
+    rumpeln([40, 60, 120]);
     flash(0.8, 0);
     var px = G.worldX + G.screenX + PW / 2;
     burst(px, G.py + G.h / 2, 80, {
@@ -2217,21 +2258,29 @@
     ctx.save();
     if (G.inv > 0 && !hyper && Math.floor(G.time * 22) % 2 === 0) ctx.globalAlpha = 0.4;
 
-    aufPapier(function () { roundRect(x, y, PW, h, 8); }, koerper, tinteB(0.45));
+    // Stauchen und Strecken: die Fuesse bleiben stehen, der Koerper gibt nach.
+    var sq = clamp(G.squash, -0.45, 0.6);
+    var bw = PW * (1 + sq * 0.45);
+    var bh = h * (1 - sq * 0.45);
+    var bx = x - (bw - PW) / 2;
+    var by = y + h - bh;
+
+    aufPapier(function () { roundRect(bx, by, bw, bh, 8); }, koerper, tinteB(0.45));
     ctx.strokeStyle = tinte(0.92);
     ctx.lineWidth = 2.5;
-    roundRect(x, y, PW, h, 8);
+    roundRect(bx, by, bw, bh, 8);
     ctx.stroke();
 
-    // Augen als ausgesparte Papierflaechen
-    var ey = y + (G.sliding ? 8 : 15);
+    // Augen als ausgesparte Papierflaechen, sie wandern mit dem Koerper
+    var ey = by + bh * (G.sliding ? 0.28 : 0.3);
+    var ax = bx + bw * 0.28, bx2 = bx + bw * 0.61;
     ctx.fillStyle = papier(1);
-    ctx.fillRect(x + 13, ey, 8, 10);
-    ctx.fillRect(x + 24, ey, 8, 10);
+    ctx.fillRect(ax, ey, 8, 10);
+    ctx.fillRect(bx2, ey, 8, 10);
     ctx.fillStyle = tinte(0.92);
     var blick = clamp(G.vy / 900, -1, 1) * 2;
-    ctx.fillRect(x + 16, ey + 3 + blick, 4, 5);
-    ctx.fillRect(x + 27, ey + 3 + blick, 4, 5);
+    ctx.fillRect(ax + 2, ey + 3 + blick, 4, 5);
+    ctx.fillRect(bx2 + 2, ey + 3 + blick, 4, 5);
     ctx.restore();
 
     // Schild als Stempelkranz
@@ -2353,6 +2402,8 @@
         el.bestWrap.hidden = true;
       }
     }
+
+    if (el.zonen) el.zonen.classList.toggle('an', state === 'play' && G.dist < 55);
 
     el.hyperFill.style.width = G.meter.toFixed(1) + '%';
     if (G.hyperT > 0) {
@@ -2554,49 +2605,64 @@
   var touchButtons = el.touch.querySelectorAll('button');
   for (var b = 0; b < touchButtons.length; b++) bindTouch(touchButtons[b]);
 
-  // Die gesamte Spielflaeche ist die Sprungtaste: der Sprung loest beim
-  // Aufsetzen des Fingers aus, laenger halten springt hoeher. Wischen loest
-  // zusaetzlich Rutschen, Dash oder Hyper aus.
-  var swipe = null;
+  // Beruehrung: zwei Zonen statt vieler Knoepfe.
+  //
+  // Die beiden Bewegungen, die im Takt sitzen muessen - springen und rutschen -
+  // bekommen je eine Bildschirmhaelfte. Das sind die groessten denkbaren
+  // Trefferflaechen, sie loesen beim Aufsetzen des Fingers aus (keine
+  // Verzoegerung durch Gestenerkennung) und lassen sich mit beiden Daumen
+  // gleichzeitig halten. Die selteneren Befehle bleiben kleine Knoepfe.
+  var zeiger = {};
+
+  function zonenAnteil(e) {
+    var rechteck = canvas.getBoundingClientRect();
+    if (!rechteck.width) return 1;
+    return (e.clientX - rechteck.left) / rechteck.width;
+  }
 
   canvas.addEventListener('pointerdown', function (e) {
     e.preventDefault();
-    if (canvas.setPointerCapture && e.pointerId !== undefined) {
-      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* nicht schlimm */ }
-    }
-    swipe = { x: e.clientX, y: e.clientY, action: 'jump' };
-    primaryAction();
+    // Mit der Maus bleibt die ganze Flaeche der Sprungknopf.
+    var links = e.pointerType === 'touch' && zonenAnteil(e) < 0.45;
+    var zone = links ? 'slide' : 'jump';
+    zeiger[e.pointerId] = { zone: zone, x: e.clientX, y: e.clientY, gewischt: false };
+    if (zone === 'jump') primaryAction();
+    else { Sound.resume(); press('slide'); }
   });
 
   canvas.addEventListener('pointermove', function (e) {
-    if (!swipe || swipe.action !== 'jump' || state !== 'play') return;
-    var dx = e.clientX - swipe.x;
-    var dy = e.clientY - swipe.y;
-    if (dy > 46 && dy > Math.abs(dx)) {
-      release('jump');
-      swipe.action = 'slide';
-      press('slide');
-    } else if (dx > 64 && dx > Math.abs(dy)) {
-      release('jump');
-      swipe.action = 'dash';
+    var z = zeiger[e.pointerId];
+    if (!z || z.gewischt || state !== 'play') return;
+    var dx = e.clientX - z.x;
+    var dy = e.clientY - z.y;
+    if (dx > 64 && dx > Math.abs(dy)) {
+      z.gewischt = true;
       press('dash');
       release('dash');
-    } else if (-dy > 76 && -dy > Math.abs(dx)) {
-      release('jump');
-      swipe.action = 'hyper';
+    } else if (-dy > 78 && -dy > Math.abs(dx)) {
+      z.gewischt = true;
       press('hyper');
       release('hyper');
+    } else if (z.zone === 'jump' && dy > 54 && dy > Math.abs(dx)) {
+      // Nach unten gewischt: vom Sprung aufs Rutschen wechseln.
+      z.gewischt = true;
+      release('jump');
+      z.zone = 'slide';
+      press('slide');
     }
   });
 
-  function endSwipe() {
-    if (swipe) release(swipe.action);
-    else release('jump');
-    swipe = null;
+  function zeigerEnde(e) {
+    var z = zeiger[e.pointerId];
+    if (!z) return;
+    release(z.zone);
+    delete zeiger[e.pointerId];
   }
 
-  canvas.addEventListener('pointerup', endSwipe);
-  canvas.addEventListener('pointercancel', endSwipe);
+  // Am Fenster, nicht an der Flaeche: sonst bleibt eine Taste haengen, wenn
+  // der Finger ueber den Rand hinausrutscht.
+  window.addEventListener('pointerup', zeigerEnde);
+  window.addEventListener('pointercancel', zeigerEnde);
 
   // ----------------------------------------------------------------- Gamepad
 
