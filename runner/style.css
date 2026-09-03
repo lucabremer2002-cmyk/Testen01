@@ -94,6 +94,9 @@ body {
   touch-action: none;
 }
 
+/* Im Sparmodus faellt auch die Kornebene weg. */
+.stage.sparsam .korn { display: none; }
+
 /* Papierkorn und angedrueckte Plattenkante als eigene Ebene: das uebernimmt
    der Compositor, statt jedes Bild neu auf die Zeichenflaeche zu malen. */
 .korn {

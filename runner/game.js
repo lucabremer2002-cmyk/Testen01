@@ -53,6 +53,22 @@
   var DASH_CD = 1.05;
   var DASH_BOOST = 640;
 
+  // --- Tricks
+  //
+  // In der Luft dreht dieselbe Taste, die am Boden rutscht. Halten dreht
+  // weiter, Loslassen haelt den Winkel an - man muss also selbst abschaetzen,
+  // wann die Drehung voll ist. Sauber gelandet gibt es Punkte, quer gelandet
+  // einen Sturz. Das ist die Entscheidung, die jedem Sprung Inhalt gibt.
+  var TAU = Math.PI * 2;
+  var SPIN_SPEED = 15;          // rad/s - eine Umdrehung in gut 0,4 Sekunden
+  var SPIN_TOL = 0.2;           // erlaubte Abweichung von der vollen Drehung
+  var SPIN_GRAV = 1.3;          // eingerollt faellt es sich schneller
+  var STUMBLE_TIME = 0.45;      // so lange stolpert man nach einem Sturz
+  var STOMP_V = 640;            // Absprung nach einem Kopftreffer
+  var STOMP_MIN_VY = 110;       // erst ab dieser Fallgeschwindigkeit zaehlt er
+  var FLOW_BOOST = 170;         // Tempozuschlag nach einem gelungenen Trick
+  var FLOW_TIME = 2.2;          // so lange haelt er - Koennen wird zu Tempo
+
   var SLIDE_BOOST = 140;        // Rutschen schiebt spuerbar an
   var SLIDE_MIN = 0.20;         // kuerzestes Rutschen, damit ein Tipp nicht zuckt
   var SLIDE_MAX = 1.20;         // laenger nur, solange etwas ueber dem Kopf haengt
@@ -78,6 +94,8 @@
   // Strecke wird ueber die ersten drei Kilometer stetig voller.
   var STUFEN = [
     { ab: 120,  art: 'spike',   name: 'STACHELN',        hinweis: 'Drueberspringen' },
+    { ab: 200,  art: 'salto',   name: 'SALTO',           hinweis: 'In der Luft die Rutschtaste druecken - voll drehen und sauber landen' },
+    { ab: 380,  art: 'absprung', name: 'ABSPRUNG',       hinweis: 'Von oben auf Kisten und Drohnen springen' },
     { ab: 280,  art: 'pit',     name: 'GRUBEN',          hinweis: 'Taste halten springt weiter' },
     { ab: 460,  art: 'crate',   name: 'KISTEN',          hinweis: 'Der Dash zerlegt sie' },
     { ab: 680,  art: 'drone',   name: 'DROHNEN',         hinweis: 'Drunter durchrutschen' },
@@ -286,6 +304,16 @@
       },
       near:   function () { tone(1200, 0.09, 'sine', 0.16, 1900); },
       spring: function () { tone(170, 0.3, 'sine', 0.32, 940); noise(0.1, 0.1); },
+      trick: function (drehungen) {
+        var c = ensure();
+        if (!c) return;
+        for (var i = 0; i < drehungen + 1; i++) {
+          tone(520 * Math.pow(1.26, i), 0.12, 'triangle', 0.24, 900 * Math.pow(1.26, i),
+               c.currentTime + i * 0.07);
+        }
+      },
+      stomp: function () { tone(120, 0.16, 'square', 0.3, 60); noise(0.12, 0.16); },
+      stumble: function () { tone(300, 0.3, 'sawtooth', 0.26, 70); noise(0.24, 0.14); },
       crumble: function () { noise(0.3, 0.16); tone(140, 0.26, 'triangle', 0.16, 60); },
       hyper:  function () {
         var c = ensure();
@@ -392,6 +420,8 @@
     { id: 'federn',  feld: 'springs',    basis: 3,    wachstum: 2,   text: 'Nutze {z} Sprungfedern' },
     { id: 'dash',    feld: 'dashBreaks', basis: 3,    wachstum: 2,   text: 'Zerlege {z} Kisten per Dash' },
     { id: 'punkte',  feld: 'score',      basis: 1500, wachstum: 800, text: 'Hole {z} Punkte in einem Lauf' },
+    { id: 'salto',   feld: 'tricks',     basis: 3,    wachstum: 2,   text: 'Lande {z} Saltos' },
+    { id: 'absprung', feld: 'stomps',    basis: 4,    wachstum: 3,   text: 'Spring {z}-mal von oben auf ein Hindernis' },
     { id: 'gmuenzen', feld: 'coins', gesamt: true, basis: 120, wachstum: 90,  text: 'Sammle {z} Muenzen insgesamt' },
     { id: 'gmeter',   feld: 'meter', gesamt: true, basis: 2500, wachstum: 1800, text: 'Lauf {z} Meter insgesamt' }
   ];
@@ -639,6 +669,16 @@
       squash: 0,                // >0 gestaucht (Landung), <0 gestreckt (Absprung)
       fastFall: false,
       rutschVorher: false,
+      spin: 0,                  // aufgelaufener Drehwinkel in der Luft
+      spinAn: false,            // dreht gerade
+      spinScharf: false,        // in der Luft frisch gedrueckt
+      stumbleT: 0,
+      luftKette: 0,             // Tricks und Absprünge ohne Bodenkontakt
+      luftPunkte: 0,
+      tricks: 0,
+      stomps: 0,
+      flowT: 0,
+      prevBottom: 0,
       screenX: PLAYER_X,        // Bildschirmposition, per Lenken verschiebbar
       lean: 0,
       jumpAge: 9,               // Zeit seit dem letzten Absprung
@@ -1165,7 +1205,7 @@
   }
 
   function doJump() {
-    if (G.hyperT > 0) return;
+    if (G.hyperT > 0 || G.stumbleT > 0) return;
     if (G.onGround || G.coyote > 0) {
       G.vy = -JUMP_V;
       G.jumps = 1;
@@ -1203,6 +1243,66 @@
       if (aabb(box, obstacleBox(o))) return false;
     }
     return true;
+  }
+
+  // Wie ist die Drehung ausgegangen? Volle Umdrehungen zaehlen, alles
+  // dazwischen ist ein Sturz.
+  function trickAbschluss() {
+    var drehungen = G.spin / TAU;
+    G.spin = 0;
+    if (drehungen <= 0.3) return;                 // gar nicht ernsthaft gedreht
+
+    var voll = Math.round(drehungen);
+    var abweichung = Math.abs(drehungen - voll);
+    if (voll >= 1 && abweichung <= SPIN_TOL) {
+      var punkte = 60 * voll * voll * multiplier();
+      G.luftPunkte += punkte;
+      G.luftKette++;
+      G.tricks++;
+      G.meter = Math.min(100, G.meter + 3 * voll);
+      G.flowT = FLOW_TIME;                  // Koennen wird sofort zu Tempo
+      Sound.trick(voll);
+      floatText(G.worldX + G.screenX, G.py - 26,
+                (voll === 1 ? 'SALTO' : voll + 'ER SALTO') + ' +' + punkte, INKS.gruen.hue, 22 + voll * 2);
+      burst(G.worldX + G.screenX + PW / 2, G.py + G.h, 18 + voll * 8, {
+        angle: -Math.PI / 2, spread: 1.4, minSpeed: 90, maxSpeed: 320,
+        grav: 700, hue: INKS.gruen.hue, hueSpread: 60
+      });
+    } else {
+      stolpern();
+    }
+  }
+
+  // Quer gelandet: kein Tod, aber die Kette ist weg und es geht kurz zaeh weiter.
+  function stolpern() {
+    G.stumbleT = STUMBLE_TIME;
+    G.luftKette = 0;
+    G.luftPunkte = 0;
+    G.combo = 0;
+    G.squash = 0.6;
+    shake(9);
+    rumpeln(60);
+    Sound.stumble();
+    floatText(G.worldX + G.screenX, G.py - 20, 'GESTOLPERT', 0, 22);
+    burst(G.worldX + G.screenX + PW / 2, G.py + G.h, 24, {
+      angle: Math.PI, spread: 1.1, minSpeed: 120, maxSpeed: 360, grav: 900,
+      hue: 20, hueSpread: 30, square: true
+    });
+  }
+
+  // Alles, was ohne Bodenkontakt gelang, wird bei der Landung gutgeschrieben.
+  function luftketteEinloesen() {
+    if (G.luftKette < 1 || G.luftPunkte <= 0) { G.luftKette = 0; G.luftPunkte = 0; return; }
+    var faktor = 1 + (G.luftKette - 1) * 0.5;
+    var summe = Math.round(G.luftPunkte * faktor);
+    G.score += summe;
+    if (G.luftKette >= 2) {
+      toast('KETTE x' + G.luftKette, INKS.gruen.hue, '+' + summe + ' Punkte');
+      flash(0.22, INKS.gruen.hue);
+      Sound.power();
+    }
+    G.luftKette = 0;
+    G.luftPunkte = 0;
   }
 
   function startSlide() {
@@ -1271,6 +1371,39 @@
     return { x: o.x, y: o.y, w: o.w, h: o.h };
   }
 
+  // Kopfsprung auf ein Hindernis: zerlegt es, federt ab und fuellt die Kette.
+  function absprung(o, b) {
+    killObstacle(o, INKS.gruen.hue);
+    G.stomps++;
+    G.py = b.y - G.h - 1;
+    G.vy = -STOMP_V;
+    G.jumps = 1;
+    G.onGround = false;          // sonst haelt die Landepruefung uns am Boden
+    G.squash = -0.32;
+    var punkte = 120 * multiplier();
+    G.luftPunkte += punkte;
+    G.luftKette++;
+    G.meter = Math.min(100, G.meter + 5);
+    G.flowT = FLOW_TIME;
+
+    // Eine laufende Drehung wird hier gutgeschrieben, ohne Sturzrisiko.
+    var voll = Math.round(G.spin / TAU);
+    if (voll >= 1) {
+      G.luftPunkte += 60 * voll * voll * multiplier();
+      G.tricks++;
+      Sound.trick(voll);
+    }
+    G.spin = 0;
+
+    Sound.stomp();
+    shake(6);
+    floatText(b.x, b.y - 16, 'ABSPRUNG +' + punkte, INKS.gruen.hue, 24);
+    burst(b.x + b.w / 2, b.y, 22, {
+      angle: -Math.PI / 2, spread: 1.5, minSpeed: 110, maxSpeed: 380,
+      grav: 700, hue: INKS.gruen.hue, hueSpread: 70
+    });
+  }
+
   function killObstacle(o, hue) {
     o.dead = 1;
     var b = obstacleBox(o);
@@ -1290,6 +1423,8 @@
     if (G.dashCD > 0) G.dashCD -= dt;
     if (G.inv > 0) G.inv -= dt;
     if (G.slideCD > 0) G.slideCD -= dt;
+    if (G.stumbleT > 0) G.stumbleT -= dt;
+    if (G.flowT > 0) G.flowT -= dt;
     if (G.slowT > 0) G.slowT -= dt;
     if (G.rauschT > 0) {
       G.rauschT -= dt;
@@ -1319,8 +1454,9 @@
     // --- Vorwaertsbewegung
     var ramp = clamp(G.worldX / SPEED_RAMP, 0, 1);
     G.speed = lerp(SPEED_MIN, SPEED_MAX, ramp * ramp * 0.55 + ramp * 0.45);
-    var speed = G.speed + (G.dashT > 0 ? DASH_BOOST : 0) + (G.hyperT > 0 ? 340 : 0)
-              + (G.sliding ? SLIDE_BOOST : 0);
+    var speed = (G.speed + (G.dashT > 0 ? DASH_BOOST : 0) + (G.hyperT > 0 ? 340 : 0)
+              + (G.sliding ? SLIDE_BOOST : 0) + (G.flowT > 0 ? FLOW_BOOST : 0))
+              * (G.stumbleT > 0 ? 0.62 : 1);
     var moved = speed * dt;
     G.worldX += moved;
     G.dist = G.worldX / PX_PER_M;
@@ -1360,13 +1496,15 @@
       input.slide.buffer = 0;
       startSlide();
     }
-    // Schnellfall nur, wenn die Taste in der Luft frisch gedrueckt wird. Sonst
-    // wuerde ein Daumen, der auf der Rutschzone liegen bleibt, jeden Sprung
-    // sofort wieder zu Boden ziehen.
+    // In der Luft dreht die Rutschtaste. Sie muss dort frisch gedrueckt werden -
+    // ein Daumen, der auf der Zone liegen bleibt, loest also keinen Salto aus.
     var rutschJetzt = held('slide');
-    if (!G.onGround && rutschJetzt && !G.rutschVorher) G.fastFall = true;
-    if (G.onGround || !rutschJetzt) G.fastFall = false;
+    if (!G.onGround && rutschJetzt && !G.rutschVorher && G.hyperT <= 0) G.spinScharf = true;
+    if (G.onGround || !rutschJetzt) G.spinScharf = false;
     G.rutschVorher = rutschJetzt;
+
+    G.spinAn = G.spinScharf && !G.onGround && G.dashT <= 0 && G.hyperT <= 0;
+    if (G.spinAn) G.spin += SPIN_SPEED * dt;
 
     if (G.sliding) {
       G.slideT += dt;
@@ -1408,7 +1546,7 @@
       var g = GRAVITY;
       if (Math.abs(G.vy) < APEX_VY) g *= APEX_GRAVITY;   // laengerer Scheitelpunkt
       else if (G.vy > 0) g *= FALL_GRAVITY;              // danach zackiger Fall
-      if (!G.onGround && G.fastFall) g = GRAVITY * FAST_FALL;
+      if (G.spinAn) g *= SPIN_GRAV;            // eingerollt faellt es sich schneller
       G.vy += g * dt;
       if (G.vy > MAX_FALL) G.vy = MAX_FALL;
       G.py += G.vy * dt;
@@ -1431,6 +1569,8 @@
         if (!G.onGround) {
           // Je haerter der Aufprall, desto staerker staucht die Figur.
           G.squash = clamp(G.vy / 1100, 0, 1) * 0.55;
+          trickAbschluss();
+          luftketteEinloesen();
           Sound.land();
           burst(px + PW / 2, G.py + G.h, 8, {
             angle: -Math.PI / 2, spread: 1.2, minSpeed: 40, maxSpeed: 160, grav: 800, hue: G.hue + 150
@@ -1446,6 +1586,8 @@
         if (G.coyote > 0) G.coyote -= dt;
       }
     }
+
+    G.prevBottom = prevBottom;
 
     // --- Sturz in eine Grube
     if (G.py > H + 90) { die('grube'); return; }
@@ -1631,6 +1773,14 @@
             grav: 500, hue: 96, hueSpread: 40
           });
         }
+        continue;
+      }
+
+      // Von oben drauf: das zerlegt Kiste, Drohne oder Riegel und federt ab.
+      // Aus einer Gefahr wird damit eine Gelegenheit - der Kern des Spasses.
+      if ((o.type === 'crate' || o.type === 'drone' || o.type === 'block') &&
+          G.vy > STOMP_MIN_VY && G.prevBottom <= b.y + 16 && G.hyperT <= 0 && aabb(box, b)) {
+        absprung(o, b);
         continue;
       }
 
@@ -1922,8 +2072,16 @@
   function tempoPruefen(dt) {
     if (dt > 0.030) langsameBilder++;
     else if (langsameBilder > 0) langsameBilder--;
+    var vorher = sparsam;
     if (!sparsam && langsameBilder > 40) sparsam = true;
     else if (sparsam && langsameBilder === 0) sparsam = false;
+    // Gemessen liegt die Zeit nicht in der Spiellogik, sondern im Rastern der
+    // Flaeche. Der wirksamste Hebel ist darum weniger Bildpunkte.
+    if (sparsam !== vorher) {
+      resize();
+      var stage = document.querySelector('.stage');
+      if (stage) stage.classList.toggle('sparsam', sparsam);
+    }
   }
 
   // ---- Farben dieses Bildes, einmal vorweg berechnet
@@ -2546,6 +2704,14 @@
     ctx.save();
     if (G.inv > 0 && !hyper && Math.floor(G.time * 22) % 2 === 0) ctx.globalAlpha = 0.4;
 
+    // Salto: die Zeichnung dreht sich, der Trefferkoerper bleibt gerade.
+    if (G.spin !== 0 || G.stumbleT > 0) {
+      var winkel = G.spin + (G.stumbleT > 0 ? Math.sin(G.time * 40) * 0.14 : 0);
+      ctx.translate(x + PW / 2, y + h / 2);
+      ctx.rotate(winkel);
+      ctx.translate(-(x + PW / 2), -(y + h / 2));
+    }
+
     // Stauchen und Strecken: die Fuesse bleiben stehen, der Koerper gibt nach.
     var sq = clamp(G.squash, -0.45, 0.6);
     var bw = PW * (1 + sq * 0.45);
@@ -2570,6 +2736,23 @@
     ctx.fillRect(ax + 2, ey + 3 + blick, 4, 5);
     ctx.fillRect(bx2 + 2, ey + 3 + blick, 4, 5);
     ctx.restore();
+
+    // Zaehler ueber der Figur: wie weit ist die Drehung, wie lang die Kette?
+    ctx.textAlign = 'center';
+    if (G.spin > 0.28 * TAU) {
+      var stand = G.spin / TAU;
+      var naechste = Math.round(stand);
+      var passt = naechste >= 1 && Math.abs(stand - naechste) <= SPIN_TOL;
+      ctx.font = '700 16px "Azeret Mono", ui-monospace, monospace';
+      ctx.fillStyle = passt ? INKS.gruen.hex : tinte(0.55);
+      ctx.fillText(stand.toFixed(1) + '\u00d7', x + PW / 2, y - 16);
+    }
+    if (G.luftKette > 0) {
+      ctx.font = '700 12px "Azeret Mono", ui-monospace, monospace';
+      ctx.fillStyle = INKS.gruen.hex;
+      ctx.fillText('KETTE ' + G.luftKette, x + PW / 2, y - 34);
+    }
+    ctx.textAlign = 'left';
 
     // Schild als Stempelkranz
     if (G.shield > 0) {
@@ -3160,6 +3343,7 @@
     // und die Flaeche rechnet ohnehin schon mit 960 Punkten Breite.
     var grob = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     var dpr = Math.min(window.devicePixelRatio || 1, grob ? 1.25 : 2);
+    if (sparsam) dpr = Math.min(dpr, 0.8);   // ein Drittel weniger Bildpunkte
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

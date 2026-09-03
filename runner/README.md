@@ -25,7 +25,7 @@ python3 -m http.server 8000
 | Taste | Wirkung |
 | --- | --- |
 | `Leertaste` / `W` / `↑` | Springen – laenger gedrueckt springt hoeher, ein zweiter Druck in der Luft ist der Doppelsprung |
-| `S` / `↓` | Rutschen, solange gehalten; in der Luft schneller fallen |
+| `S` / `↓` | Am Boden rutschen, solange gehalten; **in der Luft erneut druecken = Salto** |
 | `A` `D` / `←` `→` | Zuruecknehmen und vorpreschen (siehe unten) |
 | `Shift` / `X` | Dash – kurzer Vorwaertsschub, zerlegt Kisten und macht kurz unverwundbar |
 | `E` / `Q` | Hyper-Modus zuenden, sobald die Leiste voll ist |
@@ -75,9 +75,13 @@ Figur und die Anzeige im Spiel zeigen.
   wechselt und dabei versucht, das Querformat festzuhalten. Wo der Browser
   das nicht erlaubt – etwa in einem eingebetteten Rahmen oder auf iPhones –
   verschwindet der Knopf von selbst.
-* **Sparmodus.** Bleiben mehr als 40 Bilder in Folge unter 33 Millisekunden
-  zurueck, fallen Wolken, Voegel, Baeume, Grasbueschel, Tempostriche und der
-  groesste Teil der Nachziehspur weg, bis es wieder rund laeuft.
+* **Sparmodus.** Bleiben mehr als 40 Bilder in Folge zurueck, fallen Wolken,
+  Voegel, Baeume, Grasbueschel, Tempostriche, Papierkorn und der groesste Teil
+  der Nachziehspur weg – und die Zeichenflaeche rechnet mit einem Drittel
+  weniger Bildpunkten. Gemessen liegt die Zeit naemlich nicht in der
+  Spiellogik (4 ms je Bild bei vierfacher Drosselung), sondern im Rastern der
+  Flaeche; weniger Bildpunkte ist dort der einzige Hebel, der wirklich zieht.
+  Er bringt bei vierfacher Drosselung 40 statt 24 Bilder je Sekunde.
 * Die Aufloesung der Zeichenflaeche ist auf Beruehrungsgeraeten auf das
   1,25-fache begrenzt; mehr bringt bei 960 Punkten Breite nichts und kostet
   nur Tempo.
@@ -113,6 +117,35 @@ dieselbe Schicht. Damit verhaelt sich jeder Sprung ueberall gleich:
 * Beim Fensterwechsel werden alle Tasten geloest, es klemmt nichts.
 
 ## Features
+
+### Tricks: das Spiel hat positive Ziele
+
+Ein Runner, in dem man nur ausweicht, hat als einziges Ziel „nicht sterben".
+Deshalb gibt es zwei Wege, aktiv etwas zu holen – beide nach dem Vorbild von
+Alto's Adventure, das die Idee der Tony-Hawk-Spiele in den Runner geholt hat:
+
+* **Salto.** In der Luft dreht dieselbe Taste, die am Boden rutscht. Halten
+  dreht weiter, **Loslassen haelt den Winkel an** – man muss also selbst
+  abschaetzen, wann die Drehung voll ist. Ein Zaehler ueber der Figur zeigt den
+  Stand und wird gruen, sobald eine volle Umdrehung erreicht ist. Sauber
+  gelandet gibt es Punkte (60 × Umdrehungen², also 60, 240, 540 …), quer
+  gelandet stolpert man: Kette weg, 0,45 Sekunden kein Sprung, Tempo auf 62
+  Prozent. Kein Tod – aber ein spuerbarer Preis.
+  Eine Umdrehung dauert gut 0,4 Sekunden, ein normaler Sprung 0,76 – einer
+  geht also immer, mehr nur nach einer Sprungfeder oder einem Absprung.
+* **Absprung.** Von oben auf Kisten, Drohnen und Riegel springen zerlegt sie
+  und federt einen wieder hoch. Aus einer Gefahr wird eine Gelegenheit, und der
+  Sprung ist mit 120 Punkten mehr wert als ein einfacher Salto – wie bei Alto,
+  wo der Felsabsprung achtmal so viel bringt wie ein Rueckwaertssalto.
+* **Luftkette.** Alles, was ohne Bodenkontakt gelingt, wird bei der Landung
+  zusammen gutgeschrieben, mit Faktor `1 + (Kette − 1) × 0,5`. Ein Zaehler
+  ueber der Figur zeigt die laufende Kette.
+* **Koennen wird Tempo.** Jeder gelungene Trick und jeder Absprung gibt 2,2
+  Sekunden lang 170 Pixel je Sekunde Zuschlag. Schneller heisst mehr Strecke,
+  aber auch weniger Reaktionszeit – die Belohnung traegt ihr eigenes Risiko.
+
+Beides wird im Lauf eingefuehrt: der Salto bei 200 Metern, der Absprung bei
+380, jeweils mit Namen und Loesungshinweis.
 
 ### Die Strecke waechst mit
 
@@ -248,10 +281,12 @@ messen, statt an mehreren Schrauben gleichzeitig zu drehen.
   den Seiten und 4 px oben und unten kleiner geprueft, als sie gezeichnet ist.
   Was nur die Ecke streift, toetet nicht mehr – der haeufigste Grund fuer ein
   „das war doch gar nicht getroffen".
-* **Schnellfall nur auf frischen Druck.** Die Rutschtaste zieht die Figur in
-  der Luft nur dann nach unten, wenn sie dort frisch gedrueckt wurde. Ein
-  Daumen, der auf der Rutschzone liegen bleibt, wuerde sonst jeden Sprung
-  sofort wieder abwuergen.
+* **Der Salto braucht einen frischen Druck.** Die Rutschtaste dreht die Figur
+  nur, wenn sie in der Luft neu gedrueckt wird. Ein Daumen, der auf der
+  Rutschzone liegen bleibt, wuerde sonst jeden Sprung in eine Dauerdrehung und
+  damit in einen Sturz verwandeln.
+* **Eingerollt faellt es sich schneller**: waehrend der Drehung wirken 130
+  Prozent der Schwerkraft.
 * **Rutschen schiebt an** (+140 px/s) und ist damit mehr als nur Ausweichen –
   dafuer ist es nach 1,2 Sekunden vorbei.
 * **Stauchen und Strecken.** Beim Absprung streckt sich die Figur, bei der
@@ -298,6 +333,9 @@ Schmuckfarben auf getoentem Papier arbeitet:
 | Sprungfeder ausgeloest | 25 × Multiplikator |
 | Meilenstein alle 250 m | 50 × Multiplikator |
 | Bestmarke passiert | 300 × Multiplikator |
+| Salto (n Umdrehungen) | 60 × n² × Multiplikator |
+| Absprung auf ein Hindernis | 120 × Multiplikator |
+| Luftkette bei der Landung | Summe × (1 + (Kette − 1) × 0,5) |
 | Auftrag erfuellt | 400 × Multiplikator |
 | Druckplatte gefunden | 500 × Multiplikator |
 | Muenze im Farbrausch | doppelt |
@@ -338,5 +376,5 @@ icon-180/192/512.png  Symbol fuer Startbildschirm und Browserleiste
   Grasbueschel liegen in je einem gebuendelten Pfad, und die Rasterpunkte sind
   ein zwischengespeichertes Muster statt einer Flaechenueberlagerung.
   Papierkorn und Plattenkante liegen als CSS-Ebene ueber der Flaeche.
-  Gemessen bei vierfach gedrosselter Rechenleistung: 37 statt 6 Bilder je
+  Gemessen bei vierfach gedrosselter Rechenleistung: 40 statt 6 Bilder je
   Sekunde.
