@@ -51,6 +51,14 @@ Sprung aufs Rutschen.
 Das Spiel ist fuer Querformat gebaut – ein Endlosrunner braucht Blick nach
 vorn, im Hochformat bleibt davon ein schmaler Streifen uebrig.
 
+**Am besten zum Startbildschirm hinzufuegen.** Dann startet es ueber die
+Manifestdatei direkt im Vollbild und im Querformat, ohne Browserleiste und
+ohne Vollbildknopf – das ist die groesste Spielflaeche, die geht. Auf dem
+Startbildschirm steht das Symbol des Spiels: zwei versetzt gedruckte
+Schmuckfarben, deren Ueberlappung die ausgerechnete Mischfarbe traegt
+(`multiply(#ff4f9a, #00a6a0) = #003360`) – dasselbe Fehlregister, das die
+Figur und die Anzeige im Spiel zeigen.
+
 * **Quer halten.** Dann fuellt das Bild den Schirm randlos: keine Raender,
   keine Registermarken, keine Fusszeile. Gemessen auf einem 844 × 390
   grossen Schirm: 100 Prozent der Hoehe statt 25 Prozent im Hochformat.
@@ -301,9 +309,12 @@ Power-up „doppelte Punkte" und verdreifacht sich im Hyper-Modus.
 ## Dateien
 
 ```
-index.html   Aufbau der Seite und Anzeige
-style.css    Darstellung, Layout und Verhalten auf Telefonen
-game.js      Spiellogik, Streckenerzeugung, Ton und Rendering
+index.html            Aufbau der Seite und Anzeige
+style.css             Darstellung, Layout und Verhalten auf Telefonen
+game.js               Spiellogik, Streckenerzeugung, Ton und Rendering
+manifest.webmanifest  Startbildschirm: Vollbild, Querformat, Symbole
+icon.svg              Symbol als Vektor
+icon-180/192/512.png  Symbol fuer Startbildschirm und Browserleiste
 ```
 
 ## Technische Notizen

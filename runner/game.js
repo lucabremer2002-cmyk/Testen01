@@ -3081,9 +3081,17 @@
     else danach();
   }
 
+  // Vom Startbildschirm gestartet laeuft das Spiel ohnehin im Vollbild.
+  function alsAppGestartet() {
+    if (navigator.standalone) return true;
+    return !!(window.matchMedia && (window.matchMedia('(display-mode: fullscreen)').matches
+      || window.matchMedia('(display-mode: standalone)').matches));
+  }
+
   function vollbildKnopfPflegen() {
     if (!el.fsBtn) return;
-    el.fsBtn.hidden = !vollbildMoeglich;
+    el.fsBtn.hidden = !vollbildMoeglich || alsAppGestartet();
+    if (el.drehen) el.drehen.hidden = alsAppGestartet();
     el.fsBtn.textContent = imVollbild() ? 'Vollbild verlassen' : 'Vollbild & quer';
     if (el.drehen) el.drehen.hidden = imVollbild();
   }
