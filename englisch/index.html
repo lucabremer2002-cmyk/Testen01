@@ -10,6 +10,7 @@
 </head>
 <body>
 
+<div class="topbar">
 <header class="top">
   <div class="brand"><span class="brand__mark">EN</span> Englisch&nbsp;Trainer</div>
   <nav class="tabs" id="tabs">
@@ -19,10 +20,36 @@
   </nav>
 </header>
 
+<div class="hud" id="hud">
+  <button type="button" class="hud__cell hud__cell--btn" id="hud-cefr-cell" title="Einstufungstest">
+    <span>Niveau</span><b id="hud-cefr">?</b>
+  </button>
+  <div class="hud__cell hud__cell--grow">
+    <span><b id="hud-rank">Neuling</b> &middot; Level <b id="hud-level">1</b></span>
+    <div class="xpbar"><i id="hud-xp"></i></div>
+    <em id="hud-xptext">0 XP</em>
+  </div>
+  <div class="hud__cell">
+    <span>Serie</span><b id="hud-streak">0</b>
+  </div>
+</div>
+</div>
+
 <main class="wrap">
 
   <!-- ------------------------------------------------------------ Startseite -->
   <section class="view is-active" id="view-home">
+
+    <div class="level-card" id="level-card"></div>
+
+    <button type="button" class="blitz" id="start-blitz">
+      <span class="blitz__icon" aria-hidden="true">&#9889;</span>
+      <span class="blitz__body">
+        <b>Blitzrunde</b>
+        <i>60 Sekunden, so viele Karten wie m&ouml;glich</i>
+      </span>
+      <span class="blitz__best">Bestwert<b id="blitz-best">0</b></span>
+    </button>
 
     <div class="hero">
       <div class="ring" id="goal-ring">
@@ -37,10 +64,10 @@
         </div>
       </div>
       <div class="facts">
-        <div class="fact"><span>Serie</span><b id="fact-streak">0</b><i>Tage in Folge</i></div>
         <div class="fact"><span>F&auml;llig</span><b id="fact-due">0</b><i>Karten zur Wiederholung</i></div>
         <div class="fact"><span>Gelernt</span><b id="fact-known">0</b><i>sicher beherrscht</i></div>
         <div class="fact"><span>Trefferquote</span><b id="fact-acc">&ndash;</b><i>alle Antworten</i></div>
+        <div class="fact"><span>Abzeichen</span><b id="fact-badges">0</b><i>von <span id="fact-badges-max">0</span></i></div>
       </div>
     </div>
 
@@ -79,6 +106,14 @@
           <button type="button" class="ghost" id="sel-none">Keins</button>
         </div>
       </div>
+      <div class="opts opts--slim opts--tiny" id="deck-level">
+        <button type="button" data-value="mine">Mein Niveau</button>
+        <button type="button" data-value="all">Alle</button>
+        <button type="button" data-value="A1">A1</button>
+        <button type="button" data-value="A2">A2</button>
+        <button type="button" data-value="B1">B1</button>
+        <button type="button" data-value="B2">B2</button>
+      </div>
       <div class="decks" id="decks"></div>
     </section>
 
@@ -88,15 +123,52 @@
     </div>
   </section>
 
+  <!-- --------------------------------------------------- Einstufungstest -->
+  <section class="view" id="view-test">
+    <div class="test" id="test-run">
+      <div class="test__head">
+        <button type="button" class="ghost" id="test-quit">Abbrechen</button>
+        <div class="dots" id="test-dots"></div>
+      </div>
+      <div class="qcard">
+        <div class="qcard__meta">
+          <span class="chip" id="test-level">A1</span>
+          <span class="chip chip--soft">Was hei&szlig;t das?</span>
+        </div>
+        <p class="qcard__prompt" id="test-prompt"></p>
+        <p class="qcard__hint">Kein Stress &ndash; raten ist erlaubt.</p>
+        <div class="choices" id="test-choices"></div>
+      </div>
+    </div>
+
+    <div class="test-result" id="test-result" hidden>
+      <div class="badge-big" id="test-badge">A1</div>
+      <h2 id="test-title">Dein Niveau</h2>
+      <p class="muted" id="test-text"></p>
+      <div class="test-result__decks" id="test-decks"></div>
+      <div class="sum-actions">
+        <button type="button" class="primary" id="test-apply">Themen &uuml;bernehmen &amp; loslegen</button>
+        <button type="button" class="ghost" id="test-skip">Sp&auml;ter</button>
+      </div>
+    </div>
+  </section>
+
   <!-- --------------------------------------------------------------- Abfrage -->
   <section class="view" id="view-session">
     <div class="sess__top">
       <button type="button" class="ghost" id="quit">Beenden</button>
       <div class="bar"><i id="sess-bar"></i></div>
-      <div class="sess__count"><b id="sess-pos">0</b>/<span id="sess-total">0</span></div>
+      <div class="sess__count"><b id="sess-pos">0</b><span id="sess-of">/<span id="sess-total">0</span></span></div>
+    </div>
+
+    <div class="combo" id="combo" hidden>
+      <span class="combo__flame" aria-hidden="true">&#128293;</span>
+      <b id="combo-count">0</b><span>er-Serie</span><i id="combo-mult"></i>
     </div>
 
     <div class="qcard" id="qcard">
+      <div class="xpfloat" id="xpfloat" hidden></div>
+
       <div class="qcard__meta">
         <span class="chip" id="q-deck"></span>
         <span class="chip chip--soft" id="q-dir"></span>
@@ -143,17 +215,20 @@
           <circle class="ring__track" cx="60" cy="60" r="52"></circle>
           <circle class="ring__fill" cx="60" cy="60" r="52" id="sum-arc"></circle>
         </svg>
-        <div class="ring__label"><b id="sum-pct">0%</b><span>richtig</span></div>
+        <div class="ring__label"><b id="sum-pct">0%</b><span id="sum-pct-label">richtig</span></div>
       </div>
       <h2 id="sum-title">Runde geschafft</h2>
       <p class="muted" id="sum-sub"></p>
 
+      <div class="xp-gain" id="xp-gain"></div>
+
       <div class="sum-stats">
         <div class="fact"><span>Richtig</span><b id="sum-ok">0</b></div>
         <div class="fact"><span>Falsch</span><b id="sum-bad">0</b></div>
-        <div class="fact"><span>Dauer</span><b id="sum-time">0:00</b></div>
+        <div class="fact"><span id="sum-third-label">Dauer</span><b id="sum-time">0:00</b></div>
       </div>
 
+      <div class="sum-badges" id="sum-badges"></div>
       <div class="sum-list" id="sum-list"></div>
 
       <div class="sum-actions">
@@ -183,6 +258,16 @@
 
   <!-- ---------------------------------------------------------- Fortschritt -->
   <section class="view" id="view-stats">
+    <section class="block">
+      <h2 class="block__title">Dein Englischniveau</h2>
+      <div class="levels" id="levels"></div>
+    </section>
+
+    <section class="block">
+      <h2 class="block__title">Abzeichen</h2>
+      <div class="badges" id="badges"></div>
+    </section>
+
     <div class="tiles" id="stat-tiles"></div>
 
     <section class="block">
@@ -218,14 +303,30 @@
           <input type="checkbox" id="set-speak">
           <i>englische L&ouml;sung anh&ouml;ren</i>
         </label>
+        <label class="setting setting--switch">
+          <span>Konfetti</span>
+          <input type="checkbox" id="set-fx">
+          <i>Jubel bei guten Runden</i>
+        </label>
       </div>
       <div class="danger">
+        <button type="button" class="ghost" id="retest">Einstufungstest wiederholen</button>
         <button type="button" class="ghost" id="reset">Lernfortschritt zur&uuml;cksetzen</button>
       </div>
     </section>
   </section>
 
 </main>
+
+<div class="confetti" id="confetti" aria-hidden="true"></div>
+
+<div class="celebrate" id="celebrate" hidden>
+  <div class="celebrate__card">
+    <div class="celebrate__icon" id="celebrate-icon"></div>
+    <b id="celebrate-title"></b>
+    <span id="celebrate-text"></span>
+  </div>
+</div>
 
 <div class="toast" id="toast" aria-live="polite"></div>
 

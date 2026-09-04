@@ -76,6 +76,7 @@ game.js      Spiellogik und Rendering auf dem Canvas
 
 ## Weitere Apps in diesem Repo
 
-* [`englisch/`](englisch/) – Englisch Trainer: Vokabeltrainer mit Leitner-Wiederholung,
-  fuenf Lernmodi und 442 Karten. Ebenfalls ohne Build-Schritt, einfach
+* [`englisch/`](englisch/) – Englisch Trainer: Vokabeltrainer mit
+  Einstufungstest nach GER (A1–B2), Leitner-Wiederholung, sechs Lernmodi,
+  XP, Abzeichen und 442 Karten. Ebenfalls ohne Build-Schritt, einfach
   `englisch/index.html` oeffnen.

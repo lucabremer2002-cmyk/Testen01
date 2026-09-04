@@ -42,19 +42,22 @@ p { margin: 0; }
 
 /* -------------------------------------------------------------------- Kopf */
 
-.top {
+.topbar {
   position: sticky;
   top: 0;
   z-index: 30;
+  background: rgba(7, 10, 18, .86);
+  backdrop-filter: blur(10px);
+}
+
+.top {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   padding: 12px 18px;
-  background: rgba(7, 10, 18, .82);
   border-bottom: 1px solid var(--line);
-  backdrop-filter: blur(10px);
 }
 
 .brand {
@@ -243,9 +246,9 @@ button.ghost:hover { background: var(--panel-2); color: var(--text); }
   background: rgba(255, 255, 255, .03);
 }
 
-.fact span { display: block; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-.fact b { display: block; font-size: 22px; line-height: 1.25; }
-.fact i { display: block; font-size: 11.5px; color: var(--muted); font-style: normal; }
+.fact > span { display: block; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.fact > b { display: block; font-size: 22px; line-height: 1.25; }
+.fact > i { display: block; font-size: 11.5px; color: var(--muted); font-style: normal; }
 
 /* ------------------------------------------------------------ Optionsreihen */
 
@@ -765,4 +768,393 @@ button.ghost:hover { background: var(--panel-2); color: var(--text); }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
+}
+
+/* ==========================================================================
+   Spielschicht: HUD, Niveau, Serien, Abzeichen, Blitzrunde
+   ========================================================================== */
+
+.hud {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  width: min(820px, 100%);
+  margin: 0 auto;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.hud__cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-width: 74px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  text-align: center;
+}
+
+.hud__cell > span { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.hud__cell > b { font-size: 17px; line-height: 1.2; }
+.hud__cell--grow { flex: 1; min-width: 0; text-align: left; }
+.hud__cell--grow > span { letter-spacing: 0; text-transform: none; font-size: 12px; }
+.hud__cell--grow b { color: var(--text); font-size: 12.5px; }
+.hud__cell em { font-size: 10.5px; font-style: normal; color: var(--muted); }
+
+.hud__cell--btn { cursor: pointer; font: inherit; color: var(--text); }
+.hud__cell--btn:hover { background: var(--panel-2); }
+.hud__cell--btn b { color: var(--accent); font-weight: 700; }
+
+.xpbar {
+  height: 6px;
+  margin: 3px 0 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .09);
+  overflow: hidden;
+}
+
+.xpbar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--warn), var(--accent));
+  transition: width .45s ease;
+}
+
+/* ------------------------------------------------------------ Niveau-Karte */
+
+.level-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(420px 180px at 100% 0%, rgba(34, 211, 238, .12), transparent 70%),
+    var(--panel);
+}
+
+.level-card--invite { background: radial-gradient(520px 200px at 0% 0%, rgba(250, 204, 21, .12), transparent 70%), var(--panel); }
+.level-card h2 { font-size: 16px; }
+.level-card p { margin-top: 3px; font-size: 13px; }
+.level-card__body { flex: 1; min-width: 0; }
+.level-card > .primary,
+.level-card > .ghost { flex: 0 0 auto; }
+
+.level-card__bar {
+  position: relative;
+  height: 8px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .08);
+  overflow: hidden;
+}
+
+.level-card__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width .5s ease;
+}
+
+.level-card__bar u {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 12px;
+  background: rgba(255, 255, 255, .55);
+}
+
+.badge-big {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  background: linear-gradient(140deg, var(--accent), var(--accent-2));
+  color: #04141a;
+  font: 800 21px/1 system-ui, sans-serif;
+  letter-spacing: .02em;
+}
+
+.deck__level--mine { background: rgba(52, 211, 153, .28); color: #a7f3d0; }
+.opts--tiny { grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); margin-bottom: 10px; }
+.opts--tiny button { padding: 7px 8px; font-size: 12.5px; }
+
+/* ------------------------------------------------------------- Blitzrunde */
+
+.blitz {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  text-align: left;
+  border: 1px solid rgba(250, 204, 21, .35);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(400px 160px at 0% 50%, rgba(250, 204, 21, .18), transparent 70%),
+    var(--panel);
+}
+
+.blitz:hover { background: radial-gradient(400px 160px at 0% 50%, rgba(250, 204, 21, .26), transparent 70%), var(--panel-2); }
+.blitz__icon { font-size: 26px; line-height: 1; }
+.blitz__body { flex: 1; min-width: 0; }
+.blitz__body b { display: block; font-size: 15px; }
+.blitz__body i { display: block; font-size: 12.5px; font-style: normal; font-weight: 400; color: var(--muted); }
+
+.blitz__best {
+  flex: 0 0 auto;
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+
+.blitz__best b { display: block; font-size: 22px; letter-spacing: 0; color: var(--warn); }
+
+/* ------------------------------------------------------------------ Serie */
+
+.combo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 12px auto -4px;
+  padding: 5px 14px;
+  width: fit-content;
+  border: 1px solid rgba(250, 204, 21, .45);
+  border-radius: 999px;
+  background: rgba(250, 204, 21, .12);
+  color: #fde68a;
+  font-size: 13px;
+  animation: pop-in .25s ease;
+}
+
+.combo b { font-size: 16px; }
+.combo i { font-style: normal; font-weight: 700; color: var(--warn); }
+.combo__flame { font-size: 14px; }
+
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.qcard { position: relative; }
+
+.xpfloat {
+  position: absolute;
+  top: 10px;
+  right: 16px;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--good);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.xpfloat.is-bad { color: var(--bad); font-size: 13px; }
+.xpfloat.show { animation: float-up 1.1s ease forwards; }
+
+@keyframes float-up {
+  0% { opacity: 0; transform: translateY(6px) scale(.9); }
+  25% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-22px) scale(1); }
+}
+
+/* --------------------------------------------------------- Einstufungstest */
+
+.test__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dots {
+  display: flex;
+  flex: 1;
+  gap: 5px;
+  justify-content: flex-end;
+}
+
+.dots .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .14);
+}
+
+.dot--right { background: var(--good); }
+.dot--wrong { background: var(--bad); }
+
+.test-result { text-align: center; padding: 10px 0 30px; }
+.test-result .badge-big { width: 84px; height: 84px; margin: 0 auto 16px; font-size: 30px; border-radius: 22px; }
+.test-result h2 { font-size: 24px; }
+.test-result p { max-width: 46ch; margin: 8px auto 0; }
+
+.test-result__decks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+/* --------------------------------------------------------------- Abzeichen */
+
+.badges {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 8px;
+}
+
+.badge {
+  padding: 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .03);
+  text-align: center;
+  opacity: .42;
+  filter: grayscale(1);
+}
+
+.badge.is-owned,
+.badge--new { opacity: 1; filter: none; border-color: rgba(52, 211, 153, .45); background: rgba(52, 211, 153, .1); }
+.badge__icon { display: block; font-size: 24px; line-height: 1.3; }
+.badge b { display: block; font-size: 13px; margin-top: 3px; }
+.badge i { display: block; font-size: 11px; font-style: normal; color: var(--muted); margin-top: 2px; }
+
+.sum-badges {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 8px;
+  max-width: 460px;
+  margin: 18px auto 0;
+}
+
+/* --------------------------------------------------------- Niveau-Uebersicht */
+
+.levels { display: grid; gap: 10px; }
+
+.level-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .03);
+}
+
+.level-row.is-current { border-color: rgba(52, 211, 153, .5); background: rgba(52, 211, 153, .08); }
+.level-row__body { flex: 1; min-width: 0; }
+.level-row__body .dstat__row b { font-weight: 500; font-size: 12.5px; color: var(--muted); }
+
+.level-row__tag {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .07);
+  font: 700 14px/1 system-ui, sans-serif;
+}
+
+.level-row.is-current .level-row__tag { background: linear-gradient(140deg, var(--accent), var(--accent-2)); color: #04141a; }
+
+/* ------------------------------------------------------------- XP-Ausbeute */
+
+.xp-gain {
+  display: grid;
+  gap: 4px;
+  max-width: 320px;
+  margin: 18px auto 0;
+  padding: 12px 16px;
+  border: 1px solid rgba(52, 211, 153, .35);
+  border-radius: 14px;
+  background: rgba(52, 211, 153, .09);
+}
+
+.xp-gain__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.xp-gain__head b { font-size: 22px; color: var(--accent); }
+.xp-gain__head span { font-size: 12px; color: var(--muted); }
+.xp-gain__row { font-size: 12.5px; color: var(--muted); text-align: left; }
+
+/* ------------------------------------------------------- Konfetti und Jubel */
+
+.confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confetti i {
+  position: absolute;
+  top: -14px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  animation: fall linear forwards;
+}
+
+@keyframes fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(105vh) rotate(620deg); opacity: .9; }
+}
+
+.celebrate {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .3s ease;
+}
+
+.celebrate.show { opacity: 1; }
+
+.celebrate__card {
+  padding: 22px 34px;
+  border: 1px solid rgba(52, 211, 153, .5);
+  border-radius: 20px;
+  background: rgba(10, 16, 28, .96);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .6);
+  text-align: center;
+  transform: scale(.9);
+  transition: transform .3s cubic-bezier(.2, 1.5, .4, 1);
+}
+
+.celebrate.show .celebrate__card { transform: scale(1); }
+.celebrate__icon { font-size: 40px; line-height: 1.1; }
+.celebrate__card b { display: block; margin-top: 6px; font-size: 20px; }
+.celebrate__card span { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
+
+/* ------------------------------------------------------------------- Klein */
+
+@media (max-width: 560px) {
+  .hud { padding: 8px 12px; gap: 6px; }
+  .hud__cell { min-width: 58px; padding: 6px 9px; }
+  .hud__cell > b { font-size: 15px; }
+  .level-card { flex-wrap: wrap; }
+  .level-card__body { flex: 1 1 100%; order: 3; }
+  .level-card > .primary,
+  .level-card > .ghost { margin-left: auto; }
+  .blitz { gap: 10px; padding: 12px; }
+  .badges { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+  .badge__icon { font-size: 21px; }
 }
