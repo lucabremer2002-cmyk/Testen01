@@ -73,3 +73,9 @@ index.html   Aufbau der Seite
 style.css    Darstellung, Layout und Responsive-Verhalten
 game.js      Spiellogik und Rendering auf dem Canvas
 ```
+
+## Weitere Apps in diesem Repo
+
+* [`englisch/`](englisch/) – Englisch Trainer: Vokabeltrainer mit Leitner-Wiederholung,
+  fuenf Lernmodi und 442 Karten. Ebenfalls ohne Build-Schritt, einfach
+  `englisch/index.html` oeffnen.

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Englisch Trainer</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='4' fill='%230b0f1a'/><text x='8' y='11.5' font-family='sans-serif' font-size='9' font-weight='700' fill='%2334d399' text-anchor='middle'>EN</text></svg>">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><span class="brand__mark">EN</span> Englisch&nbsp;Trainer</div>
+  <nav class="tabs" id="tabs">
+    <button type="button" class="tab is-active" data-view="home">Lernen</button>
+    <button type="button" class="tab" data-view="list">Wortschatz</button>
+    <button type="button" class="tab" data-view="stats">Fortschritt</button>
+  </nav>
+</header>
+
+<main class="wrap">
+
+  <!-- ------------------------------------------------------------ Startseite -->
+  <section class="view is-active" id="view-home">
+
+    <div class="hero">
+      <div class="ring" id="goal-ring">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ring__track" cx="60" cy="60" r="52"></circle>
+          <circle class="ring__fill" cx="60" cy="60" r="52" id="goal-arc"></circle>
+        </svg>
+        <div class="ring__label">
+          <b id="goal-done">0</b>
+          <span>von <span id="goal-total">30</span></span>
+          <i>Tagesziel</i>
+        </div>
+      </div>
+      <div class="facts">
+        <div class="fact"><span>Serie</span><b id="fact-streak">0</b><i>Tage in Folge</i></div>
+        <div class="fact"><span>F&auml;llig</span><b id="fact-due">0</b><i>Karten zur Wiederholung</i></div>
+        <div class="fact"><span>Gelernt</span><b id="fact-known">0</b><i>sicher beherrscht</i></div>
+        <div class="fact"><span>Trefferquote</span><b id="fact-acc">&ndash;</b><i>alle Antworten</i></div>
+      </div>
+    </div>
+
+    <section class="block">
+      <h2 class="block__title">Modus</h2>
+      <div class="opts" id="opt-mode">
+        <button type="button" data-value="mixed">Gemischt<i>Alles im Wechsel</i></button>
+        <button type="button" data-value="choice">Multiple Choice<i>Vier Vorschl&auml;ge</i></button>
+        <button type="button" data-value="type">Tippen<i>Selbst schreiben</i></button>
+        <button type="button" data-value="flip">Karteikarte<i>Selbst einsch&auml;tzen</i></button>
+        <button type="button" data-value="listen" id="mode-listen">H&ouml;ren<i>Vorlesen &amp; tippen</i></button>
+      </div>
+
+      <h2 class="block__title">Richtung</h2>
+      <div class="opts opts--slim" id="opt-dir">
+        <button type="button" data-value="de-en">Deutsch &rarr; Englisch</button>
+        <button type="button" data-value="en-de">Englisch &rarr; Deutsch</button>
+        <button type="button" data-value="both">Gemischt</button>
+      </div>
+
+      <h2 class="block__title">L&auml;nge der Runde</h2>
+      <div class="opts opts--slim" id="opt-len">
+        <button type="button" data-value="10">10 Karten</button>
+        <button type="button" data-value="20">20 Karten</button>
+        <button type="button" data-value="40">40 Karten</button>
+        <button type="button" data-value="0">Alles F&auml;llige</button>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="block__head">
+        <h2 class="block__title">Themen</h2>
+        <div class="block__tools">
+          <button type="button" class="ghost" id="sel-due">Nur f&auml;llige</button>
+          <button type="button" class="ghost" id="sel-all">Alle</button>
+          <button type="button" class="ghost" id="sel-none">Keins</button>
+        </div>
+      </div>
+      <div class="decks" id="decks"></div>
+    </section>
+
+    <div class="startbar">
+      <span class="startbar__hint" id="start-hint"></span>
+      <button type="button" class="primary" id="start">Runde starten</button>
+    </div>
+  </section>
+
+  <!-- --------------------------------------------------------------- Abfrage -->
+  <section class="view" id="view-session">
+    <div class="sess__top">
+      <button type="button" class="ghost" id="quit">Beenden</button>
+      <div class="bar"><i id="sess-bar"></i></div>
+      <div class="sess__count"><b id="sess-pos">0</b>/<span id="sess-total">0</span></div>
+    </div>
+
+    <div class="qcard" id="qcard">
+      <div class="qcard__meta">
+        <span class="chip" id="q-deck"></span>
+        <span class="chip chip--soft" id="q-dir"></span>
+      </div>
+
+      <p class="qcard__prompt" id="q-prompt"></p>
+      <button type="button" class="speak" id="q-speak" hidden aria-label="Vorlesen"></button>
+      <p class="qcard__hint" id="q-hint"></p>
+
+      <div class="choices" id="a-choice" hidden></div>
+
+      <form class="typing" id="a-type" hidden autocomplete="off">
+        <input type="text" id="type-input" placeholder="Antwort eingeben"
+               autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <button type="submit" class="primary">Pr&uuml;fen</button>
+      </form>
+
+      <div class="flip" id="a-flip" hidden>
+        <button type="button" class="primary" id="flip-reveal">Antwort zeigen</button>
+        <div class="flip__actions" id="flip-actions" hidden>
+          <button type="button" class="bad" data-ok="0">Noch nicht</button>
+          <button type="button" class="good" data-ok="1">Gewusst</button>
+        </div>
+      </div>
+
+      <div class="feedback" id="feedback" hidden>
+        <div class="feedback__head" id="fb-head"></div>
+        <div class="feedback__sol" id="fb-sol"></div>
+        <p class="feedback__ex" id="fb-ex"></p>
+      </div>
+    </div>
+
+    <div class="sess__foot">
+      <span class="mini" id="sess-score"></span>
+      <button type="button" class="primary" id="next-btn" hidden>Weiter</button>
+    </div>
+  </section>
+
+  <!-- ----------------------------------------------------------- Auswertung -->
+  <section class="view" id="view-summary">
+    <div class="summary">
+      <div class="ring ring--lg">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ring__track" cx="60" cy="60" r="52"></circle>
+          <circle class="ring__fill" cx="60" cy="60" r="52" id="sum-arc"></circle>
+        </svg>
+        <div class="ring__label"><b id="sum-pct">0%</b><span>richtig</span></div>
+      </div>
+      <h2 id="sum-title">Runde geschafft</h2>
+      <p class="muted" id="sum-sub"></p>
+
+      <div class="sum-stats">
+        <div class="fact"><span>Richtig</span><b id="sum-ok">0</b></div>
+        <div class="fact"><span>Falsch</span><b id="sum-bad">0</b></div>
+        <div class="fact"><span>Dauer</span><b id="sum-time">0:00</b></div>
+      </div>
+
+      <div class="sum-list" id="sum-list"></div>
+
+      <div class="sum-actions">
+        <button type="button" class="primary" id="sum-again" hidden>Fehler wiederholen</button>
+        <button type="button" id="sum-new">Neue Runde</button>
+        <button type="button" class="ghost" id="sum-home">Zur &Uuml;bersicht</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ----------------------------------------------------------- Wortschatz -->
+  <section class="view" id="view-list">
+    <div class="listbar">
+      <select id="list-deck" aria-label="Thema"></select>
+      <input type="search" id="list-search" placeholder="Suchen &hellip;" aria-label="Suchen">
+    </div>
+    <div class="opts opts--slim" id="list-filter">
+      <button type="button" data-value="all">Alle</button>
+      <button type="button" data-value="new">Neu</button>
+      <button type="button" data-value="learning">In Arbeit</button>
+      <button type="button" data-value="known">Gelernt</button>
+      <button type="button" data-value="hard">Schwierig</button>
+    </div>
+    <p class="mini" id="list-count"></p>
+    <div class="wordlist" id="wordlist"></div>
+  </section>
+
+  <!-- ---------------------------------------------------------- Fortschritt -->
+  <section class="view" id="view-stats">
+    <div class="tiles" id="stat-tiles"></div>
+
+    <section class="block">
+      <h2 class="block__title">Die letzten 14 Tage</h2>
+      <div class="chart" id="chart"></div>
+    </section>
+
+    <section class="block">
+      <h2 class="block__title">Themen</h2>
+      <div class="deckstats" id="deckstats"></div>
+    </section>
+
+    <section class="block">
+      <h2 class="block__title">Einstellungen</h2>
+      <div class="settings">
+        <label class="setting">
+          <span>Tagesziel</span>
+          <input type="number" id="set-goal" min="5" max="300" step="5">
+          <i>Karten pro Tag</i>
+        </label>
+        <label class="setting">
+          <span>Neue Karten</span>
+          <input type="number" id="set-new" min="0" max="100" step="5">
+          <i>h&ouml;chstens pro Tag</i>
+        </label>
+        <label class="setting setting--switch">
+          <span>Signalt&ouml;ne</span>
+          <input type="checkbox" id="set-sound">
+          <i>kurzer Ton bei jeder Antwort</i>
+        </label>
+        <label class="setting setting--switch">
+          <span>Automatisch vorlesen</span>
+          <input type="checkbox" id="set-speak">
+          <i>englische L&ouml;sung anh&ouml;ren</i>
+        </label>
+      </div>
+      <div class="danger">
+        <button type="button" class="ghost" id="reset">Lernfortschritt zur&uuml;cksetzen</button>
+      </div>
+    </section>
+  </section>
+
+</main>
+
+<div class="toast" id="toast" aria-live="polite"></div>
+
+<script src="vocabulary.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
