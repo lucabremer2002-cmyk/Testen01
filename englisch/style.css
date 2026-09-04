@@ -1,6 +1,7 @@
 /* Englisch Trainer - Darstellung, Layout und Responsive-Verhalten. */
 
 :root {
+  color-scheme: dark;
   --bg: #070a12;
   --bg-2: #0d1220;
   --panel: rgba(255, 255, 255, .045);
