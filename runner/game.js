@@ -47,7 +47,7 @@
 
   var SPEED_MIN = 310;          // gemuetlicher Start
   var SPEED_MAX = 980;
-  var SPEED_RAMP = 34000;       // Weltpixel bis zur Hoechstgeschwindigkeit
+  var SPEED_RAMP = 22000;       // Weltpixel bis zur Hoechstgeschwindigkeit
 
   var DASH_TIME = 0.26;
   var DASH_CD = 1.05;
@@ -93,23 +93,38 @@
   // sich unter die anderen mischt. Der Anfang bleibt dadurch ruhig und die
   // Strecke wird ueber die ersten drei Kilometer stetig voller.
   var STUFEN = [
-    { ab: 120,  art: 'spike',   name: 'STACHELN',        hinweis: 'Drueberspringen' },
-    { ab: 200,  art: 'salto',   name: 'SALTO',           hinweis: 'In der Luft die Rutschtaste druecken - voll drehen und sauber landen' },
-    { ab: 380,  art: 'absprung', name: 'ABSPRUNG',       hinweis: 'Von oben auf Kisten und Drohnen springen' },
-    { ab: 280,  art: 'pit',     name: 'GRUBEN',          hinweis: 'Taste halten springt weiter' },
-    { ab: 460,  art: 'crate',   name: 'KISTEN',          hinweis: 'Der Dash zerlegt sie' },
-    { ab: 680,  art: 'drone',   name: 'DROHNEN',         hinweis: 'Drunter durchrutschen' },
-    { ab: 950,  art: 'spring',  name: 'SPRUNGFEDERN',    hinweis: 'Hoch zu den Muenzen' },
-    { ab: 1250, art: 'saw',     name: 'SAEGEN',          hinweis: 'Den richtigen Moment abwarten' },
-    { ab: 1600, art: 'gate',    name: 'TORE',            hinweis: 'Durch die Luecke oder durchdashen' },
-    { ab: 2000, art: 'lift',    name: 'HEBEBUEHNEN',     hinweis: 'Mitfahren' },
-    { ab: 2450, art: 'crumble', name: 'MUERBE ABSAETZE', hinweis: 'Nicht stehenbleiben' },
-    { ab: 3000, art: 'mix',     name: 'ALLES AUF EINMAL', hinweis: 'Viel Glueck' }
+    { ab: 60,   art: 'spike',   name: 'STACHELN',        hinweis: 'Drueberspringen' },
+    { ab: 130,  art: 'salto',   name: 'SALTO',           hinweis: 'In der Luft die Rutschtaste druecken - voll drehen und sauber landen' },
+    { ab: 190,  art: 'pit',     name: 'GRUBEN',          hinweis: 'Taste halten springt weiter' },
+    { ab: 250,  art: 'absprung', name: 'ABSPRUNG',       hinweis: 'Von oben auf Kisten und Drohnen springen' },
+    { ab: 310,  art: 'crate',   name: 'KISTEN',          hinweis: 'Der Dash zerlegt sie' },
+    { ab: 410,  art: 'drone',   name: 'DROHNEN',         hinweis: 'Drunter durchrutschen oder draufspringen' },
+    { ab: 530,  art: 'spring',  name: 'SPRUNGFEDERN',    hinweis: 'Hoch hinaus - oben ist Zeit fuer mehrere Saltos' },
+    { ab: 660,  art: 'saw',     name: 'SAEGEN',          hinweis: 'Den richtigen Moment abwarten' },
+    { ab: 810,  art: 'gate',    name: 'TORE',            hinweis: 'Durch die Luecke oder durchdashen' },
+    { ab: 960,  art: 'lift',    name: 'HEBEBUEHNEN',     hinweis: 'Mitfahren' },
+    { ab: 1120, art: 'crumble', name: 'MUERBE ABSAETZE', hinweis: 'Nicht stehenbleiben' },
+    { ab: 1300, art: 'mix',     name: 'ALLES AUF EINMAL', hinweis: 'Viel Glueck' }
   ];
 
+  // Der Fortschritt gehoert zur Spielerin, nicht zum einzelnen Lauf.
+  //
+  // Vorher wurde alles bei jedem Tod zurueckgesetzt: ein Lauf endet typisch bei
+  // 360 Metern, Saegen kamen bei 1250 - man hat sie nie gesehen und immer
+  // wieder denselben Anfang gespielt. Jetzt zaehlt die bisherige Erfahrung mit,
+  // und ein neuer Lauf startet dort, wo man schon war.
+  function karriere() {
+    return Math.min(1300, records.dist * 0.7 + records.erfahrung / 20);
+  }
+
+  function stufenStand() {
+    return Math.max(G ? G.dist : 0, karriere());
+  }
+
   function freigeschaltet(art) {
+    var stand = stufenStand();
     for (var i = 0; i < STUFEN.length; i++) {
-      if (STUFEN[i].art === art) return G.dist >= STUFEN[i].ab;
+      if (STUFEN[i].art === art) return stand >= STUFEN[i].ab;
     }
     return true;
   }
@@ -367,6 +382,7 @@
     hyperWrap: document.getElementById('hyperWrap'),
     hyperFill: document.getElementById('hyperFill'),
     hyperLabel: document.getElementById('hyperLabel'),
+    auftragHud: document.getElementById('auftragHud'),
     bestWrap: document.getElementById('bestWrap'),
     bestFill: document.getElementById('bestFill'),
     toast: document.getElementById('toast'),
@@ -392,6 +408,7 @@
     meter: parseInt(load('drucklauf.meter', '0'), 10) || 0,
     rang: parseInt(load('drucklauf.rang', '0'), 10) || 0,
     bank: parseInt(load('drucklauf.bank', '0'), 10) || 0,
+    erfahrung: parseInt(load('drucklauf.erfahrung', '0'), 10) || 0,
     platten: parseInt(load('drucklauf.platten', '0'), 10) || 0,
     haut: load('drucklauf.haut', 'kobalt'),
     gekauft: (load('drucklauf.gekauft', '') || '').split(',').filter(function (x) { return x; })
@@ -707,7 +724,7 @@
       neuFrei: [],
       letzterChunk: '',
       regenAnkuendigen: false,
-      stufeIndex: 0,
+      stufeIndex: 0,          // wird gleich auf den Karrierestand gesetzt
       meilenstein: 0,
       springs: 0,
       dashBreaks: 0,
@@ -729,6 +746,11 @@
       timeScale: 1,
       slowT: 0
     };
+    // Alles, was die Karriere schon freigeschaltet hat, wird nicht noch einmal
+    // erklaert - Karten gibt es nur fuer das, was man neu erreicht.
+    var stand = karriere();
+    while (G.stufeIndex < STUFEN.length && STUFEN[G.stufeIndex].ab <= stand) G.stufeIndex++;
+
     buildWorld();
   }
 
@@ -817,10 +839,11 @@
     });
   }
 
-  function drone(x) {
+  function drone(x, patrouille) {
     G.obstacles.push({
       type: 'drone', x: x, y: GROUND_Y - 68, w: 58, h: 30,
-      phase: Math.random() * 6.283, dead: 0, gap: 999, passed: false
+      phase: Math.random() * 6.283, patrol: patrouille ? rand(40, 80) : 0,
+      pspd: rand(0.8, 1.4), dead: 0, gap: 999, passed: false
     });
   }
 
@@ -848,7 +871,7 @@
   function buildChunk() {
     // Die Schwierigkeit zieht erst nach den ersten hundert Metern an und
     // braucht danach fast drei Kilometer bis zum Anschlag.
-    var d = clamp((G.dist - 100) / 2800, 0, 1);
+    var d = clamp((Math.max(G.dist, karriere() * 0.6) - 100) / 2200, 0, 1);
     var i = G.chunk++;
 
     if (i < 1) { chunkStart(560); return; }
@@ -892,8 +915,15 @@
   // Die ersten Meter bleiben leer: die Figur startet bei x = PLAYER_X und
   // braucht Anlauf, bevor das erste Hindernis auftauchen darf.
   function chunkStart(len) {
-    ground(G.genX, len);
-    coinLine(G.genX + 340, GROUND_Y - 60, 8, 36);
+    var x = G.genX;
+    ground(x, len);
+    // Gleich in den ersten Sekunden etwas zu tun: Muenzen, dann eine Feder,
+    // die hoch genug wirft fuer den ersten Salto. Leere Anfaenge sind toedlich
+    // fuer die Lust weiterzuspielen.
+    coinLine(x + 220, GROUND_Y - 60, 5, 34);
+    spring(x + 420);
+    coinLine(x + 400, GROUND_Y - 210, 5, 34);
+    coinArc(x + 470, GROUND_Y - 320, 5, 130, 40);
     G.genX += len;
   }
 
@@ -974,8 +1004,8 @@
     var n = randInt(2, 3 + Math.round(d * 2));
     var cx = x + 160;
     for (var i = 0; i < n; i++) {
-      drone(cx);
-      coinLine(cx - 6, GROUND_Y - 16, 4, 22);   // Muenzen belohnen das Rutschen
+      drone(cx, d > 0.3 && Math.random() < 0.4);   // spaeter patrouillieren welche
+      coinLine(cx - 6, GROUND_Y - 16, 4, 22);      // Muenzen belohnen das Rutschen
       cx += rand(150, 215);
       if (cx > x + len - 80) break;
     }
@@ -1366,7 +1396,8 @@
     }
     if (o.type === 'drone') {
       o.dy = Math.sin(G.time * 2.2 + o.phase) * 5;
-      return { x: o.x, y: o.y + o.dy, w: o.w, h: o.h };
+      o.dx = o.patrol ? Math.sin(G.time * o.pspd + o.phase) * o.patrol : 0;
+      return { x: o.x + o.dx, y: o.y + o.dy, w: o.w, h: o.h };
     }
     return { x: o.x, y: o.y, w: o.w, h: o.h };
   }
@@ -1452,8 +1483,10 @@
     if (G.flash > 0) G.flash = Math.max(0, G.flash - dt * 2.4);
 
     // --- Vorwaertsbewegung
+    // Wer schon weiter war, startet schneller - der Anlauf wiederholt sich nicht.
+    var start = SPEED_MIN + Math.min(130, karriere() / 10);
     var ramp = clamp(G.worldX / SPEED_RAMP, 0, 1);
-    G.speed = lerp(SPEED_MIN, SPEED_MAX, ramp * ramp * 0.55 + ramp * 0.45);
+    G.speed = lerp(start, SPEED_MAX, ramp * ramp * 0.55 + ramp * 0.45);
     var speed = (G.speed + (G.dashT > 0 ? DASH_BOOST : 0) + (G.hyperT > 0 ? 340 : 0)
               + (G.sliding ? SLIDE_BOOST : 0) + (G.flowT > 0 ? FLOW_BOOST : 0))
               * (G.stumbleT > 0 ? 0.62 : 1);
@@ -1956,6 +1989,8 @@
     save('drucklauf.bank', records.bank);
     records.meter += dist;
     save('drucklauf.meter', records.meter);
+    records.erfahrung += dist;
+    save('drucklauf.erfahrung', records.erfahrung);
     auftraegePruefen(true);
 
     showOver(score, dist, isBest, cause);
@@ -2499,6 +2534,7 @@
 
       } else if (o.type === 'drone') {
         var dy = b.y;
+        x += o.dx || 0;
         aufPapier(function () { roundRect(x, dy, o.w, o.h, 10); }, PINK, tinteB(0.5));
         ctx.strokeStyle = tinte(0.9);
         ctx.lineWidth = 2.5;
@@ -2852,6 +2888,7 @@
   // ---------------------------------------------------------------------- HUD
 
   var lastPowerKey = '';
+  var lastAuftragText = '';
 
   function updateHud() {
     el.score.textContent = Math.floor(G.score).toLocaleString('de-DE');
@@ -2875,6 +2912,33 @@
     }
 
     if (el.zonen) el.zonen.classList.toggle('an', state === 'play' && G.dist < 55);
+
+    // Ein laufender Auftrag steht mit im Bild - sonst hat der Lauf kein Ziel
+    // ausser der Punktzahl.
+    if (el.auftragHud) {
+      // Bevorzugt ein Auftrag, der sich in diesem Lauf bewegt - ein
+      // Gesamtauftrag bei 0/2500 sagt waehrend des Laufens nichts.
+      var offen = null, ersatz = null;
+      for (var ai = 0; ai < auftraege.length; ai++) {
+        var kandidat = auftraege[ai];
+        if (kandidat.fertig) continue;
+        if (!ersatz) ersatz = kandidat;
+        if (!auftragArt(kandidat.id).gesamt) { offen = kandidat; break; }
+      }
+      if (!offen) offen = ersatz;
+      if (offen) {
+        var art = auftragArt(offen.id);
+        var stand = Math.min(offen.ziel, Math.floor(auftragStand(offen)));
+        var text = art.text.replace('{z}', offen.ziel) + '  ' + stand + '/' + offen.ziel;
+        if (text !== lastAuftragText) {
+          lastAuftragText = text;
+          el.auftragHud.textContent = text;
+        }
+        el.auftragHud.hidden = false;
+      } else {
+        el.auftragHud.hidden = true;
+      }
+    }
 
     el.hyperFill.style.width = G.meter.toFixed(1) + '%';
     if (G.hyperT > 0) {
@@ -3001,9 +3065,13 @@
                  cause === 'saw' ? 'Von der Säge erwischt.' :
                  cause === 'drone' ? 'Die Drohne hat dich getroffen.' :
                  cause === 'spike' ? 'In die Stacheln gelaufen.' : 'Gegen die Kiste gekracht.';
+    var luecke = records.dist - dist;
+    var anreiz = isBest ? 'Weiter als je zuvor.'
+      : (luecke > 0 && luecke <= 150 ? 'Nur ' + luecke + ' m bis zum Rekord!'
+      : (luecke > 0 ? luecke + ' m fehlen zum Rekord.' : ''));
     showOverlay(
       isBest ? 'BESTER<span> ANDRUCK</span>' : 'MAKULATUR!',
-      reason + ' Nochmal?',
+      reason + ' ' + anreiz,
       'Neuer Andruck',
       stat('Punkte', score.toLocaleString('de-DE'), isBest) +
       stat('Strecke', dist + ' m') +

@@ -210,6 +210,22 @@ body {
 
 .powers { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
 
+/* Der laufende Auftrag steht mit im Bild, damit der Lauf ein Ziel hat. */
+.auftraghud {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 3px 9px;
+  font-size: clamp(8px, 1vw, 10px);
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--tinte);
+  background: rgba(243, 236, 217, .82);
+  border-left: 3px solid var(--aqua);
+}
+
+.auftraghud[hidden] { display: none; }
+
 .pill {
   --ink: var(--tinte);
   font-size: clamp(8px, .95vw, 10px);

@@ -147,29 +147,55 @@ Alto's Adventure, das die Idee der Tony-Hawk-Spiele in den Runner geholt hat:
 Beides wird im Lauf eingefuehrt: der Salto bei 200 Metern, der Absprung bei
 380, jeweils mit Namen und Loesungshinweis.
 
+### Der Fortschritt gehoert der Spielerin, nicht dem Lauf
+
+Zuerst war die Staffelung an die Strecke *im laufenden Spiel* gebunden. Das
+war ein Denkfehler: ein Lauf endet typisch bei 360 Metern, Saegen kamen bei
+1250 – man hat sie nie gesehen und nach jedem Tod denselben leeren Anfang
+gespielt. Nach einer Minute war alles schon dreimal da.
+
+Jetzt zaehlt die **Karriere** mit: `min(1300, bester Lauf × 0,7 + Gesamtmeter
+/ 20)`. Ein neuer Lauf beginnt dort, wo man schon war – mit dem, was man
+freigespielt hat, und etwas schneller. Gemessen:
+
+| bester Lauf | Karriere | Starttempo | ab Sekunde 1 dabei |
+| --- | --- | --- | --- |
+| – | 0 m | 310 px/s | nichts, reiner Anfang |
+| 300 m | 225 m | 333 px/s | Stacheln, Salto, Gruben |
+| 450 m | 360 m | 346 px/s | + Absprung, Kisten |
+| 700 m | 615 m | 372 px/s | + Drohnen, Sprungfedern |
+| 1100 m | 1070 m | 417 px/s | + Saegen, Tore, Hebebuehnen |
+| 2000 m | 1300 m | 440 px/s | alles |
+
+Bereits bekannte Arten werden nicht noch einmal erklaert – Karten gibt es nur
+fuer das, was man neu erreicht.
+
 ### Die Strecke waechst mit
 
 Jede Hindernisart wird einzeln eingefuehrt, einmal erklaert und mischt sich
-erst danach unter die anderen. Der Anfang ist dadurch ruhig, und die Strecke
-wird ueber die ersten drei Kilometer stetig voller:
+erst danach unter die anderen:
 
 | ab | neu | Loesung |
 | --- | --- | --- |
-| 0 m | nur Boden und Muenzen | – |
-| 120 m | Stacheln | drueberspringen |
-| 280 m | Gruben | Taste halten springt weiter |
-| 460 m | Kisten | Dash zerlegt sie |
-| 680 m | Drohnen | drunter durchrutschen |
-| 950 m | Sprungfedern | hoch zu den Muenzen |
-| 1250 m | Saegen | den richtigen Moment abwarten |
-| 1600 m | Tore | durch die Luecke oder durchdashen |
-| 2000 m | Hebebuehnen | mitfahren |
-| 2450 m | muerbe Absaetze | nicht stehenbleiben |
-| 3000 m | alles gemischt | viel Glueck |
+| 60 m | Stacheln | drueberspringen |
+| 130 m | Salto | in der Luft drehen |
+| 190 m | Gruben | Taste halten springt weiter |
+| 250 m | Absprung | von oben drauf |
+| 310 m | Kisten | Dash zerlegt sie |
+| 410 m | Drohnen | drunter durch oder drauf |
+| 530 m | Sprungfedern | oben ist Zeit fuer mehrere Saltos |
+| 660 m | Saegen | den richtigen Moment abwarten |
+| 810 m | Tore | durch die Luecke oder durchdashen |
+| 960 m | Hebebuehnen | mitfahren |
+| 1120 m | muerbe Absaetze | nicht stehenbleiben |
+| 1300 m | alles gemischt | viel Glueck |
 
-Gemessen ueber die erzeugte Strecke: 0 Hindernisse je 100 Meter auf den ersten
-200 Metern, dann 2,0 – 2,9 – 3,1 – 4,0 – 4,4. Die Geschwindigkeit steigt von
-310 auf 980 Pixel je Sekunde und braucht dafuer knapp drei Kilometer.
+Die Schwellen gelten fuer den Lauf **oder** die Karriere, je nachdem was
+weiter ist.
+
+Der Anfang gibt sofort etwas zu tun: Muenzen, dann eine Sprungfeder, die hoch
+genug wirft fuer den ersten Salto. Leere Anfaenge sind Gift fuer die Lust
+weiterzuspielen – und wiederholen sich bei jedem Tod.
 
 ### Auftraege und Rang
 
