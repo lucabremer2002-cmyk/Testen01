@@ -78,6 +78,16 @@
   var PH = 48;                  // Hoehe stehend
   var PH_SLIDE = 26;            // Hoehe rutschend
 
+  // --- Gelaende
+  //
+  // Der Boden lag frueher als eine gerade Linie ueber den ganzen Bildschirm.
+  // Damit hatte jedes Hindernis genau eine Antwort und es gab nur einen Weg -
+  // das ist der Grund, warum es sich nach drei Laeufen abgearbeitet anfuehlte.
+  // Jetzt liegt das Gelaende auf vier Ebenen: hinunter geht es als Kliff (frei,
+  // gibt Flugzeit), hinauf nur ueber eine Luecke, die man springen muss.
+  var EBENEN = 4;
+  var EBENE_H = 52;             // Hoehenunterschied je Ebene
+
   var SPRING_V = 1280;          // Absprunggeschwindigkeit einer Sprungfeder
   var LIFT_AMP = 62;            // Ausschlag einer Hebebuehne
   var CRUMBLE_FUSE = 0.45;      // so lange traegt eine broeckelnde Plattform
@@ -723,6 +733,7 @@
       rauschT: 0,
       neuFrei: [],
       letzterChunk: '',
+      ebene: 0,                 // aktuelle Gelaendehoehe beim Bauen
       regenAnkuendigen: false,
       stufeIndex: 0,          // wird gleich auf den Karrierestand gesetzt
       meilenstein: 0,
@@ -756,8 +767,20 @@
 
   // ------------------------------------------------------- Streckenerzeugung
 
-  function ground(x, w) {
-    G.platforms.push({ x: x, y: GROUND_Y, w: w, h: H - GROUND_Y + 120, solid: true });
+  function ebeneY(stufe) { return GROUND_Y - stufe * EBENE_H; }
+  function bodenY() { return ebeneY(G.ebene); }
+
+  function ground(x, w, y) {
+    if (y === undefined) y = bodenY();
+    // Stossen zwei Stuecke auf gleicher Hoehe aneinander, werden sie zu einem.
+    // Sonst zeichnet jede Naht eine Kliffkante und der Boden sieht aus wie ein
+    // Lattenzaun.
+    var letzte = G.platforms[G.platforms.length - 1];
+    if (letzte && letzte.solid && letzte.y === y && Math.abs(letzte.x + letzte.w - x) < 2) {
+      letzte.w = x + w - letzte.x;
+      return;
+    }
+    G.platforms.push({ x: x, y: y, w: w, h: H - y + 200, solid: true });
   }
 
   function ledge(x, y, w, broeckelt) {
@@ -775,8 +798,9 @@
                        basis: y, amp: amp, spd: rand(0.9, 1.5), phase: Math.random() * 6.283 });
   }
 
-  function spring(x) {
-    G.obstacles.push({ type: 'spring', x: x, y: GROUND_Y - 20, w: 56, h: 20,
+  function spring(x, boden) {
+    if (boden === undefined) boden = bodenY();
+    G.obstacles.push({ type: 'spring', x: x, y: boden - 20, w: 56, h: 20, boden: boden,
                        used: -9, dead: 0, gap: 999, passed: true });
   }
 
@@ -793,12 +817,12 @@
   }
 
   // Streut zusaetzliche Stacheln in die freien Luecken eines Abschnitts.
-  function streue(x, len, anzahl) {
+  function streue(x, len, anzahl, boden) {
     if (!freigeschaltet('spike')) return;
     for (var i = 0; i < anzahl; i++) {
       for (var versuch = 0; versuch < 8; versuch++) {
         var sx = x + rand(150, len - 110);
-        if (frei(sx, 30)) { spike(sx); break; }
+        if (frei(sx, 30)) { spike(sx, boden); break; }
       }
     }
   }
@@ -822,26 +846,31 @@
     for (var i = 0; i < n; i++) coin(x + i * gap, y + Math.sin(i * 0.7) * amp);
   }
 
-  function spike(x) {
-    G.obstacles.push({ type: 'spike', x: x, y: GROUND_Y - 30, w: 30, h: 30, dead: 0, gap: 999, passed: false });
+  function spike(x, boden) {
+    if (boden === undefined) boden = bodenY();
+    G.obstacles.push({ type: 'spike', x: x, y: boden - 30, w: 30, h: 30, boden: boden,
+                       dead: 0, gap: 999, passed: false });
   }
 
-  function crate(x, tall) {
+  function crate(x, tall, boden) {
+    if (boden === undefined) boden = bodenY();
     var h = tall ? 96 : 64;
-    G.obstacles.push({ type: 'crate', x: x, y: GROUND_Y - h, w: 46, h: h, dead: 0, gap: 999, passed: false });
+    G.obstacles.push({ type: 'crate', x: x, y: boden - h, w: 46, h: h, boden: boden,
+                       dead: 0, gap: 999, passed: false });
   }
 
   function saw(x, y, amp) {
     G.obstacles.push({
-      type: 'saw', x: x, y: y, r: 30, w: 60, h: 60,
+      type: 'saw', x: x, y: y, r: 30, w: 60, h: 60, boden: bodenY(),
       amp: amp || 0, spd: rand(1.6, 2.6), phase: Math.random() * 6.283,
       dead: 0, gap: 999, passed: false
     });
   }
 
-  function drone(x, patrouille) {
+  function drone(x, patrouille, boden) {
+    if (boden === undefined) boden = bodenY();
     G.obstacles.push({
-      type: 'drone', x: x, y: GROUND_Y - 68, w: 58, h: 30,
+      type: 'drone', x: x, y: boden - 68, w: 58, h: 30, boden: boden,
       phase: Math.random() * 6.283, patrol: patrouille ? rand(40, 80) : 0,
       pspd: rand(0.8, 1.4), dead: 0, gap: 999, passed: false
     });
@@ -868,19 +897,66 @@
     while (G.genX < G.worldX + W + 900 && guard++ < 40) buildChunk();
   }
 
+  // Neue Ebene waehlen. Hinunter ist frei - das Kliff gibt Flugzeit und ist ein
+  // Geschenk. Hinauf kostet eine Luecke, die man springen muss.
+  function ebeneWechseln() {
+    if (G.chunk < 3) return;
+    var r = Math.random();
+    var neu = G.ebene;
+    if (r < 0.30 && G.ebene < EBENEN - 1) neu = G.ebene + 1;
+    else if (r < 0.58 && G.ebene > 0) neu = G.ebene - randInt(1, Math.min(2, G.ebene));
+    if (neu === G.ebene) return;
+
+    if (neu > G.ebene) {
+      // Die Luecke bleibt immer springbar, auch mit dem Hoehengewinn.
+      var luecke = clamp(rand(100, 150), 90, G.speed * 0.32);
+      coinArc(G.genX + 12, ebeneY(neu) - 52, 4, luecke - 24, 36);
+      G.genX += luecke;
+    } else if (Math.random() < 0.35) {
+      // Manchmal springt man ueber die Kante statt sie hinunterzulaufen.
+      var kluft = clamp(rand(90, 160), 80, G.speed * 0.34);
+      coinLine(G.genX + 20, ebeneY(neu) - 70, 3, 38);
+      G.genX += kluft;
+    }
+    G.ebene = neu;
+  }
+
+  // Zweite Linie ueber dem Boden: mehr Muenzen, mehr Risiko, eigener Weg.
+  // Erst dadurch gibt es ueberhaupt etwas zu entscheiden.
+  function obereRoute(x, len, b, mitFeder) {
+    if (len < 320) return 0;
+    var y = b - rand(150, 195);
+    var cx = x + rand(70, 130);
+    var stuecke = 0;
+    if (mitFeder && freigeschaltet('spring')) spring(cx - 60, b);
+    while (cx < x + len - 150 && stuecke < 4) {
+      var w = rand(110, 175);
+      ledge(cx, y, w, freigeschaltet('crumble') && Math.random() < 0.25);
+      coinLine(cx + 22, y - 42, Math.max(2, Math.round(w / 46)), 38);
+      if (stuecke === 1 && Math.random() < 0.35) pickupOben(cx + w * 0.5, y - 70);
+      cx += w + rand(70, 125);
+      y = clamp(y + rand(-45, 45), b - 245, b - 125);
+      stuecke++;
+    }
+    return stuecke;
+  }
+
+  function pickupOben(x, y) {
+    var kinds = ['shield', 'magnet', 'x2', 'slow'];
+    G.pickups.push({ x: x, y: y, r: 20, kind: pick(kinds), got: false, phase: Math.random() * 6.283 });
+  }
+
   function buildChunk() {
-    // Die Schwierigkeit zieht erst nach den ersten hundert Metern an und
-    // braucht danach fast drei Kilometer bis zum Anschlag.
     var d = clamp((Math.max(G.dist, karriere() * 0.6) - 100) / 2200, 0, 1);
     var i = G.chunk++;
 
     if (i < 1) { chunkStart(560); return; }
+
+    ebeneWechseln();
+
     if (i - G.lastPowerChunk >= 6) { chunkTreasure(d); return; }
     if (G.dist > 320 && i - G.lastRegenChunk >= 13) { chunkMuenzregen(d); return; }
 
-    // In den Topf kommt nur, was die Strecke schon freigeschaltet hat. Die
-    // Bausteine, die eine eigene Bewegung verlangen - rutschen, abwarten,
-    // treffen - liegen doppelt darin, sonst kaemen sie zu selten dran.
     var topf = ['flat'];
     if (freigeschaltet('spike')) topf.push('rhythmus');
     if (freigeschaltet('pit')) topf.push('pit', 'pit');
@@ -890,15 +966,15 @@
     if (freigeschaltet('saw')) topf.push('saws', 'saws');
     if (freigeschaltet('gate')) topf.push('tore', 'tore');
     if (freigeschaltet('lift')) topf.push('lifte');
-    if (G.dist > 520) topf.push('stairs');
+    if (G.dist > 200 || karriere() > 200) topf.push('stairs');
     if (freigeschaltet('mix')) topf.push('gauntlet', 'gauntlet');
     topf.push('treasure');
 
-    // Nie zweimal dasselbe hintereinander - das faellt sofort auf.
     var wahl = pick(topf);
     if (wahl === G.letzterChunk && topf.length > 3) wahl = pick(topf);
     G.letzterChunk = wahl;
-    if (wahl === 'flat') chunkFlat(rand(330, 440), d);
+
+    if (wahl === 'flat') chunkFlat(rand(380, 500), d);
     else if (wahl === 'rhythmus') chunkRhythmus(d);
     else if (wahl === 'pit') chunkPit(d);
     else if (wahl === 'stairs') chunkStairs(d);
@@ -912,78 +988,70 @@
     else chunkTreasure(d);
   }
 
-  // Die ersten Meter bleiben leer: die Figur startet bei x = PLAYER_X und
-  // braucht Anlauf, bevor das erste Hindernis auftauchen darf.
   function chunkStart(len) {
     var x = G.genX;
-    ground(x, len);
-    // Gleich in den ersten Sekunden etwas zu tun: Muenzen, dann eine Feder,
-    // die hoch genug wirft fuer den ersten Salto. Leere Anfaenge sind toedlich
-    // fuer die Lust weiterzuspielen.
-    coinLine(x + 220, GROUND_Y - 60, 5, 34);
-    spring(x + 420);
-    coinLine(x + 400, GROUND_Y - 210, 5, 34);
-    coinArc(x + 470, GROUND_Y - 320, 5, 130, 40);
+    var b = bodenY();
+    ground(x, len, b);
+    coinLine(x + 220, b - 60, 5, 34);
+    spring(x + 420, b);
+    coinLine(x + 400, b - 210, 5, 34);
+    coinArc(x + 470, b - 320, 5, 130, 40);
     G.genX += len;
   }
 
   function chunkFlat(len, d) {
-    var x = G.genX;
-    ground(x, len);
-    streue(x, len, 1 + Math.round(d * 2));
-    if (freigeschaltet('crate') && Math.random() < 0.45) crate(x + rand(180, len - 120), false);
-    if (Math.random() < 0.5) ledge(x + rand(120, len - 220), GROUND_Y - rand(150, 210), rand(120, 190));
-    coinLine(x + 80, GROUND_Y - 60, randInt(5, 9), 38);
+    var x = G.genX, b = bodenY();
+    ground(x, len, b);
+    streue(x, len, 1 + Math.round(d * 2), b);
+    if (freigeschaltet('crate') && Math.random() < 0.45) crate(x + rand(180, len - 120), false, b);
+    var oben = Math.random() < 0.65 ? obereRoute(x, len, b, Math.random() < 0.4) : 0;
+    if (!oben) coinLine(x + 80, b - 60, randInt(5, 9), 38);
     G.genX += len;
   }
 
-  // Gleichmaessiger Takt: identische Hindernisse in festem Abstand. Das laesst
-  // sich einrhythmisieren und fuehlt sich beim Treffen richtig gut an.
   function chunkRhythmus(d) {
-    var x = G.genX;
+    var x = G.genX, b = bodenY();
     var abstand = rand(190, 250) - d * 30;
     var n = randInt(3, 5);
     var len = abstand * n + 260;
-    ground(x, len);
+    ground(x, len, b);
     for (var i = 0; i < n; i++) {
       var sx = x + 170 + i * abstand;
-      spike(sx);
-      coinArc(sx - 46, GROUND_Y - 96, 3, 92, 34);
+      spike(sx, b);
+      coinArc(sx - 46, b - 96, 3, 92, 34);
     }
     G.genX += len;
   }
 
   function chunkPit(d) {
-    var x = G.genX;
+    var x = G.genX, b = bodenY();
     var lead = rand(160, 230);
-    ground(x, lead);
-    // Die Luecke bleibt immer springbar: Flugzeit mal aktuelle Geschwindigkeit.
+    ground(x, lead, b);
     var maxGap = Math.min(330, G.speed * 0.44);
     var gap = clamp(rand(115, 145 + d * 200), 105, maxGap);
     var pits = 1 + (Math.random() < 0.25 + d * 0.4 ? 1 : 0) + (Math.random() < d * 0.35 ? 1 : 0);
     var cursor = x + lead;
 
     for (var p = 0; p < pits; p++) {
-      coinArc(cursor + 14, GROUND_Y - 74, 5, gap - 28, 56);
+      coinArc(cursor + 14, b - 74, 5, gap - 28, 56);
       if (gap > 190 && freigeschaltet('crumble') && Math.random() < 0.45) {
-        ledge(cursor + gap * 0.3, GROUND_Y - 150, gap * 0.4, true);
+        ledge(cursor + gap * 0.3, b - 150, gap * 0.4, true);
       }
       cursor += gap;
       var island = p === pits - 1 ? rand(260, 360) : rand(150, 210);
-      ground(cursor, island);
-      // Die ersten 120 px einer Insel bleiben frei - dort landet man.
-      if (island > 240) streue(cursor + 120, island - 120, Math.random() < 0.4 + d * 0.4 ? 1 : 0);
+      ground(cursor, island, b);
+      if (island > 240) streue(cursor + 120, island - 120, Math.random() < 0.4 + d * 0.4 ? 1 : 0, b);
       cursor += island;
     }
     G.genX = cursor;
   }
 
   function chunkStairs(d) {
-    var x = G.genX;
+    var x = G.genX, b = bodenY();
     var len = rand(520, 700);
-    ground(x, len);
+    ground(x, len, b);
     var steps = randInt(3, 5);
-    var y = GROUND_Y - 108;
+    var y = b - 108;
     var cx = x + 110;
     for (var i = 0; i < steps; i++) {
       var w = rand(100, 150);
@@ -991,180 +1059,174 @@
       coinLine(cx + 24, y - 44, Math.max(2, Math.round(w / 40)), 38);
       cx += w + rand(55, 95);
       y -= i < steps / 2 ? 74 : -74;
-      y = clamp(y, 150, GROUND_Y - 96);
+      y = clamp(y, 140, b - 96);
     }
-    streue(x, len, 1 + Math.round(d * 2));
+    streue(x, len, 1 + Math.round(d * 2), b);
     G.genX += len;
   }
 
   function chunkDrones(d) {
-    var x = G.genX;
+    var x = G.genX, b = bodenY();
     var len = rand(480, 640);
-    ground(x, len);
+    ground(x, len, b);
     var n = randInt(2, 3 + Math.round(d * 2));
     var cx = x + 160;
     for (var i = 0; i < n; i++) {
-      drone(cx, d > 0.3 && Math.random() < 0.4);   // spaeter patrouillieren welche
-      coinLine(cx - 6, GROUND_Y - 16, 4, 22);      // Muenzen belohnen das Rutschen
+      drone(cx, d > 0.3 && Math.random() < 0.4, b);
+      coinLine(cx - 6, b - 16, 4, 22);
       cx += rand(150, 215);
       if (cx > x + len - 80) break;
     }
-    streue(x, len, 1 + Math.round(d * 2));
+    streue(x, len, 1 + Math.round(d * 2), b);
+    if (Math.random() < 0.5) obereRoute(x, len, b, true);
     G.genX += len;
   }
 
   function chunkSaws(d) {
-    var x = G.genX;
+    var x = G.genX, b = bodenY();
     var len = rand(500, 660);
-    ground(x, len);
+    ground(x, len, b);
     var n = randInt(2, 3 + Math.round(d * 2));
     var cx = x + 170;
     for (var i = 0; i < n; i++) {
       var floating = Math.random() < 0.5;
-      saw(cx, floating ? GROUND_Y - rand(120, 200) : GROUND_Y - 34, floating ? rand(40, 90) : 0);
-      coinArc(cx - 60, GROUND_Y - 100, 5, 120, 40);
+      saw(cx, floating ? b - rand(120, 200) : b - 34, floating ? rand(40, 90) : 0);
+      coinArc(cx - 60, b - 100, 5, 120, 40);
       cx += rand(170, 240);
       if (cx > x + len - 90) break;
     }
-    streue(x, len, Math.round(d * 2));
+    streue(x, len, Math.round(d * 2), b);
     G.genX += len;
   }
 
   function chunkCrates(d) {
-    var x = G.genX;
+    var x = G.genX, b = bodenY();
     var len = rand(460, 620);
-    ground(x, len);
+    ground(x, len, b);
     var n = randInt(2, 3 + Math.round(d));
     var cx = x + 150;
     for (var i = 0; i < n; i++) {
       var tall = Math.random() < 0.35 + d * 0.3;
-      crate(cx, tall);
-      coinArc(cx - 70, GROUND_Y - (tall ? 150 : 120), 5, 150, 44);
+      crate(cx, tall, b);
+      coinArc(cx - 70, b - (tall ? 150 : 120), 5, 150, 44);
       cx += rand(160, 230);
       if (cx > x + len - 80) break;
     }
-    if (Math.random() < 0.7) {
-      ledge(x + 200, GROUND_Y - 190, rand(180, 240));
-      coinLine(x + 230, GROUND_Y - 238, 5, 38);
-    }
-    streue(x, len, Math.round(d * 2));
+    if (Math.random() < 0.7) obereRoute(x, len, b, false);
+    streue(x, len, Math.round(d * 2), b);
     G.genX += len;
   }
 
   function chunkSprings(d) {
-    var x = G.genX;
+    var x = G.genX, b = bodenY();
     var len = rand(520, 680);
-    ground(x, len);
+    ground(x, len, b);
     var cx = x + 170;
     var n = randInt(1, 2);
     for (var i = 0; i < n; i++) {
-      spring(cx);
-      coinLine(cx - 20, GROUND_Y - 200, 6, 34);
-      coinLine(cx + 10, GROUND_Y - 330, 5, 34);
+      spring(cx, b);
+      coinLine(cx - 20, b - 200, 6, 34);
+      coinLine(cx + 10, b - 330, 5, 34);
       if (Math.random() < 0.6) {
-        ledge(cx + 120, GROUND_Y - 260, rand(140, 200), freigeschaltet('crumble') && d > 0.3);
+        ledge(cx + 120, b - 260, rand(140, 200), freigeschaltet('crumble') && d > 0.3);
       }
       cx += rand(230, 300);
       if (cx > x + len - 110) break;
     }
-    streue(x, len, 1 + Math.round(d * 2));
+    streue(x, len, 1 + Math.round(d * 2), b);
     G.genX += len;
   }
 
-  // Tor: unten ein Riegel, oben ein Sturz. Dazwischen bleibt eine Luecke, die
-  // man mit der richtigen Sprunghoehe trifft - oder man dasht einfach hindurch.
   function chunkTore(d) {
-    var x = G.genX;
+    var x = G.genX, b = bodenY();
     var len = rand(520, 700);
-    ground(x, len);
+    ground(x, len, b);
     var n = randInt(1, 2 + Math.round(d));
     var cx = x + 180;
     for (var i = 0; i < n; i++) {
-      var unten = 44 + d * 14;                       // Hoehe des Bodenriegels
-      var luecke = 116 - d * 22;                     // lichte Weite darueber
-      block(cx, GROUND_Y - unten, 40, unten);
-      block(cx, 0, 40, GROUND_Y - unten - luecke);
-      coinLine(cx + 4, GROUND_Y - unten - luecke * 0.5, 1, 0);
-      coinArc(cx - 130, GROUND_Y - unten - luecke * 0.5, 4, 110, 12);
+      var unten = 44 + d * 14;
+      var luecke = 116 - d * 22;
+      block(cx, b - unten, 40, unten);
+      block(cx, 0, 40, b - unten - luecke);
+      coinLine(cx + 4, b - unten - luecke * 0.5, 1, 0);
+      coinArc(cx - 130, b - unten - luecke * 0.5, 4, 110, 12);
       cx += rand(240, 320);
       if (cx > x + len - 120) break;
     }
-    streue(x, len, Math.round(d));
+    streue(x, len, Math.round(d), b);
     G.genX += len;
   }
 
-  // Hebebuehnen ueber einer breiten Grube: mitfahren statt springen.
   function chunkLifte(d) {
-    var x = G.genX;
+    var x = G.genX, b = bodenY();
     var lead = rand(180, 240);
-    ground(x, lead);
+    ground(x, lead, b);
     var kluft = rand(300, 380);
     var cx = x + lead;
-    hebebuehne(cx + 40, GROUND_Y - 130, 120, LIFT_AMP);
-    coinLine(cx + 60, GROUND_Y - 200, 4, 34);
+    hebebuehne(cx + 40, b - 130, 120, LIFT_AMP);
+    coinLine(cx + 60, b - 200, 4, 34);
     if (kluft > 340) {
-      hebebuehne(cx + 200, GROUND_Y - 190, 110, LIFT_AMP * 0.8);
-      coinLine(cx + 215, GROUND_Y - 260, 3, 34);
+      hebebuehne(cx + 200, b - 190, 110, LIFT_AMP * 0.8);
+      coinLine(cx + 215, b - 260, 3, 34);
     }
     cx += kluft;
     var insel = rand(280, 360);
-    ground(cx, insel);
-    streue(cx + 120, insel - 120, Math.round(d));
+    ground(cx, insel, b);
+    streue(cx + 120, insel - 120, Math.round(d), b);
     G.genX = cx + insel;
   }
 
   function chunkGauntlet(d) {
-    var x = G.genX;
+    var x = G.genX, b = bodenY();
     var len = rand(620, 820);
-    ground(x, len);
+    ground(x, len, b);
     var cx = x + 150;
     var arten = ['spike', 'crate', 'drone', 'saw'];
     while (cx < x + len - 120) {
       var art = pick(arten);
-      if (art === 'spike') spike(cx);
-      else if (art === 'crate') crate(cx, Math.random() < 0.4);
-      else if (art === 'drone') { drone(cx); coinLine(cx - 6, GROUND_Y - 16, 4, 22); }
-      else saw(cx, Math.random() < 0.5 ? GROUND_Y - rand(130, 190) : GROUND_Y - 34, rand(30, 80));
+      if (art === 'spike') spike(cx, b);
+      else if (art === 'crate') crate(cx, Math.random() < 0.4, b);
+      else if (art === 'drone') { drone(cx, false, b); coinLine(cx - 6, b - 16, 4, 22); }
+      else saw(cx, Math.random() < 0.5 ? b - rand(130, 190) : b - 34, rand(30, 80));
       cx += rand(145, 205);
     }
-    coinWave(x + 120, GROUND_Y - 150, 12, 40, 50);
-    if (Math.random() < 0.5) ledge(x + 180, GROUND_Y - 230, rand(160, 220));
+    if (Math.random() < 0.5) obereRoute(x, len, b, true);
+    else coinWave(x + 120, b - 150, 12, 40, 50);
     G.genX += len;
   }
 
-  // Muenzregen: kurze Belohnungsstrecke ohne Gefahr, aber randvoll.
   function chunkMuenzregen(d) {
-    var x = G.genX;
+    var x = G.genX, b = bodenY();
     var len = rand(560, 680);
-    ground(x, len);
+    ground(x, len, b);
     G.lastRegenChunk = G.chunk;
     G.regenAnkuendigen = true;
-    for (var reihe = 0; reihe < 4; reihe++) {
-      coinWave(x + 90 + reihe * 18, GROUND_Y - 60 - reihe * 52, 13, 36, 26);
+    for (var reihe = 0; reihe < 3; reihe++) {
+      coinWave(x + 90 + reihe * 20, b - 70 - reihe * 62, 11, 40, 24);
     }
-    if (Math.random() < 0.5) spring(x + len * 0.5);
+    if (Math.random() < 0.5) spring(x + len * 0.5, b);
     G.genX += len;
   }
 
   function chunkTreasure(d) {
-    var x = G.genX;
+    var x = G.genX, b = bodenY();
     var len = rand(560, 720);
-    ground(x, len);
+    ground(x, len, b);
     G.lastPowerChunk = G.chunk;
 
     var kinds = ['shield', 'magnet', 'x2', 'slow'];
     var mitte = x + len * 0.5;
-    if (!platteVersuchen(mitte, GROUND_Y - rand(120, 200))) {
-      pickup(mitte, GROUND_Y - rand(110, 190), pick(kinds));
+    if (!platteVersuchen(mitte, b - rand(120, 200))) {
+      pickup(mitte, b - rand(110, 190), pick(kinds));
     }
 
     var style = Math.random();
-    if (style < 0.34) coinWave(x + 100, GROUND_Y - 130, 15, 36, 54);
-    else if (style < 0.67) coinArc(x + 100, GROUND_Y - 60, 14, len - 220, 150);
+    if (style < 0.34) coinWave(x + 100, b - 130, 15, 36, 54);
+    else if (style < 0.67) coinArc(x + 100, b - 60, 14, len - 220, 150);
     else {
-      for (var row = 0; row < 3; row++) coinLine(x + 120 + row * 16, GROUND_Y - 70 - row * 44, 9, 38);
+      for (var row = 0; row < 3; row++) coinLine(x + 120 + row * 16, b - 70 - row * 44, 9, 38);
     }
-    streue(x, len, Math.round(d * 2));
+    streue(x, len, Math.round(d * 2), b);
     G.genX += len;
   }
 
@@ -1193,7 +1255,11 @@
     // Gleiche Meldung kurz hintereinander wuerde sich nur uebereinanderlegen.
     var letzte = G.texts[G.texts.length - 1];
     if (letzte && letzte.text === text && letzte.life < 0.25) return;
-    G.texts.push({ x: x, y: y, text: text, hue: hue, size: size || 20, life: 0, max: 0.9 });
+    // Frische Meldungen stapeln sich nach oben, statt sich zu ueberlagern.
+    var frisch = 0;
+    for (var i = 0; i < G.texts.length; i++) if (G.texts[i].life < 0.4) frisch++;
+    G.texts.push({ x: x, y: y - frisch * 26, text: text, hue: hue,
+                   size: size || 20, life: 0, max: 0.9 });
   }
 
   var toastTimer = null;
@@ -1342,7 +1408,7 @@
     G.py += G.h - PH_SLIDE;
     G.h = PH_SLIDE;
     Sound.slide();
-    burst(G.worldX + G.screenX, GROUND_Y, 12, {
+    burst(G.worldX + G.screenX, G.py + G.h, 12, {
       angle: Math.PI, spread: 0.6, minSpeed: 120, maxSpeed: 300, grav: 700, hue: G.hue + 120
     });
   }
@@ -2270,6 +2336,16 @@
         }
         ctx.stroke();
 
+        // Kliffkanten: senkrechte Tintenkante, damit Hoehenspruenge lesbar sind
+        ctx.strokeStyle = tinte(0.85);
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(x, p.y);
+        ctx.lineTo(x, p.y + 46);
+        ctx.moveTo(x + p.w, p.y);
+        ctx.lineTo(x + p.w, p.y + 46);
+        ctx.stroke();
+
         // Grasbueschel gebuendelt in einem Zug
         if (!sparsam) {
           ctx.strokeStyle = tinte(0.5);
@@ -2438,11 +2514,12 @@
       if (x < -140 || x > W + 140) continue;
 
       if (o.type === 'spike') {
+        var sb = o.boden === undefined ? GROUND_Y : o.boden;
         var stachel = function () {
           ctx.beginPath();
-          ctx.moveTo(x - 3, GROUND_Y + 2);
-          ctx.lineTo(x + o.w / 2, GROUND_Y - o.h - 4);
-          ctx.lineTo(x + o.w + 3, GROUND_Y + 2);
+          ctx.moveTo(x - 3, sb + 2);
+          ctx.lineTo(x + o.w / 2, sb - o.h - 4);
+          ctx.lineTo(x + o.w + 3, sb + 2);
           ctx.closePath();
         };
         aufPapier(stachel, PINK, tinteB(0.4));
@@ -2452,9 +2529,9 @@
         ctx.stroke();
         ctx.fillStyle = papier(0.9);
         ctx.beginPath();
-        ctx.moveTo(x + o.w / 2, GROUND_Y - o.h + 4);
-        ctx.lineTo(x + o.w * 0.66, GROUND_Y - o.h * 0.35);
-        ctx.lineTo(x + o.w * 0.38, GROUND_Y - o.h * 0.35);
+        ctx.moveTo(x + o.w / 2, sb - o.h + 4);
+        ctx.lineTo(x + o.w * 0.66, sb - o.h * 0.35);
+        ctx.lineTo(x + o.w * 0.38, sb - o.h * 0.35);
         ctx.closePath();
         ctx.fill();
 
@@ -2526,7 +2603,7 @@
         ctx.lineWidth = 2.4;
         ctx.beginPath();
         for (var z = 0; z < 4; z++) {
-          ctx.moveTo(x + 6 + z * 12, GROUND_Y);
+          ctx.moveTo(x + 6 + z * 12, o.boden === undefined ? GROUND_Y : o.boden);
           ctx.lineTo(x + 13 + z * 12, py2 + 4);
         }
         ctx.stroke();
@@ -2552,7 +2629,8 @@
         ctx.fillStyle = tinte(0.28);
         for (var s2 = 0; s2 < 7; s2++) {
           var t2 = s2 / 6;
-          var yy = dy + o.h + t2 * (GROUND_Y - dy - o.h);
+          var db = o.boden === undefined ? GROUND_Y : o.boden;
+          var yy = dy + o.h + t2 * (db - dy - o.h);
           ctx.beginPath();
           ctx.arc(x + o.w * 0.5, yy, 1.5 + t2 * 3, 0, 6.2832);
           ctx.fill();

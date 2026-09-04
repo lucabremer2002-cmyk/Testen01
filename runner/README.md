@@ -118,6 +118,35 @@ dieselbe Schicht. Damit verhaelt sich jeder Sprung ueberall gleich:
 
 ## Features
 
+### Das Gelaende ist das Spiel
+
+Lange lag der Boden als eine gerade Linie ueber den ganzen Bildschirm. Alles
+stand darauf aufgereiht, und es gab genau einen Weg. Damit hatte jedes
+Hindernis genau eine Antwort – Stachel springen, Drohne rutschen – und nach
+drei Laeufen fuehlte es sich abgearbeitet an. Keine Auftragsliste und keine
+Sammlung repariert das.
+
+Jetzt liegt der Boden auf **vier Ebenen** mit je 52 Pixeln Unterschied:
+
+* **Hinunter ist frei.** Ein Kliff kostet nichts, gibt Flugzeit und ist ein
+  Geschenk: Zeit fuer einen Salto, den man am Boden nicht haette.
+* **Hinauf kostet eine Luecke**, die man springen muss. Muenzen ueber der
+  Luecke zeigen den Bogen an.
+* Aneinandergrenzende Stuecke gleicher Hoehe verschmelzen zu einem – sonst
+  zeichnet jede Naht eine Kliffkante und der Boden sieht aus wie ein
+  Lattenzaun.
+
+Dazu gibt es eine **zweite Route**: ueber dem Boden liegt in vielen
+Abschnitten eine Kette aus Absaetzen mit deutlich mehr Muenzen, oft ueber eine
+Sprungfeder erreichbar, manchmal mit einem Power-up darauf. Wer oben bleibt,
+holt mehr und riskiert mehr. Erst dadurch gibt es ueberhaupt etwas zu
+entscheiden, statt nur zu reagieren.
+
+Nachgeprueft ueber 906 erzeugte Luecken – 421 davon hinauf, 110 hinunter –
+mit einer Simulation der echten Sprungbahn (inklusive weicher Schwerkraft am
+Scheitelpunkt, harter beim Fallen und Endgeschwindigkeit): die schwerste
+Stelle braucht 54 Prozent der Reichweite, keine einzige ist unmoeglich.
+
 ### Tricks: das Spiel hat positive Ziele
 
 Ein Runner, in dem man nur ausweicht, hat als einziges Ziel „nicht sterben".
