@@ -224,7 +224,11 @@ label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px
 .stat-row:last-child { border-bottom: 0; }
 .stat-row span { color: var(--muted); }
 .stat-row b { font-variant-numeric: tabular-nums; }
-.stat-row .bar { min-width: 60px; }
+/* Balken und Wert einer Kennzahl gehoeren in eine Zeile. Enger wird
+   notfalls die Bezeichnung, nie der Betrag. */
+.stat-row > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.stat-row > .flex { flex: none; flex-wrap: nowrap; }
+.stat-row .bar { width: 74px; }
 
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
 .tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 10px 12px; }
@@ -273,7 +277,7 @@ td.name { font-weight: 600; }
    Breite blieben dann wirkungslos und die Spalte bliebe leer. */
 .bar {
   display: inline-block; vertical-align: middle;
-  height: 5px; width: 100%; min-width: 46px; max-width: 90px;
+  height: 5px; width: 62px; flex: none;
   background: var(--panel-3); border-radius: 3px; overflow: hidden;
 }
 .bar > i { display: block; height: 100%; background: var(--accent-2); border-radius: 3px; }
