@@ -386,7 +386,7 @@
     var id = 'eu_' + vorlage.name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12)
       + '_' + world.rng.int(100, 999);
     var club = {
-      id: id, name: vorlage.name, kurz: vorlage.name.slice(0, 3).toUpperCase(),
+      id: id, name: vorlage.name, kurz: vorlage.kurz || vorlage.name.slice(0, 3).toUpperCase(),
       stadt: vorlage.land, stadion: vorlage.name + ' Stadion',
       kapazitaet: Math.round(12000 + vorlage.ruf * 620), liga: 0,
       ruf: vorlage.ruf, finanz: vorlage.ruf, fans: vorlage.ruf,

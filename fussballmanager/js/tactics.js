@@ -579,6 +579,89 @@
     return out;
   }
 
+  /**
+   * Wie gut passt ein Spieler auf eine Position? 1 = gelernte Position,
+   * darunter greift die Verwandtschaftstabelle.
+   */
+  function eignung(p, pos) {
+    if (!p) return 0;
+    if (p.pos === pos) return 1;
+    if (p.nebenpos.indexOf(pos) >= 0) return 0.93;
+    var v = (D.POS_VERWANDT[p.pos] || {})[pos];
+    return v || 0.30;
+  }
+
+  function eignungText(wert) {
+    if (wert >= 0.99) return 'Stammposition';
+    if (wert >= 0.9) return 'Nebenposition';
+    if (wert >= 0.75) return 'gut geeignet';
+    if (wert >= 0.6) return 'brauchbar';
+    if (wert >= 0.45) return 'Notlösung';
+    return 'ungeeignet';
+  }
+
+  /**
+   * Bericht des Spielanalysten über den nächsten Gegner. Wie genau die
+   * Angaben sind, hängt an der Qualität der Analyseabteilung.
+   */
+  function gegneranalyse(world, eigenerClubId, gegnerId) {
+    var gegner = world.vereine[gegnerId];
+    if (!gegner) return null;
+    var stab = world.stabWerteVon(eigenerClubId);
+    var genauigkeit = U.clamp(stab.analyst / 100, 0.12, 0.95);
+    var taktik = world.taktikVon(gegnerId);
+    var werte = bewerteMannschaft({
+      world: world, club: gegner, taktik: taktik, heim: false
+    });
+
+    var kader = world.kaderVon(gegnerId);
+    var schluessel = U.sortBy(kader.filter(function (p) {
+      return !p.verletzung && p.sperre === 0;
+    }), function (p) {
+      return -(P.gesamt(p) + p.stats.tore * 2.5 + p.stats.vorlagen * 1.5);
+    })[0];
+
+    var teile = [
+      { id: 'def', name: 'Abwehr', wert: werte.def },
+      { id: 'mid', name: 'Mittelfeld', wert: werte.mid },
+      { id: 'att', name: 'Angriff', wert: werte.att }
+    ];
+    var sortiert = U.sortBy(teile, function (t) { return -t.wert; });
+
+    var hinweise = [];
+    var an = taktik.anweisungen;
+    if (an.pressing === 'hoch' || an.pressing === 'extrem') {
+      hinweise.push('Presst früh an. Lange Bälle hinter die Kette können den Druck lösen.');
+    }
+    if (an.abwehrlinie === 'hoch') {
+      hinweise.push('Verteidigt mit hoher Linie – schnelle Spieler in der Spitze sind im Vorteil.');
+    }
+    if (an.abwehrlinie === 'tief' || an.mentalitaet === 'defensiv') {
+      hinweise.push('Steht tief und kompakt. Ohne Kreativität im Zentrum wird es zäh.');
+    }
+    if (an.mentalitaet === 'offensiv' || an.mentalitaet === 'allesoderNichts') {
+      hinweise.push('Geht viel Risiko – dahinter öffnen sich Räume für Konter.');
+    }
+    if (an.breite === 'breit') hinweise.push('Sucht die Breite; die Außenverteidiger brauchen Unterstützung.');
+    if (an.breite === 'eng') hinweise.push('Spielt eng durchs Zentrum, die Flügel bleiben oft frei.');
+    if (werte.kopfball > 60) hinweise.push('Bei Standards gefährlich in der Luft.');
+
+    var tab = world.tabellenPlatz(gegnerId);
+    return {
+      club: gegner,
+      genauigkeit: genauigkeit,
+      formation: genauigkeit > 0.4 ? taktik.formation : null,
+      werte: werte,
+      teile: teile,
+      staerke: sortiert[0],
+      schwaeche: sortiert[sortiert.length - 1],
+      schluesselspieler: genauigkeit > 0.3 ? schluessel : null,
+      hinweise: genauigkeit > 0.35 ? hinweise.slice(0, 3) : [],
+      tabelle: tab,
+      unschaerfe: Math.round((1 - genauigkeit) * 12)
+    };
+  }
+
   /** Aktualisiert den Einspielgrad nach einem Spiel. */
   function aktualisiereEinspielgrad(taktik) {
     var elf = taktik.aufstellung.filter(Boolean);
@@ -608,6 +691,9 @@
     duell: duell,
     anweisung: anweisung,
     einsatzbereit: einsatzbereit,
+    eignung: eignung,
+    eignungText: eignungText,
+    gegneranalyse: gegneranalyse,
     aktualisiereEinspielgrad: aktualisiereEinspielgrad
   };
 

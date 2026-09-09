@@ -22,6 +22,8 @@
   var eigeneSeite = null;
   var gegnerSeite = null;
   var halbzeitGezeigt = false;
+  var gezaehlteTore = 0;      // wie viele Tore bereits gefeiert wurden
+  var jubelPause = false;
 
   var TEMPO = { 1: 1400, 2: 700, 3: 330, 4: 120 };
 
@@ -29,6 +31,8 @@
     var world = UI.world;
     spiel = partie;
     halbzeitGezeigt = false;
+    gezaehlteTore = 0;
+    jubelPause = false;
     state = FM.match.erstelle(world, spiel, {});
     eigeneSeite = state.heim.club.id === world.nutzerClubId ? state.heim : state.gast;
     gegnerSeite = eigeneSeite === state.heim ? state.gast : state.heim;
@@ -54,9 +58,10 @@
   }
 
   function schritt() {
-    if (!state || state.beendet) { stoppeUhr(); return; }
+    if (!state || state.beendet || jubelPause) { if (!state || state.beendet) stoppeUhr(); return; }
     FM.match.tick(state);
     zeichneLive();
+    pruefeTore();
     if (state.phase === 'pause' && !halbzeitGezeigt) {
       halbzeitGezeigt = true;
       stoppeUhr();
@@ -118,6 +123,52 @@
     if (state.phase === '1hz' && m > 45) return "45+" + (m - 45) + "'";
     if (state.phase === '2hz' && m > 90) return "90+" + (m - 90) + "'";
     return m + "'";
+  }
+
+  /**
+   * Neue Tore feiern. Der Jubel hält die Uhr kurz an – der Moment soll
+   * wirken, nicht im Minutentakt untergehen.
+   */
+  function pruefeTore() {
+    var tore = state.ereignisse.filter(function (e) { return e.typ === 'tor'; });
+    if (tore.length <= gezaehlteTore) return;
+    var neu = tore[tore.length - 1];
+    gezaehlteTore = tore.length;
+
+    var stand = doc.getElementById('mv-stand');
+    if (stand) {
+      stand.classList.remove('is-neu');
+      void stand.offsetWidth;              // Animation neu starten
+      stand.classList.add('is-neu');
+    }
+    zeigeJubel(neu, neu.teamId === eigeneSeite.club.id);
+  }
+
+  function zeigeJubel(ereignis, eigenes) {
+    var world = UI.world;
+    var schuetze = world.spieler[ereignis.spielerId];
+    var vorlage = ereignis.vorlage ? world.spieler[ereignis.vorlage] : null;
+    var box = doc.createElement('div');
+    box.className = 'jubel' + (eigenes ? '' : ' jubel--gegen');
+    box.innerHTML =
+      '<div class="jubel__blitz"></div>' +
+      '<div class="jubel__text">' +
+      '<div class="jubel__wort">' + (eigenes ? 'TOR!' : 'Gegentor') + '</div>' +
+      '<div class="jubel__wer">' + esc(schuetze ? schuetze.vorname + ' ' + schuetze.nachname : '') + '</div>' +
+      '<div class="jubel__stand">' + ereignis.minute + '′ · ' +
+      state.heim.club.kurz + ' ' + state.tore.heim + ':' + state.tore.gast + ' ' + state.gast.club.kurz +
+      (vorlage && eigenes ? ' · Vorlage ' + esc(vorlage.nachname) : '') + '</div></div>';
+    doc.body.appendChild(box);
+    if (eigenes) UI.konfetti(40);
+
+    // Uhr anhalten, damit der Jubel nicht vom nächsten Ereignis überrollt wird.
+    var liefLos = laeuft;
+    jubelPause = true;
+    global.setTimeout(function () {
+      box.remove();
+      jubelPause = false;
+      if (liefLos && state && !state.beendet) starteUhr();
+    }, eigenes ? 1750 : 1150);
   }
 
   function zeichneLive() {
@@ -216,6 +267,7 @@
     doc.getElementById('mv-durch').onclick = function () {
       stoppeUhr();
       FM.match.bisEnde(state);
+      gezaehlteTore = state.ereignisse.filter(function (e) { return e.typ === 'tor'; }).length;
       zeichneLive();
       abschluss();
     };
@@ -382,6 +434,7 @@
     var eigeneTore = eigeneSeite === state.heim ? state.tore.heim : state.tore.gast;
     var gegnerTore = eigeneSeite === state.heim ? state.tore.gast : state.tore.heim;
     var ausgang = eigeneTore > gegnerTore ? 'Sieg' : eigeneTore === gegnerTore ? 'Unentschieden' : 'Niederlage';
+    if (eigeneTore > gegnerTore) UI.konfetti(110);
 
     var html = '<h4>Schlusspfiff</h4><h2>' + ausgang + ' – ' + esc(state.heim.club.kurz) + ' ' +
       state.tore.heim + ':' + state.tore.gast + ' ' + esc(state.gast.club.kurz) + '</h2>';

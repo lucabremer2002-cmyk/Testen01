@@ -94,7 +94,8 @@
         var von = Math.max(0, eigen.platz - 3);
         var bis = Math.min(tab.length, von + 6);
         html += '<div class="card"><div class="card__head"><h3>' + esc(liga.name) + '</h3>' +
-          '<button class="btn btn--sm" data-a="tabelle">Ganze Tabelle</button></div>' +
+          '<div class="flex">' + UI.serie(eigen.form) +
+          '<button class="btn btn--sm" data-a="tabelle">Ganze Tabelle</button></div></div>' +
           UI.tabelle([
             { key: 'platz', label: '#', klasse: 'num', html: function (e) { return e.platz; } },
             { key: 'club', label: 'Verein', html: function (e) { return UI.vereinZelle(world, e.clubId); } },
@@ -143,14 +144,17 @@
       // ---- rechte Spalte
       html += '<div class="grid">';
 
-      html += '<div class="card"><h3>Standing</h3>' +
-        vertrauensZeile('Vorstand', m.vorstandsvertrauen) +
-        vertrauensZeile('Fans', m.fanvertrauen) +
-        vertrauensZeile('Mannschaft', m.mannschaftsvertrauen) +
-        '<div class="trenner"></div>' +
-        '<div class="stat-row"><span>Saisonziel</span><b>' + esc(m.saisonziel ? m.saisonziel.text : '–') + '</b></div>' +
+      // Vertrauen als Ringe – der Blick soll sofort erfassen, wo man steht.
+      html += '<div class="card"><h3>Ihr Standing</h3>' +
+        '<div class="flex" style="justify-content:space-around;margin:6px 0 4px">' +
+        vertrauensRing('Vorstand', m.vorstandsvertrauen) +
+        vertrauensRing('Fans', m.fanvertrauen) +
+        vertrauensRing('Kabine', m.mannschaftsvertrauen) +
+        '</div><div class="trenner"></div>' +
+        zielFortschritt(world, eigen, liga) +
         '<div class="stat-row"><span>Vertrag bis</span><b>' + U.fmtDate(m.vertragBis) + '</b></div>' +
-        '<div class="stat-row"><span>Bilanz</span><b>' + m.bilanz.siege + 'S / ' + m.bilanz.remis + 'U / ' + m.bilanz.niederlagen + 'N</b></div>' +
+        '<div class="stat-row"><span>Bilanz als Trainer</span><b>' + m.bilanz.siege + 'S · ' +
+        m.bilanz.remis + 'U · ' + m.bilanz.niederlagen + 'N</b></div>' +
         '</div>';
 
       html += '<div class="card"><div class="card__head"><h3>Finanzen</h3>' +
@@ -181,12 +185,33 @@
     }
   };
 
-  function vertrauensZeile(label, wert) {
+  function vertrauensRing(label, wert) {
     var v = Math.round(wert);
-    var klasse = v >= 60 ? '' : v >= 35 ? 'bar--gelb' : 'bar--rot';
-    return '<div class="stat-row"><span>' + esc(label) + '</span>' +
-      '<span class="flex" style="gap:8px">' + UI.balken(v / 100, klasse) +
-      '<b style="min-width:38px;text-align:right">' + v + ' %</b></span></div>';
+    return '<div style="text-align:center">' +
+      UI.ring(v / 100, { groesse: 78, dicke: 7, text: '<b>' + v + '<small>%</small></b>' }) +
+      '<div class="klein muted" style="margin-top:5px;font-weight:700">' + esc(label) + '</div></div>';
+  }
+
+  /**
+   * Wie weit ist das Saisonziel erreicht? Der Balken vergleicht den
+   * aktuellen Tabellenplatz mit der Vorgabe des Vorstands.
+   */
+  function zielFortschritt(world, eintrag, liga) {
+    var ziel = world.manager.saisonziel;
+    if (!ziel || !eintrag) {
+      return '<div class="stat-row"><span>Saisonziel</span><b>' + esc(ziel ? ziel.text : '–') + '</b></div>';
+    }
+    var teams = liga.teams.length;
+    var anteil = U.clamp((teams - eintrag.platz) / Math.max(1, teams - ziel.platz), 0, 1);
+    var erreicht = eintrag.platz <= ziel.platz;
+    return '<div style="padding:7px 0">' +
+      '<div class="flex flex--zwischen klein" style="margin-bottom:6px">' +
+      '<span class="muted">Saisonziel</span>' +
+      '<b class="' + (erreicht ? 'w-top' : 'w-mittel') + '">' + esc(ziel.text) + '</b></div>' +
+      '<div class="progress"><i style="width:' + Math.round(anteil * 100) + '%"></i></div>' +
+      '<div class="flex flex--zwischen klein muted" style="margin-top:5px">' +
+      '<span>Platz ' + eintrag.platz + '</span>' +
+      '<span>' + (erreicht ? 'im Plan' : 'Vorgabe: Platz ' + ziel.platz) + '</span></div></div>';
   }
 
   /** Wiederkehrende Klickziele: Nachrichten, Sprungmarken, Spielberichte. */
@@ -445,8 +470,10 @@
       if (p.vertrag.ausstiegsklausel) {
         html += '<div class="stat-row"><span>Ausstiegsklausel</span><b>' + U.money(p.vertrag.ausstiegsklausel) + '</b></div>';
       }
-      html += '<div class="stat-row"><span>Prämien</span><b class="klein">Einsatz ' + U.money(p.vertrag.praemien.einsatz) +
-        ' · Tor ' + U.money(p.vertrag.praemien.tor) + ' · Sieg ' + U.money(p.vertrag.praemien.sieg) + '</b></div>';
+      html += '<div style="padding:8px 0;border-top:1px solid rgba(255,255,255,.045)">' +
+        '<div class="klein muted" style="margin-bottom:4px">Prämien je Einsatz / Tor / Sieg</div>' +
+        '<b class="klein">' + U.money(p.vertrag.praemien.einsatz) + ' · ' +
+        U.money(p.vertrag.praemien.tor) + ' · ' + U.money(p.vertrag.praemien.sieg) + '</b></div>';
     } else {
       html += '<div class="stat-row"><span>Vertrag</span><b class="w-gut">ablösefrei verfügbar</b></div>';
     }
@@ -532,6 +559,40 @@
 
   // ============================================================ Taktik
 
+  // Kurzformen der Rollen für die Anzeige auf dem Spielfeld.
+  var ROLLE_KURZ = {
+    tw_klassisch: 'TW', tw_mitspielend: 'MITSP', tw_linie: 'LINIE',
+    iv_klassisch: 'IV', iv_aufbau: 'AUFBAU', iv_libero: 'LIBERO', iv_zerstoerer: 'ZERST', iv_vorstoss: 'VORST',
+    av_klassisch: 'AV', av_offensiv: 'OFF-AV', av_fluegel: 'FLÜGEL', av_invers: 'INVERS', av_defensiv: 'DEF-AV',
+    dm_abraeumer: 'ABRÄUM', dm_regista: 'REGISTA', dm_b2b: 'BOX2BOX', dm_anker: 'ANKER',
+    zm_allrounder: 'ALLROUND', zm_achter: 'ACHTER', zm_spielmacher: 'SPIELM', zm_arbeiter: 'ARBEIT',
+    om_spielmacher: 'SPIELM', om_schatten: 'SCHATTEN', om_freigeist: 'FREIGEIST',
+    am_klassisch: 'AUSSEN', am_defensiv: 'DEF-AUS', am_offensiv: 'OFF-AUS',
+    fl_fluegel: 'FLÜGEL', fl_invers: 'INVERS', fl_vorbereiter: 'VORBER', fl_arbeitstier: 'ARBEIT',
+    st_mittel: 'MITTELST', st_ziel: 'ZIELSP', st_wand: 'WANDSP', st_falsche9: 'FALSCHE 9',
+    st_tiefe: 'TIEFE', st_presser: 'PRESSING'
+  };
+
+  function rolleKurz(r) {
+    return ROLLE_KURZ[r.id] || r.name.slice(0, 7).toUpperCase();
+  }
+
+  /** Formpfeil aus Form und den letzten Noten. */
+  function formPfeil(p) {
+    var noten = p.letzteNoten.slice(-4);
+    var tendenz = p.form;
+    if (noten.length >= 2) tendenz += (3.5 - U.avg(noten)) * 14;
+    if (tendenz >= 68) return '<span class="w-top">▲</span>';
+    if (tendenz >= 52) return '<span class="w-gut">▲</span>';
+    if (tendenz >= 40) return '<span class="muted">▬</span>';
+    return '<span class="w-schlecht">▼</span>';
+  }
+
+  function eignungPunkt(wert) {
+    var k = wert >= 0.9 ? 'top' : wert >= 0.62 ? 'ok' : 'schlecht';
+    return '<span class="eignung eignung--' + k + '" title="' + esc(T.eignungText(wert)) + '"></span>';
+  }
+
   UI.views.taktik = {
     html: function (world, z) {
       var club = world.nutzerVerein();
@@ -539,83 +600,130 @@
       var f = T.formation(taktik);
       var probleme = T.pruefeAufstellung(world, club, taktik);
       var naechstes = world.naechstesSpiel(club.id);
+      var gegnerId = naechstes ? (naechstes.heimId === club.id ? naechstes.gastId : naechstes.heimId) : null;
+      var heim = naechstes ? naechstes.heimId === club.id : true;
 
-      var html = '<div class="card__head"><h2>Taktik</h2><div class="flex">' +
-        '<button class="btn btn--sm" data-a="auto">Beste Elf aufstellen</button>' +
+      var elf = taktik.aufstellung.map(function (id) { return id ? world.spieler[id] : null; });
+      var vorhanden = elf.filter(Boolean);
+
+      // Eigene Mannschaftswerte und die des nächsten Gegners
+      var werte = T.bewerteMannschaft({
+        world: world, club: club, taktik: taktik, heim: heim && !!naechstes,
+        stimmung: 0.8, staffBonus: world.staffBonus(club.id, 'taktik')
+      });
+      var analyse = gegnerId ? T.gegneranalyse(world, club.id, gegnerId) : null;
+
+      // Wie weit ist die aktuelle Elf von der bestmöglichen entfernt?
+      var beste = bestmoeglicheElf(world, club, taktik, naechstes);
+
+      var html = '<div class="card__head"><h2>Aufstellung &amp; Taktik</h2><div class="flex">' +
+        '<button class="btn btn--sm" data-a="auto">Beste Elf</button>' +
         '<button class="btn btn--sm" data-a="standards">Standards neu vergeben</button>' +
         '</div></div>';
 
+      // ---- Kennzahlen
+      var elfStaerke = vorhanden.length
+        ? U.avg(vorhanden.map(function (p, i) {
+          var idx = taktik.aufstellung.indexOf(p.id);
+          return P.posStaerke(p, f.slots[idx >= 0 ? idx : 0].pos);
+        })) : 0;
+      var diff = elfStaerke - beste.staerke;
+      var probleme11 = vorhanden.filter(function (p) {
+        return p.verletzung || p.sperre > 0 || p.fitness < 62;
+      }).length;
+
+      html += '<div class="tiles mb">' +
+        kachel('Stärke der Elf', U.num(elfStaerke, 1), P.staerkeLabel(elfStaerke),
+          elfStaerke >= 68 ? 'gut' : elfStaerke >= 52 ? '' : 'warn') +
+        kachel('Gegenüber der besten Elf', (diff >= -0.05 ? '±0' : U.num(diff, 1)),
+          diff >= -0.05 ? 'optimal besetzt' : 'Luft nach oben', diff >= -0.05 ? 'gut' : 'warn') +
+        kachel('Einspielgrad', Math.round(taktik.einspielgrad) + ' %',
+          taktik.einspielgrad >= 75 ? 'eingespielt' : taktik.einspielgrad >= 50 ? 'wächst' : 'neu formiert',
+          taktik.einspielgrad >= 75 ? 'gut' : taktik.einspielgrad >= 50 ? '' : 'warn') +
+        kachel('Ø Frische', Math.round(U.avg(vorhanden.map(function (p) { return p.fitness; })) || 0) + ' %',
+          '', U.avg(vorhanden.map(function (p) { return p.fitness; })) >= 80 ? 'gut' : 'warn') +
+        kachel('Ø Moral', Math.round(U.avg(vorhanden.map(function (p) { return p.moral; })) || 0) + ' %', '') +
+        kachel('Angeschlagen', String(probleme11), probleme11 ? 'prüfen' : 'alles bereit',
+          probleme11 ? 'schlecht' : 'gut') +
+        '</div>';
+
       html += '<div class="taktik-layout">';
 
-      // ---- Spielfeld
+      // ================= Spielfeld =================
+      html += '<div class="grid">';
       html += '<div class="card"><div class="card__head"><h3>Aufstellung</h3>' +
-        '<select data-f="formation" style="width:auto">' +
+        '<select data-f="formation" style="width:auto;max-width:200px">' +
         Object.keys(D.FORMATIONEN).map(function (k) {
           return '<option value="' + esc(k) + '"' + (taktik.formation === k ? ' selected' : '') + '>' + esc(k) + '</option>';
         }).join('') + '</select></div>';
-      html += '<p class="klein muted">' + esc(f.beschreibung) + '</p>';
-      html += '<div class="pitch"><div class="pitch__mid"></div><div class="pitch__circle"></div>';
+      html += '<p class="klein muted" style="margin-top:-6px">' + esc(f.beschreibung) + '</p>';
+
+      html += '<div class="pitch"><div class="pitch__linien">' +
+        '<i class="pitch__strafraum--o"></i><i class="pitch__strafraum--u"></i>' +
+        '<i class="pitch__fuenfer--o"></i><i class="pitch__fuenfer--u"></i>' +
+        '<i class="pitch__mittellinie"></i><i class="pitch__kreis"></i></div>';
+
       f.slots.forEach(function (slot, i) {
-        var id = taktik.aufstellung[i];
-        var p = id ? world.spieler[id] : null;
-        var problem = p && (p.verletzung || p.sperre > 0 || p.clubId !== club.id);
-        html += '<div class="spot' + (p ? '' : ' spot--leer') + (problem ? ' spot--problem' : '') +
-          (z.gewaehlterSlot === i ? ' spot--gewaehlt' : '') + '" data-slot="' + i + '"' +
-          ' style="left:' + slot.x + '%;bottom:' + (slot.y * 0.92 + 3) + '%">' +
-          '<div class="spot__nr">' + (p ? (p.nummer || '·') : '+') + '</div>' +
-          '<div class="spot__name">' + (p ? esc(p.nachname) : '<i class="muted">frei</i>') + '</div>' +
-          '<div class="spot__pos">' + esc(slot.pos) + '</div></div>';
+        html += spotHtml(world, club, taktik, f, i, z);
       });
       html += '</div>';
 
       if (probleme.length) {
-        html += '<div class="klein mt" style="color:var(--rot)">' +
-          probleme.map(esc).join('<br>') + '</div>';
+        html += '<div class="mt klein" style="color:var(--red)">' +
+          probleme.map(function (t) { return '⚠ ' + esc(t); }).join('<br>') + '</div>';
       }
-      html += '<div class="klein muted mt">Einspielgrad: ' + Math.round(taktik.einspielgrad) +
-        ' %. Er steigt, wenn dieselbe Elf regelmäßig zusammenspielt.</div>';
+      html += '<div class="flex klein muted mt" style="gap:14px">' +
+        '<span><span class="eignung eignung--top"></span> Stammposition</span>' +
+        '<span><span class="eignung eignung--ok"></span> geeignet</span>' +
+        '<span><span class="eignung eignung--schlecht"></span> fachfremd</span>' +
+        '<span>Ring = Frische</span></div>';
       html += '</div>';
 
-      // ---- rechte Seite
+      // ---- Mannschaftsteile im Vergleich
+      html += '<div class="card"><div class="card__head"><h3>Mannschaftsteile</h3>' +
+        (analyse ? '<span class="chip chip--gelb">Marke = ' + esc(analyse.club.kurz) + '</span>' : '') +
+        '</div><div class="teile">' +
+        teilBalken('Torwart', werte.tw, analyse ? analyse.werte.tw : null) +
+        teilBalken('Abwehr', werte.def, analyse ? analyse.werte.def : null) +
+        teilBalken('Mittelfeld', werte.mid, analyse ? analyse.werte.mid : null) +
+        teilBalken('Angriff', werte.att, analyse ? analyse.werte.att : null) +
+        '</div>';
+      html += '<div class="trenner"></div>';
+      html += '<div class="grid grid--3" style="gap:8px">' +
+        merkmal('Kreativität', werte.kreativ / 110) +
+        merkmal('Kopfballstärke', werte.kopfball / 110) +
+        merkmal('Tempo', werte.tempo / 110) +
+        merkmal('Konterwucht', werte.konter / 90) +
+        merkmal('Pressing', werte.pressing / 90) +
+        merkmal('Spielaufbau', werte.aufbau / 220) +
+        '</div></div>';
+
+      html += '</div>'; // linke Spalte
+
+      // ================= rechte Spalte =================
       html += '<div class="grid">';
 
       // Slotauswahl
-      if (z.gewaehlterSlot !== undefined && z.gewaehlterSlot !== null) {
-        var slot = f.slots[z.gewaehlterSlot];
-        var rollen = D.ROLLEN[slot.pos] || D.ROLLEN.ZM;
-        html += '<div class="card"><div class="card__head"><h3>Position ' + esc(slot.pos) + ' &middot; ' +
-          esc(D.POS_NAME[slot.pos]) + '</h3><button class="btn btn--sm" data-a="slotzu">Schließen</button></div>';
-        html += '<div class="mb"><label>Rolle</label><select data-f="rolle">' +
-          rollen.map(function (r) {
-            return '<option value="' + esc(r.id) + '"' + (taktik.rollen[z.gewaehlterSlot] === r.id ? ' selected' : '') +
-              '>' + esc(r.name) + '</option>';
-          }).join('') + '</select></div>';
-
-        var kandidaten = U.sortBy(world.kaderVon(club.id).filter(function (p) {
-          return slot.pos === 'TW' ? p.pos === 'TW' : p.pos !== 'TW';
-        }), function (p) { return -P.tagesform(p, slot.pos); });
-        html += '<div class="table-wrap" style="max-height:340px;overflow-y:auto">' + UI.tabelle([
-          { key: 'n', label: 'Spieler', html: function (p) {
-            return '<span class="name">' + esc(p.nachname) + '</span> ' + UI.posTag(p.pos); } },
-          { key: 's', label: 'Eignung', klasse: 'num', html: function (p) { return UI.wert(P.posStaerke(p, slot.pos)); } },
-          { key: 'fit', label: 'Frische', klasse: 'num', html: function (p) { return UI.fitnessBalken(p); } },
-          { key: 'st', label: '', html: function (p) { return UI.spielerStatus(world, p); } },
-          { key: 'akt', label: '', klasse: 'num', html: function (p) {
-            return '<button class="btn btn--sm" data-setz="' + esc(p.id) + '">setzen</button>'; } }
-        ], kandidaten.slice(0, 22), {}) + '</div></div>';
+      if (z.gewaehlterSlot !== undefined && z.gewaehlterSlot !== null && f.slots[z.gewaehlterSlot]) {
+        html += slotPanel(world, club, taktik, f, z);
       }
 
       // Anweisungen
       html += '<div class="card"><h3>Mannschaftsanweisungen</h3><div class="anweisungen">';
       Object.keys(D.ANWEISUNGEN).forEach(function (kat) {
         var a = D.ANWEISUNGEN[kat];
+        var aktiv = a.werte.filter(function (w) { return w.id === taktik.anweisungen[kat]; })[0] || a.werte[0];
         html += '<div><label>' + esc(a.label) + '</label><select data-anw="' + esc(kat) + '">' +
           a.werte.map(function (w) {
             return '<option value="' + esc(w.id) + '"' + (taktik.anweisungen[kat] === w.id ? ' selected' : '') +
               '>' + esc(w.name) + '</option>';
-          }).join('') + '</select></div>';
+          }).join('') + '</select>' +
+          '<div class="klein muted" style="margin-top:4px">' + esc(anweisungsWirkung(kat, aktiv)) + '</div></div>';
       });
       html += '</div></div>';
+
+      // Gegneranalyse
+      if (analyse) html += analysePanel(world, analyse, naechstes, heim);
 
       // Standards und Kapitän
       var elfIds = taktik.aufstellung.filter(Boolean);
@@ -625,47 +733,56 @@
           elfIds.map(function (id) {
             var sp = world.spieler[id];
             if (!sp) return '';
+            var gut = key === 'elfmeter' ? sp.attr.elfmeter
+              : key === 'einwurf' ? sp.attr.kraft : sp.attr.standards;
             return '<option value="' + esc(id) + '"' + (taktik.standards[key] === id ? ' selected' : '') +
-              '>' + esc(sp.nachname) + '</option>';
+              '>' + esc(sp.nachname) + ' (' + gut + ')</option>';
           }).join('') + '</select></div>';
       }
       html += '<div class="card"><h3>Standards &amp; Führung</h3><div class="anweisungen">' +
         auswahl('elfmeter', 'Elfmeter') + auswahl('freistoss', 'Freistöße') +
         auswahl('ecken', 'Eckbälle') + auswahl('einwurf', 'Weite Einwürfe') +
         '<div><label>Kapitän</label><select data-std="kapitaen">' +
-        world.kaderVon(club.id).map(function (sp) {
+        U.sortBy(world.kaderVon(club.id), function (sp) { return -sp.attr.fuehrung; }).map(function (sp) {
           return '<option value="' + esc(sp.id) + '"' + (taktik.kapitaen === sp.id ? ' selected' : '') +
-            '>' + esc(sp.nachname) + ' (Führung ' + sp.attr.fuehrung + ')</option>';
+            '>' + esc(sp.nachname) + ' · Führung ' + sp.attr.fuehrung + '</option>';
         }).join('') + '</select></div>' +
         '</div></div>';
 
       // Bank
       html += '<div class="card"><div class="card__head"><h3>Ersatzbank</h3>' +
-        '<span class="chip">' + taktik.bank.length + ' / 9</span></div>' +
+        '<span class="chip' + (taktik.bank.length >= 7 ? ' chip--gruen' : ' chip--gelb') + '">' +
+        taktik.bank.length + ' / 9</span></div>' +
         UI.tabelle([
-          { key: 'n', label: 'Spieler', html: function (p) { return '<span class="name">' + esc(p.nachname) + '</span>'; } },
+          { key: 'n', label: 'Spieler', html: function (p) {
+            return '<span class="name">' + esc(p.nachname) + '</span>'; } },
           { key: 'p', label: 'Pos', html: function (p) { return UI.posTag(p.pos); } },
           { key: 's', label: 'Stärke', klasse: 'num', html: function (p) { return UI.wert(P.gesamt(p)); } },
-          { key: 'f', label: 'Frische', klasse: 'num', html: function (p) { return UI.fitnessBalken(p); } },
+          { key: 'fo', label: 'Form', klasse: 'num', html: function (p) { return formPfeil(p); } },
+          { key: 'fr', label: 'Frische', klasse: 'num', html: function (p) { return UI.fitnessBalken(p); } },
           { key: 'x', label: '', klasse: 'num', html: function (p) {
-            return '<button class="btn btn--sm" data-bank-raus="' + esc(p.id) + '">✕</button>'; } }
+            return '<button class="btn btn--sm btn--ghost" data-bank-raus="' + esc(p.id) + '">✕</button>'; } }
         ], taktik.bank.map(function (id) { return world.spieler[id]; }).filter(Boolean), {
-          leerText: 'Keine Spieler auf der Bank.'
+          leerText: 'Niemand auf der Bank.'
         }) +
         '<div class="mt"><label>Spieler auf die Bank setzen</label><select data-bank-rein>' +
         '<option value="">auswählen…</option>' +
-        world.kaderVon(club.id).filter(function (p) {
-          return elfIds.indexOf(p.id) < 0 && taktik.bank.indexOf(p.id) < 0 && !p.verletzung && p.sperre === 0;
-        }).map(function (p) {
-          return '<option value="' + esc(p.id) + '">' + esc(p.nachname) + ' (' + p.pos + ', ' + Math.round(P.gesamt(p)) + ')</option>';
+        U.sortBy(world.kaderVon(club.id).filter(function (p) {
+          return elfIds.indexOf(p.id) < 0 && taktik.bank.indexOf(p.id) < 0 &&
+            T.einsatzbereit(p, world, naechstes ? naechstes.wettbewerb : null);
+        }), function (p) { return -P.gesamt(p); }).map(function (p) {
+          return '<option value="' + esc(p.id) + '">' + esc(p.nachname) + ' · ' + p.pos +
+            ' · Stärke ' + Math.round(P.gesamt(p)) + '</option>';
         }).join('') + '</select></div></div>';
 
       html += '</div></div>';
       return html;
     },
+
     nachher: function (container, world, z) {
       var club = world.nutzerVerein();
       var taktik = world.taktikVon(club.id);
+      var naechstes = world.naechstesSpiel(club.id);
 
       Array.prototype.forEach.call(container.querySelectorAll('[data-slot]'), function (e) {
         e.onclick = function () {
@@ -677,10 +794,9 @@
       Array.prototype.forEach.call(container.querySelectorAll('[data-setz]'), function (e) {
         e.onclick = function () {
           var id = e.dataset.setz;
-          var alterSlot = taktik.aufstellung.indexOf(id);
           var ziel = z.gewaehlterSlot;
+          var alterSlot = taktik.aufstellung.indexOf(id);
           if (alterSlot >= 0) {
-            // Tausch
             taktik.aufstellung[alterSlot] = taktik.aufstellung[ziel];
           } else {
             var verdraengt = taktik.aufstellung[ziel];
@@ -689,6 +805,7 @@
           }
           taktik.aufstellung[ziel] = id;
           UI.zeichne();
+          UI.toast(world.spieler[id].nachname + ' aufgestellt.', 'gut');
         };
       });
       var fsel = container.querySelector('[data-f="formation"]');
@@ -696,7 +813,7 @@
         T.setzeFormation(taktik, fsel.value);
         z.gewaehlterSlot = null;
         UI.zeichne();
-        UI.toast('Formation auf ' + fsel.value + ' umgestellt. Der Einspielgrad sinkt zunächst.');
+        UI.toast('Umgestellt auf ' + fsel.value + '. Der Einspielgrad sinkt zunächst.');
       };
       var rsel = container.querySelector('[data-f="rolle"]');
       if (rsel) rsel.onchange = function () {
@@ -704,7 +821,10 @@
         UI.zeichne();
       };
       Array.prototype.forEach.call(container.querySelectorAll('[data-anw]'), function (e) {
-        e.onchange = function () { taktik.anweisungen[e.dataset.anw] = e.value; UI.toast('Anweisung übernommen.'); };
+        e.onchange = function () {
+          taktik.anweisungen[e.dataset.anw] = e.value;
+          UI.zeichne();
+        };
       });
       Array.prototype.forEach.call(container.querySelectorAll('[data-std]'), function (e) {
         e.onchange = function () {
@@ -714,7 +834,7 @@
           } else {
             taktik.standards[e.dataset.std] = e.value || null;
           }
-          UI.toast('Übernommen.');
+          UI.zeichne();
         };
       });
       Array.prototype.forEach.call(container.querySelectorAll('[data-bank-raus]'), function (e) {
@@ -730,16 +850,222 @@
       };
       var auto = container.querySelector('[data-a="auto"]');
       if (auto) auto.onclick = function () {
-        T.autoAufstellung(world, club, taktik, { wettbewerb: (world.naechstesSpiel(club.id) || {}).wettbewerb });
+        T.autoAufstellung(world, club, taktik, { wettbewerb: naechstes ? naechstes.wettbewerb : null });
         z.gewaehlterSlot = null;
         UI.zeichne();
         UI.toast('Beste verfügbare Elf aufgestellt.', 'gut');
       };
       var std = container.querySelector('[data-a="standards"]');
-      if (std) std.onclick = function () { T.setzeStandardschuetzen(world, taktik); UI.zeichne(); UI.toast('Standardschützen neu bestimmt.'); };
+      if (std) std.onclick = function () {
+        T.setzeStandardschuetzen(world, taktik);
+        UI.zeichne();
+        UI.toast('Standardschützen neu bestimmt.');
+      };
       var zu = container.querySelector('[data-a="slotzu"]');
       if (zu) zu.onclick = function () { z.gewaehlterSlot = null; UI.zeichne(); };
     }
   };
+
+  function kachel(label, wert, unter, art) {
+    return '<div class="tile' + (art ? ' tile--' + art : '') + '"><span>' + esc(label) + '</span>' +
+      '<b>' + wert + '</b>' + (unter ? '<small>' + esc(unter) + '</small>' : '') + '</div>';
+  }
+
+  function teilBalken(name, wert, gegner) {
+    var anteil = U.clamp(wert / 100, 0, 1);
+    return '<div class="teil"><span class="teil__name">' + esc(name) + '</span>' +
+      '<span class="teil__spur"><i class="teil__wert" style="--w:' + Math.round(anteil * 100) + '%"></i>' +
+      (gegner !== null && gegner !== undefined
+        ? '<i class="teil__gegner" style="left:' + U.clamp(gegner, 0, 100).toFixed(1) + '%" title="' +
+          Math.round(gegner) + '"></i>' : '') +
+      '</span><span class="teil__zahl ' + UI.wertKlasse(wert) + '">' + U.num(wert, 0) + '</span></div>';
+  }
+
+  function merkmal(name, anteil) {
+    return '<div><div class="klein muted" style="margin-bottom:3px">' + esc(name) + '</div>' +
+      UI.balken(anteil) + '</div>';
+  }
+
+  /** Ein Spieler auf dem Spielfeld – mit Frischering, Rolle und Eignung. */
+  function spotHtml(world, club, taktik, f, i, z) {
+    var slot = f.slots[i];
+    var id = taktik.aufstellung[i];
+    var p = id ? world.spieler[id] : null;
+    var rolle = T.rolleFinden(slot.pos, taktik.rollen[i]);
+    var problem = p && (p.verletzung || p.sperre > 0 || p.clubId !== club.id);
+    var stil = 'left:' + slot.x + '%;bottom:' + (slot.y * 0.90 + 4) + '%';
+
+    var marken = '';
+    if (p) {
+      if (p.id === taktik.kapitaen) marken += '<span class="spot__marke marke--k" title="Kapitän">C</span>';
+      if (p.id === taktik.standards.elfmeter) marken += '<span class="spot__marke marke--e" title="Elfmeterschütze">E</span>';
+      if (p.id === taktik.standards.ecken || p.id === taktik.standards.freistoss) {
+        marken += '<span class="spot__marke marke--f" title="Standards">S</span>';
+      }
+      if (problem) marken += '<span class="spot__marke marke--v" title="nicht einsatzbereit">!</span>';
+    }
+
+    var innen;
+    if (p) {
+      innen = UI.ring(p.fitness / 100, { groesse: 42, dicke: 3.5 }) +
+        '<span class="spot__nr">' + (p.nummer || '·') + '</span>';
+    } else {
+      innen = '<span class="spot__nr">+</span>';
+    }
+
+    var zeile2 = p
+      ? eignungPunkt(T.eignung(p, slot.pos)) + esc(rolleKurz(rolle)) + ' ' + formPfeil(p)
+      : esc(slot.pos);
+
+    return '<div class="spot' + (p ? '' : ' spot--leer') + (problem ? ' spot--problem' : '') +
+      (z.gewaehlterSlot === i ? ' spot--gewaehlt' : '') + '" data-slot="' + i + '" style="' + stil + '">' +
+      '<div class="spot__ring">' + innen + (marken ? '<span class="spot__marken">' + marken + '</span>' : '') + '</div>' +
+      '<div class="spot__name">' + (p ? esc(p.nachname) : '<i class="muted">frei</i>') + '</div>' +
+      '<div class="spot__zeile">' + zeile2 + '</div>' +
+      '</div>';
+  }
+
+  /** Detailpanel für die gewählte Position. */
+  function slotPanel(world, club, taktik, f, z) {
+    var slot = f.slots[z.gewaehlterSlot];
+    var rollen = D.ROLLEN[slot.pos] || D.ROLLEN.ZM;
+    var aktuelleRolle = T.rolleFinden(slot.pos, taktik.rollen[z.gewaehlterSlot]);
+    var aktuell = taktik.aufstellung[z.gewaehlterSlot] ? world.spieler[taktik.aufstellung[z.gewaehlterSlot]] : null;
+    var naechstes = world.naechstesSpiel(club.id);
+
+    var html = '<div class="card"><div class="card__head"><h3>' +
+      UI.posTag(slot.pos) + ' ' + esc(D.POS_NAME[slot.pos]) + '</h3>' +
+      '<button class="btn btn--sm btn--ghost" data-a="slotzu">Schließen</button></div>';
+
+    html += '<div class="mb"><label>Rolle</label><select data-f="rolle">' +
+      rollen.map(function (r) {
+        return '<option value="' + esc(r.id) + '"' + (aktuelleRolle.id === r.id ? ' selected' : '') +
+          '>' + esc(r.name) + '</option>';
+      }).join('') + '</select>' +
+      '<div class="klein muted mt" style="margin-top:6px">Wichtig auf dieser Rolle: <b>' +
+      (aktuelleRolle.attrs || []).map(function (a) { return esc(D.ATTR_NAME[a]); }).join(', ') + '</b>' +
+      ' · Beitrag: Abwehr ' + U.num((aktuelleRolle.def || 0) * 100, 0) + ' %, Mittelfeld ' +
+      U.num((aktuelleRolle.mid || 0) * 100, 0) + ' %, Angriff ' + U.num((aktuelleRolle.att || 0) * 100, 0) + ' %</div></div>';
+
+    if (aktuell) {
+      html += '<div class="card card--flat mb"><div class="flex flex--zwischen">' +
+        '<div><b>' + esc(aktuell.vorname + ' ' + aktuell.nachname) + '</b> ' +
+        '<span class="klein muted">' + esc(T.eignungText(T.eignung(aktuell, slot.pos))) + '</span></div>' +
+        '<div class="flex klein">' +
+        (aktuelleRolle.attrs || []).map(function (a) {
+          return '<span class="muted">' + esc(D.ATTR_NAME[a]) + '</span> ' + UI.wert(aktuell.attr[a]);
+        }).join(' · ') + '</div></div></div>';
+    }
+
+    var kandidaten = U.sortBy(world.kaderVon(club.id).filter(function (p) {
+      return slot.pos === 'TW' ? p.pos === 'TW' : p.pos !== 'TW';
+    }), function (p) { return -P.tagesform(p, slot.pos); });
+
+    html += '<h4>Kandidaten</h4><div class="table-wrap" style="max-height:390px;overflow-y:auto">' +
+      UI.tabelle([
+        { key: 'n', label: 'Spieler', html: function (p) {
+          return (p.id === (aktuell && aktuell.id) ? '<span class="chip chip--gruen">aufgestellt</span> ' : '') +
+            '<span class="name">' + esc(p.nachname) + '</span> ' + UI.posTag(p.pos) + ' ' +
+            UI.spielerStatus(world, p); } },
+        { key: 'e', label: 'Eignung', html: function (p) {
+          var w = T.eignung(p, slot.pos);
+          return eignungPunkt(w) + ' <span class="klein muted">' + esc(T.eignungText(w)) + '</span>'; } },
+        { key: 's', label: 'Auf Position', klasse: 'num', html: function (p) {
+          return UI.wert(P.posStaerke(p, slot.pos)); } },
+        { key: 'r', label: 'Rollenpassung', klasse: 'num', html: function (p) {
+          var b = 0;
+          (aktuelleRolle.attrs || []).forEach(function (a) { b += p.attr[a]; });
+          b = (aktuelleRolle.attrs && aktuelleRolle.attrs.length) ? b / aktuelleRolle.attrs.length : 50;
+          return UI.balken(b / 99, b >= 68 ? '' : b >= 50 ? 'bar--gelb' : 'bar--rot'); } },
+        { key: 'fo', label: 'Form', klasse: 'num', html: function (p) { return formPfeil(p); } },
+        { key: 'fr', label: 'Frische', klasse: 'num', html: function (p) { return UI.fitnessBalken(p); } },
+        { key: 'no', label: 'Note', klasse: 'num', html: function (p) {
+          return UI.noteZelle(P.schnitt(p.stats)); } },
+        { key: 'a', label: '', klasse: 'num', html: function (p) {
+          if (!T.einsatzbereit(p, world, naechstes ? naechstes.wettbewerb : null)) {
+            return '<span class="chip chip--rot">nicht einsatzbereit</span>';
+          }
+          return '<button class="btn btn--sm" data-setz="' + esc(p.id) + '">setzen</button>'; } }
+      ], kandidaten.slice(0, 24), {}) + '</div></div>';
+    return html;
+  }
+
+  /** Kurzbeschreibung der Wirkung einer Anweisung. */
+  function anweisungsWirkung(kategorie, wert) {
+    var t = {
+      defensiv: 'Sicherheit vor Risiko, wenig eigene Chancen.',
+      abwartend: 'Kontrolliert, lässt hinten wenig zu.',
+      ausgeglichen: 'Ausgewogen zwischen Absicherung und Angriff.',
+      offensiv: 'Mehr Chancen, dafür offener nach hinten.',
+      allesoderNichts: 'Volles Risiko – lohnt nur bei Rückstand.',
+      tief: 'Zieht sich zurück, spart Kraft, lädt Gegner ein.',
+      mittel: 'Attackiert ab der Mittellinie.',
+      hoch: 'Früher Zugriff, kostet spürbar Kraft.',
+      extrem: 'Attackiert schon im gegnerischen Sechzehner.',
+      normal: 'Standardeinstellung ohne Sonderwirkung.',
+      kurz: 'Mehr Ballbesitz, aber Risiko im Aufbau.',
+      gemischt: 'Situative Wahl zwischen kurz und lang.',
+      lang: 'Überbrückt das Mittelfeld, gut gegen hohe Ketten.',
+      langsam: 'Ruhig zirkulieren, schont Kräfte.',
+      schnell: 'Schnell nach vorn, mehr Abschlüsse.',
+      eng: 'Zentrum überladen, Flügel bleiben frei.',
+      breit: 'Spiel über außen, mehr Flanken.',
+      aus: 'Kein zusätzlicher Aufwand.',
+      sofort: 'Sofort nachsetzen – anstrengend, aber wirksam.',
+      fair: 'Wenig Karten, aber auch weniger Zweikämpfe.',
+      hart: 'Gewinnt Zweikämpfe, kostet Karten.',
+      ein: 'Nimmt spät Tempo heraus, riskiert Karten.'
+    };
+    return t[wert.id] || wert.name;
+  }
+
+  /** Bericht der Analyseabteilung zum nächsten Gegner. */
+  function analysePanel(world, a, spiel, heim) {
+    var html = '<div class="card"><div class="card__head"><h3>Gegneranalyse</h3>' +
+      '<span class="chip">Genauigkeit ' + Math.round(a.genauigkeit * 100) + ' %</span></div>';
+    html += '<div class="flex flex--zwischen mb">' +
+      '<div class="flex">' + UI.wappen(a.club) +
+      '<div><b>' + esc(a.club.name) + '</b><br><span class="klein muted">' +
+      (heim ? 'zu Gast' : 'auswärts') + ' · ' + U.fmtDate(spiel.tag, 'wt') + ' · ' + esc(spiel.zeit) + '</span></div></div>' +
+      (a.tabelle ? '<div class="rechts klein"><span class="muted">Platz ' + a.tabelle.platz + '</span><br>' +
+        UI.formPunkte(a.tabelle.form) + '</div>' : '') + '</div>';
+
+    if (a.formation) {
+      html += '<div class="stat-row"><span>Erwartete Formation</span><b>' + esc(a.formation) + '</b></div>';
+    }
+    html += '<div class="stat-row"><span>Stärkster Mannschaftsteil</span><b class="w-schlecht">' +
+      esc(a.staerke.name) + '</b></div>' +
+      '<div class="stat-row"><span>Schwächster Mannschaftsteil</span><b class="w-top">' +
+      esc(a.schwaeche.name) + '</b></div>';
+    if (a.schluesselspieler) {
+      var s = a.schluesselspieler;
+      html += '<div class="stat-row"><span>Schlüsselspieler</span><b>' + esc(s.nachname) +
+        ' <span class="klein muted">' + s.pos + ' · ' + s.stats.tore + ' Tore</span></b></div>';
+    }
+    if (a.hinweise.length) {
+      html += '<div class="trenner"></div><h4>Was die Analysten sehen</h4>' +
+        a.hinweise.map(function (h) {
+          return '<div class="msg" style="cursor:default"><div class="msg__icon">›</div>' +
+            '<div class="msg__body"><p>' + esc(h) + '</p></div></div>';
+        }).join('');
+    } else {
+      html += '<p class="klein muted mt">Die Analyseabteilung liefert zu wenig belastbares Material. ' +
+        'Bessere Spielanalysten würden hier konkrete Hinweise geben.</p>';
+    }
+    return html + '</div>';
+  }
+
+  /** Stärke der bestmöglichen Aufstellung – als Vergleichsmaßstab. */
+  function bestmoeglicheElf(world, club, taktik, spiel) {
+    var kopie = U.clone(taktik);
+    T.autoAufstellung(world, club, kopie, { wettbewerb: spiel ? spiel.wettbewerb : null });
+    var f = T.formation(kopie);
+    var werte = [];
+    kopie.aufstellung.forEach(function (id, i) {
+      var p = id ? world.spieler[id] : null;
+      if (p) werte.push(P.posStaerke(p, f.slots[i].pos));
+    });
+    return { staerke: werte.length ? U.avg(werte) : 0, aufstellung: kopie.aufstellung };
+  }
 
 })(typeof window !== 'undefined' ? window : globalThis);

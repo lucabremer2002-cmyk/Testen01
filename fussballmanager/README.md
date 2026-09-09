@@ -61,6 +61,28 @@ von Kaderdaten, die nach wenigen Wochen ohnehin veraltet wären.
 * **Standards** (Elfmeter, Freistöße, Ecken, Einwürfe) und Kapitän.
 * **Einspielgrad**: Wer ständig rotiert, verliert Automatismen.
 
+Die Aufstellungsansicht zeigt zu jedem Spieler auf dem Feld einen
+**Frischering**, die **Rollenkurzform**, einen **Formpfeil** aus Form und
+letzten Noten sowie einen **Eignungspunkt** dafür, ob er auf seiner
+gelernten Position steht. Kapitänsbinde, Elfmeter- und Standardschütze
+sind als Marken sichtbar, nicht einsatzbereite Spieler rot umrandet.
+
+Dazu kommen:
+
+* **Kennzahlen der Elf**: Stärke, Abstand zur bestmöglichen Aufstellung,
+  Einspielgrad, Ø Frische, Ø Moral und Zahl der angeschlagenen Spieler.
+* **Mannschaftsteile im Vergleich** – Torwart, Abwehr, Mittelfeld und
+  Angriff als Balken, mit einer Marke für den Wert des nächsten Gegners.
+* **Profil der Elf**: Kreativität, Kopfballstärke, Tempo, Konterwucht,
+  Pressing und Spielaufbau.
+* **Positionsdetail** je Slot: Rollenwahl mit ihrem Beitrag zu Abwehr,
+  Mittelfeld und Angriff, den für die Rolle wichtigen Attributen und einer
+  Kandidatenliste mit Eignung, Stärke auf dieser Position, Rollenpassung,
+  Form, Frische und Durchschnittsnote.
+* **Gegneranalyse**: erwartete Formation, stärkster und schwächster
+  Mannschaftsteil, Schlüsselspieler und konkrete taktische Hinweise. Wie
+  belastbar der Bericht ist, hängt an der Qualität Ihrer Spielanalysten.
+
 ### Spielsimulation
 
 Minutenweise, mit Ballbesitzverteilung, Chancenentstehung nach Typ
@@ -211,6 +233,25 @@ auf dem Startbildschirm wieder importieren.
 
 ---
 
+## Gestaltung
+
+Die Oberfläche arbeitet mit Flächen statt Rahmen: Ebenen unterscheiden sich
+über Helligkeit, Linien erscheinen nur dort, wo sie wirklich trennen. Es
+gibt genau eine Akzentfarbe – Grün steht für Erfolg und Handlung –, alles
+Übrige bleibt neutral. Gold, Rot und Blau treten nur mit Bedeutung auf.
+
+Zwei Schriften teilen sich die Arbeit: **Space Grotesk** für Überschriften,
+Ergebnisse und Kennzahlen, **Manrope** für alles Laufende. Beide sind als
+Latin-Teilmenge direkt in `css/fonts.css` eingebettet und funktionieren
+deshalb auch offline und beim Öffnen per `file://`.
+
+Rückmeldung gibt es auf jede Handlung: Ansichten laufen gestaffelt ein,
+Balken und Fortschrittsringe füllen sich von null, Tore werden mit einer
+Einblendung samt Konfetti gefeiert und halten dafür kurz die Uhr an, Siege,
+Titel und Aufstiege lösen einen Konfettiregen aus, und Siegesserien
+erscheinen als eigener Hinweis. Wer `prefers-reduced-motion` gesetzt hat,
+bekommt alles ohne Bewegung.
+
 ## Aufbau des Programms
 
 Die Spiellogik ist vollständig vom DOM getrennt und ließe sich auch außerhalb
@@ -218,6 +259,7 @@ des Browsers ausführen.
 
 ```
 index.html            Aufbau der Seite
+css/fonts.css         Eingebettete Schriften
 css/style.css         Darstellung
 
 js/util.js            Zufallszahlen, Kalender, Formatierung
@@ -236,7 +278,10 @@ js/media.js           Presse, Vorstand, Kabine
 js/engine.js          Tagesablauf, Ergebnisverarbeitung, Saisonwechsel
 js/save.js            Speichern und Laden
 js/ui.js              Grundgerüst der Oberfläche
-js/views*.js          Die einzelnen Ansichten und Dialoge
+js/views.js           Übersicht, Kader, Spielerprofil, Aufstellung
+js/views2.js          Training, Spielplan, Tabellen, Transfers, Finanzen
+js/views3.js          Verein, Personal, Nachwuchs, Medien, Statistik
+js/views4.js          Dialoge: Gespräche, Verträge, Angebote, Spielbericht
 js/matchview.js       Live-Ansicht des Spieltags
 js/main.js            Einstieg und Tastenkürzel
 ```

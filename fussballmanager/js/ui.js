@@ -72,7 +72,110 @@
 
   function balken(anteil, klasse) {
     var pct = Math.round(U.clamp(anteil, 0, 1) * 100);
-    return '<span class="bar ' + (klasse || '') + '"><i style="width:' + pct + '%"></i></span>';
+    // Die Breite kommt als Variable herein, damit sie per Animation
+    // von null einlaufen kann.
+    return '<span class="bar ' + (klasse || '') + '"><i style="--w:' + pct + '%"></i></span>';
+  }
+
+  /**
+   * Fortschrittsring als SVG. Wird für Vertrauenswerte, Saisonziel und
+   * die Frische auf dem Spielfeld verwendet.
+   */
+  function ring(anteil, opts) {
+    opts = opts || {};
+    var groesse = opts.groesse || 54;
+    var dicke = opts.dicke || 5;
+    var radius = (groesse - dicke) / 2;
+    var umfang = 2 * Math.PI * radius;
+    var wert = U.clamp(anteil, 0, 1);
+    var farbe = opts.farbe || (wert >= .66 ? 'var(--accent)' : wert >= .34 ? 'var(--gold)' : 'var(--red)');
+    return '<span class="ring" style="width:' + groesse + 'px;height:' + groesse + 'px">' +
+      '<svg width="' + groesse + '" height="' + groesse + '" viewBox="0 0 ' + groesse + ' ' + groesse + '">' +
+      '<circle class="ring__spur" cx="' + groesse / 2 + '" cy="' + groesse / 2 + '" r="' + radius +
+      '" stroke-width="' + dicke + '"></circle>' +
+      // Der Ring startet leer und läuft nach dem Einfügen auf seinen Wert.
+      '<circle class="ring__wert" cx="' + groesse / 2 + '" cy="' + groesse / 2 + '" r="' + radius +
+      '" stroke-width="' + dicke + '" stroke="' + farbe + '"' +
+      ' stroke-dasharray="' + umfang.toFixed(1) + '"' +
+      ' stroke-dashoffset="' + umfang.toFixed(1) + '"' +
+      ' data-ziel="' + (umfang * (1 - wert)).toFixed(1) + '"></circle></svg>' +
+      (opts.text !== undefined
+        ? '<span class="ring__mitte">' + opts.text +
+          (opts.unter ? '<small>' + opts.unter + '</small>' : '') + '</span>'
+        : '') +
+      '</span>';
+  }
+
+  /** Setzt alle frisch gezeichneten Ringe auf ihren Zielwert. */
+  function ringeStarten(container) {
+    var kreise = (container || doc).querySelectorAll('.ring__wert[data-ziel]');
+    if (!kreise.length) return;
+    global.requestAnimationFrame(function () {
+      Array.prototype.forEach.call(kreise, function (c) {
+        c.style.strokeDashoffset = c.getAttribute('data-ziel');
+      });
+    });
+  }
+
+  /** Kurzer Konfettiregen – für Siege, Titel und Aufstiege. */
+  function konfetti(staerke) {
+    if (global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var anzahl = staerke || 60;
+    var farben = ['#00E585', '#6BFFC0', '#FFC94D', '#56A8FF', '#B98BFF', '#ffffff'];
+    var box = doc.createElement('div');
+    box.className = 'konfetti';
+    var html = '';
+    for (var i = 0; i < anzahl; i++) {
+      var links = Math.random() * 100;
+      var dx = (Math.random() - 0.5) * 260;
+      var dauer = 2.2 + Math.random() * 1.6;
+      html += '<i style="left:' + links.toFixed(1) + '%;background:' +
+        farben[i % farben.length] + ';--dx:' + dx.toFixed(0) + 'px;--dr:' +
+        Math.round(Math.random() * 900 - 450) + 'deg;--dur:' + dauer.toFixed(2) + 's;animation-delay:' +
+        (Math.random() * 0.5).toFixed(2) + 's"></i>';
+    }
+    box.innerHTML = html;
+    doc.body.appendChild(box);
+    global.setTimeout(function () { box.remove(); }, 4600);
+  }
+
+  /** Zählt eine Zahl im Element sichtbar hoch. */
+  function zahlHoch(element, ziel, formatieren, dauer) {
+    if (!element) return;
+    dauer = dauer || 700;
+    var start = 0;
+    var beginn = null;
+    function schritt(zeit) {
+      if (beginn === null) beginn = zeit;
+      var t = U.clamp((zeit - beginn) / dauer, 0, 1);
+      var e = 1 - Math.pow(1 - t, 3);
+      element.textContent = formatieren(start + (ziel - start) * e);
+      if (t < 1) global.requestAnimationFrame(schritt);
+    }
+    global.requestAnimationFrame(schritt);
+  }
+
+  /**
+   * Serienanzeige: drei Siege in Folge sollen sich auch so anfühlen.
+   * Liefert einen Chip oder einen leeren String.
+   */
+  function serie(form) {
+    if (!form || form.length < 2) return '';
+    var letzte = form[form.length - 1];
+    var n = 0;
+    for (var i = form.length - 1; i >= 0; i--) {
+      if (form[i] === letzte) n++; else break;
+    }
+    if (letzte === 'S' && n >= 2) {
+      return '<span class="streak"><i>🔥</i>' + n + ' Siege in Folge</span>';
+    }
+    if (letzte === 'N' && n >= 3) {
+      return '<span class="streak streak--kalt"><i>❄</i>' + n + ' Niederlagen in Folge</span>';
+    }
+    if (letzte === 'U' && n >= 3) {
+      return '<span class="streak streak--kalt"><i>=</i>' + n + ' Unentschieden in Folge</span>';
+    }
+    return '';
   }
 
   function formPunkte(form) {
@@ -124,10 +227,11 @@
   var toastTimer = null;
   function toast(text, art) {
     var t = el('toast');
-    t.textContent = text;
+    var symbol = art === 'gut' ? '✓' : art === 'fehler' ? '!' : '›';
+    t.innerHTML = '<span aria-hidden="true">' + symbol + '</span><span>' + esc(text) + '</span>';
     t.className = 'toast is-an' + (art ? ' toast--' + art : '');
     if (toastTimer) global.clearTimeout(toastTimer);
-    toastTimer = global.setTimeout(function () { t.className = 'toast'; }, art === 'fehler' ? 4200 : 2600);
+    toastTimer = global.setTimeout(function () { t.className = 'toast'; }, art === 'fehler' ? 4400 : 2700);
   }
 
   var modalNachSchliessen = null;
@@ -140,6 +244,7 @@
     m.hidden = false;
     modalNachSchliessen = opts.beimSchliessen || null;
     if (opts.nachher) opts.nachher(el('modal-body'));
+    ringeStarten(el('modal-body'));
   }
 
   function modalZu() {
@@ -194,6 +299,7 @@
     var content = el('content');
     content.innerHTML = view.html(world, zustand);
     if (view.nachher) view.nachher(content, world, zustand);
+    ringeStarten(content);
   }
 
   function kopfzeile() {
@@ -451,9 +557,12 @@
     naechste();
   }
 
+  var JUBEL_TITEL = /Aufstieg geschafft|Meister|Pokalsieger|Saisonziel erreicht/i;
+
   function zeigeNachricht(n) {
     n.gelesen = true;
     var world = UI.world;
+    if (JUBEL_TITEL.test(n.titel)) konfetti(120);
     var html = '<h4>' + esc(nachrichtTyp(n.typ)) + ' · ' + U.fmtDate(n.tag, 'lang') + '</h4>' +
       '<h2>' + esc(n.titel) + '</h2><p>' + esc(n.text).replace(/\n/g, '<br>') + '</p>';
 
@@ -553,6 +662,7 @@
 
     modal(html, {
       nachher: function (body) {
+        if (erreicht) konfetti(140);
         body.querySelector('[data-a="weiter"]').onclick = function () {
           modalZu();
           FM.engine.saisonAbschluss(world);
@@ -595,6 +705,11 @@
   UI.wert = wert;
   UI.wertKlasse = wertKlasse;
   UI.balken = balken;
+  UI.ring = ring;
+  UI.ringeStarten = ringeStarten;
+  UI.konfetti = konfetti;
+  UI.zahlHoch = zahlHoch;
+  UI.serie = serie;
   UI.formPunkte = formPunkte;
   UI.spielerStatus = spielerStatus;
   UI.noteZelle = noteZelle;

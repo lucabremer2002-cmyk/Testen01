@@ -20,7 +20,7 @@
     TW: 'Torwart', IV: 'Innenverteidiger', LV: 'Linksverteidiger',
     RV: 'Rechtsverteidiger', DM: 'Defensives Mittelfeld', ZM: 'Zentrales Mittelfeld',
     OM: 'Offensives Mittelfeld', LM: 'Linkes Mittelfeld', RM: 'Rechtes Mittelfeld',
-    LF: 'Linksaussen', RF: 'Rechtsaussen', ST: 'Mittelstuermer'
+    LF: 'Linksaußen', RF: 'Rechtsaußen', ST: 'Mittelstürmer'
   };
 
   var POS_GRUPPE = {
@@ -288,43 +288,43 @@
 
   // Europaeische Gegner. Der Wert steht fuer Ruf/Staerke.
   var EUROPA = [
-    ['Real Madrid', 'Spanien', 97], ['Manchester City', 'England', 96],
-    ['FC Barcelona', 'Spanien', 94], ['FC Liverpool', 'England', 93],
-    ['Paris Saint-Germain', 'Frankreich', 93], ['FC Arsenal', 'England', 92],
-    ['Inter Mailand', 'Italien', 90], ['Atlético Madrid', 'Spanien', 89],
-    ['FC Chelsea', 'England', 88], ['Juventus Turin', 'Italien', 86],
-    ['SSC Neapel', 'Italien', 86], ['AC Mailand', 'Italien', 85],
-    ['Tottenham Hotspur', 'England', 84], ['Aston Villa', 'England', 83],
-    ['Newcastle United', 'England', 83], ['Manchester United', 'England', 84],
-    ['Atalanta Bergamo', 'Italien', 82], ['AS Rom', 'Italien', 81],
-    ['Benfica Lissabon', 'Portugal', 82], ['FC Porto', 'Portugal', 81],
-    ['Sporting Lissabon', 'Portugal', 82], ['Ajax Amsterdam', 'Niederlande', 79],
-    ['PSV Eindhoven', 'Niederlande', 80], ['Feyenoord Rotterdam', 'Niederlande', 77],
-    ['Olympique Marseille', 'Frankreich', 79], ['AS Monaco', 'Frankreich', 78],
-    ['OSC Lille', 'Frankreich', 76], ['Olympique Lyon', 'Frankreich', 76],
-    ['Athletic Bilbao', 'Spanien', 79], ['Real Sociedad', 'Spanien', 77],
-    ['FC Villarreal', 'Spanien', 78], ['Betis Sevilla', 'Spanien', 76],
-    ['Celtic Glasgow', 'Schottland', 72], ['Glasgow Rangers', 'Schottland', 70],
-    ['Galatasaray Istanbul', 'Türkei', 76], ['Fenerbahce Istanbul', 'Türkei', 75],
-    ['Besiktas Istanbul', 'Türkei', 70], ['Club Brügge', 'Belgien', 73],
-    ['RSC Anderlecht', 'Belgien', 68], ['Royale Union SG', 'Belgien', 70],
-    ['RB Salzburg', 'Österreich', 72], ['Sturm Graz', 'Österreich', 66],
-    ['Slavia Prag', 'Tschechien', 70], ['Sparta Prag', 'Tschechien', 69],
-    ['Dinamo Zagreb', 'Kroatien', 69], ['Roter Stern Belgrad', 'Serbien', 70],
-    ['Schachtar Donezk', 'Ukraine', 71], ['Young Boys Bern', 'Schweiz', 66],
-    ['Olympiakos Piräus', 'Griechenland', 71], ['Panathinaikos', 'Griechenland', 67],
-    ['FC Kopenhagen', 'Dänemark', 68], ['FC Midtjylland', 'Dänemark', 66],
-    ['Bodø/Glimt', 'Norwegen', 67], ['Malmö FF', 'Schweden', 63],
-    ['Legia Warschau', 'Polen', 63], ['Ferencvaros Budapest', 'Ungarn', 64],
-    ['SC Braga', 'Portugal', 72], ['Girona FC', 'Spanien', 74],
-    ['Bologna FC', 'Italien', 75], ['AC Florenz', 'Italien', 76],
-    ['Stade Rennes', 'Frankreich', 72], ['OGC Nizza', 'Frankreich', 72],
-    ['Brighton & Hove', 'England', 79], ['AZ Alkmaar', 'Niederlande', 70],
-    ['FC Twente', 'Niederlande', 66], ['Slovan Bratislava', 'Slowakei', 58],
-    ['Sheriff Tiraspol', 'Moldau', 52], ['Qarabag Agdam', 'Aserbaidschan', 60],
-    ['Ludogorez Rasgrad', 'Bulgarien', 59], ['Maccabi Tel Aviv', 'Israel', 62]
+    ['Real Madrid', 'Spanien', 97, 'RMA'], ['Manchester City', 'England', 96, 'MCI'],
+    ['FC Barcelona', 'Spanien', 94, 'FCB'], ['FC Liverpool', 'England', 93, 'LIV'],
+    ['Paris Saint-Germain', 'Frankreich', 93, 'PSG'], ['FC Arsenal', 'England', 92, 'ARS'],
+    ['Inter Mailand', 'Italien', 90, 'INT'], ['Atlético Madrid', 'Spanien', 89, 'ATM'],
+    ['FC Chelsea', 'England', 88, 'CHE'], ['Juventus Turin', 'Italien', 86, 'JUV'],
+    ['SSC Neapel', 'Italien', 86, 'NAP'], ['AC Mailand', 'Italien', 85, 'MIL'],
+    ['Tottenham Hotspur', 'England', 84, 'TOT'], ['Aston Villa', 'England', 83, 'AVL'],
+    ['Newcastle United', 'England', 83, 'NEW'], ['Manchester United', 'England', 84, 'MUN'],
+    ['Atalanta Bergamo', 'Italien', 82, 'ATA'], ['AS Rom', 'Italien', 81, 'ROM'],
+    ['Benfica Lissabon', 'Portugal', 82, 'BEN'], ['FC Porto', 'Portugal', 81, 'POR'],
+    ['Sporting Lissabon', 'Portugal', 82, 'SCP'], ['Ajax Amsterdam', 'Niederlande', 79, 'AJA'],
+    ['PSV Eindhoven', 'Niederlande', 80, 'PSV'], ['Feyenoord Rotterdam', 'Niederlande', 77, 'FEY'],
+    ['Olympique Marseille', 'Frankreich', 79, 'OM'], ['AS Monaco', 'Frankreich', 78, 'ASM'],
+    ['OSC Lille', 'Frankreich', 76, 'LIL'], ['Olympique Lyon', 'Frankreich', 76, 'OL'],
+    ['Athletic Bilbao', 'Spanien', 79, 'ATH'], ['Real Sociedad', 'Spanien', 77, 'RSO'],
+    ['FC Villarreal', 'Spanien', 78, 'VIL'], ['Betis Sevilla', 'Spanien', 76, 'BET'],
+    ['Celtic Glasgow', 'Schottland', 72, 'CEL'], ['Glasgow Rangers', 'Schottland', 70, 'RAN'],
+    ['Galatasaray Istanbul', 'Türkei', 76, 'GAL'], ['Fenerbahce Istanbul', 'Türkei', 75, 'FEN'],
+    ['Besiktas Istanbul', 'Türkei', 70, 'BJK'], ['Club Brügge', 'Belgien', 73, 'BRU'],
+    ['RSC Anderlecht', 'Belgien', 68, 'AND'], ['Royale Union SG', 'Belgien', 70, 'USG'],
+    ['RB Salzburg', 'Österreich', 72, 'SAL'], ['Sturm Graz', 'Österreich', 66, 'STU'],
+    ['Slavia Prag', 'Tschechien', 70, 'SLA'], ['Sparta Prag', 'Tschechien', 69, 'SPA'],
+    ['Dinamo Zagreb', 'Kroatien', 69, 'DZG'], ['Roter Stern Belgrad', 'Serbien', 70, 'RSB'],
+    ['Schachtar Donezk', 'Ukraine', 71, 'SHA'], ['Young Boys Bern', 'Schweiz', 66, 'YB'],
+    ['Olympiakos Piräus', 'Griechenland', 71, 'OLY'], ['Panathinaikos', 'Griechenland', 67, 'PAO'],
+    ['FC Kopenhagen', 'Dänemark', 68, 'FCK'], ['FC Midtjylland', 'Dänemark', 66, 'FCM'],
+    ['Bodø/Glimt', 'Norwegen', 67, 'BOD'], ['Malmö FF', 'Schweden', 63, 'MFF'],
+    ['Legia Warschau', 'Polen', 63, 'LEG'], ['Ferencvaros Budapest', 'Ungarn', 64, 'FTC'],
+    ['SC Braga', 'Portugal', 72, 'BRA'], ['Girona FC', 'Spanien', 74, 'GIR'],
+    ['Bologna FC', 'Italien', 75, 'BOL'], ['AC Florenz', 'Italien', 76, 'FIO'],
+    ['Stade Rennes', 'Frankreich', 72, 'REN'], ['OGC Nizza', 'Frankreich', 72, 'NIZ'],
+    ['Brighton & Hove', 'England', 79, 'BHA'], ['AZ Alkmaar', 'Niederlande', 70, 'AZ'],
+    ['FC Twente', 'Niederlande', 66, 'TWE'], ['Slovan Bratislava', 'Slowakei', 58, 'SLO'],
+    ['Sheriff Tiraspol', 'Moldau', 52, 'SHE'], ['Qarabag Agdam', 'Aserbaidschan', 60, 'QAR'],
+    ['Ludogorez Rasgrad', 'Bulgarien', 59, 'LUD'], ['Maccabi Tel Aviv', 'Israel', 62, 'MTA']
   ].map(function (r) {
-    return { name: r[0], land: r[1], ruf: r[2] };
+    return { name: r[0], land: r[1], ruf: r[2], kurz: r[3] };
   });
 
   // ------------------------------------------------------------ Namen
