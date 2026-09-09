@@ -1,0 +1,253 @@
+# Bundesliga Manager
+
+Ein Fußballmanager für die 1. und 2. Bundesliga – reines HTML, CSS und
+JavaScript. Kein Framework, kein Build-Schritt, keine Abhängigkeiten.
+
+## Spielen
+
+`fussballmanager/index.html` im Browser öffnen. Das war's.
+
+Alternativ über einen lokalen Server:
+
+```bash
+python3 -m http.server 8000
+# danach http://localhost:8000/fussballmanager/ aufrufen
+```
+
+Trainernamen eingeben, einen der 36 Vereine auswählen, loslegen. Mit
+**Weiter** (oder der Taste `W`) rückt der Kalender einen Tag vor. Die
+Zifferntasten `1`–`9` springen zwischen den Ansichten, `S` speichert.
+
+---
+
+## Was das Spiel abbildet
+
+### Spieler
+
+Jeder Spieler trägt **32 Attribute** in vier Gruppen:
+
+| Gruppe | Attribute |
+| --- | --- |
+| Technik | Ballkontrolle, Passspiel, Flanken, Abschluss, Weitschuss, Dribbling, Kopfball, Zweikampf, Standards, Elfmeter |
+| Mentalität | Übersicht, Entscheidung, Stellungsspiel, Antizipation, Arbeitsrate, Aggressivität, Teamwork, Nervenstärke, Führung, Disziplin |
+| Physis | Tempo, Antritt, Körperkraft, Ausdauer, Beweglichkeit, Sprungkraft, Balance |
+| Torwartspiel | Reflexe, Strafraumbeherrschung, Fangsicherheit, Abschlag, Eins gegen Eins |
+
+Daraus wird über positionsabhängige Gewichte die Spielstärke berechnet – ein
+Innenverteidiger zieht seine Klasse aus Zweikampf, Stellungsspiel und
+Kopfball, ein Zehner aus Übersicht, Passspiel und Technik. Wer auf einer
+fremden Position spielt, verliert entsprechend.
+
+Dazu kommen Hauptposition und Nebenpositionen, starker Fuß, Alter,
+Nationalität, **Potenzial**, Form, Moral, Frische, Verletzungsanfälligkeit,
+eine von zwölf **Persönlichkeiten** (vom vorbildlichen Profi bis zum
+Geldorientierten) sowie Vertrag, Marktwert und Statistiken für Saison und
+Karriere.
+
+Alle Spieler werden prozedural erzeugt. Das Spiel bleibt damit unabhängig
+von Kaderdaten, die nach wenigen Wochen ohnehin veraltet wären.
+
+### Kader und Taktik
+
+* **Zwölf Formationen** von 4-4-2 über 4-2-3-1 und 3-4-3 bis 5-2-3, jede
+  mit eigenem Schwerpunkt in Abwehr, Mittelfeld und Angriff.
+* **Rollen je Position**: Innenverteidiger als Aufbauverteidiger, Libero
+  oder Abräumer; Sechser als Regista, Box-to-Box oder Anker; Stürmer als
+  Zielspieler, Falsche Neun, Tiefenläufer oder Pressingspitze – insgesamt
+  über 30 Rollen mit unterschiedlicher Wirkung.
+* **Neun Mannschaftsanweisungen**: Mentalität, Pressinghöhe, Abwehrlinie,
+  Spielaufbau, Spieltempo, Spielfeldbreite, Gegenpressing,
+  Zweikampfführung und Zeitmanagement.
+* **Standards** (Elfmeter, Freistöße, Ecken, Einwürfe) und Kapitän.
+* **Einspielgrad**: Wer ständig rotiert, verliert Automatismen.
+
+### Spielsimulation
+
+Minutenweise, mit Ballbesitzverteilung, Chancenentstehung nach Typ
+(Kombination, Steilpass, Flanke, Konter, Distanzschuss, Standard, Ecke,
+Alleingang, Nachschuss, Elfmeter), Abschluss gegen Torwartqualität,
+Fouls, Karten, Verletzungen, Abseits und Nachspielzeit. Verlängerung und
+Elfmeterschießen im Pokal.
+
+Die Werte sind an der realen Bundesliga kalibriert:
+
+| Kennzahl | Simulation | Realität |
+| --- | --- | --- |
+| Tore pro Spiel | 3,13 | ~3,15 |
+| Torschüsse pro Team | 13,1 | ~12,8 |
+| Ecken pro Team | 5,2 | ~5,0 |
+| Fouls pro Team | 11,4 | ~11,0 |
+| Gelbe Karten pro Spiel | 3,8 | ~3,8 |
+| Platzverweise pro Spiel | 0,14 | ~0,15 |
+| Heimsiege / Remis / Auswärtssiege | 44 / 24 / 32 % | 44 / 24 / 32 % |
+
+Im Live-Spiel lassen sich Wechsel vornehmen (5 Wechsel in 3 Fenstern),
+Anweisungen ändern und in der Halbzeit fünf verschiedene Kabinenansprachen
+halten. Bewertet wird nach der deutschen Notenskala von 1,0 bis 6,0.
+
+### Wettbewerbe
+
+* **Bundesliga und 2. Bundesliga** mit je 18 Vereinen und 34 Spieltagen,
+  verteilt auf Freitag, Samstag und Sonntag samt englischer Wochen.
+* **3. Liga** als Unterbau für Auf- und Abstieg.
+* **DFB-Pokal** über sechs Runden mit 64 Teilnehmern; in der 1. Runde
+  werden Amateure bevorzugt gegen Profivereine gelost und haben Heimrecht.
+* **Europapokal**: Champions League, Europa League und Conference League
+  mit Ligaphase und anschließender K.-o.-Runde gegen echte europäische
+  Gegnervereine samt eigenem Kader.
+* **DFL-Supercup** und **Relegation** (16. der Bundesliga gegen den 3. der
+  2. Liga, entsprechend eine Etage tiefer).
+* Vorbereitungsspiele im Juli.
+
+### Transfers
+
+Ein Transfer läuft in zwei Stufen: erst einigen sich die Vereine über die
+Ablöse, danach der Spieler mit dem neuen Klub über den Vertrag. Beide
+Seiten machen Gegenangebote.
+
+* **Ablösemodelle**: Sofortzahlung, Ratenzahlung, Erfolgsboni,
+  Weiterverkaufsbeteiligung, Ausstiegsklauseln.
+* **Verträge**: Wochengehalt, Laufzeit, Handgeld, Einsatz-, Tor-, Sieg-
+  und Zu-Null-Prämien, Rollenversprechen vom Star bis zum
+  Perspektivspieler.
+* **Leihen** mit Gehaltsanteil, Leihgebühr und Kaufoption.
+* **Ablösefreie Spieler** und auslaufende Verträge.
+* **Transferfenster** im Sommer (1. Juli bis 1. September) und Winter.
+* **Scouting**: Einzelbeobachtungen und Reisen in zehn Weltregionen. Wie
+  genau die Berichte sind, hängt an Chefscout, Scouts und Netzwerk. Vorher
+  sieht man nur Spannen statt Werte.
+* Die KI-Vereine handeln eigenständig, halten ihr Budget ein und geben
+  Angebote für Ihre Spieler ab.
+
+### Training
+
+Ein Wochenplan aus 14 Einheiten (sieben Tage, Vormittag und Nachmittag)
+mit zwölf Einheitentypen von Ausdauer über Standardsituationen bis
+Videoanalyse, dazu vier Intensitätsstufen. Hartes Training entwickelt
+schneller, kostet aber Frische und erhöht das Verletzungsrisiko spürbar.
+
+Pro Spieler lässt sich ein **individueller Schwerpunkt** setzen. Die
+Entwicklung hängt an Alter, Potenzial, Persönlichkeit, Trainingsqualität,
+Moral und vor allem an der **Spielpraxis** – ein Talent ohne Einsatzzeit
+stagniert. Ab 29 lassen die physischen Werte nach, während Erfahrung und
+Führung noch wachsen.
+
+Dazu kommen **Trainingslager** von der Sportschule bis zur Winterreise
+nach Katar.
+
+### Verletzungen und Sperren
+
+16 Verletzungsbilder von der Prellung bis zum Kreuzbandriss, dazu
+Krankheiten. Ausfallzeit und Rückschlagsrisiko hängen an der
+medizinischen Abteilung, Physiotherapeuten und Mannschaftsarzt. Die fünfte
+Gelbe Karte zieht eine Sperre nach sich, Gelb-Rot ein Spiel, Rot zwei bis
+drei – jeweils nur im betroffenen Wettbewerb.
+
+### Finanzen
+
+Einnahmen aus Medienerlösen (nach Liga und Platzierung, wöchentlich
+ausgezahlt), Spieltagserlösen, Sponsoring (Trikot, Ärmel, Ausrüster,
+Stadionname, Premiumpartner), Merchandising, Preisgeldern und Transfers.
+
+Ausgaben für Spieler- und Mitarbeitergehälter, Ablösen, Stadion- und
+Spielbetrieb, Nachwuchszentrum, Verwaltung, Scouting und Kreditzinsen.
+
+Der Vorstand gibt Transfer- und Gehaltsbudget vor. Beim ihm lassen sich
+Budgeterhöhungen, Umwandlungen und Kredite beantragen. Wer dauerhaft im
+Minus steht, bekommt Ärger mit der DFL – bis hin zum Punktabzug.
+Ticketpreise und Dauerkarten steuern Einnahmen und Fanstimmung.
+
+### Verein und Infrastruktur
+
+Stadionkapazität, Trainingszentrum, Nachwuchsleistungszentrum,
+medizinische Abteilung und Scoutingnetzwerk lassen sich ausbauen – jeweils
+mit Kosten und Bauzeit. Dazu Fanstimmung, Mitgliederzahl und Tradition.
+
+### Personal
+
+Zehn Funktionen mit eigenen Kompetenzen: Co-Trainer, Torwarttrainer,
+Athletiktrainer, Spielanalysten, Physiotherapeuten, Mannschaftsarzt,
+Chefscout, Scouts, Nachwuchsleiter und Sportdirektor. Sie wirken auf
+Trainingsqualität, Verletzungsvorbeugung, Reha-Tempo,
+Scouting-Genauigkeit, Verhandlungsgeschick und Jahrgangsqualität. Personal
+lässt sich suchen, verpflichten und entlassen.
+
+### Nachwuchs
+
+Jeden Sommer rückt ein Jahrgang aus der eigenen Jugend nach. Umfang und
+Qualität hängen an Akademie und Nachwuchsleiter, gelegentlich schlüpft ein
+echtes Ausnahmetalent durch. Der Nachwuchsleiter gibt eine Einschätzung
+des Potenzials ab – je besser er ist, desto enger die Spanne.
+
+### Medien und Kabine
+
+* **Pressekonferenzen** vor und nach dem Spiel mit Antwortoptionen, die
+  auf Mannschaftsmoral, Fanstimmung, Vorstandsvertrauen und sogar die
+  Moral des Gegners wirken. Wer über Schiedsrichter schimpft, riskiert
+  eine Geldstrafe.
+* **Spielergespräche**: loben, kritisieren, Rückendeckung geben, Spielzeit
+  versprechen, über Wechselwünsche reden, zum Kapitän machen. Ob es wirkt,
+  hängt an Persönlichkeit, Leistung und Ihrer Menschenführung.
+* **Postfach** mit Meldungen aus Medizin, Verband, Transfermarkt, Kabine,
+  Scouting und Vorstand.
+* **Vorstandsvertrauen**: Wer sein Saisonziel deutlich verfehlt, bekommt
+  erst eine Verwarnung – und dann die Kündigung. Danach kann man sich bei
+  anderen Vereinen bewerben.
+
+---
+
+## Bedienung
+
+| Taste | Wirkung |
+| --- | --- |
+| `W` | Einen Tag weiter |
+| `1` … `9` | Ansicht wechseln |
+| `S` | Speichern |
+| `Esc` | Dialog schließen |
+
+Gespeichert wird in der IndexedDB des Browsers. Zusätzlich lässt sich der
+Spielstand über **Karriere → Spielstand exportieren** als Datei sichern und
+auf dem Startbildschirm wieder importieren.
+
+---
+
+## Aufbau des Programms
+
+Die Spiellogik ist vollständig vom DOM getrennt und ließe sich auch außerhalb
+des Browsers ausführen.
+
+```
+index.html            Aufbau der Seite
+css/style.css         Darstellung
+
+js/util.js            Zufallszahlen, Kalender, Formatierung
+js/data.js            Vereine, Namen, Formationen, Rollen, Einheiten
+js/players.js         Spielererzeugung, Stärke, Marktwert, Entwicklung
+js/tactics.js         Aufstellung, Rollen, Mannschaftsstärke
+js/match.js           Spielsimulation
+js/staff.js           Trainerstab und Mitarbeiter
+js/finance.js         Haushalt, Sponsoring, Zuschauer
+js/competitions.js    Spielpläne, Tabellen, Pokal, Europapokal
+js/world.js           Weltmodell und Zugriffsmethoden
+js/training.js        Wochenplan, Fitness, Verletzungen
+js/youth.js           Nachwuchs
+js/transfers.js       Transfermarkt, Verhandlungen, Scouting
+js/media.js           Presse, Vorstand, Kabine
+js/engine.js          Tagesablauf, Ergebnisverarbeitung, Saisonwechsel
+js/save.js            Speichern und Laden
+js/ui.js              Grundgerüst der Oberfläche
+js/views*.js          Die einzelnen Ansichten und Dialoge
+js/matchview.js       Live-Ansicht des Spieltags
+js/main.js            Einstieg und Tastenkürzel
+```
+
+Die Simulation ist deterministisch: Bei gleichem Startwert entsteht
+dieselbe Spielwelt. Ein kompletter Saisondurchlauf mit allen 1200 Partien
+dauert rund 20 Sekunden, ein einzelnes Spiel etwa 1,5 Millisekunden.
+
+## Hinweis zu den Daten
+
+Vereinsnamen, Stadien und Städte entsprechen der realen Ligalandschaft der
+Saison 2025/26. Alle Spieler, Mitarbeiter und Sponsoren sind frei erfunden
+und werden bei jedem neuen Spiel neu erzeugt. Es besteht keine Verbindung
+zu DFL, DFB oder den genannten Vereinen.

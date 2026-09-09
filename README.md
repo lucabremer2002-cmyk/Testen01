@@ -1,9 +1,35 @@
-# Tetris
+# Browserspiele
+
+Zwei eigenstaendige Spiele fuer den Browser – jeweils reines HTML, CSS und
+JavaScript, ohne Framework, ohne Build-Schritt und ohne Abhaengigkeiten.
+
+| Spiel | Start | Beschreibung |
+| --- | --- | --- |
+| **Tetris** | `index.html` | Vollstaendiges Tetris mit SRS-Drehung, Hold, Lock-Delay und T-Spin-Wertung |
+| **Bundesliga Manager** | `fussballmanager/index.html` | Fussballmanager fuer die 1. und 2. Bundesliga |
+
+---
+
+## Bundesliga Manager
+
+Ein Fussballmanager mit Kader, Taktik, Training, Transfers, Scouting,
+Finanzen, Nachwuchs, Personal, Medien und minutengenauer Spielsimulation.
+Die ausfuehrliche Anleitung steht in
+[`fussballmanager/README.md`](fussballmanager/README.md).
+
+```bash
+python3 -m http.server 8000
+# danach http://localhost:8000/fussballmanager/ aufrufen
+```
+
+---
+
+## Tetris
 
 Ein vollstaendiges Tetris fuer den Browser – reines HTML, CSS und JavaScript,
 ohne Framework, ohne Build-Schritt und ohne Abhaengigkeiten.
 
-## Spielen
+### Spielen
 
 `index.html` im Browser oeffnen. Das war's.
 
@@ -14,7 +40,7 @@ python3 -m http.server 8000
 # danach http://localhost:8000 aufrufen
 ```
 
-## Steuerung
+### Steuerung
 
 | Taste | Wirkung |
 | --- | --- |
@@ -33,7 +59,7 @@ Auf Touchgeraeten gibt es zusaetzlich eine Schaltflaechenleiste. Auf dem
 Spielfeld funktionieren ausserdem Gesten: wischen bewegt, tippen dreht,
 schnelles Wischen nach unten laesst den Stein hart fallen.
 
-## Umgesetzte Regeln
+### Umgesetzte Regeln
 
 * **7-Bag-Zufall** – jeder der sieben Steine kommt genau einmal pro Runde,
   daher keine langen Durststrecken ohne I-Stein.
@@ -51,7 +77,7 @@ schnelles Wischen nach unten laesst den Stein hart fallen.
   inklusive Unterscheidung zwischen vollem T-Spin und Mini.
 * **Bestwert** wird im `localStorage` gesichert.
 
-## Wertung
+### Wertung
 
 | Aktion | Punkte (× Level) |
 | --- | --- |
@@ -66,7 +92,7 @@ schnelles Wischen nach unten laesst den Stein hart fallen.
 Alle zehn geloeschten Reihen steigt das Level um eins, und die Steine fallen
 entsprechend schneller.
 
-## Dateien
+### Dateien
 
 ```
 index.html   Aufbau der Seite

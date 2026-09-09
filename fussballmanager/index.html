@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bundesliga Manager</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%230d1b14'/><circle cx='8' cy='8' r='5' fill='none' stroke='%2334d399' stroke-width='1.4'/><path d='M8 3v10M3 8h10' stroke='%2334d399' stroke-width='1'/></svg>">
+</head>
+<body>
+
+<!-- ============================ Startbildschirm ============================ -->
+<div id="start" class="start">
+  <div class="start__inner">
+    <h1 class="start__title">Bundesliga <span>Manager</span></h1>
+    <p class="start__sub">Übernimm einen Verein der 1. oder 2. Bundesliga &ndash; Kader, Taktik,
+      Training, Transfers, Finanzen, Nachwuchs, Medien. Alles, was ein Verein wirklich zu erledigen hat.</p>
+
+    <div class="start__panel" id="start-neu">
+      <div class="field">
+        <label for="in-name">Name des Trainers</label>
+        <input id="in-name" type="text" value="Alex Berger" maxlength="28" autocomplete="off">
+      </div>
+      <div class="field field--row">
+        <div>
+          <label for="in-alter">Alter</label>
+          <input id="in-alter" type="number" value="42" min="25" max="70">
+        </div>
+        <div>
+          <label for="in-seed">Startwert (optional)</label>
+          <input id="in-seed" type="number" placeholder="zufällig" min="1" max="2000000000">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Verein auswählen</label>
+        <div class="liga-tabs">
+          <button type="button" class="liga-tab is-active" data-liga="1">1. Bundesliga</button>
+          <button type="button" class="liga-tab" data-liga="2">2. Bundesliga</button>
+        </div>
+        <div id="club-grid" class="club-grid"></div>
+      </div>
+
+      <div id="club-info" class="club-info"></div>
+
+      <div class="start__actions">
+        <button id="btn-start" class="btn btn--primary btn--big" disabled>Karriere beginnen</button>
+        <button id="btn-laden" class="btn">Gespeicherten Stand laden</button>
+        <label class="btn btn--file">Datei importieren<input id="in-import" type="file" accept=".json,application/json" hidden></label>
+      </div>
+      <p id="start-hinweis" class="hint"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ Spieloberfläche ============================ -->
+<div id="app" class="app" hidden>
+
+  <header class="topbar">
+    <div class="topbar__club">
+      <span class="crest" id="tb-crest"></span>
+      <div>
+        <strong id="tb-verein">&nbsp;</strong>
+        <small id="tb-liga">&nbsp;</small>
+      </div>
+    </div>
+
+    <div class="topbar__mid">
+      <div class="kpi"><span>Datum</span><b id="tb-datum">&nbsp;</b></div>
+      <div class="kpi"><span>Tabelle</span><b id="tb-platz">&nbsp;</b></div>
+      <div class="kpi"><span>Kontostand</span><b id="tb-konto">&nbsp;</b></div>
+      <div class="kpi"><span>Vorstand</span><b id="tb-vorstand">&nbsp;</b></div>
+    </div>
+
+    <div class="topbar__actions">
+      <button id="btn-speichern" class="btn btn--ghost" title="Im Browser speichern">Speichern</button>
+      <button id="btn-weiter" class="btn btn--primary">Weiter <kbd>W</kbd></button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="nav" id="nav">
+      <button class="nav__item is-active" data-view="uebersicht"><i>◉</i>Übersicht</button>
+      <button class="nav__item" data-view="kader"><i>☰</i>Kader</button>
+      <button class="nav__item" data-view="taktik"><i>▦</i>Taktik</button>
+      <button class="nav__item" data-view="training"><i>◷</i>Training</button>
+      <button class="nav__item" data-view="spielplan"><i>▤</i>Spielplan</button>
+      <button class="nav__item" data-view="tabelle"><i>≡</i>Tabellen</button>
+      <button class="nav__item" data-view="transfers"><i>⇄</i>Transfers</button>
+      <button class="nav__item" data-view="finanzen"><i>€</i>Finanzen</button>
+      <button class="nav__item" data-view="verein"><i>⌂</i>Verein</button>
+      <button class="nav__item" data-view="personal"><i>👤</i>Personal</button>
+      <button class="nav__item" data-view="nachwuchs"><i>★</i>Nachwuchs</button>
+      <button class="nav__item" data-view="medien"><i>✉</i>Medien<span class="badge" id="nav-inbox" hidden>0</span></button>
+      <button class="nav__item" data-view="statistik"><i>∑</i>Statistik</button>
+      <button class="nav__item" data-view="karriere"><i>◆</i>Karriere</button>
+    </nav>
+
+    <main class="content" id="content"></main>
+  </div>
+</div>
+
+<!-- ============================ Spieltag (Live) ============================ -->
+<div id="matchview" class="matchview" hidden></div>
+
+<!-- ============================ Dialoge ============================ -->
+<div id="modal" class="modal" hidden>
+  <div class="modal__backdrop" data-close="1"></div>
+  <div class="modal__box" role="dialog" aria-modal="true">
+    <button class="modal__close" data-close="1" aria-label="Schließen">&times;</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" aria-live="polite"></div>
+
+<script src="js/util.js"></script>
+<script src="js/data.js"></script>
+<script src="js/players.js"></script>
+<script src="js/tactics.js"></script>
+<script src="js/match.js"></script>
+<script src="js/staff.js"></script>
+<script src="js/finance.js"></script>
+<script src="js/competitions.js"></script>
+<script src="js/world.js"></script>
+<script src="js/training.js"></script>
+<script src="js/youth.js"></script>
+<script src="js/transfers.js"></script>
+<script src="js/media.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/save.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/views.js"></script>
+<script src="js/views2.js"></script>
+<script src="js/views3.js"></script>
+<script src="js/views4.js"></script>
+<script src="js/matchview.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
