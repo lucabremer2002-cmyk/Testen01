@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#090A0D">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Bundesliga Manager</title>
 <link rel="stylesheet" href="css/fonts.css">
 <link rel="stylesheet" href="css/style.css">
@@ -81,23 +84,41 @@
 
   <div class="layout">
     <nav class="nav" id="nav">
-      <button class="nav__item is-active" data-view="uebersicht"><i>◉</i>Übersicht</button>
-      <button class="nav__item" data-view="kader"><i>☰</i>Kader</button>
-      <button class="nav__item" data-view="taktik"><i>▦</i>Taktik</button>
-      <button class="nav__item" data-view="training"><i>◷</i>Training</button>
-      <button class="nav__item" data-view="spielplan"><i>▤</i>Spielplan</button>
-      <button class="nav__item" data-view="tabelle"><i>≡</i>Tabellen</button>
-      <button class="nav__item" data-view="transfers"><i>⇄</i>Transfers</button>
-      <button class="nav__item" data-view="finanzen"><i>€</i>Finanzen</button>
-      <button class="nav__item" data-view="verein"><i>⌂</i>Verein</button>
-      <button class="nav__item" data-view="personal"><i>👤</i>Personal</button>
-      <button class="nav__item" data-view="nachwuchs"><i>★</i>Nachwuchs</button>
-      <button class="nav__item" data-view="medien"><i>✉</i>Medien<span class="badge" id="nav-inbox" hidden>0</span></button>
-      <button class="nav__item" data-view="statistik"><i>∑</i>Statistik</button>
-      <button class="nav__item" data-view="karriere"><i>◆</i>Karriere</button>
+      <button class="nav__item is-active" data-view="uebersicht" data-label="Übersicht"><i>◉</i>Übersicht</button>
+      <button class="nav__item" data-view="kader" data-label="Kader"><i>☰</i>Kader</button>
+      <button class="nav__item" data-view="taktik" data-label="Taktik"><i>▦</i>Taktik</button>
+      <button class="nav__item" data-view="training" data-label="Training"><i>◷</i>Training</button>
+      <button class="nav__item" data-view="spielplan" data-label="Spielplan"><i>▤</i>Spielplan</button>
+      <button class="nav__item" data-view="tabelle" data-label="Tabellen"><i>≡</i>Tabellen</button>
+      <button class="nav__item" data-view="transfers" data-label="Transfers"><i>⇄</i>Transfers</button>
+      <button class="nav__item" data-view="finanzen" data-label="Finanzen"><i>€</i>Finanzen</button>
+      <button class="nav__item" data-view="verein" data-label="Verein"><i>⌂</i>Verein</button>
+      <button class="nav__item" data-view="personal" data-label="Personal"><i>👤</i>Personal</button>
+      <button class="nav__item" data-view="nachwuchs" data-label="Nachwuchs"><i>★</i>Nachwuchs</button>
+      <button class="nav__item" data-view="medien" data-label="Medien"><i>✉</i>Medien<span class="badge" id="nav-inbox" hidden>0</span></button>
+      <button class="nav__item" data-view="statistik" data-label="Statistik"><i>∑</i>Statistik</button>
+      <button class="nav__item" data-view="karriere" data-label="Karriere"><i>◆</i>Karriere</button>
     </nav>
 
     <main class="content" id="content"></main>
+  </div>
+
+  <!-- Bedienleiste am unteren Rand, nur auf schmalen Bildschirmen -->
+  <nav class="tabbar" id="tabbar" aria-label="Hauptbereiche">
+    <button type="button" data-view="uebersicht" data-label="Übersicht"><i>◉</i><span>Übersicht</span></button>
+    <button type="button" data-view="kader" data-label="Kader"><i>☰</i><span>Kader</span></button>
+    <button type="button" data-view="taktik" data-label="Taktik"><i>▦</i><span>Taktik</span></button>
+    <button type="button" data-view="spielplan" data-label="Spielplan"><i>▤</i><span>Spiele</span></button>
+    <button type="button" data-mehr="1"><i>⋯</i><span>Mehr</span><b class="tabbar__punkt" id="tab-punkt" hidden></b></button>
+  </nav>
+</div>
+
+<!-- Aufklappblatt für alle übrigen Bereiche -->
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet__backdrop" data-sheet-zu="1"></div>
+  <div class="sheet__box" role="dialog" aria-modal="true" aria-label="Weitere Bereiche">
+    <div class="sheet__griff"></div>
+    <div id="sheet-body"></div>
   </div>
 </div>
 

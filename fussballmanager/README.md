@@ -227,6 +227,9 @@ des Potenzials ab – je besser er ist, desto enger die Spanne.
 | `S` | Speichern |
 | `Esc` | Dialog schließen |
 
+Am Telefon wird über die Leiste am unteren Rand gewechselt, die
+Tastenkürzel entfallen dort.
+
 Gespeichert wird in der IndexedDB des Browsers. Zusätzlich lässt sich der
 Spielstand über **Karriere → Spielstand exportieren** als Datei sichern und
 auf dem Startbildschirm wieder importieren.
@@ -251,6 +254,34 @@ Einblendung samt Konfetti gefeiert und halten dafür kurz die Uhr an, Siege,
 Titel und Aufstiege lösen einen Konfettiregen aus, und Siegesserien
 erscheinen als eigener Hinweis. Wer `prefers-reduced-motion` gesetzt hat,
 bekommt alles ohne Bewegung.
+
+## Am Handy
+
+Das Spiel ist für das Telefon genauso gebaut wie für den Schreibtisch – es
+gibt keine abgespeckte Fassung. Unterhalb von 820 px Breite schaltet die
+Oberfläche um:
+
+- **Leiste am unteren Rand** statt Seitennavigation: Übersicht, Kader,
+  Taktik, Spiele und **Mehr**. Hinter *Mehr* öffnet sich ein Blatt von
+  unten mit allen weiteren Bereichen; liegt dort etwas Neues an, trägt der
+  Punkt an der Leiste den Hinweis.
+- **Kennzahlen** liegen als waagerecht wischbares Band über dem Inhalt,
+  statt sich zu einer langen Spalte zu stapeln.
+- **Tabellen** behalten ihre erste Spalte beim seitlichen Scrollen stehen,
+  damit Name oder Verein immer sichtbar bleiben.
+- **Aufstellung**: Ein Tipp auf eine Position rollt das Detailfeld direkt
+  ins Bild, sodass Rolle, Eignung und Alternativen ohne Suchen erreichbar
+  sind.
+- **Bedienflächen** sind durchgehend mindestens 44 px hoch, Eingabefelder
+  und Auswahllisten 16 px groß – so zoomt iOS beim Antippen nicht hinein.
+- Die Oberfläche achtet auf die **sicheren Bereiche** moderner Geräte
+  (Notch, Home-Indikator) und verzichtet auf Hover-Effekte, wo es keinen
+  Zeiger gibt.
+- **Automatisch gesichert** wird nach jedem Spiel und spätestens alle
+  vierzehn Spieltage – ein weggewischter Tab kostet keinen Fortschritt.
+
+Querformat funktioniert ebenfalls; ab Tabletbreite erscheint wieder die
+vollständige Seitennavigation.
 
 ## Aufbau des Programms
 

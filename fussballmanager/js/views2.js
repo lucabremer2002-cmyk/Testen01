@@ -91,7 +91,7 @@
       html += '<div class="card mt"><div class="card__head"><h3>Individuelles Training</h3>' +
         '<span class="klein muted">Ein Schwerpunkt je Spieler beschleunigt die Entwicklung dort deutlich.</span></div>' +
         UI.tabelle([
-          { key: 'n', label: 'Spieler', html: function (p) {
+          { key: 'n', label: 'Spieler', haft: true, html: function (p) {
             return '<span class="name">' + esc(p.nachname) + '</span> ' + UI.posTag(p.pos); } },
           { key: 'a', label: 'Alter', klasse: 'num', wert: function (p) { return p.alter; }, html: function (p) { return p.alter; } },
           { key: 's', label: 'Stärke', klasse: 'num', wert: function (p) { return P.gesamt(p); },
@@ -279,7 +279,7 @@
       var aufstieg = liga.aufstiegsplaetze, abstieg = liga.abstiegsplaetze;
       html += '<div class="card">' + UI.tabelle([
         { key: 'platz', label: '#', klasse: 'num', html: function (e, i) { return e.__platz; } },
-        { key: 'verein', label: 'Verein', html: function (e) { return UI.vereinZelle(world, e.clubId); } },
+        { key: 'verein', label: 'Verein', haft: true, html: function (e) { return UI.vereinZelle(world, e.clubId); } },
         { key: 'sp', label: 'Sp', klasse: 'num', html: function (e) {
           return z.modus === 'gesamt' ? e.spiele : (z.modus === 'heim'
             ? e.heimSiege + e.heimRemis + e.heimNiederlagen : e.auswSiege + e.auswRemis + e.auswNiederlagen); } },
@@ -448,7 +448,7 @@
 
   function spielerMarktTabelle(world, liste, z) {
     return UI.tabelle([
-      { key: 'name', label: 'Spieler', wert: function (p) { return p.nachname; }, html: function (p) {
+      { key: 'name', label: 'Spieler', haft: true, wert: function (p) { return p.nachname; }, html: function (p) {
         return '<span class="name">' + esc(p.nachname) + '</span> <span class="muted klein">' + esc(p.vorname) + '</span>'; } },
       { key: 'pos', label: 'Pos', wert: function (p) { return D.POSITIONEN.indexOf(p.pos); }, html: function (p) { return UI.posTag(p.pos); } },
       { key: 'alter', label: 'Alter', klasse: 'num', wert: function (p) { return p.alter; }, html: function (p) { return p.alter; } },

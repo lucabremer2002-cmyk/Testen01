@@ -150,7 +150,7 @@
         '</div>';
 
       html += '<div class="card">' + UI.tabelle([
-        { key: 'r', label: 'Funktion', wert: function (s) { return FM.staff.ROLLE_REIHENFOLGE.indexOf(s.rolle); },
+        { key: 'r', label: 'Funktion', haft: true, wert: function (s) { return FM.staff.ROLLE_REIHENFOLGE.indexOf(s.rolle); },
           html: function (s) { return '<b>' + esc(D.STAFF_ROLLEN[s.rolle].name) + '</b>'; } },
         { key: 'n', label: 'Name', wert: function (s) { return s.nachname; },
           html: function (s) { return esc(s.vorname + ' ' + s.nachname); } },
@@ -285,7 +285,7 @@
       }
 
       html += '<div class="card">' + UI.tabelle([
-        { key: 'n', label: 'Spieler', wert: function (p) { return p.nachname; }, html: function (p) {
+        { key: 'n', label: 'Spieler', haft: true, wert: function (p) { return p.nachname; }, html: function (p) {
           return '<span class="name">' + esc(p.nachname) + '</span> <span class="muted klein">' + esc(p.vorname) + '</span>' +
             (p.eigengewaechs ? ' <span class="chip chip--lila">★</span>' : ''); } },
         { key: 'pos', label: 'Pos', wert: function (p) { return D.POSITIONEN.indexOf(p.pos); }, html: function (p) { return UI.posTag(p.pos); } },
@@ -534,6 +534,10 @@
         '<div class="stat-row"><span>Aufstellung vor jedem Spiel automatisch optimieren</span>' +
         '<input type="checkbox" data-e="autoAufstellung" style="width:auto"' +
         (world.einstellungen.autoAufstellung ? ' checked' : '') + '></div>' +
+        '<div class="stat-row"><span>Automatisch zwischenspeichern</span>' +
+        '<input type="checkbox" data-e="autoSpeichern" style="width:auto"' +
+        (world.einstellungen.autoSpeichern !== false ? ' checked' : '') + '></div>' +
+        '<p class="klein muted" style="margin:10px 0 0">' + esc(UI.speicherStandText()) + '</p>' +
         '</div>';
 
       return html;

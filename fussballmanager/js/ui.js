@@ -32,6 +32,11 @@
 
   function el(id) { return doc.getElementById(id); }
 
+  /** Schmaler Bildschirm? Entscheidet über Sprungverhalten und Dialogform. */
+  function schmal() {
+    return global.matchMedia ? global.matchMedia('(max-width: 820px)').matches : false;
+  }
+
   /** Wappenersatz: farbiges Feld mit dem Kürzel des Vereins. */
   function wappen(club, klein) {
     if (!club) return '';
@@ -276,9 +281,80 @@
     Array.prototype.forEach.call(doc.querySelectorAll('.nav__item'), function (b) {
       b.classList.toggle('is-active', b.dataset.view === name);
     });
+    Array.prototype.forEach.call(doc.querySelectorAll('.tabbar button'), function (b) {
+      b.classList.toggle('is-active', b.dataset.view === name);
+    });
+    blattZu();
     zeichne();
     el('content').scrollTop = 0;
     global.scrollTo(0, 0);
+  }
+
+  // ------------------------------------------------------------ Aufklappblatt
+
+  /** Alle Bereiche als Kachelraster – die Navigation für schmale Geräte. */
+  function mehrBlatt() {
+    var world = UI.world;
+    var eintraege = Array.prototype.map.call(doc.querySelectorAll('.nav__item'), function (b) {
+      return {
+        view: b.dataset.view,
+        label: b.dataset.label || b.dataset.view,
+        icon: b.querySelector('i') ? b.querySelector('i').textContent : '•'
+      };
+    });
+    var ungelesen = world ? world.ungeleseneNachrichten() : 0;
+
+    var html = '<h3 style="margin-bottom:12px">Alle Bereiche</h3><div class="sheet__liste">' +
+      eintraege.map(function (e) {
+        return '<button type="button" class="sheet__eintrag' +
+          (UI.ansicht === e.view ? ' is-active' : '') + '" data-blatt-view="' + esc(e.view) + '">' +
+          '<i>' + esc(e.icon) + '</i>' + esc(e.label) +
+          (e.view === 'medien' && ungelesen ? '<span class="badge">' + ungelesen + '</span>' : '') +
+          '</button>';
+      }).join('') + '</div>';
+
+    html += '<div class="trenner"></div>' +
+      '<div class="flex" style="gap:8px">' +
+      '<button class="btn btn--primary" data-blatt-a="speichern" style="flex:1;justify-content:center">Speichern</button>' +
+      '<button class="btn" data-blatt-a="export" style="flex:1;justify-content:center">Als Datei sichern</button>' +
+      '</div>' +
+      '<p class="klein muted" style="margin:10px 0 0" id="blatt-stand">' + speicherStandText() + '</p>';
+
+    el('sheet-body').innerHTML = html;
+    el('sheet').hidden = false;
+
+    Array.prototype.forEach.call(el('sheet-body').querySelectorAll('[data-blatt-view]'), function (b) {
+      b.onclick = function () { zeige(b.dataset.blattView); };
+    });
+    var sp = el('sheet-body').querySelector('[data-blatt-a="speichern"]');
+    if (sp) sp.onclick = function () {
+      sp.disabled = true; sp.textContent = 'Speichert …';
+      FM.save.speichern(UI.world, function (fehler, kopf) {
+        sp.disabled = false; sp.textContent = 'Speichern';
+        if (fehler) toast(fehler.message, 'fehler');
+        else {
+          toast('Gespeichert (' + Math.round(kopf.groesse / 1024) + ' KB).', 'gut');
+          var st = el('blatt-stand');
+          if (st) st.textContent = speicherStandText();
+        }
+      });
+    };
+    var ex = el('sheet-body').querySelector('[data-blatt-a="export"]');
+    if (ex) ex.onclick = function () { FM.save.exportieren(UI.world); toast('Datei wird heruntergeladen.', 'gut'); };
+  }
+
+  function speicherStandText() {
+    var info = FM.save.standInfo();
+    if (!info || !info.gespeichert) return 'Noch nicht gespeichert.';
+    var minuten = Math.round((Date.now() - info.gespeichert) / 60000);
+    return 'Zuletzt gespeichert: ' + (minuten < 1 ? 'gerade eben'
+      : minuten < 60 ? 'vor ' + minuten + ' Minuten'
+        : 'am ' + new Date(info.gespeichert).toLocaleString('de-DE'));
+  }
+
+  function blattZu() {
+    var b = el('sheet');
+    if (b && !b.hidden) { b.hidden = true; el('sheet-body').innerHTML = ''; }
   }
 
   /**
@@ -328,6 +404,8 @@
     var badge = el('nav-inbox');
     badge.hidden = ungelesen === 0;
     badge.textContent = ungelesen;
+    var punkt = el('tab-punkt');
+    if (punkt) punkt.hidden = ungelesen === 0;
   }
 
   // ------------------------------------------------------------ Sortierbare Tabellen
@@ -346,7 +424,7 @@
     }
     var html = '<div class="table-wrap"><table><thead><tr>';
     spalten.forEach(function (s) {
-      html += '<th class="' + (s.klasse || '') + (s.wert ? ' sortable' : '') +
+      html += '<th class="' + (s.klasse || '') + (s.haft ? ' haft' : '') + (s.wert ? ' sortable' : '') +
         (s.key === sortKey ? ' is-sorted' : '') + '"' +
         (s.wert ? ' data-sort="' + esc(s.key) + '"' : '') +
         (s.titel ? ' title="' + esc(s.titel) + '"' : '') + '>' + s.label +
@@ -361,7 +439,7 @@
       html += '<tr class="' + (opts.zeilenKlasse ? opts.zeilenKlasse(z) : '') + '"' +
         (opts.zeilenAttr ? ' ' + opts.zeilenAttr(z) : '') + '>';
       spalten.forEach(function (s) {
-        html += '<td class="' + (s.klasse || '') + '">' + s.html(z) + '</td>';
+        html += '<td class="' + (s.klasse || '') + (s.haft ? ' haft' : '') + '">' + s.html(z) + '</td>';
       });
       html += '</tr>';
     });
@@ -411,6 +489,25 @@
   // ------------------------------------------------------------ Weiter-Taste
 
   /**
+   * Sichert den Stand im Hintergrund, ohne den Nutzer zu unterbrechen.
+   * Auf dem Handy räumt der Browser Tabs gern von selbst ab – ein
+   * verlorener Spielstand wäre das Ärgerlichste, was passieren kann.
+   */
+  var ABSTAND_SICHERUNG = 14;      // Spieltage zwischen zwei Sicherungen
+
+  function stilleSicherung(erzwingen) {
+    var world = UI.world;
+    if (!world || !world.nutzerClubId) return;
+    if (world.einstellungen.autoSpeichern === false) return;
+    if (!erzwingen && world.letzteSicherung !== undefined &&
+      world.tag - world.letzteSicherung < ABSTAND_SICHERUNG) return;
+    world.letzteSicherung = world.tag;
+    FM.save.speichern(world, function (fehler) {
+      if (fehler) console.warn('Automatisches Speichern fehlgeschlagen:', fehler.message);
+    });
+  }
+
+  /**
    * Rueckt einen Tag vor. Erkennt eigene Spiele, Nachrichten und das
    * Saisonende und reagiert entsprechend.
    */
@@ -437,6 +534,7 @@
       }
       UI.beschaeftigt = false;
       zeichne();
+      stilleSicherung(false);
       var neue = world.inbox.filter(function (n) {
         return !n.gelesen && n.prioritaet >= 3 && n.tag >= world.tag - 1;
       });
@@ -698,6 +796,7 @@
 
   UI.esc = esc;
   UI.el = el;
+  UI.schmal = schmal;
   UI.wappen = wappen;
   UI.vereinName = vereinName;
   UI.vereinZelle = vereinZelle;
@@ -721,12 +820,16 @@
   UI.modalZu = modalZu;
   UI.bestaetigen = bestaetigen;
   UI.zeige = zeige;
+  UI.mehrBlatt = mehrBlatt;
+  UI.blattZu = blattZu;
+  UI.speicherStandText = speicherStandText;
   UI.zeichne = zeichne;
   UI.kopfzeile = kopfzeile;
   UI.tabelle = tabelle;
   UI.tabelleSortierung = tabelleSortierung;
   UI.filterBinden = filterBinden;
   UI.weiter = weiter;
+  UI.stilleSicherung = stilleSicherung;
   UI.vorSpielAblauf = vorSpielAblauf;
   UI.pressekonferenz = pressekonferenz;
   UI.zeigeNachricht = zeigeNachricht;

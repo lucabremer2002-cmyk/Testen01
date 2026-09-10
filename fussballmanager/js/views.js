@@ -272,7 +272,8 @@
         return true;
       });
 
-      var html = '<div class="card__head"><h2>Kader &middot; ' + esc(club.name) + '</h2>' +
+      var html = '<div class="card__head"><h2>Kader<span class="nur-gross"> &middot; ' +
+        esc(club.name) + '</span></h2>' +
         '<div class="flex"><button class="btn btn--sm" data-a="druck">Kaderbericht</button></div></div>';
 
       // Kennzahlen
@@ -321,7 +322,7 @@
   function kaderTabelle(world, kader, z) {
     var spalten = [
       { key: 'nummer', label: '#', klasse: 'num', wert: function (p) { return p.nummer; }, html: function (p) { return p.nummer || '–'; } },
-      { key: 'name', label: 'Name', wert: function (p) { return p.nachname; },
+      { key: 'name', label: 'Name', haft: true, wert: function (p) { return p.nachname; },
         html: function (p) { return '<span class="name">' + esc(p.nachname) + '</span> <span class="muted klein">' + esc(p.vorname) + '</span>'; } },
       { key: 'pos', label: 'Pos', wert: function (p) { return D.POSITIONEN.indexOf(p.pos); }, html: function (p) { return UI.posTag(p.pos); } },
       { key: 'alter', label: 'Alter', klasse: 'num', wert: function (p) { return p.alter; }, html: function (p) { return p.alter; } }
@@ -787,8 +788,16 @@
       Array.prototype.forEach.call(container.querySelectorAll('[data-slot]'), function (e) {
         e.onclick = function () {
           var i = parseInt(e.dataset.slot, 10);
-          z.gewaehlterSlot = z.gewaehlterSlot === i ? null : i;
+          var geoeffnet = z.gewaehlterSlot !== i;
+          z.gewaehlterSlot = geoeffnet ? i : null;
           UI.zeichne();
+          // Auf schmalen Bildschirmen steht das Positionsdetail unterhalb
+          // des Spielfelds – ohne Sprung dorthin sähe es aus, als sei nichts
+          // passiert.
+          if (geoeffnet && UI.schmal()) {
+            var panel = UI.el('content').querySelector('[data-slotpanel]');
+            if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
         };
       });
       Array.prototype.forEach.call(container.querySelectorAll('[data-setz]'), function (e) {
@@ -914,7 +923,9 @@
     }
 
     var zeile2 = p
-      ? eignungPunkt(T.eignung(p, slot.pos)) + esc(rolleKurz(rolle)) + ' ' + formPfeil(p)
+      ? eignungPunkt(T.eignung(p, slot.pos)) +
+        '<span class="spot__rolle">' + esc(rolleKurz(rolle)) + '</span>' +
+        '<span class="spot__pos">' + esc(slot.pos) + '</span>' + formPfeil(p)
       : esc(slot.pos);
 
     return '<div class="spot' + (p ? '' : ' spot--leer') + (problem ? ' spot--problem' : '') +
@@ -933,7 +944,7 @@
     var aktuell = taktik.aufstellung[z.gewaehlterSlot] ? world.spieler[taktik.aufstellung[z.gewaehlterSlot]] : null;
     var naechstes = world.naechstesSpiel(club.id);
 
-    var html = '<div class="card"><div class="card__head"><h3>' +
+    var html = '<div class="card" data-slotpanel="1"><div class="card__head"><h3>' +
       UI.posTag(slot.pos) + ' ' + esc(D.POS_NAME[slot.pos]) + '</h3>' +
       '<button class="btn btn--sm btn--ghost" data-a="slotzu">Schließen</button></div>';
 
@@ -963,7 +974,7 @@
 
     html += '<h4>Kandidaten</h4><div class="table-wrap" style="max-height:390px;overflow-y:auto">' +
       UI.tabelle([
-        { key: 'n', label: 'Spieler', html: function (p) {
+        { key: 'n', label: 'Spieler', haft: true, html: function (p) {
           return (p.id === (aktuell && aktuell.id) ? '<span class="chip chip--gruen">aufgestellt</span> ' : '') +
             '<span class="name">' + esc(p.nachname) + '</span> ' + UI.posTag(p.pos) + ' ' +
             UI.spielerStatus(world, p); } },

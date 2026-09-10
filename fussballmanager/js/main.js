@@ -174,6 +174,17 @@
       b.onclick = function () { UI.zeige(b.dataset.view); };
     });
 
+    // Bedienleiste am unteren Rand (schmale Bildschirme)
+    Array.prototype.forEach.call(doc.querySelectorAll('.tabbar button'), function (b) {
+      b.onclick = function () {
+        if (b.dataset.mehr) UI.mehrBlatt();
+        else UI.zeige(b.dataset.view);
+      };
+    });
+    el('sheet').addEventListener('click', function (e) {
+      if (e.target.dataset && e.target.dataset.sheetZu) UI.blattZu();
+    });
+
     el('btn-weiter').onclick = function () { UI.weiter(); };
     el('btn-speichern').onclick = function () {
       var b = el('btn-speichern');
@@ -196,11 +207,13 @@
     doc.addEventListener('keydown', function (e) {
       if (e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
       if (e.key === 'Escape') {
+        if (!el('sheet').hidden) { UI.blattZu(); return; }
         if (!el('modal').hidden) { UI.modalZu(); return; }
       }
       if (!UI.world) return;
       if (!el('matchview').hidden) return;
       if (!el('modal').hidden) return;
+      if (!el('sheet').hidden) return;
       var tasten = {
         w: function () { UI.weiter(); },
         W: function () { UI.weiter(); },

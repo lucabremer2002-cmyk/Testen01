@@ -431,6 +431,7 @@
     if (!spiel.gespielt) {
       FM.engine.verarbeiteSpiel(world, spiel, state);
     }
+    UI.stilleSicherung(true);
     var eigeneTore = eigeneSeite === state.heim ? state.tore.heim : state.tore.gast;
     var gegnerTore = eigeneSeite === state.heim ? state.tore.gast : state.tore.heim;
     var ausgang = eigeneTore > gegnerTore ? 'Sieg' : eigeneTore === gegnerTore ? 'Unentschieden' : 'Niederlage';
