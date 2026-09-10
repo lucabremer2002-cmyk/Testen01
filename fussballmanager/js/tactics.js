@@ -487,9 +487,11 @@
       // Der Heimvorteil wirkt auf alle Mannschaftsteile. Wuerde nur der
       // Angriff profitieren, wuerde die Heimmannschaft zwar mehr Tore
       // schiessen, aber genauso viele kassieren - unterm Strich ohne Wirkung
-      // auf das Ergebnis.
-      var heimF = 1.075 + kulisse * 0.070;
-      att *= heimF; def *= heimF; mid *= heimF;
+      // auf das Ergebnis. Auf die Abwehr wirkt er nur zur Haelfte: eine
+      // Mannschaft verteidigt auswaerts kaum schlechter, sie kommt vorne
+      // seltener durch.
+      var heimF = 1.056 + kulisse * 0.050;
+      att *= heimF; mid *= heimF; def *= 1 + (heimF - 1) * 0.45;
     }
 
     // ---- Wetter

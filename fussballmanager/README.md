@@ -91,17 +91,39 @@ Alleingang, Nachschuss, Elfmeter), Abschluss gegen Torwartqualität,
 Fouls, Karten, Verletzungen, Abseits und Nachspielzeit. Verlängerung und
 Elfmeterschießen im Pokal.
 
-Die Werte sind an der realen Bundesliga kalibriert:
+Die Werte sind an der realen Bundesliga kalibriert. Gemessen wurde über
+vier vollständig durchgespielte Spielzeiten (2448 Ligaspiele) durch die
+normale Tagesschleife – also mit Training, Regeneration, Rotation,
+Sperren und Verletzungen, so wie das Spiel tatsächlich läuft:
 
 | Kennzahl | Simulation | Realität |
 | --- | --- | --- |
 | Tore pro Spiel | 3,13 | ~3,15 |
-| Torschüsse pro Team | 13,1 | ~12,8 |
+| Tore Heim / Auswärts | 1,76 / 1,37 | ~1,72 / 1,36 |
+| Torschüsse pro Team | 13,0 | ~13,0 |
+| davon aufs Tor | 4,5 | ~4,4 |
+| xG pro Team | 1,60 | ~1,58 |
 | Ecken pro Team | 5,2 | ~5,0 |
-| Fouls pro Team | 11,4 | ~11,0 |
-| Gelbe Karten pro Spiel | 3,8 | ~3,8 |
-| Platzverweise pro Spiel | 0,14 | ~0,15 |
-| Heimsiege / Remis / Auswärtssiege | 44 / 24 / 32 % | 44 / 24 / 32 % |
+| Fouls pro Team | 11,2 | ~11,0 |
+| Gelbe Karten pro Spiel | 3,81 | ~3,8 |
+| Platzverweise pro Spiel | 0,137 | ~0,15 |
+| Verletzungen pro Spiel | 0,35 | ~0,35 |
+| Heimsiege / Remis / Auswärtssiege | 46 / 25 / 29 % | 44 / 24 / 32 % |
+
+Getrennt nach Ligen: 1. Bundesliga 3,26 Tore pro Spiel, 2. Bundesliga
+2,99 – die zweite Liga ist auch in Wirklichkeit torärmer und
+unentschiedenlastiger.
+
+Zwei Dinge sorgen dafür, dass die Ergebnisse richtig streuen. Erstens
+eine Tagesform der Mannschaft: ohne sie fielen die Tore gleichmäßiger als
+im echten Fußball, es gäbe zu wenige Kantersiege. Zweitens reagiert nur
+gut die Hälfte der Bänke auf den Spielstand – würde jede Mannschaft beim
+Rückstand alles nach vorn werfen, glichen sich die Ergebnisse zu stark an
+und es gäbe deutlich zu viele Unentschieden.
+
+Bei sehr ungleichen Paarungen wird das Kräfteverhältnis gestaucht: ein
+Erstligist gewinnt im Pokal gegen einen Drittligisten hoch, aber nicht
+zweistellig.
 
 Im Live-Spiel lassen sich Wechsel vornehmen (5 Wechsel in 3 Fenstern),
 Anweisungen ändern und in der Halbzeit fünf verschiedene Kabinenansprachen

@@ -136,6 +136,18 @@
     state.heim = seitenObjekt(world, heimClub, heimTaktik, true, state);
     state.gast = seitenObjekt(world, gastClub, gastTaktik, false, state);
 
+    // Tagesform der Mannschaft. Ohne diesen Faktor waere die Trefferzahl
+    // gleichmaessiger verteilt als im echten Fussball: es gaebe zu wenige
+    // Kantersiege und zu viele Unentschieden.
+    state.heim.tagesform = U.clamp(rng.gauss(1, 0.21), 0.52, 1.58);
+    state.gast.tagesform = U.clamp(rng.gauss(1, 0.21), 0.52, 1.58);
+
+    // Nicht jede Bank reagiert auf den Spielstand. Wuerde jede Mannschaft
+    // beim Rueckstand alles nach vorn werfen, glichen sich die Ergebnisse zu
+    // stark an und es gaebe deutlich zu viele Unentschieden.
+    state.heim.reagiertAufStand = rng.chance(0.6);
+    state.gast.reagiertAufStand = rng.chance(0.6);
+
     // Zuschauer und Stimmung
     var zs = opts.zuschauer !== undefined ? opts.zuschauer
       : world.berechneZuschauer ? world.berechneZuschauer(spiel, wetter, rng) : Math.round(heimClub.kapazitaet * 0.8);
@@ -354,8 +366,8 @@
     // Fuehrende Mannschaften ziehen sich spaet zurueck
     if (m > 70) {
       var diff = state.tore.heim - state.tore.gast;
-      if (diff > 0) anteilH -= 0.05 * Math.min(2, diff) * (H.taktik.anweisungen.zeitspiel === 'ein' ? 0.4 : 1);
-      if (diff < 0) anteilH += 0.05 * Math.min(2, -diff);
+      if (diff > 0) anteilH -= 0.03 * Math.min(2, diff) * (H.taktik.anweisungen.zeitspiel === 'ein' ? 0.4 : 1);
+      if (diff < 0) anteilH += 0.03 * Math.min(2, -diff);
     }
     anteilH = U.clamp(anteilH + state.momentum * 0.05, 0.15, 0.85);
     var heimHatBall = rng.chance(anteilH);
@@ -399,8 +411,8 @@
     }
     // Taktische Reaktion der KI
     if ((m === 60 || m === 75) ) {
-      if (!state.world.istNutzerVerein(H.club.id)) kiTaktik(state, H, state.tore.heim - state.tore.gast);
-      if (!state.world.istNutzerVerein(G.club.id)) kiTaktik(state, G, state.tore.gast - state.tore.heim);
+      if (H.reagiertAufStand && !state.world.istNutzerVerein(H.club.id)) kiTaktik(state, H, state.tore.heim - state.tore.gast);
+      if (G.reagiertAufStand && !state.world.istNutzerVerein(G.club.id)) kiTaktik(state, G, state.tore.gast - state.tore.heim);
     }
   }
 
@@ -425,12 +437,15 @@
     var rng = state.rng;
     var wA = an.werte, wD = ab.werte;
 
-    // Das Kraefteverhaeltnis wird begrenzt: sonst enden Pokalspiele gegen
-    // Amateurvereine regelmaessig zweistellig. Innerhalb der Ligen liegt das
-    // Verhaeltnis ohnehin nie ausserhalb dieser Grenzen.
-    var verhaeltnis = U.clamp(wA.att / Math.max(8, (wD.def * 0.72 + wD.tw * 0.28)), 0.58, 1.80);
-    var rate = 0.140 * (0.55 + ballanteil * 0.90) * wA.mod.chancen * Math.pow(verhaeltnis, 1.05) * attMod;
-    if (m > 80 && state.tore[an.heim ? 'heim' : 'gast'] < state.tore[an.heim ? 'gast' : 'heim']) rate *= 1.20;
+    // Das Kraefteverhaeltnis wird oberhalb von 1,40 gestaucht. Auch eine klar
+    // ueberlegene Mannschaft kommt nicht beliebig oft durch: der Gegner steht
+    // tiefer, die Raeume werden enger. Ohne diese Stauchung enden Pokalspiele
+    // gegen unterklassige Vereine regelmaessig zweistellig.
+    var roh = wA.att / Math.max(8, (wD.def * 0.72 + wD.tw * 0.28));
+    var verhaeltnis = roh > 1.40 ? 1.40 + (roh - 1.40) * 0.30 : roh;
+    verhaeltnis = U.clamp(verhaeltnis, 0.62, 1.62);
+    var rate = 0.145 * (0.55 + ballanteil * 0.90) * wA.mod.chancen * Math.pow(verhaeltnis, 1.05) * attMod * an.tagesform;
+    if (m > 80 && state.tore[an.heim ? 'heim' : 'gast'] < state.tore[an.heim ? 'gast' : 'heim']) rate *= 1.06;
     rate *= wA.mod.tempoSpaet !== 1 && m > 75 ? wA.mod.tempoSpaet : 1;
     rate *= state.wetter.tempo;
 
@@ -450,8 +465,8 @@
       dribbling: 12 * (wA.tempo / 80),
       fernschuss: 14 * (wD.def > wA.att ? 1.6 : 0.9),
       konter: 10 * konterMod * (wA.konter / 55) * wD.mod.konterAnfaellig,
-      standard: 8,
-      ecke: 15
+      standard: 8 * (wA.mid / 72),
+      ecke: 56 * (wA.mid / 72)
     };
     var typen = Object.keys(g);
     return rng.weighted(typen, function (t) { return Math.max(0.5, g[t]); });
@@ -485,7 +500,7 @@
       : typ === 'fernschuss'
         ? schuetze.attr.weitschuss * 0.8 + schuetze.attr.abschluss * 0.2
         : schuetze.attr.abschluss * 0.75 + schuetze.attr.technik * 0.25;
-    xg *= 0.725;                                   // Kalibrierung auf reale Trefferquoten
+    xg *= 0.674;                                   // Kalibrierung auf reale Trefferquoten
     xg *= 1 + (abschlusswert - 55) / 190;
     xg *= 1 + (verhaeltnis - 1) * 0.55;
     xg *= state.wetter.fehler > 1 ? (1 - (state.wetter.fehler - 1) * 0.25) : 1;
@@ -508,7 +523,7 @@
     // Torwart des Gegners
     var tw = torwartVon(state, ab);
     var twKlasse = tw ? P.tagesform(tw, 'TW') : 40;
-    var twFaktor = U.clamp((twKlasse - 55) / 240, -0.18, 0.24);
+    var twFaktor = U.clamp((twKlasse - 62) / 240, -0.16, 0.16);
 
     var pTor = U.clamp(xg * (1 - twFaktor), 0.01, 0.92);
     var wurf = rng.next();
@@ -529,7 +544,7 @@
       an.stat.pfosten += 1;
       ereignis(state, m, 'pfosten', an, schuetze.id,
         pfostenText(rng, schuetze));
-    } else if (rest < 0.69) {
+    } else if (rest < 0.60) {
       an.stat.aufsTor += 1;
       sd.aufsTor += 1;
       if (tw) {
@@ -776,7 +791,7 @@
   function fouls(state, seite, gegner, m) {
     var rng = state.rng, world = state.world;
     if (!seite.elf.length) return;
-    var rate = 0.118 * seite.werte.mod.foulneigung;
+    var rate = 0.112 * seite.werte.mod.foulneigung;
     if (state.wetter.fehler > 1.1) rate *= 1.08;
     if (!rng.chance(rate)) return;
 
@@ -800,14 +815,14 @@
 
     var d = spielerDaten(seite, taeter);
 
-    // Bei einem bereits verwarnten Spieler laesst der Schiedsrichter fast
-    // alles laufen - Gelb-Rot ist in der Praxis eine Seltenheit.
-    if (d.gelb >= 1 && !rng.chance(0.028)) {
+    // Bei einem bereits verwarnten Spieler drueckt der Schiedsrichter meist
+    // ein Auge zu - Gelb-Rot bleibt die Ausnahme.
+    if (d.gelb >= 1 && !rng.chance(0.145)) {
       if (rng.chance(0.30) && rng.chance(0.35)) chanceAusspielen(state, gegner, seite, 'standard', m, 1);
       return;
     }
 
-    var kartenChance = 0.245 * seite.werte.mod.kartenrisiko * state.schiedsrichter.streng
+    var kartenChance = 0.162 * seite.werte.mod.kartenrisiko * state.schiedsrichter.streng
       * (1.35 - taeter.attr.disziplin / 150);
     if (m > 70) kartenChance *= 1.10;
 
@@ -820,7 +835,7 @@
     }
 
     // Rote Karte direkt (Notbremse, grobes Foul)
-    if (rng.chance(0.013)) {
+    if (rng.chance(0.028)) {
       d.rot = true;
       seite.stat.rot += 1;
       platzverweis(state, seite, taeter, m, 'rot',
@@ -860,7 +875,7 @@
 
   function verletzungspruefung(state, seite, m) {
     var rng = state.rng, world = state.world;
-    var basis = 0.00024 * (state.wetter.id === 'schnee' || state.wetter.id === 'starkregen' ? 1.25 : 1);
+    var basis = 0.00011 * (state.wetter.id === 'schnee' || state.wetter.id === 'starkregen' ? 1.25 : 1);
     seite.elf.forEach(function (e) {
       var p = world.spieler[e.id];
       if (!p) return;
@@ -987,7 +1002,7 @@
     var an = seite.taktik.anweisungen;
     var vorher = an.mentalitaet;
     if (diff <= -2) { an.mentalitaet = 'allesoderNichts'; an.pressing = 'hoch'; an.tempo = 'schnell'; }
-    else if (diff === -1) { an.mentalitaet = 'offensiv'; an.tempo = 'schnell'; }
+    else if (diff === -1 && state.minute >= 75) { an.mentalitaet = 'offensiv'; an.tempo = 'schnell'; }
     else if (diff >= 2) { an.mentalitaet = 'abwartend'; an.zeitspiel = 'ein'; an.pressing = 'tief'; }
     else if (diff === 1 && state.minute >= 75) { an.zeitspiel = 'ein'; an.mentalitaet = 'abwartend'; }
     if (an.mentalitaet !== vorher) {
