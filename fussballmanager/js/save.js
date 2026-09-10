@@ -321,19 +321,49 @@
     dbLoeschen().catch(function () { /* egal */ });
   }
 
-  function exportieren(world) {
-    var text = serialisiere(world);
+  /**
+   * Wohin die Exportdatei geht. Standard ist der Download des Browsers.
+   * Wer das Spiel einbettet, kann hier einen eigenen Weg setzen - etwa
+   * einen Dateidialog der Umgebung.
+   */
+  var exportWeg = null;
+
+  function setzeExportWeg(fn) { exportWeg = fn; }
+
+  function exportName(world) {
+    var club = world.nutzerClubId && world.vereine[world.nutzerClubId]
+      ? world.vereine[world.nutzerClubId].kurz : 'karriere';
+    return 'bl-manager-' + club.toLowerCase() + '-' +
+      U.fmtDate(world.tag).replace(/\./g, '-') + '.json';
+  }
+
+  function browserDownload(name, text, fertig) {
     var blob = new global.Blob([text], { type: 'application/json' });
     var url = global.URL.createObjectURL(blob);
     var a = global.document.createElement('a');
-    var club = world.nutzerClubId && world.vereine[world.nutzerClubId]
-      ? world.vereine[world.nutzerClubId].kurz : 'karriere';
     a.href = url;
-    a.download = 'bl-manager-' + club.toLowerCase() + '-' + U.fmtDate(world.tag).replace(/\./g, '-') + '.json';
+    a.download = name;
     global.document.body.appendChild(a);
     a.click();
     global.document.body.removeChild(a);
     global.setTimeout(function () { global.URL.revokeObjectURL(url); }, 1000);
+    fertig(null, 'gespeichert');
+  }
+
+  /**
+   * Schreibt den Spielstand als Datei heraus. Der Rueckruf bekommt
+   * (fehlertext, status) mit status 'gespeichert' oder 'abgebrochen'.
+   */
+  function exportieren(world, fertig) {
+    var text = serialisiere(world);
+    var melde = fertig || function () { };
+    var einmal = false;
+    function abschluss(fehler, status) {
+      if (einmal) return;
+      einmal = true;
+      melde(fehler, status);
+    }
+    (exportWeg || browserDownload)(exportName(world), text, abschluss);
     return text.length;
   }
 
@@ -355,6 +385,7 @@
     standInfo: standInfo,
     loeschen: loeschen,
     exportieren: exportieren,
+    setzeExportWeg: setzeExportWeg,
     importieren: importieren,
     verfuegbar: lsVerfuegbar
   };

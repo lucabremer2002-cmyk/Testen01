@@ -544,7 +544,13 @@
     },
     nachher: function (container, world) {
       var ex = container.querySelector('[data-a="export"]');
-      if (ex) ex.onclick = function () { FM.save.exportieren(world); UI.toast('Spielstand heruntergeladen.', 'gut'); };
+      if (ex) ex.onclick = function () {
+        FM.save.exportieren(world, function (fehler, status) {
+          if (fehler) UI.toast('Export nicht möglich: ' + fehler, 'fehler');
+          else if (status === 'abgebrochen') UI.toast('Export abgebrochen.');
+          else UI.toast('Spielstand als Datei gesichert.', 'gut');
+        });
+      };
       var neu = container.querySelector('[data-a="neu"]');
       if (neu) neu.onclick = function () {
         UI.bestaetigen('Neue Karriere', 'Der aktuelle Spielstand geht dabei verloren, sofern er nicht gespeichert ist. Fortfahren?',

@@ -340,7 +340,13 @@
       });
     };
     var ex = el('sheet-body').querySelector('[data-blatt-a="export"]');
-    if (ex) ex.onclick = function () { FM.save.exportieren(UI.world); toast('Datei wird heruntergeladen.', 'gut'); };
+    if (ex) ex.onclick = function () {
+      FM.save.exportieren(UI.world, function (fehler, status) {
+        if (fehler) toast('Export nicht möglich: ' + fehler, 'fehler');
+        else if (status === 'abgebrochen') toast('Export abgebrochen.');
+        else toast('Spielstand als Datei gesichert.', 'gut');
+      });
+    };
   }
 
   function speicherStandText() {

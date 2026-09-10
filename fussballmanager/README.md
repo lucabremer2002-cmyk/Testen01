@@ -14,6 +14,11 @@ python3 -m http.server 8000
 # danach http://localhost:8000/fussballmanager/ aufrufen
 ```
 
+Für Umgebungen, die genau eine Datei entgegennehmen, fasst
+`werkzeug/einzeldatei.py` alles zu einer einzigen HTML-Datei zusammen –
+Schriften und Programm eingebettet, weiterhin ohne Abhängigkeiten. Zum
+Spielen ist das nicht nötig.
+
 Trainernamen eingeben, einen der 36 Vereine auswählen, loslegen. Mit
 **Weiter** (oder der Taste `W`) rückt der Kalender einen Tag vor. Die
 Zifferntasten `1`–`9` springen zwischen den Ansichten, `S` speichert.
@@ -254,7 +259,9 @@ Tastenkürzel entfallen dort.
 
 Gespeichert wird in der IndexedDB des Browsers. Zusätzlich lässt sich der
 Spielstand über **Karriere → Spielstand exportieren** als Datei sichern und
-auf dem Startbildschirm wieder importieren.
+auf dem Startbildschirm wieder importieren. Wohin diese Datei geht,
+bestimmt `FM.save.setzeExportWeg` – wer das Spiel einbettet, kann den
+Download durch den Dateidialog seiner Umgebung ersetzen.
 
 ---
 
