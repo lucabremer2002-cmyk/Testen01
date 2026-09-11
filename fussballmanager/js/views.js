@@ -399,7 +399,8 @@
       : anteil <= 0.34 ? 'oberes Drittel'
         : anteil <= 0.67 ? 'Mittelfeld der Liga'
           : anteil <= 0.85 ? 'unteres Drittel'
-            : 'Schlusslicht der Liga';
+            : rang < werte.length ? 'Abstiegsregion'
+              : 'schwächster Kader der Liga';
     return wo + ' (' + rang + '. von ' + werte.length + ')';
   }
 
@@ -1344,7 +1345,7 @@
       mittel: 'Attackiert ab der Mittellinie.',
       hoch: 'Früher Zugriff, kostet spürbar Kraft.',
       extrem: 'Attackiert schon im gegnerischen Sechzehner.',
-      normal: 'Standardeinstellung ohne Sonderwirkung.',
+      normal: 'Standardeinstellung ohne Sonderwirkung.',   // je Kategorie unten ueberschrieben
       kurz: 'Mehr Ballbesitz, aber Risiko im Aufbau.',
       gemischt: 'Situative Wahl zwischen kurz und lang.',
       lang: 'Überbrückt das Mittelfeld, gut gegen hohe Ketten.',
@@ -1358,6 +1359,19 @@
       hart: 'Gewinnt Zweikämpfe, kostet Karten.',
       ein: 'Nimmt spät Tempo heraus, riskiert Karten.'
     };
+    // Mehrere Kategorien teilen sich die Kennung "normal" oder "aus". Ohne
+    // eigenen Text stuende fuenfmal derselbe Satz untereinander.
+    var jeKategorie = {
+      abwehrlinie: { normal: 'Kette auf normaler Hoehe - kein Sonderrisiko.' },
+      tempo: { normal: 'Weder forciert noch gebremst.' },
+      breite: { normal: 'Zentrum und Flügel gleich gewichtet.' },
+      gegenpressing: { normal: 'Nachsetzen nur, wenn die Situation es hergibt.' },
+      zweikampf: { normal: 'Normale Härte, normales Kartenrisiko.' },
+      zeitspiel: { aus: 'Es wird bis zum Schlusspfiff durchgespielt.' }
+    };
+    if (jeKategorie[kategorie] && jeKategorie[kategorie][wert.id]) {
+      return jeKategorie[kategorie][wert.id];
+    }
     return t[wert.id] || wert.name;
   }
 

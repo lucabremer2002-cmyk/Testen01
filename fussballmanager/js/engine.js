@@ -72,6 +72,7 @@
     // Vorvertraege zuerst: Der Spieler wechselt, solange er noch unter
     // Vertrag steht, statt einen Tag lang vertragslos zu sein.
     FM.transfers.vorvertraegePruefen(world);
+    FM.transfers.einigungenPruefen(world);
     FM.transfers.vertraegePruefen(world);
     FM.transfers.kiVorvertraege(world);
     leihenPruefen(world);

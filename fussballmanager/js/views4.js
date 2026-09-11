@@ -426,10 +426,12 @@
         '</div>' +
         (meldung ? '<div class="card card--flat mb">' + meldung + '</div>' : '') +
         '<div class="grid grid--3">' +
-        '<div><label>Ablöse gesamt</label><input type="number" data-v="gebot" value="' + gebot + '" step="100000" min="0"></div>' +
+        '<div><label>Ablöse gesamt</label><input type="number" data-v="gebot" value="' + gebot + '" step="100000" min="0">' +
+        '<div class="klein muted" data-echo="gebot" style="margin-top:4px">' + U.money(gebot) + '</div></div>' +
         '<div><label>Sofort zahlbar (%)</label><input type="number" data-v="sofort" value="' + sofortAnteil + '" min="20" max="100" step="10"></div>' +
         '<div><label>Restraten (Jahre)</label><input type="number" data-v="raten" value="' + raten + '" min="1" max="4"></div>' +
-        '<div><label>Erfolgsboni</label><input type="number" data-v="boni" value="' + boni + '" step="100000" min="0"></div>' +
+        '<div><label>Erfolgsboni</label><input type="number" data-v="boni" value="' + boni + '" step="100000" min="0">' +
+        '<div class="klein muted" data-echo="boni" style="margin-top:4px">' + U.money(boni) + '</div></div>' +
         '<div><label>Weiterverkaufsbeteiligung (%)</label><input type="number" data-v="wv" value="' + weiterverkauf + '" min="0" max="40"></div>' +
         '</div>' +
         tauschBlock() +
@@ -442,6 +444,13 @@
       UI.modal(formular(gebot, sofortAnteil, raten, boni, wv, meldung), {
         nachher: function (body) {
           function v(k) { return body.querySelector('[data-v="' + k + '"]'); }
+          // Eurobetraege beim Tippen mitschreiben - eine nackte Zahl mit acht
+          // Stellen liest niemand gern.
+          ['gebot', 'boni'].forEach(function (k) {
+            var feld = v(k), echo = body.querySelector('[data-echo="' + k + '"]');
+            if (!feld || !echo) return;
+            feld.oninput = function () { echo.textContent = U.money(Number(feld.value) || 0); };
+          });
           body.querySelector('[data-a="abbruch"]').onclick = UI.modalZu;
           body.querySelector('[data-a="leihe"]').onclick = function () { V.leiheDialog(spielerId); };
           Array.prototype.forEach.call(body.querySelectorAll('[data-tausch]'), function (b) {
@@ -499,6 +508,16 @@
       U.money(schaetzung) + '.</span>');
   };
 
+  /** Ein geparktes Vertragsgespraech aus dem Postfach wieder aufnehmen. */
+  V.einigungFortsetzen = function (einigungId) {
+    var world = UI.world;
+    var e = FM.transfers.einigungVon(world, einigungId);
+    if (!e) { UI.toast('Diese Einigung besteht nicht mehr.', 'fehler'); return; }
+    var p = world.spieler[e.spielerId];
+    if (!p || p.clubId === world.nutzerClubId) { UI.toast('Der Spieler ist nicht mehr verfügbar.', 'fehler'); return; }
+    vertragNachTransfer(p, e.paket);
+  };
+
   /** Nach der Einigung mit dem Verein folgt die Einigung mit dem Spieler. */
   function vertragNachTransfer(p, ablösePaket) {
     var world = UI.world;
@@ -530,11 +549,25 @@
         '<div class="flex mt"><button class="btn btn--primary" data-a="ok">Vertrag anbieten</button>' +
         '<button class="btn" data-a="ab">Transfer abbrechen</button></div>';
 
+      var entschieden = false;
       UI.modal(html, {
+        beimSchliessen: function () {
+          // Weggeklickt statt entschieden: die Einigung bleibt ein paar Tage
+          // bestehen, damit ein Fehlklick keinen Millionendeal kostet.
+          if (entschieden) return;
+          FM.transfers.einigungParken(world, p.id, ablösePaket);
+          UI.toast('Die Einigung bleibt im Postfach - dort können Sie das Vertragsgespräch fortsetzen.');
+          UI.zeichne();
+        },
         nachher: function (body) {
           function v(k) { return body.querySelector('[data-v="' + k + '"]'); }
-          body.querySelector('[data-a="ab"]').onclick = function () { UI.modalZu(); UI.toast('Transfer abgebrochen.'); };
+          body.querySelector('[data-a="ab"]').onclick = function () {
+            entschieden = true;
+            FM.transfers.einigungLoeschen(world, p.id);
+            UI.modalZu(); UI.toast('Transfer abgebrochen.');
+          };
           body.querySelector('[data-a="ok"]').onclick = function () {
+            entschieden = true;
             var angebot = {
               gehalt: Math.max(500, parseInt(v('gehalt').value, 10) || 0),
               jahre: U.clamp(parseInt(v('jahre').value, 10) || 1, 1, 6),
@@ -564,6 +597,7 @@
                   weiterverkauf: ablösePaket.weiterverkauf || 0
                 }
               });
+              FM.transfers.einigungLoeschen(world, p.id);
               UI.modalZu();
               UI.toast(p.vorname + ' ' + p.nachname + ' ist verpflichtet!', 'gut');
               UI.zeichne();

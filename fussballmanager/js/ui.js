@@ -799,6 +799,15 @@
           '<button class="btn" data-a="nein">Ablehnen</button>' +
           '<button class="btn btn--ghost" data-a="spieler">Spieler ansehen</button></div>';
       }
+    } else if (n.aktion === 'einigung' && n.einigungId) {
+      var off = FM.transfers.einigungVon(world, n.einigungId);
+      if (off) {
+        html += '<div class="flex mt">' +
+          '<button class="btn btn--primary" data-a="weiter">Vertragsgespräch fortsetzen</button>' +
+          '<button class="btn" data-a="spieler">Spielerprofil</button></div>';
+      } else {
+        html += '<div class="klein muted mt">Diese Einigung besteht nicht mehr.</div>';
+      }
     } else if (n.aktion === 'gespraech' && n.spielerId) {
       html += '<div class="flex mt"><button class="btn btn--primary" data-a="reden">Gespräch führen</button>' +
         '<button class="btn" data-a="spieler">Spielerprofil</button></div>';
@@ -831,6 +840,8 @@
         };
         var reden = body.querySelector('[data-a="reden"]');
         if (reden) reden.onclick = function () { modalZu(); FM.views.spielerProfil(n.spielerId, 'gespraech'); };
+        var weiter = body.querySelector('[data-a="weiter"]');
+        if (weiter) weiter.onclick = function () { modalZu(); FM.views.einigungFortsetzen(n.einigungId); };
       }
     });
   }

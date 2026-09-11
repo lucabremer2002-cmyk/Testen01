@@ -25,8 +25,64 @@
       scoutAuftraege: [],
       scoutnetz: {},
       historie: [],
-      geruechte: []
+      geruechte: [],
+      einigungen: []          // Vereine einig, Vertragsgespraech noch offen
     };
+  }
+
+  // ------------------------------------------------------------ Geparkte Einigungen
+
+  /**
+   * Wer das Vertragsfenster schliesst, verliert die Einigung nicht sofort.
+   * Der abgebende Verein haelt sie eine Weile offen - genau wie im echten
+   * Geschaeft, wo nach der Einigung noch tagelang verhandelt wird.
+   */
+  var EINIGUNG_TAGE = 10;
+
+  function einigungParken(world, spielerId, paket) {
+    if (!world.transfer.einigungen) world.transfer.einigungen = [];
+    var vorhanden = world.transfer.einigungen.filter(function (e) { return e.spielerId === spielerId; })[0];
+    if (vorhanden) { vorhanden.paket = paket; vorhanden.bis = world.tag + EINIGUNG_TAGE; return vorhanden; }
+    var e = { id: U.nextId('ein'), spielerId: spielerId, paket: paket, bis: world.tag + EINIGUNG_TAGE };
+    world.transfer.einigungen.push(e);
+    var p = world.spieler[spielerId];
+    var abgeber = p && p.clubId ? world.vereine[p.clubId] : null;
+    world.nachricht({
+      typ: 'transfer', prioritaet: 2, spielerId: spielerId, aktion: 'einigung', einigungId: e.id,
+      titel: 'Einigung über ' + (p ? p.nachname : '?') + ' steht',
+      text: (abgeber ? abgeber.name : 'Der abgebende Verein') + ' hat der Ablöse von ' +
+        U.money(paket.gesamt) + ' zugestimmt. Das Gespräch mit dem Spieler steht noch aus. ' +
+        'Die Einigung gilt bis zum ' + U.fmtDate(e.bis) + '.'
+    });
+    return e;
+  }
+
+  function einigungVon(world, einigungId) {
+    return (world.transfer.einigungen || []).filter(function (e) { return e.id === einigungId; })[0] || null;
+  }
+
+  function einigungLoeschen(world, spielerId) {
+    if (!world.transfer.einigungen) return;
+    world.transfer.einigungen = world.transfer.einigungen.filter(function (e) {
+      return e.spielerId !== spielerId;
+    });
+  }
+
+  /** Abgelaufene Einigungen verfallen - taeglich geprueft. */
+  function einigungenPruefen(world) {
+    if (!world.transfer.einigungen || !world.transfer.einigungen.length) return;
+    world.transfer.einigungen = world.transfer.einigungen.filter(function (e) {
+      var p = world.spieler[e.spielerId];
+      if (!p || p.clubId === world.nutzerClubId) return false;
+      if (world.tag <= e.bis) return true;
+      world.nachricht({
+        typ: 'transfer', prioritaet: 2, spielerId: e.spielerId,
+        titel: 'Einigung über ' + p.nachname + ' verfallen',
+        text: 'Das Zeitfenster ist abgelaufen, ohne dass ein Vertrag zustande kam. ' +
+          'Für einen neuen Anlauf muss erneut mit dem Verein verhandelt werden.'
+      });
+      return false;
+    });
   }
 
   // Der Kaderstatus ist an einer Stelle beschrieben - hier nur der Zugriff.
@@ -1243,6 +1299,10 @@
   FM.transfers = {
     neueTransferdaten: neueTransferdaten,
     ROLLENVERSPRECHEN: ROLLENVERSPRECHEN,
+    einigungParken: einigungParken,
+    einigungVon: einigungVon,
+    einigungLoeschen: einigungLoeschen,
+    einigungenPruefen: einigungenPruefen,
     SCOUT_REGIONEN: SCOUT_REGIONEN,
     verkaufsbereitschaft: verkaufsbereitschaft,
     pruefeAngebot: pruefeAngebot,
