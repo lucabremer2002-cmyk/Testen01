@@ -243,7 +243,9 @@
         '<td class="num">' + fit + '</td>' +
         '<td>' + marker.join(' ') + '</td></tr>';
     }).join('');
-    return '<div class="table-wrap"><table><tbody>' + zeilen + '</tbody></table></div>' +
+    return '<div class="table-wrap"><table><thead><tr>' +
+      '<th>Pos</th><th>Spieler</th><th colspan="2">Frische</th><th></th>' +
+      '</tr></thead><tbody>' + zeilen + '</tbody></table></div>' +
       '<div class="klein muted mt">Bank: ' + eigeneSeite.bank.map(function (id) {
         var p = world.spieler[id];
         return p ? esc(p.nachname) : '';

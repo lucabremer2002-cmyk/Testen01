@@ -263,10 +263,14 @@
       var sp = world.spieler[eintrag.spielerId];
       betrifftNutzer = sp && world.istNutzerVerein(sp.clubId);
     }
-    world.nachricht({
-      typ: 'medien', prioritaet: betrifftNutzer ? 3 : 1,
-      titel: eintrag.titel, text: eintrag.text || ''
-    });
+    // Nur melden, was den eigenen Verein angeht. Alles andere steht in
+    // der Ehrentafel unter Statistik - im Postfach waere es Rauschen.
+    if (betrifftNutzer) {
+      world.nachricht({
+        typ: 'medien', prioritaet: 3,
+        titel: eintrag.titel, text: eintrag.text || ''
+      });
+    }
     return eintrag;
   }
 

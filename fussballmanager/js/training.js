@@ -92,10 +92,12 @@
         p.verletzung.tage -= tempo;
         if (p.verletzung.tage <= 0) {
           var name = p.verletzung.name;
+          // Eine Prellung ueber zwei Tage ist keine Meldung wert.
+          var meldenswert = (p.verletzung.schwere || 1) >= 2;
           p.verletzung = null;
           p.fitness = U.clamp(p.fitness, 25, 62);
           p.form = U.clamp(p.form - 8, 5, 99);
-          if (world.istNutzerVerein(clubId)) {
+          if (meldenswert && world.istNutzerVerein(clubId)) {
             world.nachricht({
               typ: 'medizin', prioritaet: 1,
               titel: p.vorname + ' ' + p.nachname + ' ist wieder fit',

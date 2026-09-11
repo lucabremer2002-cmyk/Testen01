@@ -379,9 +379,63 @@
     var view = UI.views[name];
     var zustand = UI.zustand[name] = UI.zustand[name] || {};
     var content = el('content');
-    content.innerHTML = view.html(world, zustand);
+    content.innerHTML = spieltagsband(world) + view.html(world, zustand);
     if (view.nachher) view.nachher(content, world, zustand);
+    bandVerdrahten(content, world);
     ringeStarten(content);
+  }
+
+  /**
+   * Steht heute ein eigenes Spiel an, liegt ueber jeder Ansicht ein Band
+   * mit dem Weg hinein. Ohne das waere der Spieltagsdialog der einzige
+   * Zugang - wer ihn wegklickt oder erst in die Taktik geht, muesste ihn
+   * ueber "Weiter" wiederfinden, ohne dass irgendwo steht, warum.
+   */
+  function anstehendesSpiel(world) {
+    if (!world || !world.nutzerClubId) return null;
+    var heute = world.spieleAmTag(world.tag) || [];
+    for (var i = 0; i < heute.length; i++) {
+      var s = heute[i];
+      if (s.gespielt) continue;
+      if (s.heimId === world.nutzerClubId || s.gastId === world.nutzerClubId) return s;
+    }
+    return null;
+  }
+
+  function spieltagsband(world) {
+    var spiel = anstehendesSpiel(world);
+    if (!spiel) return '';
+    var heim = world.vereine[spiel.heimId];
+    var gast = world.vereine[spiel.gastId];
+    var riv = FM.data.rivalitaet(spiel.heimId, spiel.gastId);
+    return '<div class="spieltagsband">' +
+      '<div class="spieltagsband__info">' +
+      '<span class="spieltagsband__marke">Heute</span>' +
+      '<b>' + esc(heim.kurz) + ' – ' + esc(gast.kurz) + '</b>' +
+      '<span class="klein muted">' + esc(wettbewerbName(world, spiel)) +
+      (spiel.rundeName ? ' · ' + esc(spiel.rundeName) : '') + ' · ' + esc(spiel.zeit) + ' Uhr</span>' +
+      (riv ? '<span class="derby-tag">' + esc(riv.name) + '</span>' : '') +
+      '</div>' +
+      '<div class="flex">' +
+      '<button class="btn btn--primary" data-band="anpfiff">Spiel leiten</button>' +
+      '<button class="btn btn--ghost" data-band="sim">Ergebnis simulieren</button>' +
+      '</div></div>';
+  }
+
+  function bandVerdrahten(container, world) {
+    var an = container.querySelector('[data-band="anpfiff"]');
+    var sim = container.querySelector('[data-band="sim"]');
+    if (!an && !sim) return;
+    var spiel = anstehendesSpiel(world);
+    if (!spiel) return;
+    if (an) an.onclick = function () { vorSpielAblauf(spiel); };
+    if (sim) sim.onclick = function () {
+      var state = FM.match.simuliere(world, spiel);
+      FM.engine.verarbeiteSpiel(world, spiel, state);
+      zeichne();
+      toast(spiel.rundeName ? spiel.rundeName + ' simuliert.' : 'Spiel simuliert.');
+      FM.views.spielbericht(spiel.id);
+    };
   }
 
   function kopfzeile() {

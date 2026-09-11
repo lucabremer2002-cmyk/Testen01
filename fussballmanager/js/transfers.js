@@ -729,8 +729,11 @@
       if (rng.chance(0.6)) kiVertragslosen(world, clubId);
     });
 
-    // Angebote fuer Spieler des Nutzers
-    if (world.nutzerClubId && rng.chance(0.30)) angebotFuerNutzerspieler(world);
+    // Angebote fuer Spieler des Nutzers. Sparsam: ein Angebot alle paar
+    // Wochen ist ein Ereignis, eines alle acht Tage nur noch Verwaltung.
+    if (world.nutzerClubId && world.transferfenster.offen && rng.chance(0.11)) {
+      angebotFuerNutzerspieler(world);
+    }
   }
 
   /** Ein KI-Verein bedient sich auf dem Markt der Vertragslosen. */

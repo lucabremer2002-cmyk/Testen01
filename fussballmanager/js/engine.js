@@ -162,17 +162,25 @@
         if (clubId === world.nutzerClubId && meldungen.length) {
           var stufen = meldungen.filter(function (m) { return m.auf !== undefined; });
           var neueMerkmale = meldungen.filter(function (m) { return m.merkmal; });
-          if (stufen.length) {
+          if (stufen.length || neueMerkmale.length) {
             var text = stufen.slice(0, 8).map(function (m) {
               var p = world.spieler[m.spielerId];
               return p.vorname + ' ' + p.nachname + ' (' + m.von + ' → ' + m.auf + ')';
             }).join(', ');
+            // Neue Eigenheiten gehoeren in denselben Bericht - eine eigene
+            // Meldung je Merkmal flutet das Postfach.
+            var merkmalText = neueMerkmale.map(function (m) {
+              var p = world.spieler[m.spielerId];
+              return p ? p.nachname + ': ' + m.merkmal : null;
+            }).filter(Boolean).join(', ');
             world.nachricht({
-              typ: 'training', prioritaet: 1,
+              typ: 'training', prioritaet: neueMerkmale.length ? 2 : 1,
               titel: 'Trainingsbericht der Woche',
-              text: 'Die Co-Trainer melden Fortschritte bei: ' + text + '.'
+              text: (text ? 'Die Co-Trainer melden Fortschritte bei: ' + text + '. ' : '') +
+                (merkmalText ? 'Neu ausgeprägt – ' + merkmalText + '.' : '')
             });
           }
+          neueMerkmale = [];
           meldungen.filter(function (m) { return m.umschulung; }).forEach(function (m) {
             var p = world.spieler[m.spielerId];
             if (!p) return;
@@ -183,16 +191,7 @@
                 (D.POS_NAME[m.umschulung] || m.umschulung) + ' spielen.'
             });
           });
-          neueMerkmale.forEach(function (m) {
-            var p = world.spieler[m.spielerId];
-            if (!p) return;
-            world.nachricht({
-              typ: 'training', prioritaet: 2,
-              titel: 'Neue Stärke: ' + p.nachname,
-              text: p.vorname + ' ' + p.nachname + ' hat sich im Training eine Eigenheit erarbeitet: ' +
-                m.merkmal + '.'
-            });
-          });
+
         }
         // Zufriedenheit der Spieler
         world.kaderVon(clubId).forEach(function (p) {

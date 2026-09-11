@@ -559,12 +559,19 @@ td.name { font-weight: 700; }
   overflow: hidden;
 }
 .bar > i {
-  display: block; height: 100%; width: 0;
+  /* Der Ruhezustand ist die Zielbreite. Die Animation laeuft nur von
+     null dorthin - so steht der Balken auch dann richtig, wenn eine
+     Ansicht schneller neu zeichnet, als die Animation dauert. */
+  display: block; height: 100%; width: var(--w);
   background: var(--accent);
   border-radius: var(--r-pill);
-  animation: fm-fuellen .7s cubic-bezier(.22,.9,.3,1) forwards;
+  animation: fm-fuellen .7s cubic-bezier(.22,.9,.3,1);
 }
-@keyframes fm-fuellen { to { width: var(--w); } }
+@keyframes fm-fuellen { from { width: 0; } }
+
+/* Im Live-Spiel wird im Sekundentakt neu gezeichnet - dort waere die
+   Animation ein Flackern. */
+.matchview .bar > i { animation: none; }
 .bar--rot  > i { background: var(--red); }
 .bar--gelb > i { background: var(--gold); }
 .bar--blau > i { background: var(--blue); }
@@ -1326,4 +1333,25 @@ td.name { font-weight: 700; }
 @media (max-width: 820px) {
   .vgl, .vgl__zeile { grid-template-columns: 1fr 96px 1fr; gap: 4px; }
   .vgl__label { font-size: 11px; }
+}
+
+/* ---------- Spieltagsband ---------- */
+.spieltagsband {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 16px; margin-bottom: 14px;
+  background: linear-gradient(90deg, var(--accent-bg), transparent 70%), var(--surface);
+  border-radius: var(--r); border-left: 3px solid var(--accent);
+}
+.spieltagsband__info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.spieltagsband__info b { font-family: var(--font-display); font-size: 17px; }
+.spieltagsband__marke {
+  padding: 2px 8px; border-radius: var(--r-pill);
+  background: var(--accent); color: #04180F;
+  font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+}
+@media (max-width: 820px) {
+  .spieltagsband { padding: 10px 12px; }
+  .spieltagsband .flex { width: 100%; }
+  .spieltagsband .btn { flex: 1; }
 }

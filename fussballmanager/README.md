@@ -488,6 +488,19 @@ nur für den eigenen.
 
 ## Bedienung
 
+Steht ein eigenes Spiel an, liegt über jeder Ansicht ein **Spieltagsband**
+mit *Spiel leiten* und *Ergebnis simulieren*. Ohne das wäre der
+Spieltagsdialog der einzige Zugang – wer ihn wegklickt oder erst in die
+Taktik geht, müsste ihn über *Weiter* wiederfinden, ohne dass irgendwo
+steht, warum.
+
+Das **Postfach** meldet rund drei Nachrichten pro Woche. Was nicht den
+eigenen Verein betrifft, landet dort nicht: Ehrungen anderer Vereine
+stehen in der Ehrentafel, neu ausgeprägte Merkmale im Trainingsbericht
+der Woche, und eine Prellung über zwei Tage wird nicht eigens
+abgemeldet.
+
+
 | Taste | Wirkung |
 | --- | --- |
 | `W` | Einen Tag weiter |
