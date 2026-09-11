@@ -260,6 +260,22 @@ Qualität hängen an Akademie und Nachwuchsleiter, gelegentlich schlüpft ein
 echtes Ausnahmetalent durch. Der Nachwuchsleiter gibt eine Einschätzung
 des Potenzials ab – je besser er ist, desto enger die Spanne.
 
+### Nationalmannschaft
+
+Viermal in der Saison – erste volle Woche im September, Oktober,
+November und März – ruht der Vereinsfußball. Diese Fenster hängen am
+Kalender, nicht an der Spieltagsnummer, damit sie in allen Ligen und im
+Europapokal gleich liegen; der Spielplan schiebt betroffene Termine
+dahinter.
+
+In der Pause werden die Besten jeder Nation nominiert. Die Länderspiele
+werden nicht Minute für Minute nachgespielt – was am Verein ankommt, ist
+das Ergebnis der Reise: Einsätze und Tore für das Land, deutlich weniger
+Frische, ein Moralschub für den Stolz und ein kleines Verletzungsrisiko
+unterwegs. Wer abgestellt ist, steht in der Kaderliste mit **NAT**, die
+Übersicht zeigt während der Pause, wer fehlt, und das Profil führt
+Einsätze und Tore für die Nationalmannschaft.
+
 ### Auszeichnungen und Ehrentafel
 
 Am Ende jedes Monats kürt jede Liga einen **Spieler des Monats** und

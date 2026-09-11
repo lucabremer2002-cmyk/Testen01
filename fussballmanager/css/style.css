@@ -1282,3 +1282,9 @@ td.name { font-weight: 700; }
 }
 .spieler-link { color: var(--text); font-weight: 600; cursor: pointer; }
 .spieler-link:hover { color: var(--accent); }
+
+.natio-tag {
+  display: inline-block; padding: 1px 5px; border-radius: 4px;
+  background: var(--blue-bg); color: var(--blue);
+  font-size: 10px; font-weight: 800; letter-spacing: .04em; vertical-align: 1px;
+}

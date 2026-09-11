@@ -36,6 +36,20 @@
       // ---- linke Spalte
       html += '<div class="grid">';
 
+      // Länderspielpause
+      if (FM.national.pauseLaeuft(world)) {
+        var weg = FM.national.abgestellte(world, club.id);
+        html += '<div class="card"><div class="card__head"><h3>Länderspielpause</h3>' +
+          '<span class="chip">' + weg.length + ' abgestellt</span></div>' +
+          '<p class="muted">Der Ligabetrieb ruht. ' +
+          (weg.length
+            ? 'Unterwegs sind: ' + weg.map(function (x) {
+              return esc(x.nachname) + ' (' + esc(x.nation) + ')';
+            }).join(', ') + '. Sie kehren belastet zurück.'
+            : 'Aus Ihrem Kader ist niemand nominiert – gute Gelegenheit, durchzuatmen.') +
+          '</p></div>';
+      }
+
       // Nächstes Spiel
       html += '<div class="card"><div class="card__head"><h3>Nächstes Pflichtspiel</h3>';
       if (naechstes) html += '<span class="chip">' + esc(U.fmtDate(naechstes.tag, 'lang')) + ' · ' + esc(naechstes.zeit) + '</span>';
@@ -382,7 +396,10 @@
     var spalten = [
       { key: 'nummer', label: '#', klasse: 'num', wert: function (p) { return p.nummer; }, html: function (p) { return p.nummer || '–'; } },
       { key: 'name', label: 'Name', haft: true, wert: function (p) { return p.nachname; },
-        html: function (p) { return '<span class="name">' + esc(p.nachname) + '</span> <span class="muted klein">' + esc(p.vorname) + '</span>'; } },
+        html: function (p) {
+          return '<span class="name">' + esc(p.nachname) + '</span> <span class="muted klein">' + esc(p.vorname) + '</span>' +
+            (p.nationalelf ? ' <span class="natio-tag" title="Beim Nationalteam">NAT</span>' : '');
+        } },
       { key: 'pos', label: 'Pos', wert: function (p) { return D.POSITIONEN.indexOf(p.pos); }, html: function (p) { return UI.posTag(p.pos); } },
       { key: 'alter', label: 'Alter', klasse: 'num', wert: function (p) { return p.alter; }, html: function (p) { return p.alter; } }
     ];
@@ -525,7 +542,14 @@
     html += '<div class="card card--flat"><h4>Person &amp; Vertrag</h4>' +
       '<div class="stat-row"><span>Persönlichkeit</span><b>' + esc(pers ? pers.name : '–') + '</b></div>' +
       '<div class="stat-row"><span>Verletzungsanfälligkeit</span><b>' +
-      (p.verletzungsneigung > 66 ? '<span class="w-schlecht">hoch</span>' : p.verletzungsneigung > 40 ? '<span class="w-mittel">mittel</span>' : '<span class="w-gut">gering</span>') + '</b></div>';
+      (p.verletzungsneigung > 66 ? '<span class="w-schlecht">hoch</span>' : p.verletzungsneigung > 40 ? '<span class="w-mittel">mittel</span>' : '<span class="w-gut">gering</span>') + '</b></div>' +
+      (p.laenderspiele
+        ? '<div class="stat-row"><span>Nationalmannschaft</span><b>' + p.laenderspiele +
+          ' Einsätze' + (p.laendertore ? ', ' + p.laendertore + ' Tore' : '') + '</b></div>'
+        : '') +
+      (p.nationalelf
+        ? '<div class="stat-row"><span>Aktuell</span><b class="w-mittel">bei der Nationalmannschaft</b></div>'
+        : '');
     if (p.vertrag) {
       html += '<div class="stat-row"><span>Gehalt</span><b>' + U.money(p.vertrag.gehalt) + ' / Woche</b></div>' +
         '<div class="stat-row"><span>Vertrag bis</span><b>' + U.fmtDate(p.vertrag.bis) +

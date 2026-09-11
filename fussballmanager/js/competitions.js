@@ -72,27 +72,60 @@
   ];
 
   /**
+   * Die Laenderspielfenster einer Saison. Sie haengen am Kalender, nicht
+   * an der Spieltagsnummer - nur so liegen sie in allen Ligen gleich.
+   * Jeweils die erste volle Woche im September, Oktober, November und
+   * Maerz, wie in der Wirklichkeit.
+   */
+  function laenderspielKalender(jahr) {
+    function fenster(y, monat) {
+      var montag = U.nextWeekday(U.toDay(y, monat, 1), 0);
+      return { von: montag, bis: montag + 8 };
+    }
+    return [
+      fenster(jahr, 9), fenster(jahr, 10), fenster(jahr, 11), fenster(jahr + 1, 3)
+    ];
+  }
+
+  function inFenster(tag, fenster) {
+    for (var i = 0; i < fenster.length; i++) {
+      if (tag >= fenster[i].von && tag <= fenster[i].bis) return fenster[i];
+    }
+    return null;
+  }
+
+  /**
    * Verteilt 34 Spieltage auf Kalendertermine. Die Hinrunde laeuft von
    * Mitte August bis zur Winterpause, die Rueckrunde ab Mitte Januar.
+   * Termine, die in ein Laenderspielfenster fallen, ruecken dahinter.
    */
-  function spieltagsTermine(jahr, anzahl, englischeWochen) {
+  function spieltagsTermine(jahr, anzahl, englischeWochen, fenster) {
+    fenster = fenster || laenderspielKalender(jahr);
     var termine = [];
     var start = U.nextWeekday(U.toDay(jahr, 8, 15), 5);       // erster Samstag ab 15.08.
     var hin = Math.ceil(anzahl / 2);
-    var t = start;
+
+    function frei(t) {
+      var f = inFenster(t, fenster);
+      return f ? U.nextWeekday(f.bis + 1, 5) : t;
+    }
+
+    var t = frei(start);
     for (var i = 0; i < hin; i++) {
       var englisch = englischeWochen.indexOf(i + 1) >= 0;
       termine.push({ samstag: t, englisch: englisch });
       t += englisch ? 4 : 7;
       if (englisch) t = U.nextWeekday(t, 5);
+      t = frei(t);
     }
     // Rueckrunde: zweiter Freitag im Januar
-    var r = U.nextWeekday(U.toDay(jahr + 1, 1, 8), 5);
+    var r = frei(U.nextWeekday(U.toDay(jahr + 1, 1, 8), 5));
     for (i = hin; i < anzahl; i++) {
       var e2 = englischeWochen.indexOf(i + 1) >= 0;
       termine.push({ samstag: r, englisch: e2 });
       r += e2 ? 4 : 7;
       if (e2) r = U.nextWeekday(r, 5);
+      r = frei(r);
     }
     return termine;
   }
@@ -247,14 +280,19 @@
     ECL: { id: 'ECL', name: 'UEFA Conference League', kurz: 'ECL', teilnehmer: 36, spiele: 6, minRuf: 48 }
   };
 
-  function europaTermine(jahr, anzahlSpieltage) {
+  function europaTermine(jahr, anzahlSpieltage, fenster) {
     // Ligaphase: September bis Januar, jeweils Dienstag/Mittwoch/Donnerstag
+    fenster = fenster || laenderspielKalender(jahr);
     var basis = [
       U.toDay(jahr, 9, 16), U.toDay(jahr, 10, 1), U.toDay(jahr, 10, 22),
       U.toDay(jahr, 11, 5), U.toDay(jahr, 11, 26), U.toDay(jahr, 12, 10),
       U.toDay(jahr + 1, 1, 20), U.toDay(jahr + 1, 1, 28)
     ];
-    return basis.slice(0, anzahlSpieltage).map(function (t) { return U.nextWeekday(t, 1); });
+    return basis.slice(0, anzahlSpieltage).map(function (t) {
+      var d = U.nextWeekday(t, 1);
+      var f = inFenster(d, fenster);
+      return f ? U.nextWeekday(f.bis + 1, 1) : d;
+    });
   }
 
   var EUROPA_KO_TERMINE = function (jahr) {
@@ -300,6 +338,7 @@
   FM.competitions = {
     rundenTurnier: rundenTurnier,
     spieltagsTermine: spieltagsTermine,
+    laenderspielKalender: laenderspielKalender,
     verteileAnstoesse: verteileAnstoesse,
     neueLiga: neueLiga,
     initTabelle: initTabelle,

@@ -27,6 +27,7 @@
   var FELDER = ['version', 'seed', 'saison', 'tag', 'saisonStartTag', 'vereine', 'vereinIds',
     'stab', 'stabIds', 'finanzen', 'taktiken', 'ligen', 'ligaIds',
     'pokal', 'europa', 'supercup', 'relegation', 'nutzerClubId', 'manager',
+    'laenderspielFenster', 'national',
     'inbox', 'nachrichtenIds', 'transfer', 'trainingsplan', 'historie', 'statistik',
     'einstellungen', 'transferfenster'];
 
@@ -71,7 +72,8 @@
       p.eigengewaechs ? 1 : 0, p.exClubId || null, p.versprechen || null,
       p.gemeldetWechsel || 0, p.letztesGespraech || 0,
       p.merkmale || [], p.kaderrolle || 'rotation', p.rollenSeit || 0,
-      (p.ehrungen || []).slice(-20)
+      (p.ehrungen || []).slice(-20),
+      p.laenderspiele || 0, p.laendertore || 0, p.nationalelf ? 1 : 0
     ];
   }
 
@@ -94,7 +96,8 @@
       eigengewaechs: !!a[38], exClubId: a[39], versprechen: a[40],
       gemeldetWechsel: a[41], letztesGespraech: a[42],
       merkmale: a[43] || [], kaderrolle: a[44] || 'rotation', rollenSeit: a[45] || 0,
-      ehrungen: a[46] || []
+      ehrungen: a[46] || [],
+      laenderspiele: a[47] || 0, laendertore: a[48] || 0, nationalelf: !!a[49]
     };
   }
 

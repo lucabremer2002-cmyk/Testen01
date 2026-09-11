@@ -81,6 +81,9 @@
     // 6b) Monatsende: Spieler und Trainer des Monats
     FM.awards.tagesPruefung(world);
 
+    // 6c) Laenderspielpause: Nominierung und Rueckkehr
+    FM.national.tagesPruefung(world);
+
     // 7) Saisonabschluss?
     if (saisonVorbei(world)) {
       return { status: 'saisonende' };

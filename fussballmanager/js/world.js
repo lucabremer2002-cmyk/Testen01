@@ -219,6 +219,9 @@
     };
 
     // ---- Ligen
+    // Laenderspielfenster gelten fuer alle Ligen gemeinsam.
+    world.laenderspielFenster = C.laenderspielKalender(jahr);
+
     world.ligaIds.forEach(function (lid) {
       var liga = world.ligen[lid];
       liga.spieltage = [];
@@ -228,7 +231,7 @@
 
       var runden = C.rundenTurnier(liga.teams, world.rng);
       var englisch = lid === 'bl1' ? [9, 25] : lid === 'bl2' ? [11, 27] : [];
-      var termine = C.spieltagsTermine(jahr, runden.length, englisch);
+      var termine = C.spieltagsTermine(jahr, runden.length, englisch, world.laenderspielFenster);
 
       runden.forEach(function (paarungen, i) {
         var termin = termine[i] || termine[termine.length - 1];
@@ -442,7 +445,7 @@
       if (!deutsche.length) return;
       var def = C.EUROPA_WETTBEWERBE[wb];
       var spieltage = def.spiele;
-      var termine = C.europaTermine(jahr, spieltage);
+      var termine = C.europaTermine(jahr, spieltage, world.laenderspielFenster);
 
       // Gegnerpool passend zum Niveau des Wettbewerbs
       var pool = D.EUROPA.filter(function (e) {
