@@ -474,9 +474,17 @@
       { key: 'verein', label: 'Verein', wert: function (p) { return p.clubId || ''; }, html: function (p) {
         return p.clubId ? UI.vereinZelle(world, p.clubId, true) : '<span class="chip chip--gruen">vereinslos</span>'; } },
       { key: 'staerke', label: 'Stärke', klasse: 'num', wert: function (p) { return P.gesamt(p); },
-        html: function (p) { return p.scoutwissen > 0.35 ? UI.wert(P.gesamt(p)) : '<span class="muted">?</span>'; } },
+        html: function (p) { return FM.views.staerkeAnzeige(p, p.scoutwissen); } },
       { key: 'pot', label: 'Pot', klasse: 'num', wert: function (p) { return p.potenzial; },
-        html: function (p) { return p.scoutwissen > 0.6 ? UI.wert(p.potenzial) : '<span class="muted">?</span>'; } },
+        html: function (p) {
+          if (p.scoutwissen > 0.72) return UI.wert(p.potenzial);
+          if (p.scoutwissen > 0.4) {
+            var s2 = Math.round((1 - p.scoutwissen) * 20);
+            return '<span class="muted">' + Math.max(1, p.potenzial - s2) + '–' +
+              Math.min(99, p.potenzial + s2) + '</span>';
+          }
+          return '<span class="muted">?</span>';
+        } },
       { key: 'wissen', label: 'Kenntnis', klasse: 'num', wert: function (p) { return p.scoutwissen; },
         html: function (p) { return UI.balken(p.scoutwissen, 'bar--blau'); } },
       { key: 'wert', label: 'Marktwert', klasse: 'num', wert: function (p) { return p.marktwert; },

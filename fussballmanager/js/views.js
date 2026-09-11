@@ -631,6 +631,28 @@
       }) + '</div>';
   }
 
+  /**
+   * Die Gesamtstaerke ist nicht sicherer als die Einzelwerte, aus denen sie
+   * entsteht. Wer einen Spieler kaum kennt, bekommt eine Spanne.
+   */
+  function staerkeAnzeige(p, wissen) {
+    var wert = P.gesamt(p);
+    if (wissen >= 0.85) return UI.wert(Math.round(wert));
+    var spanne = Math.round((1 - wissen) * 16);
+    var min = Math.max(1, Math.round(wert) - spanne);
+    var max = Math.min(99, Math.round(wert) + spanne);
+    return '<span class="' + UI.wertKlasse(wert) + '">' + min + '–' + max + '</span>';
+  }
+
+  V.staerkeAnzeige = staerkeAnzeige;
+
+  /** "linker Fuß" statt "linkser Fuß". */
+  function fussText(fuss) {
+    if (fuss === 'links') return 'linker Fuß';
+    if (fuss === 'rechts') return 'rechter Fuß';
+    return 'beidfüßig';
+  }
+
   // ============================================================ Spielerprofil
 
   V.spielerProfil = function (spielerId, tab) {
@@ -646,13 +668,14 @@
       '<h2>' + esc(p.vorname + ' ' + p.nachname) + (p.nummer ? ' <span class="muted">#' + p.nummer + '</span>' : '') + '</h2>' +
       '<div class="meta">' + esc(D.POS_NAME[p.pos]) +
       (p.nebenpos.length ? ' · auch ' + p.nebenpos.join(', ') : '') +
-      ' · ' + p.alter + ' Jahre · ' + esc(p.nation) + ' · ' + esc(p.fuss) + 'er Fuß</div>' +
+      ' · ' + p.alter + ' Jahre · ' + esc(p.nation) + ' · ' + esc(fussText(p.fuss)) + '</div>' +
       '<div class="meta">' + (club ? esc(club.name) : 'vereinslos') +
       (p.leihe ? ' (Leihe von ' + esc(world.vereine[p.leihe.vonClubId] ? world.vereine[p.leihe.vonClubId].name : '?') + ')' : '') + '</div>' +
       '<div class="flex mt">' + (UI.spielerStatus(world, p) || '') + '</div>' +
       '</div>' +
       '<div class="tiles" style="min-width:280px">' +
-      '<div class="tile"><span>Stärke</span><b>' + UI.wert(P.gesamt(p)) + '</b><small>' + esc(P.staerkeLabel(P.gesamt(p))) + '</small></div>' +
+      '<div class="tile"><span>Stärke</span><b>' + staerkeAnzeige(p, wissen) + '</b><small>' +
+      (wissen >= 0.55 ? esc(P.staerkeLabel(P.gesamt(p))) : 'Schätzung der Scouts') + '</small></div>' +
       '<div class="tile"><span>Potenzial</span><b>' + (wissen > 0.6 ? UI.wert(p.potenzial) : '<span class="muted">?</span>') + '</b>' +
       '<small>' + (wissen > 0.6 ? esc(P.staerkeLabel(p.potenzial)) : 'Scouting nötig') + '</small></div>' +
       '<div class="tile"><span>Marktwert</span><b style="font-size:15px">' + U.money(p.marktwert) + '</b></div>' +
