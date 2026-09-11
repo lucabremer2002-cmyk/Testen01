@@ -40,7 +40,10 @@
   };
 
   function erzeugeSponsoren(rng, club) {
-    var faktor = Math.pow(club.ruf / 60, 2.5) * (club.fans / 60);
+    // Derselbe Ligafaktor wie beim spaeteren Neuverhandeln: ein Zweitligist
+    // bekommt nicht die Vertraege eines Erstligisten.
+    var ligaFaktor = club.liga === 1 ? 1 : club.liga === 2 ? 0.42 : 0.14;
+    var faktor = Math.pow(club.ruf / 60, 3.1) * (club.fans / 60) * ligaFaktor;
     function betrag(basis, streu) {
       return Math.round(basis * faktor * rng.range(1 - streu, 1 + streu) / 50000) * 50000;
     }
@@ -72,12 +75,16 @@
       forderungen: [],           // erwartete Einnahmen aus Verkaeufen
       buch: [],                  // Buchungen der laufenden Saison
       saisonstart: kontostand,
+      umsatzStand: 0,
       jahresbilanz: leereBilanz(),
       letzteSaison: null,
       kredit: { betrag: 0, zins: 0.045, rateWoche: 0 },
       lizenzWarnung: 0
     };
   }
+
+  // Anteil des Umsatzes, der als laufender Geschaeftsaufwand abfliesst.
+  var UMSATZKOSTEN = 0.24;
 
   function leereBilanz() {
     return {
@@ -87,7 +94,8 @@
       },
       ausgaben: {
         spielergehaelter: 0, personalgehaelter: 0, ablosen: 0, spielbetrieb: 0,
-        stadion: 0, nachwuchs: 0, verwaltung: 0, scouting: 0, zinsen: 0, sonstige: 0
+        stadion: 0, nachwuchs: 0, verwaltung: 0, scouting: 0, geschaeft: 0,
+        zinsen: 0, sonstige: 0
       }
     };
   }
@@ -132,10 +140,13 @@
     buche(world, clubId, 'aus', 'spielergehaelter', spielerLohn, 'Spielergehälter');
     buche(world, clubId, 'aus', 'personalgehaelter', stabLohn, 'Gehälter Trainerstab und Mitarbeiter');
 
-    // Laufender Betrieb
-    var betrieb = club.kapazitaet * 1.05 + club.ruf * 2400;
+    // Laufender Betrieb. Der vom Ruf getriebene Teil - Geschaeftsstelle,
+    // Marketing, Spielbetrieb - faellt in den unteren Ligen deutlich
+    // kleiner aus: ein Zweitligist unterhaelt keinen Erstligaapparat.
+    var ligaKosten = club.liga === 1 ? 1 : club.liga === 2 ? 0.55 : 0.30;
+    var betrieb = club.kapazitaet * 1.05 + club.ruf * 2400 * ligaKosten;
     var nachwuchs = club.akademie * (club.liga === 1 ? 2100 : club.liga === 2 ? 950 : 320);
-    var verwaltung = club.ruf * 2900 + 22000;
+    var verwaltung = club.ruf * 2900 * ligaKosten + 22000;
     var scouting = club.scoutingnetz * 620;
     buche(world, clubId, 'aus', 'stadion', betrieb, 'Stadion- und Spielbetrieb');
     buche(world, clubId, 'aus', 'nachwuchs', nachwuchs, 'Nachwuchsleistungszentrum');
@@ -170,6 +181,22 @@
         f.kredit.betrag -= tilgung;
         buche(world, clubId, 'aus', 'sonstige', tilgung, 'Kredittilgung');
       }
+    }
+
+    // Umsatzabhaengige Kosten: Vertrieb und Marketing, Reisen, Beraterhonorare,
+    // Abschreibungen auf Abloesen und Abgaben. Dieser Block waechst mit dem
+    // Geschaeft - wer mehr einnimmt, gibt auch mehr aus. Ohne ihn haetten
+    // Vereine Jahr fuer Jahr zweistellige Millionenueberschuesse.
+    var umsatzJetzt = 0;
+    Object.keys(f.jahresbilanz.einnahmen).forEach(function (k) {
+      if (k !== 'transfers') umsatzJetzt += f.jahresbilanz.einnahmen[k];
+    });
+    if (f.umsatzStand === undefined) f.umsatzStand = umsatzJetzt;   // aeltere Spielstaende
+    var zuwachs = Math.max(0, umsatzJetzt - f.umsatzStand);
+    f.umsatzStand = umsatzJetzt;
+    if (zuwachs > 0) {
+      buche(world, clubId, 'aus', 'geschaeft', zuwachs * UMSATZKOSTEN,
+        'Vertrieb, Reisen, Berater und Abschreibungen');
     }
 
     // Faellige Ablosezahlungen
@@ -271,12 +298,19 @@
     if (!f) return;
     var erwarteteEinnahmen = jahresPrognose(world, clubId);
     var lohnkosten = wochenLohnsumme(world, clubId) * 52;
-    var spielraum = erwarteteEinnahmen - lohnkosten - laufendeKosten(world, clubId) * 52;
+    var spielraum = erwarteteEinnahmen * (1 - UMSATZKOSTEN) - lohnkosten
+      - laufendeKosten(world, clubId) * 52;
     var transfer = Math.max(0, spielraum * 0.55 + f.kontostand * 0.30);
     // Vorsichtige Vereine halten mehr zurueck.
     transfer *= U.clamp(club.finanz / 70, 0.45, 1.35);
+    // Wer im Minus steht, darf nicht weiter einkaufen.
+    if (f.kontostand < 0) transfer *= U.clamp(1 + f.kontostand / Math.max(1e6, erwarteteEinnahmen * 0.3), 0, 1);
     f.transferbudget = Math.round(Math.max(0, transfer) / 100000) * 100000;
-    f.gehaltsbudget = Math.round(Math.max(lohnkosten / 52 * 1.06, (erwarteteEinnahmen * 0.58) / 52) / 500) * 500;
+    // Der Gehaltsrahmen richtet sich danach, was der Verein traegt, nicht
+    // danach, was er bisher gezahlt hat. Sonst schreibt sich jede Ueberzahlung
+    // Jahr fuer Jahr fort und der Verein rutscht immer tiefer ins Minus.
+    var tragbar = erwarteteEinnahmen * 0.50 / 52;
+    f.gehaltsbudget = Math.round(Math.max(tragbar, lohnkosten / 52 * 0.90) / 500) * 500;
   }
 
   function wochenLohnsumme(world, clubId) {
@@ -290,9 +324,10 @@
 
   function laufendeKosten(world, clubId) {
     var club = world.vereine[clubId];
-    return club.kapazitaet * 1.05 + club.ruf * 2400
+    var ligaKosten = club.liga === 1 ? 1 : club.liga === 2 ? 0.55 : 0.30;
+    return club.kapazitaet * 1.05 + club.ruf * 2400 * ligaKosten
       + club.akademie * (club.liga === 1 ? 2100 : club.liga === 2 ? 950 : 320)
-      + club.ruf * 2900 + 22000 + club.scoutingnetz * 620;
+      + club.ruf * 2900 * ligaKosten + 22000 + club.scoutingnetz * 620;
   }
 
   function jahresPrognose(world, clubId) {
@@ -309,7 +344,16 @@
     var ticketing = heimspiele * schnittZuschauer * (f.ticketpreis * 0.9 + 6.2);
     var merch = Math.pow(f.merchandisingNiveau / 55, 2.4) * 320000 * 12
       * (club.liga === 1 ? 1 : club.liga === 2 ? 0.35 : 0.12);
-    return tv + sponsoring + ticketing + merch;
+    // Praemien aus dem Europapokal sind fuer die Spitzenvereine ein
+    // erheblicher Posten. Der Haushalt rechnet mit dem Vorjahr; ohne
+    // Vorjahr dient der Fuenfjahreswert als Anhalt.
+    var praemien = 0;
+    if (f.letzteSaison && f.letzteSaison.einnahmen) {
+      praemien = (f.letzteSaison.einnahmen.preisgelder || 0) * 0.85;
+    } else if (club.europapokal) {
+      praemien = Math.min(75e6, club.europapokal * 1.05e6);
+    }
+    return tv + sponsoring + ticketing + merch + praemien;
   }
 
   /** Neuverhandlung der Sponsorenvertraege (jaehrlich im Sommer). */
@@ -323,7 +367,7 @@
 
     ['trikot', 'aermel', 'ausruester', 'stadion'].forEach(function (k) {
       var alt = f.sponsoren[k].betrag;
-      var basisFaktor = Math.pow(club.ruf / 60, 2.5) * (club.fans / 60) * ligaFaktor;
+      var basisFaktor = Math.pow(club.ruf / 60, 3.1) * (club.fans / 60) * ligaFaktor;
       var basis = { trikot: 8.5e6, aermel: 2.2e6, ausruester: 5.5e6, stadion: 3.2e6 }[k];
       var neu = basis * basisFaktor * faktor;
       // Vertraege veraendern sich nur gedaempft.

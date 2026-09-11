@@ -77,7 +77,8 @@
       p.umschulung || null,
       p.zweitteam ? 1 : 0, [(p.u23 && p.u23.spiele) || 0, (p.u23 && p.u23.tore) || 0],
       p.rueckkauf || null, p.vorvertrag || null,
-      (p.saisonhistorie || []).slice(-24)
+      (p.saisonhistorie || []).slice(-24),
+      packStats(p.ligaStats || FM.players.leereStats())
     ];
   }
 
@@ -105,7 +106,8 @@
       umschulung: a[50] || null,
       zweitteam: !!a[51], u23: { spiele: (a[52] || [])[0] || 0, tore: (a[52] || [])[1] || 0 },
       rueckkauf: a[53] || null, vorvertrag: a[54] || null,
-      saisonhistorie: a[55] || []
+      saisonhistorie: a[55] || [],
+      ligaStats: entpackStats(a[56])
     };
   }
 

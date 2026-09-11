@@ -696,6 +696,7 @@
       var NAMEN_A = { spielergehaelter: 'Spielergehälter', personalgehaelter: 'Gehälter Mitarbeiter',
         ablosen: 'Ablösezahlungen', spielbetrieb: 'Spielbetrieb', stadion: 'Stadion &amp; Betrieb',
         nachwuchs: 'Nachwuchszentrum', verwaltung: 'Verwaltung', scouting: 'Scouting',
+        geschaeft: 'Vertrieb, Reisen &amp; Abschreibungen',
         zinsen: 'Zinsen', sonstige: 'Sonstiges' };
 
       var html = '<div class="card__head"><h2>Finanzen</h2><div class="flex">' +

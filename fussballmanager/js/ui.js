@@ -203,6 +203,18 @@
     if (p.wechselwunsch > 60) out.push('<span class="chip chip--rot" title="Wechselwunsch">↗</span>');
     if (p.kapitaen) out.push('<span class="chip chip--gruen" title="Kapitän">C</span>');
     if (p.eigengewaechs) out.push('<span class="chip chip--lila" title="Eigengewächs">★</span>');
+    // Auslaufende Vertraege: erklaert nebenbei, warum der Marktwert faellt.
+    if (p.clubId && p.vertrag && !p.leihe) {
+      var rest = FM.players.restlaufzeitMonate(p, world);
+      if (rest <= 12) {
+        out.push('<span class="chip chip--' + (rest <= 6 ? 'rot' : 'gelb') +
+          '" title="Vertrag läuft in ' + rest + ' Monaten aus - ab Januar darf er ablösefrei woanders unterschreiben">V ' +
+          rest + ' M</span>');
+      }
+    }
+    if (p.vorvertrag) {
+      out.push('<span class="chip chip--rot" title="Hat bereits woanders unterschrieben">Vorvertrag</span>');
+    }
     return out.join(' ');
   }
 

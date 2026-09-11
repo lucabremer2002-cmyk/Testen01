@@ -449,8 +449,22 @@
     var roh = wA.att / Math.max(8, (wD.def * 0.72 + wD.tw * 0.28));
     var verhaeltnis = roh > 1.40 ? 1.40 + (roh - 1.40) * 0.30 : roh;
     verhaeltnis = U.clamp(verhaeltnis, 0.62, 1.62);
-    var rate = 0.145 * (0.55 + ballanteil * 0.90) * wA.mod.chancen * Math.pow(verhaeltnis, 1.05) * attMod * an.tagesform;
-    if (m > 80 && state.tore[an.heim ? 'heim' : 'gast'] < state.tore[an.heim ? 'gast' : 'heim']) rate *= 1.06;
+    // Ein Testspiel wird nicht bis zum Anschlag gespielt: beide Seiten
+    // wechseln durch, das Gefaelle faellt kleiner aus als im Pflichtspiel.
+    if (state.spiel && state.spiel.wettbewerb === 'test') {
+      verhaeltnis = 1 + (verhaeltnis - 1) * 0.62;
+    }
+    var rate = 0.1475 * (0.55 + ballanteil * 0.90) * wA.mod.chancen * Math.pow(verhaeltnis, 1.05) * attMod * an.tagesform;
+    var eigene = state.tore[an.heim ? 'heim' : 'gast'];
+    var fremde = state.tore[an.heim ? 'gast' : 'heim'];
+    if (m > 80 && eigene < fremde) rate *= 1.06;
+    // Ab fuenf Toren Vorsprung schaltet eine Mannschaft zurueck: frische
+    // Kraefte fuer die Stammelf, weniger Risiko, weniger Tempo. Die Schwelle
+    // liegt bewusst hoch - ein 4:0 ist in der Liga ein normales Ergebnis und
+    // soll nicht kuenstlich gedeckelt werden.
+    var vorsprung = eigene - fremde;
+    if (vorsprung >= 5) rate *= vorsprung >= 7 ? 0.45 : 0.68;
+    if (state.spiel && state.spiel.wettbewerb === 'test') rate *= 0.94;
     rate *= wA.mod.tempoSpaet !== 1 && m > 75 ? wA.mod.tempoSpaet : 1;
     rate *= state.wetter.tempo;
 
@@ -542,6 +556,9 @@
     if (xg >= 0.22) an.stat.grosschancen += 1;
     var sd = spielerDaten(an, schuetze);
     sd.schuesse += 1; sd.xg += xg;
+    // Erwartete Vorlagen zaehlen jeden Schluesselpass, nicht nur den, aus dem
+    // ein Tor wird. Sonst liegt xA um ein Vielfaches unter den Vorlagen.
+    if (vorbereiter) spielerDaten(an, vorbereiter).xa += xg;
 
     // Abseits?
     if ((typ === 'steilpass' || typ === 'konter') && rng.chance(0.14 * ab.werte.mod.abseits)) {
@@ -659,7 +676,7 @@
 
     if (vorbereiter) {
       var vd = spielerDaten(an, vorbereiter);
-      vd.vorlagen += 1; vd.xa += xg;
+      vd.vorlagen += 1;
       vd.notenPunkte -= 0.50;
     }
 

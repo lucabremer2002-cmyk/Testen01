@@ -209,6 +209,7 @@
     // blaehen sich Kader zwischen zwei Saisonwechseln auf.
     kaderBereinigen(world);
     kaderAuffuellen(world);
+    haushaltDisziplin(world);
 
     managerEntwicklung(world);
     FM.transfers.scoutnetzWoche(world);
@@ -547,7 +548,9 @@
       var d = seite.spielerDaten[id];
       var p = world.spieler[id];
       if (!p || d.minuten < 1) return;
+      if (!p.ligaStats) p.ligaStats = P.leereStats();
       var ziele = [p.stats, p.karriere];
+      if (spiel.wettbewerb === 'liga') ziele.push(p.ligaStats);
       ziele.forEach(function (st) {
         st.spiele += 1;
         if (d.eingewechselt === 0) st.startelf += 1;
@@ -1000,6 +1003,7 @@
       p.alter += 1;
       P.saisonAbschliessen(p, world);
       p.stats = P.leereStats();
+      p.ligaStats = P.leereStats();
       p.gelbeSaison = 0;
       p.sperre = 0;
       p.letzteNoten = [];
@@ -1036,6 +1040,7 @@
       F.sponsorenNeuVerhandeln(world, clubId, world.rng);
       f.letzteSaison = f.jahresbilanz;
       f.jahresbilanz = F.leereBilanz();
+      f.umsatzStand = 0;
       f.punktabzugVerhaengt = false;
       f.lizenzWarnung = 0;
       // Ruf entwickelt sich mit dem Erfolg
@@ -1173,6 +1178,50 @@
       }
       var taktik = world.taktiken[clubId];
       if (taktik) T.autoAufstellung(world, club, taktik);
+    });
+  }
+
+  /**
+   * Vereine, die ueber ihre Verhaeltnisse leben, muessen gegensteuern.
+   * Ein Verein im Minus oder ueber dem Gehaltsrahmen stellt seine
+   * teuersten Reservisten auf die Transferliste - genau wie im echten
+   * Fussball, wo Gehalt abgebaut wird, bevor die Lizenz wackelt.
+   */
+  function haushaltDisziplin(world) {
+    world.vereinIds.forEach(function (clubId) {
+      var club = world.vereine[clubId];
+      if (!club || club.auslaendisch) return;
+      if (world.istNutzerVerein(clubId)) return;     // der Nutzer entscheidet selbst
+      var f = world.finanzen[clubId];
+      if (!f) return;
+      var lohn = FM.finance.wochenLohnsumme(world, clubId);
+      var ueberzogen = f.gehaltsbudget && lohn > f.gehaltsbudget * 1.02;
+      var klamm = f.kontostand < 0;
+      if (!ueberzogen && !klamm) {
+        // Gesundet: die Notverkaufsliste wieder aufheben.
+        world.kaderVon(clubId).forEach(function (p) {
+          if (p.notverkauf) { p.notverkauf = false; p.transferliste = false; }
+        });
+        return;
+      }
+      // Wer viel verdient und wenig spielt, geht zuerst.
+      var kader = world.kaderVon(clubId).filter(function (p) {
+        return p.vertrag && !p.leihe && !p.kapitaen;
+      });
+      var rang = U.sortBy(kader, function (p) {
+        var einsatz = p.stats.spiele + p.stats.startelf;
+        return -(p.vertrag.gehalt / Math.max(1, 4 + einsatz));
+      });
+      var ziel = f.gehaltsbudget ? Math.max(0, lohn - f.gehaltsbudget) : 0;
+      if (klamm) ziel = Math.max(ziel, lohn * 0.06);
+      var abgebaut = 0;
+      for (var i = 0; i < rang.length && abgebaut < ziel && i < 6; i++) {
+        var p = rang[i];
+        if (p.transferliste) { abgebaut += p.vertrag.gehalt; continue; }
+        p.transferliste = true;
+        p.notverkauf = true;
+        abgebaut += p.vertrag.gehalt;
+      }
     });
   }
 

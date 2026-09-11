@@ -229,6 +229,7 @@
       sperreGrund: '',
       gelbeSaison: 0,
       stats: leereStats(),
+      ligaStats: leereStats(),     // nur Ligaspiele - fuer Torjaegerliste und Tabellen
       karriere: leereStats(),
       saisonhistorie: [],        // je Saison ein Eintrag, aelteste zuerst
       historie: [],

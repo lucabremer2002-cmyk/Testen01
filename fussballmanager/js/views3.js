@@ -93,8 +93,8 @@
         '<div class="stat-row"><span>Stimmung</span><span class="flex" style="gap:8px">' +
         UI.balken(club.fanstimmung / 100, club.fanstimmung >= 60 ? '' : club.fanstimmung >= 35 ? 'bar--gelb' : 'bar--rot') +
         '<b>' + Math.round(club.fanstimmung) + ' %</b></span></div>' +
-        '<div class="stat-row"><span>Anhängerschaft</span><b>' + club.fans + ' / 99</b></div>' +
-        '<div class="stat-row"><span>Tradition</span><b>' + club.tradition + ' / 99</b></div>' +
+        '<div class="stat-row"><span>Anhängerschaft</span><b>' + Math.round(club.fans) + ' / 99</b></div>' +
+        '<div class="stat-row"><span>Tradition</span><b>' + Math.round(club.tradition) + ' / 99</b></div>' +
         '<div class="stat-row"><span>Ticketpreis</span><b>' + U.money(f.ticketpreis) + '</b></div>' +
         '<p class="klein muted mt">Die Fans reagieren auf Ergebnisse, Ticketpreise und Ihre Aussagen in der Presse. ' +
         'Eine gute Stimmung bringt einen spürbaren Heimvorteil.</p></div>';
@@ -545,6 +545,9 @@
         return out;
       }
       var spieler = ligaSpieler();
+      // Alle Listen dieser Ansicht zaehlen nur Ligaspiele - Pokal und
+      // Europapokal wuerden die Torjaegerliste sonst verfaelschen.
+      function ls(p) { return p.ligaStats || p.stats; }
 
       var html = '<div class="card__head"><h2>Statistik</h2>' +
         '<select data-f="liga" style="width:auto">' +
@@ -552,18 +555,19 @@
           return '<option value="' + id + '"' + (z.liga === id ? ' selected' : '') + '>' + esc(world.ligen[id].name) + '</option>';
         }).join('') + '</select></div>';
 
+      html += '<div class="klein muted mb">Alle Zahlen zählen ausschließlich Ligaspiele.</div>';
       html += '<div class="grid grid--2">';
 
       html += '<div class="card"><h3>Torschützenliste</h3>' + UI.tabelle([
         { key: 'r', label: '#', klasse: 'num', html: function (p, i) { return p.__rang; } },
         { key: 'n', label: 'Spieler', html: function (p) { return '<span class="name">' + esc(p.nachname) + '</span>'; } },
         { key: 'v', label: 'Verein', html: function (p) { return UI.vereinZelle(world, p.clubId, true); } },
-        { key: 't', label: 'Tore', klasse: 'num', html: function (p) { return '<b>' + p.stats.tore + '</b>'; } },
+        { key: 't', label: 'Tore', klasse: 'num', html: function (p) { return '<b>' + ls(p).tore + '</b>'; } },
         { key: 'm', label: 'Min/Tor', klasse: 'num', html: function (p) {
-          return p.stats.tore ? Math.round(p.stats.minuten / p.stats.tore) : '–'; } },
-        { key: 'xg', label: 'xG', klasse: 'num', html: function (p) { return U.num(p.stats.xG, 1); } }
-      ], U.sortBy(spieler.filter(function (p) { return p.stats.tore > 0; }),
-        function (p) { return -p.stats.tore; }).slice(0, 15).map(function (p, i) { p.__rang = i + 1; return p; }), {
+          return ls(p).tore ? Math.round(ls(p).minuten / ls(p).tore) : '–'; } },
+        { key: 'xg', label: 'xG', klasse: 'num', html: function (p) { return U.num(ls(p).xG, 1); } }
+      ], U.sortBy(spieler.filter(function (p) { return ls(p).tore > 0; }),
+        function (p) { return -ls(p).tore; }).slice(0, 15).map(function (p, i) { p.__rang = i + 1; return p; }), {
         zeilenKlasse: function (p) { return 'is-clickable' + (p.clubId === world.nutzerClubId ? ' tr-eigen' : ''); },
         zeilenAttr: function (p) { return 'data-spieler="' + esc(p.id) + '"'; },
         leerText: 'Noch keine Tore gefallen.'
@@ -573,10 +577,10 @@
         { key: 'r', label: '#', klasse: 'num', html: function (p) { return p.__rang; } },
         { key: 'n', label: 'Spieler', html: function (p) { return '<span class="name">' + esc(p.nachname) + '</span>'; } },
         { key: 'v', label: 'Verein', html: function (p) { return UI.vereinZelle(world, p.clubId, true); } },
-        { key: 'a', label: 'Vorl.', klasse: 'num', html: function (p) { return '<b>' + p.stats.vorlagen + '</b>'; } },
-        { key: 'x', label: 'xA', klasse: 'num', html: function (p) { return U.num(p.stats.xA, 1); } }
-      ], U.sortBy(spieler.filter(function (p) { return p.stats.vorlagen > 0; }),
-        function (p) { return -p.stats.vorlagen; }).slice(0, 15).map(function (p, i) { p.__rang = i + 1; return p; }), {
+        { key: 'a', label: 'Vorl.', klasse: 'num', html: function (p) { return '<b>' + ls(p).vorlagen + '</b>'; } },
+        { key: 'x', label: 'xA', klasse: 'num', html: function (p) { return U.num(ls(p).xA, 1); } }
+      ], U.sortBy(spieler.filter(function (p) { return ls(p).vorlagen > 0; }),
+        function (p) { return -ls(p).vorlagen; }).slice(0, 15).map(function (p, i) { p.__rang = i + 1; return p; }), {
         zeilenKlasse: function (p) { return 'is-clickable' + (p.clubId === world.nutzerClubId ? ' tr-eigen' : ''); },
         zeilenAttr: function (p) { return 'data-spieler="' + esc(p.id) + '"'; },
         leerText: 'Noch keine Vorlagen.'
@@ -585,10 +589,10 @@
       html += '<div class="card"><h3>Beste Durchschnittsnoten</h3>' + UI.tabelle([
         { key: 'n', label: 'Spieler', html: function (p) { return '<span class="name">' + esc(p.nachname) + '</span>'; } },
         { key: 'v', label: 'Verein', html: function (p) { return UI.vereinZelle(world, p.clubId, true); } },
-        { key: 's', label: 'Sp', klasse: 'num', html: function (p) { return p.stats.spiele; } },
-        { key: 'no', label: 'Ø Note', klasse: 'num', html: function (p) { return UI.noteZelle(P.schnitt(p.stats)); } }
-      ], U.sortBy(spieler.filter(function (p) { return p.stats.spiele >= 8; }),
-        function (p) { return P.schnitt(p.stats); }).slice(0, 15), {
+        { key: 's', label: 'Sp', klasse: 'num', html: function (p) { return ls(p).spiele; } },
+        { key: 'no', label: 'Ø Note', klasse: 'num', html: function (p) { return UI.noteZelle(P.schnitt(ls(p))); } }
+      ], U.sortBy(spieler.filter(function (p) { return ls(p).spiele >= 8; }),
+        function (p) { return P.schnitt(ls(p)); }).slice(0, 15), {
         zeilenKlasse: function (p) { return 'is-clickable' + (p.clubId === world.nutzerClubId ? ' tr-eigen' : ''); },
         zeilenAttr: function (p) { return 'data-spieler="' + esc(p.id) + '"'; },
         leerText: 'Zu wenige Spiele absolviert.'
@@ -597,11 +601,11 @@
       html += '<div class="card"><h3>Torhüter</h3>' + UI.tabelle([
         { key: 'n', label: 'Spieler', html: function (p) { return '<span class="name">' + esc(p.nachname) + '</span>'; } },
         { key: 'v', label: 'Verein', html: function (p) { return UI.vereinZelle(world, p.clubId, true); } },
-        { key: 'z', label: 'Zu Null', klasse: 'num', html: function (p) { return '<b>' + p.stats.zuNull + '</b>'; } },
-        { key: 'g', label: 'Gegentore', klasse: 'num', html: function (p) { return p.stats.gegentore; } },
-        { key: 'pa', label: 'Paraden', klasse: 'num', html: function (p) { return p.stats.paraden; } }
-      ], U.sortBy(spieler.filter(function (p) { return p.pos === 'TW' && p.stats.spiele >= 5; }),
-        function (p) { return -p.stats.zuNull; }).slice(0, 12), { leerText: 'Zu wenige Spiele.' }) + '</div>';
+        { key: 'z', label: 'Zu Null', klasse: 'num', html: function (p) { return '<b>' + ls(p).zuNull + '</b>'; } },
+        { key: 'g', label: 'Gegentore', klasse: 'num', html: function (p) { return ls(p).gegentore; } },
+        { key: 'pa', label: 'Paraden', klasse: 'num', html: function (p) { return ls(p).paraden; } }
+      ], U.sortBy(spieler.filter(function (p) { return p.pos === 'TW' && ls(p).spiele >= 5; }),
+        function (p) { return -ls(p).zuNull; }).slice(0, 12), { leerText: 'Zu wenige Spiele.' }) + '</div>';
       html += '</div>';
 
       // Mannschaftsstatistik
