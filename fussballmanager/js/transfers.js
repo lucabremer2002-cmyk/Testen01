@@ -993,6 +993,7 @@
     kaderbedarf: kaderbedarf,
     kiTick: kiTick,
     kiVertragslosen: kiVertragslosen,
+    angebotFuerNutzerspieler: angebotFuerNutzerspieler,
     angebotEntscheiden: angebotEntscheiden,
     angeboteAufraeumen: angeboteAufraeumen,
     verlaengerungAnbieten: verlaengerungAnbieten,

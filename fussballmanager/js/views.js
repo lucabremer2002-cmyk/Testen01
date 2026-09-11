@@ -36,6 +36,16 @@
       // ---- linke Spalte
       html += '<div class="grid">';
 
+      // Deadline Day
+      if (world.transferfenster.deadline) {
+        html += '<div class="card card--deadline"><div class="card__head">' +
+          '<h3>Deadline Day</h3><span class="chip chip--gold">letzter Tag</span></div>' +
+          '<p class="muted">Heute schließt das Transferfenster. Was bis Mitternacht nicht ' +
+          'unterschrieben ist, muss bis zum nächsten Fenster warten – auf beiden Seiten.</p>' +
+          '<div class="flex"><button class="btn btn--primary" data-a="zumtransfer">Zum Transfermarkt</button></div>' +
+          '</div>';
+      }
+
       // Länderspielpause
       if (FM.national.pauseLaeuft(world)) {
         var weg = FM.national.abgestellte(world, club.id);
@@ -247,6 +257,9 @@
     });
     Array.prototype.forEach.call(container.querySelectorAll('[data-a="tabelle"]'), function (e) {
       e.onclick = function () { UI.zeige('tabelle'); };
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('[data-a="zumtransfer"]'), function (e) {
+      e.onclick = function () { UI.zeige('transfers'); };
     });
     Array.prototype.forEach.call(container.querySelectorAll('[data-spieler]'), function (e) {
       e.onclick = function (ev) {

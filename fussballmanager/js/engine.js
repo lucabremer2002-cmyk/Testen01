@@ -293,6 +293,32 @@
     if (world.transfer.geruechte.length > 30) world.transfer.geruechte.pop();
   }
 
+  /**
+   * Der letzte Tag des Transferfensters. Die Vereine bringen zu Ende, was
+   * sie sich vorgenommen haben: Es wird deutlich mehr gehandelt als
+   * sonst, und der Nutzer bekommt mehr Angebote fuer seine Spieler als an
+   * einem gewoehnlichen Tag.
+   */
+  function deadlineDay(world) {
+    world.nachricht({
+      typ: 'transfer', prioritaet: 3,
+      titel: 'Deadline Day',
+      text: 'Heute schließt das Transferfenster. Was bis Mitternacht nicht unterschrieben ist, ' +
+        'muss bis zum nächsten Fenster warten.'
+    });
+
+    // Der Markt arbeitet an diesem Tag ab, was sonst auf zwei Wochen
+    // verteilt waere.
+    for (var i = 0; i < 12; i++) {
+      FM.transfers.kiTick(world);
+    }
+    // Dazu mehrere Angebote fuer Spieler des Nutzers
+    var n = world.rng.int(2, 4);
+    for (var j = 0; j < n; j++) {
+      FM.transfers.angebotFuerNutzerspieler(world);
+    }
+  }
+
   // ------------------------------------------------------------ Ergebnis verbuchen
 
   function verarbeiteSpiel(world, spiel, state) {
@@ -746,6 +772,15 @@
     var offenSommer = (datum.m === 7) || (datum.m === 8) || (datum.m === 9 && datum.d === 1);
     var offenWinter = datum.m === 1;
     var offen = offenSommer || offenWinter;
+
+    // Letzter Tag des Fensters: Deadline Day
+    var deadline = (datum.m === 9 && datum.d === 1) || (datum.m === 1 && datum.d === 31);
+    world.transferfenster.deadline = deadline;
+    if (deadline && world.transferfenster.deadlineTag !== world.tag) {
+      world.transferfenster.deadlineTag = world.tag;
+      deadlineDay(world);
+    }
+
     if (offen !== world.transferfenster.offen) {
       world.transferfenster.offen = offen;
       world.transferfenster.fenster = offenWinter ? 'winter' : 'sommer';

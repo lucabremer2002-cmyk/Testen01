@@ -208,6 +208,22 @@ Seiten machen Gegenangebote.
 * Die KI-Vereine handeln eigenständig, halten ihr Budget ein und geben
   Angebote für Ihre Spieler ab.
 
+### Deadline Day
+
+Der letzte Tag eines Transferfensters läuft anders als die übrigen: Die
+Vereine bringen zu Ende, was sie sich vorgenommen haben. An diesem einen
+Tag arbeitet der Markt ab, was sonst auf zwei Wochen verteilt wäre – im
+Schnitt sechsmal so viele Wechsel wie an einem gewöhnlichen Tag –, und
+für die eigenen Spieler treffen mehrere Angebote gleichzeitig ein. Die
+Übersicht weist den Tag gesondert aus.
+
+### Saisonrückblick
+
+Am Saisonende steht neben Platzierung, Meister und Torschützenkönig auch
+die eigene Bilanz: bester Spieler nach Durchschnittsnote, meiste Tore,
+meiste Vorlagen, die Ehrungen dieser Spielzeit und die Rekorde, die in
+diesen zehn Monaten entstanden sind.
+
 ### Spielertausch
 
 Im Transferangebot lassen sich eigene Spieler mit anbieten. Der abgebende

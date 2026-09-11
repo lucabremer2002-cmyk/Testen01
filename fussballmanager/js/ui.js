@@ -762,6 +762,8 @@
     var tk = FM.engine.torschuetzenkoenig(world);
     if (tk) html += '<p>Torschützenkönig: <b>' + esc(tk.name) + '</b> mit ' + tk.tore + ' Toren</p>';
 
+    html += saisonRueckblick(world);
+
     html += '<div class="flex mt"><button class="btn btn--primary btn--big" data-a="weiter">Neue Saison beginnen</button></div>';
 
     modal(html, {
@@ -775,6 +777,61 @@
         };
       }
     });
+  }
+
+  /**
+   * Der Blick zurueck auf die eigene Saison: beste Spieler, Ehrungen und
+   * die Rekorde, die in diesen zehn Monaten entstanden sind.
+   */
+  function saisonRueckblick(world) {
+    var P = FM.players;
+    var clubId = world.nutzerClubId;
+    if (!clubId) return '';
+    var kader = world.kaderVon(clubId).filter(function (p) { return p.stats.spiele >= 5; });
+    var html = '<div class="trenner"></div><h3>Ihre Saison</h3>';
+
+    if (kader.length) {
+      var bester = U.sortBy(kader.filter(function (p) { return p.stats.notenAnzahl >= 8; }),
+        function (p) { return P.schnitt(p.stats); })[0];
+      var knipser = U.sortBy(kader, function (p) { return -p.stats.tore; })[0];
+      var vorbereiter = U.sortBy(kader, function (p) { return -p.stats.vorlagen; })[0];
+      html += '<div class="tiles mb">';
+      if (bester) {
+        html += '<div class="tile"><span>Bester Spieler</span><b style="font-size:14px">' +
+          esc(bester.nachname) + '</b><small>Note ' + U.note(P.schnitt(bester.stats)) + '</small></div>';
+      }
+      if (knipser && knipser.stats.tore) {
+        html += '<div class="tile"><span>Meiste Tore</span><b style="font-size:14px">' +
+          esc(knipser.nachname) + '</b><small>' + knipser.stats.tore + ' Tore</small></div>';
+      }
+      if (vorbereiter && vorbereiter.stats.vorlagen) {
+        html += '<div class="tile"><span>Meiste Vorlagen</span><b style="font-size:14px">' +
+          esc(vorbereiter.nachname) + '</b><small>' + vorbereiter.stats.vorlagen + ' Vorlagen</small></div>';
+      }
+      html += '</div>';
+    }
+
+    var ehrungen = FM.awards.auszeichnungenVon(world, { saison: world.saison })
+      .filter(function (a) {
+        if (a.clubId === clubId) return true;
+        var sp = a.spielerId ? world.spieler[a.spielerId] : null;
+        return sp && sp.clubId === clubId;
+      });
+    if (ehrungen.length) {
+      html += '<p class="klein muted" style="margin-bottom:4px">Ehrungen in dieser Saison</p><ul class="liste">' +
+        ehrungen.slice(0, 6).map(function (a) {
+          return '<li>' + esc(a.titel) + (a.text ? ' <span class="klein muted">' + esc(a.text) + '</span>' : '') + '</li>';
+        }).join('') + '</ul>';
+    }
+
+    var r = world.rekorde;
+    if (r && (r.hoechsterSieg || r.besteSerieSiege)) {
+      html += '<div class="stat-row"><span>Höchster Sieg</span><b>' +
+        (r.hoechsterSieg ? r.hoechsterSieg.tore + ':' + r.hoechsterSieg.gegentore +
+          ' gegen ' + esc((world.vereine[r.hoechsterSieg.gegnerId] || {}).kurz || '?') : '–') + '</b></div>' +
+        '<div class="stat-row"><span>Längste Siegesserie</span><b>' + (r.besteSerieSiege || 0) + ' Spiele</b></div>';
+    }
+    return html;
   }
 
   function entlassung() {
