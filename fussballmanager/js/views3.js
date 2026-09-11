@@ -419,6 +419,56 @@
 
   // ============================================================ Medien
 
+  /**
+   * Die Kabine: wer den Ton angibt, welche Gruppen es gibt und wo es
+   * hakt. Die Stimmung wird nach Einfluss gewichtet - ein unzufriedener
+   * Wortfuehrer wiegt schwerer als drei zufriedene Ergaenzungsspieler.
+   */
+  function kabinenKarte(world) {
+    var a = FM.kabine.analyse(world, world.nutzerClubId);
+    if (!a.hierarchie.length) return '';
+    var klasse = a.klima >= 66 ? 'w-gut' : a.klima >= 48 ? 'w-mittel' : 'w-schlecht';
+
+    var html = '<div class="card mt"><div class="card__head"><h3>Kabine</h3>' +
+      '<span class="chip">Klima ' + a.klima + '</span></div>' +
+      '<p class="' + klasse + '" style="margin:0 0 10px">' + esc(FM.kabine.stimmungstext(a)) + '</p>';
+
+    if (a.klima !== a.schnittMoral) {
+      html += '<p class="klein muted" style="margin:-6px 0 10px">Die reine Durchschnittsmoral liegt bei ' +
+        a.schnittMoral + '. Der Unterschied kommt aus der Hierarchie.</p>';
+    }
+
+    html += '<div class="grid grid--2">';
+
+    html += '<div><h4>Hierarchie</h4>' + a.hierarchie.slice(0, 8).map(function (x) {
+      return '<div class="stat-row is-clickable" data-spieler="' + esc(x.p.id) + '">' +
+        '<span>' + esc(x.p.nachname) + ' <span class="klein muted">' + esc(x.stufe.name) + '</span></span>' +
+        '<b class="klein">' + Math.round(x.gewicht * 100) + ' % Gewicht · Moral ' +
+        Math.round(x.p.moral) + '</b></div>';
+    }).join('') + '</div>';
+
+    html += '<div><h4>Gruppen</h4>' +
+      (a.gruppen.length
+        ? a.gruppen.map(function (g) {
+          return '<div class="merkmal' + (g.warnung ? ' merkmal--minus' : '') + '">' +
+            '<b>' + esc(g.name) + ' <span class="klein muted">' + g.spieler.length + ' Spieler</span></b>' +
+            '<span class="klein muted">' + esc(g.text) + '</span></div>';
+        }).join('')
+        : '<div class="leer">Keine erkennbaren Gruppen.</div>') + '</div>';
+
+    html += '</div>';
+
+    if (a.spannungen.length) {
+      html += '<div class="trenner"></div><h4>Spannungen</h4>' +
+        a.spannungen.map(function (sp) {
+          return '<div class="msg is-clickable" data-spieler="' + esc(sp.spielerId) + '">' +
+            '<div class="msg__icon">!</div><div class="msg__body"><b>' + esc(sp.name) + '</b>' +
+            '<p>' + esc(sp.stufe) + ' – stört sich an: ' + esc(sp.grund) + '.</p></div></div>';
+        }).join('');
+    }
+    return html + '</div>';
+  }
+
   UI.views.medien = {
     html: function (world, z) {
       z.filter = z.filter || 'alle';
@@ -447,6 +497,7 @@
           '<div class="msg__datum">' + U.fmtDate(n.tag, 'wt') + '</div></div>';
       });
       html += '</div>';
+      html += kabinenKarte(world);
       return html;
     },
     nachher: function (container, world, z) {

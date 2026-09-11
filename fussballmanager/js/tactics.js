@@ -502,6 +502,15 @@
     var staffB = ctx.staffBonus || 1;
     def *= staffB; mid *= staffB; att *= staffB;
 
+    // ---- Kabinenklima
+    // Eine geschlossene Kabine traegt, eine zerrissene kostet. Gewichtet
+    // wird nach Einfluss: Ein unzufriedener Wortfuehrer wiegt schwerer
+    // als drei zufriedene Ergaenzungsspieler.
+    if (ctx.world && ctx.club && ctx.world.klimaWerte) {
+      var kw = ctx.world.klimaWerte[ctx.club.id];
+      if (kw && kw.faktor) { att *= kw.faktor; def *= kw.faktor; mid *= kw.faktor; twWert *= kw.faktor; }
+    }
+
     // ---- Heimvorteil
     if (ctx.heim) {
       var kulisse = ctx.stimmung !== undefined ? ctx.stimmung : 0.75;

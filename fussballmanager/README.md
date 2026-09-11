@@ -368,6 +368,19 @@ nutzen die zweite Mannschaft genauso.
 
 ### Medien und Kabine
 
+**Die Kabine** ist keine Liste von Zahlen. Ein paar Spieler geben den Ton
+an – wer sie gegen sich hat, hat die Kabine gegen sich. Unter **Medien**
+steht, wer welchen Rang hat (vom Wortführer bis zur Randfigur), welche
+Gruppen sich gebildet haben (nach Herkunft, nach Alter, nach Haltung zum
+Beruf) und wo es hakt.
+
+Das **Klima** ist die nach Einfluss gewichtete Stimmung: Ein
+unzufriedener Wortführer wiegt schwerer als drei zufriedene
+Ergänzungsspieler. Es wirkt auf die Mannschaftsstärke – bei 76 ist es
+neutral, eine zerrissene Kabine kostet bis zu sieben Prozent, eine
+geschlossene trägt bis zu sechs. Gerechnet wird das für alle Vereine, nicht
+nur für den eigenen.
+
 * **Pressekonferenzen** vor und nach dem Spiel mit Antwortoptionen, die
   auf Mannschaftsmoral, Fanstimmung, Vorstandsvertrauen und sogar die
   Moral des Gegners wirken. Wer über Schiedsrichter schimpft, riskiert

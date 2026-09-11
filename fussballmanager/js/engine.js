@@ -202,6 +202,11 @@
     kaderBereinigen(world);
     kaderAuffuellen(world);
 
+    // Kabinenklima aller Vereine fortschreiben. Der Wert wird nicht
+    // gespeichert - er ergibt sich jederzeit wieder aus dem Kader.
+    world.klimaWerte = FM.kabine.alleKlimawerte(world);
+    if (world.nutzerClubId) world.kabinenklima = world.klimaWerte[world.nutzerClubId];
+
     FM.transfers.kiVerlaengerungen(world);
     FM.media.vertrauenWoche(world);
     var trennung = FM.media.entlassungspruefung(world);
