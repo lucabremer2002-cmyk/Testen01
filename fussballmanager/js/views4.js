@@ -391,7 +391,12 @@
     function tauschBlock() {
       var eigene = U.sortBy(world.kaderVon(club.id), function (x) { return -P.gesamt(x); });
       var paket = FM.transfers.tauschPaket(world, p.clubId, tauschIds);
-      return '<div class="card card--flat mb"><h4>Spieler im Tausch anbieten</h4>' +
+      return '<details class="card card--flat mt"' + (tauschIds.length ? ' open' : '') + '>' +
+        '<summary><b>Spieler im Tausch anbieten</b>' +
+        (tauschIds.length
+          ? ' <span class="chip chip--gruen">' + tauschIds.length + ' gewählt · ' +
+            U.money(paket.wert) + '</span>'
+          : ' <span class="klein muted">optional</span>') + '</summary>' +
         '<p class="klein muted">' + esc(abgeber.name) + ' bewertet angebotene Spieler nach ' +
         'eigenem Bedarf, nicht nach Marktwert – und nimmt lieber Geld.</p>' +
         '<div class="tausch-liste">' + eigene.map(function (x) {
@@ -406,7 +411,7 @@
           ? '<div class="stat-row"><span>Gegenwert für ' + esc(abgeber.kurz) + '</span><b class="w-gut">' +
             U.money(paket.wert) + '</b></div>'
           : '') +
-        '</div>';
+        '</details>';
     }
 
     function formular(gebot, sofortAnteil, raten, boni, weiterverkauf, meldung) {
@@ -420,7 +425,6 @@
           ? '<div class="tile"><span>Ausstiegsklausel</span><b style="font-size:15px">' + U.money(p.vertrag.ausstiegsklausel) + '</b></div>' : '') +
         '</div>' +
         (meldung ? '<div class="card card--flat mb">' + meldung + '</div>' : '') +
-        tauschBlock() +
         '<div class="grid grid--3">' +
         '<div><label>Ablöse gesamt</label><input type="number" data-v="gebot" value="' + gebot + '" step="100000" min="0"></div>' +
         '<div><label>Sofort zahlbar (%)</label><input type="number" data-v="sofort" value="' + sofortAnteil + '" min="20" max="100" step="10"></div>' +
@@ -428,6 +432,7 @@
         '<div><label>Erfolgsboni</label><input type="number" data-v="boni" value="' + boni + '" step="100000" min="0"></div>' +
         '<div><label>Weiterverkaufsbeteiligung (%)</label><input type="number" data-v="wv" value="' + weiterverkauf + '" min="0" max="40"></div>' +
         '</div>' +
+        tauschBlock() +
         '<div class="flex mt"><button class="btn btn--primary" data-a="bieten">Angebot abgeben</button>' +
         '<button class="btn" data-a="leihe">Stattdessen ausleihen</button>' +
         '<button class="btn" data-a="abbruch">Abbrechen</button></div>';

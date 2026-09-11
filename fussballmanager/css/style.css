@@ -1218,7 +1218,15 @@ td.name { font-weight: 700; }
 
   /* ---- Spieltag */
   .mv { padding: 12px 12px calc(20px + env(safe-area-inset-bottom)); }
-  .mv__kopf { padding: 14px; gap: 8px; }
+  /* Der Spielstand bleibt stehen, waehrend man den Ticker liest. */
+  .mv__kopf {
+    padding: 10px 12px; gap: 8px;
+    position: sticky; top: 0; z-index: 6;
+    margin: -4px -2px 12px; border-radius: var(--r);
+    box-shadow: 0 8px 16px -10px rgba(0,0,0,.9);
+  }
+  .mv__kopf .mv__team b { font-size: 13px; line-height: 1.2; }
+  .mv__kopf .mv__stand b { font-size: 30px; }
   .mv__team b { font-size: 13px; }
   .mv__team .crest { width: 26px; height: 26px; }
   .mv__stand b { font-size: 32px; }
@@ -1355,3 +1363,13 @@ td.name { font-weight: 700; }
   .spieltagsband .flex { width: 100%; }
   .spieltagsband .btn { flex: 1; }
 }
+
+details.card summary {
+  cursor: pointer; list-style: none; padding: 2px 0;
+  display: flex; align-items: center; gap: 8px;
+}
+details.card summary::-webkit-details-marker { display: none; }
+details.card summary::before {
+  content: '▸'; color: var(--muted); font-size: 12px; transition: transform .15s;
+}
+details.card[open] summary::before { transform: rotate(90deg); }

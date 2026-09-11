@@ -91,12 +91,16 @@
 
   function kopf() {
     var h = state.heim.club, g = state.gast.club;
+    // Am Telefon ist der lange Vereinsname drei Zeilen hoch - dort
+    // genuegt die Kurzform.
+    var hn = UI.schmal() ? h.kurz : h.name;
+    var gn = UI.schmal() ? g.kurz : g.name;
     return '<div class="mv__kopf">' +
-      '<div class="mv__team">' + UI.wappen(h) + '<b>' + esc(h.name) + '</b></div>' +
+      '<div class="mv__team">' + UI.wappen(h) + '<b>' + esc(hn) + '</b></div>' +
       '<div class="mv__stand"><b id="mv-stand">' + state.tore.heim + ' : ' + state.tore.gast + '</b>' +
       '<small id="mv-uhr" class="mv__uhr">' + minuteText() + '</small>' +
       '<small>' + U.num(state.zuschauer) + ' Zuschauer · ' + esc(state.wetter.name) + '</small></div>' +
-      '<div class="mv__team mv__team--gast"><b>' + esc(g.name) + '</b>' + UI.wappen(g) + '</div>' +
+      '<div class="mv__team mv__team--gast"><b>' + esc(gn) + '</b>' + UI.wappen(g) + '</div>' +
       '</div>';
   }
 
