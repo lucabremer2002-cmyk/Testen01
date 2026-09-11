@@ -202,7 +202,7 @@
       if (torjaeger && torjaeger.p.stats.tore > 0) raus.push(ehre(world, torjaeger.p, {
         typ: 'torjaeger', ligaId: l.id, ligaName: l.name,
         titel: 'Torjägerkanone (' + l.name + ')',
-        zusatz: torjaeger.p.stats.tore + ' Tore'
+        zusatz: U.pl(torjaeger.p.stats.tore, 'Tor', 'Tore')
       }));
 
       var elf = elfDerSaison(world, l.id);

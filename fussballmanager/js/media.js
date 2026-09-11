@@ -21,6 +21,8 @@
    */
   function pkVorSpiel(world, spiel) {
     var eigen = world.nutzerVerein();
+    // Vor Testspielen sitzt niemand im Presseraum.
+    if (spiel.wettbewerb === 'test') return { typ: 'vor', spielId: spiel.id, fragen: [], beantwortet: true };
     var gegnerId = spiel.heimId === eigen.id ? spiel.gastId : spiel.heimId;
     var gegner = world.vereine[gegnerId];
     var heim = spiel.heimId === eigen.id;

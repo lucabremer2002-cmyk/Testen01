@@ -115,6 +115,7 @@
       '<button class="btn" id="mv-wechsel">Wechseln</button>' +
       '<button class="btn" id="mv-taktik">Taktik anpassen</button>' +
       '<button class="btn" id="mv-durch">Bis zum Ende simulieren</button>' +
+      '<button class="btn btn--primary" id="mv-zurueck" hidden>Zurück zum Verein</button>' +
       '<span class="klein muted" id="mv-info"></span>' +
       '</div>';
   }
@@ -270,6 +271,7 @@
     };
     doc.getElementById('mv-wechsel').onclick = function () { stoppeUhr(); aktualisiereSteuerung(); wechselDialog(); };
     doc.getElementById('mv-taktik').onclick = function () { stoppeUhr(); aktualisiereSteuerung(); taktikDialog(); };
+    doc.getElementById('mv-zurueck').onclick = function () { schliesse(); };
     doc.getElementById('mv-durch').onclick = function () {
       stoppeUhr();
       FM.match.bisEnde(state);
@@ -282,6 +284,15 @@
   function aktualisiereSteuerung() {
     var b = doc.getElementById('mv-play');
     if (b) b.textContent = laeuft ? 'Pause' : 'Weiter';
+    // Nach dem Abpfiff bleibt nur noch der Weg zurueck - sonst sitzt man fest,
+    // wenn das Ergebnisfenster weggeklickt wurde.
+    var beendet = !!(state && state.beendet);
+    ['mv-play', 'mv-tempo', 'mv-wechsel', 'mv-taktik', 'mv-durch'].forEach(function (id) {
+      var e = doc.getElementById(id);
+      if (e) e.hidden = beendet;
+    });
+    var z = doc.getElementById('mv-zurueck');
+    if (z) z.hidden = !beendet;
   }
 
   function wechselDialog() {
@@ -301,7 +312,7 @@
         if (!p) return '';
         return '<button class="option" data-raus="' + esc(e.id) + '">' + UI.posTag(e.pos) + ' <b>' + esc(p.nachname) + '</b>' +
           ' <span class="klein muted">Frische ' + Math.round(p.fitness) + ' %' +
-          (d.gelb ? ' · verwarnt' : '') + (d.tore ? ' · ' + d.tore + ' Tore' : '') + '</span></button>';
+          (d.gelb ? ' · verwarnt' : '') + (d.tore ? ' · ' + U.pl(d.tore, 'Tor', 'Tore') : '') + '</span></button>';
       }).join('') + '</div></div>' +
       '<div><h4>Bank</h4><div id="mv-rein">' + eigeneSeite.bank.map(function (id) {
         var p = world.spieler[id];
@@ -404,10 +415,16 @@
         return '<button class="option" data-h="' + a.id + '">' + esc(a.name) + '</button>';
       }).join('') + '</div>';
 
+    var ansprachegewaehlt = false;
     UI.modal(html, {
+      beimSchliessen: function () {
+        // Weggeklickt ohne Ansprache: das Spiel darf nicht stehenbleiben.
+        if (!ansprachegewaehlt && state && !state.beendet) starteUhr();
+      },
       nachher: function (body) {
         Array.prototype.forEach.call(body.querySelectorAll('[data-h]'), function (b) {
           b.onclick = function () {
+            ansprachegewaehlt = true;
             var a = ANSPRACHEN.filter(function (x) { return x.id === b.dataset.h; })[0];
             var w = a.wirkung(fuehrung);
             eigeneSeite.elf.forEach(function (e) {
@@ -438,6 +455,7 @@
       FM.engine.verarbeiteSpiel(world, spiel, state);
     }
     UI.stilleSicherung(true);
+    aktualisiereSteuerung();
     var eigeneTore = eigeneSeite === state.heim ? state.tore.heim : state.tore.gast;
     var gegnerTore = eigeneSeite === state.heim ? state.tore.gast : state.tore.heim;
     var ausgang = eigeneTore > gegnerTore ? 'Sieg' : eigeneTore === gegnerTore ? 'Unentschieden' : 'Niederlage';

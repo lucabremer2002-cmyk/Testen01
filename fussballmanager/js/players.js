@@ -230,6 +230,7 @@
       gelbeSaison: 0,
       stats: leereStats(),
       karriere: leereStats(),
+      saisonhistorie: [],        // je Saison ein Eintrag, aelteste zuerst
       historie: [],
       scoutwissen: opts.clubId ? 1 : U.clamp(rng.range(0.12, 0.45), 0, 1),
       letzteNoten: []
@@ -251,6 +252,40 @@
 
   function schnitt(stats) {
     return stats.notenAnzahl ? stats.notenSumme / stats.notenAnzahl : 0;
+  }
+
+  /**
+   * Schreibt die abgelaufene Saison in die Laufbahn des Spielers fort.
+   * Kurze Schluessel, weil das in jedem Spielstand mitgespeichert wird.
+   */
+  function saisonAbschliessen(p, world) {
+    if (!p.stats || !p.stats.spiele) return null;
+    var club = p.clubId ? world.vereine[p.clubId] : null;
+    var eintrag = {
+      s: world.saison,
+      c: p.clubId || null,
+      l: club ? club.liga : 0,
+      sp: p.stats.spiele,
+      st: p.stats.startelf,
+      t: p.stats.tore,
+      v: p.stats.vorlagen,
+      n: Math.round(schnitt(p.stats) * 100) / 100,
+      zn: p.pos === 'TW' ? p.stats.zuNull : 0
+    };
+    p.saisonhistorie = p.saisonhistorie || [];
+    p.saisonhistorie.push(eintrag);
+    if (p.saisonhistorie.length > 24) p.saisonhistorie.shift();
+    return eintrag;
+  }
+
+  /** Beste Saison nach Toren - fuer Kurzportraets und Scoutberichte. */
+  function besteSaison(p) {
+    var h = p.saisonhistorie || [];
+    var best = null;
+    h.forEach(function (e) {
+      if (!best || e.t > best.t || (e.t === best.t && e.sp > best.sp)) best = e;
+    });
+    return best;
   }
 
   // ------------------------------------------------------------ Marktwert
@@ -873,6 +908,8 @@
     sichtbaresAttribut: sichtbaresAttribut,
     leereStats: leereStats,
     schnitt: schnitt,
+    saisonAbschliessen: saisonAbschliessen,
+    besteSaison: besteSaison,
     alterFaktor: alterFaktor,
     KADER_SCHEMA: KADER_SCHEMA,
     merkmaleWaehlen: merkmaleWaehlen,

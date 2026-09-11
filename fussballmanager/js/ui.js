@@ -354,7 +354,7 @@
     if (!info || !info.gespeichert) return 'Noch nicht gespeichert.';
     var minuten = Math.round((Date.now() - info.gespeichert) / 60000);
     return 'Zuletzt gespeichert: ' + (minuten < 1 ? 'gerade eben'
-      : minuten < 60 ? 'vor ' + minuten + ' Minuten'
+      : minuten < 60 ? 'vor ' + minuten + (minuten === 1 ? ' Minute' : ' Minuten')
         : 'am ' + new Date(info.gespeichert).toLocaleString('de-DE'));
   }
 
@@ -724,9 +724,32 @@
         '<div class="optionen mt">' +
         frage.optionen.map(function (o, i) {
           return '<button class="option" data-i="' + i + '">' + esc(o.text) + '</button>';
-        }).join('') + '</div>';
+        }).join('') + '</div>' +
+        '<div class="flex mt"><button class="btn btn--ghost btn--sm" data-co="1" ' +
+        'title="Der Co-Trainer antwortet neutral - ohne Ausschlag nach oben oder unten">' +
+        'Co-Trainer übernehmen lassen</button></div>';
       modal(html, {
         nachher: function (body) {
+          var co = body.querySelector('[data-co]');
+          if (co) co.onclick = function () {
+            // Der Co-Trainer sagt nichts Falsches, aber auch nichts Mitreissendes.
+            while (index < pk.fragen.length) {
+              var f = pk.fragen[index];
+              var neutral = 0;
+              f.optionen.forEach(function (o, i) {
+                var wucht = Math.abs(o.moral || 0) + Math.abs(o.fans || 0) + Math.abs(o.vorstand || 0);
+                var besteWucht = Math.abs(f.optionen[neutral].moral || 0) +
+                  Math.abs(f.optionen[neutral].fans || 0) + Math.abs(f.optionen[neutral].vorstand || 0);
+                if (wucht < besteWucht) neutral = i;
+              });
+              FM.media.antworten(world, pk, index, neutral);
+              index++;
+            }
+            pk.beantwortet = true;
+            modalZu();
+            toast('Der Co-Trainer hat die Pressekonferenz übernommen.');
+            if (fertig) fertig();
+          };
           Array.prototype.forEach.call(body.querySelectorAll('.option'), function (b) {
             b.onclick = function () {
               var opt = FM.media.antworten(world, pk, index, parseInt(b.dataset.i, 10));

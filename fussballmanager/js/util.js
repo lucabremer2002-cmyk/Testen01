@@ -183,6 +183,11 @@
   }
 
   /** Zahl mit deutschem Tausendertrennzeichen und Komma. */
+  /** Zahl mit passender Einzahl-/Mehrzahlform: pl(1, 'Tor', 'Tore') -> "1 Tor". */
+  function pl(n, einzahl, mehrzahl) {
+    return n + ' ' + (Math.abs(n) === 1 ? einzahl : mehrzahl);
+  }
+
   function num(v, digits) {
     digits = digits || 0;
     var s = Math.abs(v).toFixed(digits);
@@ -248,7 +253,7 @@
     nextWeekday: nextWeekday, pad2: pad2,
     MONATE: MONATE, MONATE_KURZ: MONATE_KURZ,
     WOCHENTAGE: WOCHENTAGE, WOCHENTAGE_KURZ: WOCHENTAGE_KURZ,
-    money: money, num: num, note: note, pct: pct, kurzName: kurzName,
+    money: money, num: num, note: note, pct: pct, kurzName: kurzName, pl: pl,
     sortBy: sortBy, groupBy: groupBy, byId: byId, clone: clone,
     nextId: nextId, resetIds: resetIds, currentId: currentId
   };

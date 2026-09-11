@@ -998,6 +998,7 @@
     // --- Spieler altern lassen, Statistiken zuruecksetzen
     world.alleSpieler().forEach(function (p) {
       p.alter += 1;
+      P.saisonAbschliessen(p, world);
       p.stats = P.leereStats();
       p.gelbeSaison = 0;
       p.sperre = 0;

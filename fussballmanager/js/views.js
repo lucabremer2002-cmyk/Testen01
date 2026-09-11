@@ -123,7 +123,11 @@
       }
 
       // Tabellenausschnitt
-      if (eigen) {
+      if (eigen && !eigen.spiele) {
+        html += '<div class="card"><div class="card__head"><h3>' + esc(liga.name) + '</h3>' +
+          '<button class="btn btn--sm" data-a="tabelle">Ganze Tabelle</button></div>' +
+          '<div class="leer">Die Tabelle füllt sich ab dem 1. Spieltag.</div></div>';
+      } else if (eigen) {
         var von = Math.max(0, eigen.platz - 3);
         var bis = Math.min(tab.length, von + 6);
         html += '<div class="card"><div class="card__head"><h3>' + esc(liga.name) + '</h3>' +
@@ -233,6 +237,14 @@
     var ziel = world.manager.saisonziel;
     if (!ziel || !eintrag) {
       return '<div class="stat-row"><span>Saisonziel</span><b>' + esc(ziel ? ziel.text : '–') + '</b></div>';
+    }
+    // Vor dem 1. Spieltag sagt der Tabellenplatz nichts aus - dann nur die Vorgabe.
+    if (!eintrag.spiele) {
+      return '<div style="padding:7px 0">' +
+        '<div class="flex flex--zwischen klein" style="margin-bottom:6px">' +
+        '<span class="muted">Saisonziel</span>' +
+        '<b class="w-mittel">' + esc(ziel.text) + '</b></div>' +
+        '<div class="klein muted">Vorgabe: Platz ' + ziel.platz + ' - die Bilanz beginnt mit dem 1. Spieltag.</div></div>';
     }
     var teams = liga.teams.length;
     var anteil = U.clamp((teams - eintrag.platz) / Math.max(1, teams - ziel.platz), 0, 1);
@@ -579,6 +591,45 @@
     return esc(name.slice(0, 7) + '.');
   }
 
+  /**
+   * Saison fuer Saison: wo hat er gespielt, was kam dabei heraus.
+   * Die laufende Saison steht oben, damit man sie sofort einordnen kann.
+   */
+  function laufbahnKarte(world, p) {
+    var alt = (p.saisonhistorie || []).slice();
+    var zeilen = alt.slice().reverse();
+    if (p.stats && p.stats.spiele) {
+      var club = p.clubId ? world.vereine[p.clubId] : null;
+      zeilen.unshift({
+        s: world.saison, c: p.clubId, l: club ? club.liga : 0,
+        sp: p.stats.spiele, st: p.stats.startelf, t: p.stats.tore, v: p.stats.vorlagen,
+        n: P.schnitt(p.stats), zn: p.pos === 'TW' ? p.stats.zuNull : 0, laufend: true
+      });
+    }
+    if (!zeilen.length) {
+      return '<div class="card card--flat"><h4>Laufbahn</h4>' +
+        '<div class="leer">Noch kein Pflichtspiel bestritten.</div></div>';
+    }
+    var tw = p.pos === 'TW';
+    return '<div class="card card--flat"><h4>Laufbahn</h4>' +
+      UI.tabelle([
+        { key: 's', label: 'Saison', klasse: 'mono', html: function (e) {
+          return e.s + '/' + String(e.s + 1).slice(2); } },
+        { key: 'c', label: 'Verein', html: function (e) {
+          var v = e.c ? world.vereine[e.c] : null;
+          return (v ? esc(v.kurz) : '<span class="muted">–</span>') +
+            (e.l ? ' <span class="muted klein">L' + e.l + '</span>' : ''); } },
+        { key: 'sp', label: 'Sp', klasse: 'num', html: function (e) { return e.sp; } },
+        { key: 'st', label: 'Elf', klasse: 'num', html: function (e) { return e.st; } },
+        { key: 't', label: tw ? 'Zu Null' : 'Tore', klasse: 'num', html: function (e) {
+          return '<b>' + (tw ? (e.zn || 0) : e.t) + '</b>'; } },
+        { key: 'v', label: 'Vor', klasse: 'num', html: function (e) { return e.v; } },
+        { key: 'n', label: 'Ø', klasse: 'num', html: function (e) { return e.n ? U.note(e.n) : '–'; } }
+      ], zeilen, {
+        zeilenKlasse: function (e) { return e.laufend ? 'tr-eigen' : ''; }
+      }) + '</div>';
+  }
+
   // ============================================================ Spielerprofil
 
   V.spielerProfil = function (spielerId, tab) {
@@ -634,8 +685,9 @@
       '<div class="stat-row"><span>Verletzungsanfälligkeit</span><b>' +
       (p.verletzungsneigung > 66 ? '<span class="w-schlecht">hoch</span>' : p.verletzungsneigung > 40 ? '<span class="w-mittel">mittel</span>' : '<span class="w-gut">gering</span>') + '</b></div>' +
       (p.laenderspiele
-        ? '<div class="stat-row"><span>Nationalmannschaft</span><b>' + p.laenderspiele +
-          ' Einsätze' + (p.laendertore ? ', ' + p.laendertore + ' Tore' : '') + '</b></div>'
+        ? '<div class="stat-row"><span>Nationalmannschaft</span><b>' +
+          U.pl(p.laenderspiele, 'Einsatz', 'Einsätze') +
+          (p.laendertore ? ', ' + U.pl(p.laendertore, 'Tor', 'Tore') : '') + '</b></div>'
         : '') +
       (p.nationalelf
         ? '<div class="stat-row"><span>Aktuell</span><b class="w-mittel">bei der Nationalmannschaft</b></div>'
@@ -647,8 +699,8 @@
         : '') +
       (p.zweitteam
         ? '<div class="stat-row"><span>Zweite Mannschaft</span><b>' +
-          ((p.u23 && p.u23.spiele) || 0) + ' Spiele' +
-          (p.u23 && p.u23.tore ? ', ' + p.u23.tore + ' Tore' : '') + '</b></div>'
+          U.pl((p.u23 && p.u23.spiele) || 0, 'Spiel', 'Spiele') +
+          (p.u23 && p.u23.tore ? ', ' + U.pl(p.u23.tore, 'Tor', 'Tore') : '') + '</b></div>'
         : '') +
       (p.umschulung
         ? '<div class="stat-row"><span>Umschulung</span><b>' +
@@ -703,6 +755,9 @@
       (p.pos === 'TW' ? statZeile('Zu-Null-Spiele', p.stats.zuNull, p.karriere.zuNull) : '') +
       '</div>';
     html += '</div>';
+
+    // Laufbahn: Saison fuer Saison
+    html += laufbahnKarte(world, p);
 
     // Aktionen
     if (eigener) {
