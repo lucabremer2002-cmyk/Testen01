@@ -403,6 +403,145 @@
     { id: 'skrupellos', name: 'Skrupellos', trainingBonus: 1.05, moralStabil: 0.9, gehaltsgier: 1.25, loyalitaet: 0.5 }
   ];
 
+
+  // ------------------------------------------------------------ Kaderstatus
+
+  /**
+   * Welchen Platz ein Spieler im Kader einnehmen soll. Der Status ist ein
+   * Versprechen: Er bestimmt, wie viel Spielzeit der Spieler erwartet, was
+   * er an Gehalt verlangt und wie schnell er unzufrieden wird, wenn die
+   * Einsatzzeit ausbleibt.
+   */
+  var KADERROLLEN = [
+    { id: 'star', name: 'Unverzichtbarer Star', kurz: 'Star',
+      gehaltFaktor: 1.35, erwartung: 0.85, stolz: 10,
+      text: 'Spielt immer, wenn er fit ist.' },
+    { id: 'stamm', name: 'Stammspieler', kurz: 'Stamm',
+      gehaltFaktor: 1.12, erwartung: 0.65, stolz: 5,
+      text: 'Gesetzt, wird aber auch mal geschont.' },
+    { id: 'rotation', name: 'Rotationsspieler', kurz: 'Rotation',
+      gehaltFaktor: 1.00, erwartung: 0.40, stolz: 0,
+      text: 'Regelmäßige Einsätze, kein Stammplatz.' },
+    { id: 'ergaenzung', name: 'Ergänzungsspieler', kurz: 'Ergänzung',
+      gehaltFaktor: 0.90, erwartung: 0.18, stolz: -4,
+      text: 'Kommt, wenn Not am Mann ist.' },
+    { id: 'perspektive', name: 'Perspektivspieler', kurz: 'Perspektive',
+      gehaltFaktor: 0.80, erwartung: 0.08, stolz: -2,
+      text: 'Lernt mit, soll sich entwickeln.' },
+    { id: 'abgang', name: 'Nicht im Kaderplan', kurz: 'Abgang',
+      gehaltFaktor: 0.75, erwartung: 0.00, stolz: -14,
+      text: 'Soll den Verein verlassen.' }
+  ];
+
+  var KADERROLLE = {};
+  KADERROLLEN.forEach(function (r) { KADERROLLE[r.id] = r; });
+
+  // ------------------------------------------------------------ Merkmale
+
+  /**
+   * Besondere Eigenschaften eines Spielers. Sie wirken unmittelbar im
+   * Spiel - bei der Schuetzenwahl, der Chancenqualitaet, der Kondition,
+   * dem Kartenrisiko - und sind im Profil sichtbar. `passt` entscheidet,
+   * ob ein Spieler das Merkmal ueberhaupt bekommen kann, `gewicht` wie
+   * haeufig es dann vergeben wird.
+   */
+  function attr(p, k) { return (p.attr && p.attr[k]) || 0; }
+  function istStuermer(p) { return p.pos === 'ST' || p.pos === 'LF' || p.pos === 'RF'; }
+
+  /**
+   * Grobes Eigenniveau eines Spielers. Schwaechen werden daran gemessen
+   * und nicht an einem festen Wert - sonst waere in der dritten Liga jeder
+   * Zweite eine Mimose.
+   */
+  function niveau(p) {
+    var keys = ATTRIBUTE.mental.keys.concat(ATTRIBUTE.physisch.keys);
+    var summe = 0;
+    for (var i = 0; i < keys.length; i++) summe += attr(p, keys[i]);
+    return summe / keys.length;
+  }
+  function schwaeche(p, k, abstand) { return attr(p, k) <= niveau(p) - abstand; }
+
+  /** Vergleichswert fuer Torhueter: der Schnitt ihrer eigenen Attribute. */
+  function twNiveau(p) {
+    var keys = ATTRIBUTE.torwart.keys;
+    var summe = 0;
+    for (var i = 0; i < keys.length; i++) summe += attr(p, keys[i]);
+    return summe / keys.length;
+  }
+
+  /**
+   * Eine Staerke ist kein fester Wert, sondern ein Abstand: ein Spieler
+   * faellt auf, wenn er in einer Sache deutlich besser ist als in allem
+   * anderen. Die Untergrenze verhindert, dass jemand auf Kreisliganiveau
+   * zum Freistossspezialisten wird.
+   */
+  function staerke(p, k, abstand, minimum) {
+    return attr(p, k) >= niveau(p) + abstand && attr(p, k) >= (minimum || 0);
+  }
+
+  var MERKMALE = [
+    { id: 'freistossgott', name: 'Freistoßspezialist', gruppe: 'technisch', gewicht: 3,
+      text: 'Zirkelt ruhende Bälle gefährlich aufs Tor.',
+      passt: function (p) { return p.pos !== 'TW' && staerke(p, 'standards', 10, 52); } },
+    { id: 'elfmetersicher', name: 'Eiskalt vom Punkt', gruppe: 'technisch', gewicht: 3,
+      text: 'Verwandelt Elfmeter mit bemerkenswerter Ruhe.',
+      passt: function (p) { return p.pos !== 'TW' && staerke(p, 'elfmeter', 9, 54) && attr(p, 'nervenstaerke') >= niveau(p) - 4; } },
+    { id: 'distanzschuetze', name: 'Distanzschütze', gruppe: 'technisch', gewicht: 3,
+      text: 'Sucht den Abschluss auch aus zwanzig Metern.',
+      passt: function (p) { return p.pos !== 'TW' && staerke(p, 'weitschuss', 10, 52); } },
+    { id: 'kopfballungeheuer', name: 'Kopfballungeheuer', gruppe: 'technisch', gewicht: 3,
+      text: 'In der Luft kaum zu verteidigen.',
+      passt: function (p) { return p.pos !== 'TW' && staerke(p, 'kopfball', 10, 54) && attr(p, 'sprungkraft') >= niveau(p); } },
+    { id: 'vollstrecker', name: 'Vollstrecker', gruppe: 'technisch', gewicht: 3,
+      text: 'Braucht im Strafraum nur eine Gelegenheit.',
+      passt: function (p) { return istStuermer(p) && staerke(p, 'abschluss', 8, 56); } },
+    { id: 'flankengeber', name: 'Flankengeber', gruppe: 'technisch', gewicht: 3,
+      text: 'Bringt den Ball von außen punktgenau in den Strafraum.',
+      passt: function (p) { return p.pos !== 'TW' && staerke(p, 'flanken', 10, 52); } },
+    { id: 'tempodribbler', name: 'Tempodribbler', gruppe: 'technisch', gewicht: 3,
+      text: 'Geht im Eins-gegen-eins immer den direkten Weg.',
+      passt: function (p) { return staerke(p, 'dribbling', 8, 52) && staerke(p, 'tempo', 6, 54); } },
+    { id: 'spielgestalter', name: 'Spielgestalter', gruppe: 'mental', gewicht: 3,
+      text: 'Sieht den Pass, den sonst niemand sieht.',
+      passt: function (p) { return staerke(p, 'uebersicht', 9, 52) && attr(p, 'passen') >= niveau(p) + 6; } },
+    { id: 'nervenstark', name: 'Nervenstark', gruppe: 'mental', gewicht: 3,
+      text: 'Wird in engen Spielen eher besser als schlechter.',
+      passt: function (p) { return staerke(p, 'nervenstaerke', 11, 52); } },
+    { id: 'antreiber', name: 'Antreiber', gruppe: 'mental', gewicht: 3,
+      text: 'Reißt die Mannschaft mit, wenn es zäh wird.',
+      passt: function (p) { return staerke(p, 'fuehrung', 10, 52) && attr(p, 'teamwork') >= niveau(p) - 6; } },
+    { id: 'mimose', name: 'Kopf hängt schnell', gruppe: 'mental', gewicht: 1, negativ: true,
+      text: 'Nach einem Rückstand fällt er spürbar ab.',
+      passt: function (p) { return schwaeche(p, 'nervenstaerke', 13); } },
+    { id: 'hitzkopf', name: 'Hitzkopf', gruppe: 'mental', gewicht: 2, negativ: true,
+      text: 'Geht zu oft einen Schritt zu weit.',
+      passt: function (p) { return attr(p, 'aggressivitaet') >= niveau(p) + 8 && schwaeche(p, 'disziplin', 11); } },
+    { id: 'dauerlaeufer', name: 'Dauerläufer', gruppe: 'physisch', gewicht: 3,
+      text: 'Hat nach neunzig Minuten noch Körner.',
+      passt: function (p) { return staerke(p, 'ausdauer', 10, 54); } },
+    { id: 'zweikampfmonster', name: 'Zweikampfmonster', gruppe: 'physisch', gewicht: 3,
+      text: 'Holt sich den Ball auch gegen zwei Gegenspieler.',
+      passt: function (p) { return staerke(p, 'zweikampf', 9, 54) && attr(p, 'kraft') >= niveau(p); } },
+    { id: 'pressingmaschine', name: 'Pressingmaschine', gruppe: 'physisch', gewicht: 3,
+      text: 'Läuft jeden Rückpass an.',
+      passt: function (p) { return staerke(p, 'arbeitsrate', 10, 54); } },
+    { id: 'glasknochen', name: 'Verletzungsanfällig', gruppe: 'physisch', gewicht: 2, negativ: true,
+      text: 'Fällt häufiger aus, als einem Verein lieb sein kann.',
+      passt: function (p) { return p.verletzungsneigung >= 80; } },
+    { id: 'elfmetertoeter', name: 'Elfmetertöter', gruppe: 'torwart', gewicht: 4,
+      text: 'Hält Strafstöße deutlich häufiger als andere.',
+      passt: function (p) { return p.pos === 'TW' && attr(p, 'reflexe') >= twNiveau(p) + 7 && attr(p, 'nervenstaerke') >= niveau(p); } },
+    { id: 'strafraumbeherrscher', name: 'Strafraumbeherrscher', gruppe: 'torwart', gewicht: 4,
+      text: 'Pflückt Flanken ab, bevor sie gefährlich werden.',
+      passt: function (p) { return p.pos === 'TW' && attr(p, 'strafraum') >= twNiveau(p) + 8; } },
+    { id: 'mitspielender_torwart', name: 'Mitspielender Torwart', gruppe: 'torwart', gewicht: 4,
+      text: 'Eröffnet das Spiel wie ein Feldspieler.',
+      passt: function (p) { return p.pos === 'TW' && attr(p, 'passen') >= niveau(p) + 6 && attr(p, 'abschlag') >= twNiveau(p) + 6; } }
+  ];
+
+  var MERKMAL = {};
+  MERKMALE.forEach(function (m) { MERKMAL[m.id] = m; });
+
   // ------------------------------------------------------------ Formationen
 
   // x: 0 (links) .. 100 (rechts), y: 0 (eigenes Tor) .. 100 (gegnerisches Tor)
@@ -763,6 +902,8 @@
     ATTRIBUTE: ATTRIBUTE, ATTR_NAME: ATTR_NAME, ALLE_ATTRIBUTE: ALLE_ATTRIBUTE,
     VEREINE: VEREINE, DRITTE_LIGA: DRITTE_LIGA, AMATEURE: AMATEURE, EUROPA: EUROPA,
     NAMEN: NAMEN, PERSOENLICHKEITEN: PERSOENLICHKEITEN,
+    KADERROLLEN: KADERROLLEN, KADERROLLE: KADERROLLE,
+    MERKMALE: MERKMALE, MERKMAL: MERKMAL,
     FORMATIONEN: FORMATIONEN, ROLLEN: ROLLEN, ANWEISUNGEN: ANWEISUNGEN,
     TRAININGSEINHEITEN: TRAININGSEINHEITEN, INDIVIDUALTRAINING: INDIVIDUALTRAINING,
     STAFF_ROLLEN: STAFF_ROLLEN, STAFF_ATTR_NAME: STAFF_ATTR_NAME,

@@ -28,13 +28,8 @@
     };
   }
 
-  var ROLLENVERSPRECHEN = {
-    star: { id: 'star', name: 'Unverzichtbarer Star', gehaltFaktor: 1.35, erwartung: 0.85 },
-    stamm: { id: 'stamm', name: 'Stammspieler', gehaltFaktor: 1.12, erwartung: 0.65 },
-    rotation: { id: 'rotation', name: 'Rotationsspieler', gehaltFaktor: 1.0, erwartung: 0.40 },
-    ergaenzung: { id: 'ergaenzung', name: 'Ergänzungsspieler', gehaltFaktor: 0.90, erwartung: 0.18 },
-    perspektive: { id: 'perspektive', name: 'Perspektivspieler', gehaltFaktor: 0.80, erwartung: 0.10 }
-  };
+  // Der Kaderstatus ist an einer Stelle beschrieben - hier nur der Zugriff.
+  var ROLLENVERSPRECHEN = D.KADERROLLE;
 
   // ------------------------------------------------------------ Bewertung
 
@@ -262,6 +257,14 @@
     p.scoutwissen = 1;
     p.nummer = freieNummer(world, kaeuferId, p.nummer);
     p.vertrag = konditionen.vertrag || p.vertrag;
+    // Die zugesagte Rolle ist ab jetzt sein Kaderstatus - daran wird der
+    // Verein gemessen.
+    if (konditionen.rolle && D.KADERROLLE[konditionen.rolle]) {
+      p.kaderrolle = konditionen.rolle;
+    } else {
+      p.kaderrolle = P.vorgeschlageneRolle(p, world.kaderVon(kaeuferId));
+    }
+    p.rollenSeit = world.tag;
     if (konditionen.weiterverkauf) p.vertrag.weiterverkauf = konditionen.weiterverkauf;
     p.marktwert = P.marktwert(p, world);
     p.historie.push({

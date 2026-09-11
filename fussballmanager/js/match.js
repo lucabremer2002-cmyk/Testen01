@@ -33,6 +33,9 @@
 
   // ------------------------------------------------------------ Aufbau
 
+  /** Kurz fuer: hat dieser Spieler das Merkmal? */
+  function mm(p, id) { return !!(p && p.merkmale && p.merkmale.indexOf(id) >= 0); }
+
   function leereStatistik() {
     return {
       tore: 0, schuesse: 0, aufsTor: 0, danebenn: 0, geblockt: 0, pfosten: 0,
@@ -426,6 +429,8 @@
       var basis = 0.355 * (1.32 - p.attr.ausdauer / 150);
       basis *= bedarf;
       basis *= 0.85 + (p.attr.arbeitsrate / 100) * 0.35;
+      if (mm(p, 'dauerlaeufer')) basis *= 0.80;
+      if (mm(p, 'pressingmaschine')) basis *= 1.08;
       if (m > 75) basis *= 1.12;
       p.fitness = U.clamp(p.fitness - basis, 0, 100);
       d.km += 0.115 * (0.8 + p.attr.arbeitsrate / 250);
@@ -472,6 +477,31 @@
     return rng.weighted(typen, function (t) { return Math.max(0.5, g[t]); });
   }
 
+  /**
+   * Wie die besonderen Eigenschaften auf die Qualitaet einer Chance
+   * wirken - beim Schuetzen wie beim Vorbereiter.
+   */
+  function merkmalXg(schuetze, vorbereiter, typ, state, an) {
+    var f = 1;
+    if (typ === 'standard' && mm(schuetze, 'freistossgott')) f *= 1.45;
+    if ((typ === 'flanke' || typ === 'ecke' || typ === 'standard') &&
+      mm(schuetze, 'kopfballungeheuer')) f *= 1.22;
+    if (typ === 'fernschuss' && mm(schuetze, 'distanzschuetze')) f *= 1.30;
+    if (typ === 'dribbling' && mm(schuetze, 'tempodribbler')) f *= 1.15;
+    if ((typ === 'abstauber' || typ === 'kombination') && mm(schuetze, 'vollstrecker')) f *= 1.18;
+    if (typ === 'flanke' && mm(vorbereiter, 'flankengeber')) f *= 1.15;
+    if ((typ === 'kombination' || typ === 'steilpass') && mm(vorbereiter, 'spielgestalter')) f *= 1.12;
+
+    // Nervenstaerke zaehlt erst, wenn es eng wird und spaet ist.
+    var eigene = an.heim ? state.tore.heim : state.tore.gast;
+    var fremde = an.heim ? state.tore.gast : state.tore.heim;
+    if (state.minute >= 75 && Math.abs(eigene - fremde) <= 1) {
+      if (mm(schuetze, 'nervenstark')) f *= 1.16;
+      if (mm(schuetze, 'mimose') && eigene < fremde) f *= 0.84;
+    }
+    return f;
+  }
+
   /** Fuehrt eine Chance zu Ende: Schuetze, Qualitaet, Ausgang. */
   function chanceAusspielen(state, an, ab, typ, m, verhaeltnis) {
     var rng = state.rng, world = state.world;
@@ -502,6 +532,7 @@
         : schuetze.attr.abschluss * 0.75 + schuetze.attr.technik * 0.25;
     xg *= 0.674;                                   // Kalibrierung auf reale Trefferquoten
     xg *= 1 + (abschlusswert - 55) / 190;
+    xg *= merkmalXg(schuetze, vorbereiter, typ, state, an);
     xg *= 1 + (verhaeltnis - 1) * 0.55;
     xg *= state.wetter.fehler > 1 ? (1 - (state.wetter.fehler - 1) * 0.25) : 1;
     xg = U.clamp(xg, 0.012, 0.72);
@@ -675,7 +706,8 @@
     var schuetze = schuetzeId ? state.world.spieler[schuetzeId] : null;
     if (!schuetze || !aufDemPlatz(an, schuetze.id)) {
       schuetze = besterAufDemPlatz(state, an, function (p) {
-        return p.attr.elfmeter * 1.4 + p.attr.nervenstaerke * 0.8;
+        return p.attr.elfmeter * 1.4 + p.attr.nervenstaerke * 0.8 +
+          (mm(p, 'elfmetersicher') ? 30 : 0);
       });
     }
     if (!schuetze) return;
@@ -686,6 +718,8 @@
     var tw = torwartVon(state, ab);
     var p = 0.76 + (schuetze.attr.elfmeter - 55) / 380 + (schuetze.attr.nervenstaerke - 55) / 600;
     if (tw) p -= (tw.attr.reflexe + tw.attr.einsgegeneins - 110) / 700;
+    if (mm(schuetze, 'elfmetersicher')) p += 0.07;
+    if (mm(tw, 'elfmetertoeter')) p -= 0.09;
     p = U.clamp(p, 0.45, 0.94);
 
     an.stat.schuesse += 1; an.stat.xg += 0.78;
@@ -754,6 +788,15 @@
       } else {
         basis *= 0.6 + p.attr.abschluss / 110;
       }
+      if (typ === 'flanke' || typ === 'ecke' || typ === 'standard') {
+        if (mm(p, 'kopfballungeheuer')) basis *= 1.55;
+      } else if (typ === 'fernschuss') {
+        if (mm(p, 'distanzschuetze')) basis *= 1.70;
+      } else if (typ === 'dribbling') {
+        if (mm(p, 'tempodribbler')) basis *= 1.55;
+      } else if (mm(p, 'vollstrecker')) {
+        basis *= 1.40;
+      }
       basis *= 0.7 + p.form / 250;
       return basis;
     });
@@ -776,6 +819,7 @@
         basis = (e.pos === 'LM' || e.pos === 'RM' || e.pos === 'LF' || e.pos === 'RF'
           || e.pos === 'LV' || e.pos === 'RV') ? 10 : 2;
         basis *= 0.5 + p.attr.flanken / 90;
+        if (mm(p, 'flankengeber')) basis *= 1.6;
       } else if (typ === 'ecke' || typ === 'standard') {
         basis = p.id === seite.taktik.standards.ecken ? 30 : 1;
       } else {
@@ -804,6 +848,8 @@
       if (e.pos === 'TW') basis = 0.25;
       basis *= 0.5 + p.attr.aggressivitaet / 90;
       basis *= 1.4 - p.attr.disziplin / 160;
+      if (mm(p, 'hitzkopf')) basis *= 1.45;
+      if (mm(p, 'zweikampfmonster')) basis *= 1.12;
       if (p.fitness < 55) basis *= 1.25;
       // Wer schon Gelb hat, geht deutlich vorsichtiger in die Zweikaempfe.
       var sd = seite.spielerDaten[e.id];
@@ -824,6 +870,7 @@
 
     var kartenChance = 0.162 * seite.werte.mod.kartenrisiko * state.schiedsrichter.streng
       * (1.35 - taeter.attr.disziplin / 150);
+    if (mm(taeter, 'hitzkopf')) kartenChance *= 1.30;
     if (m > 70) kartenChance *= 1.10;
 
     if (!rng.chance(kartenChance)) {
@@ -881,6 +928,7 @@
       if (!p) return;
       var r = basis;
       r *= 0.55 + p.verletzungsneigung / 90;
+      if (mm(p, 'glasknochen')) r *= 1.45;
       r *= p.fitness < 55 ? 1.9 : p.fitness < 70 ? 1.35 : 1.0;
       r *= p.alter >= 32 ? 1.30 : p.alter <= 20 ? 1.10 : 1.0;
       var med = world.vereine[seite.club.id];

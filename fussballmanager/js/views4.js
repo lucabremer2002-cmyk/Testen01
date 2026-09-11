@@ -307,6 +307,7 @@
               FM.transfers.fuehreTransferDurch(world, p, club.id, {
                 ablöse: ablösePaket.gesamt, sofort: ablösePaket.sofort, raten: ablösePaket.raten,
                 handgeld: angebot.handgeld, weiterverkauf: ablösePaket.weiterverkauf,
+                rolle: angebot.rolle,
                 vertrag: {
                   bis: world.tag + angebot.jahre * 365, unterschrieben: world.tag,
                   gehalt: angebot.gehalt, handgeld: angebot.handgeld, ausstiegsklausel: 0,

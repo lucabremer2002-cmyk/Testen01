@@ -204,6 +204,9 @@
       persoenlichkeit: persoenlichkeit.id,
       clubId: opts.clubId || null,
       nummer: 0,
+      merkmale: [],
+      kaderrolle: 'rotation',
+      rollenSeit: 0,
       kapitaen: false,
       vertrag: null,
       leihe: null,
@@ -223,6 +226,7 @@
       scoutwissen: opts.clubId ? 1 : U.clamp(rng.range(0.12, 0.45), 0, 1),
       letzteNoten: []
     };
+    p.merkmale = merkmaleWaehlen(rng, p);
     p.marktwert = marktwert(p);
     return p;
   }
@@ -394,6 +398,9 @@
       }
     });
 
+    // Kaderstatus nach der Stellung im Kader.
+    rollenAusrichten(spieler, world);
+
     // Trikotnummern verteilen: 1 fuer den ersten Torwart, danach frei.
     var sortiert = U.sortBy(spieler, function (p) { return -gesamt(p); });
     var tws = sortiert.filter(function (p) { return p.pos === 'TW'; });
@@ -550,6 +557,110 @@
     p.form = U.clamp(Math.round(p.form + (ziel - p.form) * 0.30 + rng.gauss(0, 5)), 5, 99);
   }
 
+
+  // ------------------------------------------------------------ Merkmale
+
+  /** Waehlt die besonderen Eigenschaften eines Spielers. */
+  function merkmaleWaehlen(rng, p) {
+    var moeglich = D.MERKMALE.filter(function (m) {
+      try { return m.passt(p); } catch (e) { return false; }
+    });
+    if (!moeglich.length) return [];
+    // Klasse entscheidet, wie viele Eigenheiten ein Spieler mitbringt.
+    var st = gesamt(p);
+    var schnitt = st >= 82 ? 2.0 : st >= 72 ? 1.5 : st >= 62 ? 1.0 : 0.6;
+    var anzahl = Math.min(moeglich.length, Math.max(0, Math.round(rng.gauss(schnitt, 0.8))));
+    var gewaehlt = [];
+    for (var i = 0; i < anzahl; i++) {
+      var kandidaten = moeglich.filter(function (m) { return gewaehlt.indexOf(m.id) < 0; });
+      if (!kandidaten.length) break;
+      var m = rng.weighted(kandidaten, function (x) { return x.gewicht || 1; });
+      if (m) gewaehlt.push(m.id);
+    }
+    return gewaehlt;
+  }
+
+  function hatMerkmal(p, id) {
+    return !!(p && p.merkmale && p.merkmale.indexOf(id) >= 0);
+  }
+
+  /**
+   * Prueft nach einer Entwicklung, ob ein Spieler eine neue Eigenschaft
+   * ausgepraegt hat. Nur junge Spieler bekommen noch welche dazu.
+   */
+  function merkmaleFortschreiben(rng, p) {
+    if (p.alter > 26) return null;
+    if ((p.merkmale || []).length >= 3) return null;
+    if (!rng.chance(0.12)) return null;
+    var neu = D.MERKMALE.filter(function (m) {
+      if (m.negativ) return false;
+      if (hatMerkmal(p, m.id)) return false;
+      try { return m.passt(p); } catch (e) { return false; }
+    });
+    if (!neu.length) return null;
+    var m = rng.weighted(neu, function (x) { return x.gewicht || 1; });
+    if (!m) return null;
+    p.merkmale.push(m.id);
+    return m;
+  }
+
+  // ------------------------------------------------------------ Kaderstatus
+
+  /** Der Status, den ein Spieler nach seiner Stellung im Kader bekaeme. */
+  function vorgeschlageneRolle(p, kader) {
+    var rang = kaderRang(p, kader);
+    if (p.alter <= 19 && rang > 14) return 'perspektive';
+    if (rang <= 3) return 'star';
+    if (rang <= 11) return 'stamm';
+    if (rang <= 16) return 'rotation';
+    if (p.alter <= 21) return 'perspektive';
+    return 'ergaenzung';
+  }
+
+  /**
+   * Verteilt den Kaderstatus im ganzen Kader neu. Vereine der KI machen
+   * das laufend; beim Verein des Nutzers nur, wo noch nichts gesetzt ist -
+   * seine Entscheidungen bleiben stehen.
+   */
+  function rollenAusrichten(kader, world, nurLuecken) {
+    var sortiert = U.sortBy(kader, function (x) { return -gesamt(x); });
+    sortiert.forEach(function (p, i) {
+      if (nurLuecken && p.kaderrolle && p.rollenSeit) return;
+      if (p.kaderrolle === 'abgang' && nurLuecken) return;
+      var rang = i + 1;
+      var id;
+      if (p.alter <= 19 && rang > 14) id = 'perspektive';
+      else if (rang <= 3) id = 'star';
+      else if (rang <= 11) id = 'stamm';
+      else if (rang <= 16) id = 'rotation';
+      else if (p.alter <= 21) id = 'perspektive';
+      else id = 'ergaenzung';
+      p.kaderrolle = id;
+      if (!p.rollenSeit) p.rollenSeit = world ? world.tag : 0;
+    });
+  }
+
+  function rolleVon(p) {
+    return D.KADERROLLE[p.kaderrolle] || D.KADERROLLE.rotation;
+  }
+
+  /** Setzt den Status neu und verbucht die Reaktion des Spielers. */
+  function setzeKaderrolle(p, id, world) {
+    var alt = rolleVon(p);
+    var neu = D.KADERROLLE[id];
+    if (!neu || neu.id === alt.id) return null;
+    p.kaderrolle = neu.id;
+    p.rollenSeit = world ? world.tag : 0;
+    var sprung = neu.stolz - alt.stolz;
+    p.moral = U.clamp(p.moral + sprung * 0.9, 5, 99);
+    if (sprung < 0) {
+      p.unzufriedenheit.ambition = U.clamp(p.unzufriedenheit.ambition - sprung * 1.6, 0, 100);
+    } else {
+      p.unzufriedenheit.spielzeit = U.clamp(p.unzufriedenheit.spielzeit - sprung * 1.2, 0, 100);
+    }
+    return { alt: alt, neu: neu, sprung: sprung };
+  }
+
   // ------------------------------------------------------------ Zufriedenheit
 
   /**
@@ -558,16 +669,18 @@
    */
   function pruefeZufriedenheit(p, club, world, rng) {
     var u = p.unzufriedenheit;
-    var kader = world.kaderVon(club.id);
-    var rang = kaderRang(p, kader);
     var anteil = p.stats.spiele > 0 ? p.stats.minuten / Math.max(1, world.spieltageGespielt(club.id) * 90) : 0;
 
-    // Erwartete Spielzeit haengt davon ab, wo der Spieler im Kader steht.
-    var erwartet = rang <= 11 ? 0.70 : rang <= 16 ? 0.42 : rang <= 21 ? 0.20 : 0.08;
-    if (p.alter <= 20) erwartet *= 0.6;
+    // Die erwartete Spielzeit steht im Kaderstatus - das ist das
+    // Versprechen, das der Trainer dem Spieler gegeben hat.
+    var rolle = rolleVon(p);
+    var erwartet = rolle.erwartung;
+    if (p.alter <= 20) erwartet *= 0.75;
     var luecke = erwartet - anteil;
     if (world.spieltageGespielt(club.id) >= 5) {
-      u.spielzeit = U.clamp(u.spielzeit + (luecke > 0.12 ? luecke * 26 : -6), 0, 100);
+      // Wer mehr spielt als versprochen, wird spuerbar zufriedener.
+      u.spielzeit = U.clamp(u.spielzeit +
+        (luecke > 0.10 ? luecke * 30 : luecke < -0.08 ? -9 : -6), 0, 100);
     }
 
     // Gehalt im Vergleich zu dem, was er verlangen wuerde
@@ -585,6 +698,7 @@
     var pers = D.PERSOENLICHKEITEN.filter(function (x) { return x.id === p.persoenlichkeit; })[0];
     var loyal = pers ? pers.loyalitaet : 1;
     var gesamtU = (u.spielzeit * 1.1 + u.gehalt * 0.9 + u.ambition * 1.0 + u.taktik * 0.5) / 3.5;
+    if (p.kaderrolle === 'abgang') gesamtU = Math.min(100, gesamtU + 22);
     p.wechselwunsch = U.clamp(Math.round(gesamtU / loyal), 0, 100);
 
     // Moral folgt der Zufriedenheit langsam
@@ -653,7 +767,14 @@
     leereStats: leereStats,
     schnitt: schnitt,
     alterFaktor: alterFaktor,
-    KADER_SCHEMA: KADER_SCHEMA
+    KADER_SCHEMA: KADER_SCHEMA,
+    merkmaleWaehlen: merkmaleWaehlen,
+    merkmaleFortschreiben: merkmaleFortschreiben,
+    hatMerkmal: hatMerkmal,
+    vorgeschlageneRolle: vorgeschlageneRolle,
+    rollenAusrichten: rollenAusrichten,
+    rolleVon: rolleVon,
+    setzeKaderrolle: setzeKaderrolle
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);

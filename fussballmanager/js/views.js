@@ -318,6 +318,51 @@
     }
   };
 
+  /** Die besonderen Eigenschaften eines Spielers als eigene Karte. */
+  function merkmalKarte(p) {
+    var liste = (p.merkmale || []).map(function (id) { return D.MERKMAL[id]; })
+      .filter(Boolean);
+    if (!liste.length) {
+      return '<div class="card card--flat"><h4>Merkmale</h4>' +
+        '<div class="leer">Keine besonderen Eigenschaften.</div></div>';
+    }
+    return '<div class="card card--flat"><h4>Merkmale</h4>' +
+      liste.map(function (m) {
+        return '<div class="merkmal' + (m.negativ ? ' merkmal--minus' : '') + '">' +
+          '<b>' + esc(m.name) + '</b>' +
+          '<span class="klein muted">' + esc(m.text) + '</span></div>';
+      }).join('') + '</div>';
+  }
+
+  /**
+   * Der Kaderstatus als Marke - eingefaerbt danach, ob das
+   * Spielzeitversprechen gerade gehalten wird.
+   */
+  function rollenTag(world, p) {
+    var r = P.rolleVon(p);
+    var b = rollenBilanz(world, p);
+    var klasse = b.stand === 'gebrochen' ? ' rollen-tag--rot'
+      : b.stand === 'uebererfuellt' ? ' rollen-tag--gruen' : '';
+    return '<span class="rollen-tag' + klasse + '" title="' + esc(b.text) + '">' + esc(r.kurz) + '</span>';
+  }
+
+  /**
+   * Vergleicht die tatsaechliche Einsatzzeit mit dem Versprechen des
+   * Kaderstatus. Vor dem fuenften Spieltag wird noch nicht geurteilt.
+   */
+  function rollenBilanz(world, p) {
+    var r = P.rolleVon(p);
+    var gespielt = p.clubId ? world.spieltageGespielt(p.clubId) : 0;
+    var anteil = gespielt > 0 ? p.stats.minuten / (gespielt * 90) : 0;
+    var soll = r.erwartung * (p.alter <= 20 ? 0.75 : 1);
+    var txt = r.name + ' · versprochen etwa ' + Math.round(soll * 100) +
+      ' % Einsatzzeit, tatsächlich ' + Math.round(anteil * 100) + ' %.';
+    if (gespielt < 5) return { stand: 'offen', anteil: anteil, soll: soll, text: r.name + ' · ' + r.text };
+    if (anteil < soll - 0.12) return { stand: 'gebrochen', anteil: anteil, soll: soll, text: txt + ' Der Spieler ist unzufrieden.' };
+    if (anteil > soll + 0.15) return { stand: 'uebererfuellt', anteil: anteil, soll: soll, text: txt + ' Mehr als zugesagt.' };
+    return { stand: 'erfuellt', anteil: anteil, soll: soll, text: txt };
+  }
+
   /** Baut die Kadertabelle je nach gewählter Ansicht. */
   function kaderTabelle(world, kader, z) {
     var spalten = [
@@ -338,6 +383,9 @@
         { key: 'form', label: 'Form', klasse: 'num', wert: function (p) { return p.form; },
           html: function (p) { return UI.balken(p.form / 100, p.form >= 60 ? '' : p.form >= 40 ? 'bar--gelb' : 'bar--rot'); } },
         { key: 'fitness', label: 'Frische', klasse: 'num', wert: function (p) { return p.fitness; }, html: function (p) { return UI.fitnessBalken(p); } },
+        { key: 'kaderrolle', label: 'Status', titel: 'Kaderstatus: das Spielzeitversprechen an den Spieler',
+          wert: function (p) { return D.KADERROLLEN.map(function (r) { return r.id; }).indexOf(p.kaderrolle); },
+          html: function (p) { return rollenTag(world, p); } },
         { key: 'moral', label: 'Moral', klasse: 'num', wert: function (p) { return p.moral; },
           html: function (p) { return UI.balken(p.moral / 100, p.moral >= 60 ? '' : p.moral >= 40 ? 'bar--gelb' : 'bar--rot'); } },
         { key: 'wert', label: 'Marktwert', klasse: 'num', wert: function (p) { return p.marktwert; }, html: function (p) { return U.money(p.marktwert); } },
@@ -479,11 +527,23 @@
       html += '<div class="stat-row"><span>Vertrag</span><b class="w-gut">ablösefrei verfügbar</b></div>';
     }
     if (eigener) {
+      var bil = rollenBilanz(world, p);
+      html += '<div class="stat-row"><span>Kaderstatus</span>' +
+        '<select data-rolle="' + p.id + '" style="width:auto">' +
+        D.KADERROLLEN.map(function (r) {
+          return '<option value="' + r.id + '"' + (p.kaderrolle === r.id ? ' selected' : '') +
+            '>' + esc(r.name) + '</option>';
+        }).join('') + '</select></div>' +
+        '<div class="klein ' + (bil.stand === 'gebrochen' ? 'w-schlecht' : bil.stand === 'uebererfuellt' ? 'w-gut' : 'muted') +
+        '" style="padding:0 0 8px">' + esc(bil.text) + '</div>';
       html += '<div class="stat-row"><span>Unzufriedenheit</span><b class="klein">Spielzeit ' +
         Math.round(p.unzufriedenheit.spielzeit) + ' · Gehalt ' + Math.round(p.unzufriedenheit.gehalt) +
         ' · Ambition ' + Math.round(p.unzufriedenheit.ambition) + '</b></div>';
     }
     html += '</div>';
+
+    // Merkmale
+    html += merkmalKarte(p);
 
     // Statistik
     html += '<div class="card card--flat"><h4>Saison &amp; Karriere</h4>' +
@@ -522,6 +582,13 @@
           var b = body.querySelector('[data-a="' + a + '"]');
           if (b) b.onclick = fn;
         }
+        var rw = body.querySelector('[data-rolle]');
+        if (rw) rw.onchange = function () {
+          var r = P.setzeKaderrolle(p, rw.value, world);
+          if (!r) return;
+          UI.toast(p.nachname + ': ' + r.neu.name + '.', r.sprung >= 0 ? 'gut' : '');
+          UI.modalZu(); UI.zeichne(); V.spielerProfil(p.id);
+        };
         bind('gespraech', function () { V.gespraechsDialog(p.id); });
         bind('vertrag', function () { V.vertragsDialog(p.id); });
         bind('fokus', function () { V.fokusDialog(p.id); });

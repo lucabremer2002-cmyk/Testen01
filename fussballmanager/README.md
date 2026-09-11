@@ -49,6 +49,38 @@ eine von zwölf **Persönlichkeiten** (vom vorbildlichen Profi bis zum
 Geldorientierten) sowie Vertrag, Marktwert und Statistiken für Saison und
 Karriere.
 
+### Merkmale
+
+Neben den Zahlenwerten hat ein Spieler bis zu drei **Merkmale** – der
+Freistoßspezialist, das Kopfballungeheuer, der Elfmetertöter im Tor, der
+Dauerläufer, aber auch der Hitzkopf, der zu oft einen Schritt zu weit
+geht. Sie sind keine Anzeige, sondern wirken unmittelbar: Wer als
+Distanzschütze gilt, sucht den Abschluss häufiger aus zwanzig Metern und
+trifft dabei besser; ein Elfmetertöter senkt die Verwandlungsquote des
+Gegners spürbar; ein Verletzungsanfälliger fällt tatsächlich öfter aus.
+
+Ein Merkmal ist ein **Abstand, kein Grenzwert**: Ein Spieler fällt auf,
+wenn er in einer Sache deutlich besser ist als in allem anderen. Deshalb
+gibt es den Freistoßspezialisten auch in der 2. Liga – und deshalb hat
+nicht jeder Bundesligaprofi eine Handvoll Sonderfähigkeiten. In der
+Spitze tragen rund vier von fünf Spielern ein Merkmal, im
+Bundesligadurchschnitt gut die Hälfte, weiter unten deutlich weniger.
+Junge Spieler können sich im Training neue erarbeiten.
+
+### Kaderstatus
+
+Jeder Spieler hat einen **Kaderstatus** vom unverzichtbaren Star bis zu
+„nicht im Kaderplan". Das ist ein Versprechen über seine Einsatzzeit:
+Ein Stammspieler erwartet rund 65 Prozent, ein Ergänzungsspieler knapp
+20. Wer sein Versprechen bricht, bekommt einen unzufriedenen Spieler –
+in der Kaderliste steht die Marke dann rot. Wer mehr Einsatzzeit gibt
+als zugesagt, hebt die Stimmung.
+
+Der Status wird beim Vertragsangebot mitverhandelt (und kostet
+entsprechend Gehalt), lässt sich später jederzeit im Spielerprofil
+ändern – eine Herabstufung nimmt der Spieler übel – und bestimmt, wie
+schnell aus Unzufriedenheit ein Wechselwunsch wird.
+
 Alle Spieler werden prozedural erzeugt. Das Spiel bleibt damit unabhängig
 von Kaderdaten, die nach wenigen Wochen ohnehin veraltet wären.
 

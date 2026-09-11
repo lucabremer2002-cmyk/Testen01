@@ -440,6 +440,20 @@
 
     var n = Math.max(1, spieler.length);
 
+    // Besondere Eigenschaften, die auf die ganze Mannschaft wirken.
+    var mk = { antreiber: 0, pressingmaschine: 0, zweikampfmonster: 0,
+      strafraumbeherrscher: 0, mitspielenderTorwart: 0 };
+    spieler.forEach(function (x) {
+      var p = x.p || x;
+      var liste = p && p.merkmale;
+      if (!liste || !liste.length) return;
+      if (liste.indexOf('antreiber') >= 0) mk.antreiber += 1;
+      if (liste.indexOf('pressingmaschine') >= 0) mk.pressingmaschine += 1;
+      if (liste.indexOf('zweikampfmonster') >= 0) mk.zweikampfmonster += 1;
+      if (p.pos === 'TW' && liste.indexOf('strafraumbeherrscher') >= 0) mk.strafraumbeherrscher = 1;
+      if (p.pos === 'TW' && liste.indexOf('mitspielender_torwart') >= 0) mk.mitspielenderTorwart = 1;
+    });
+
     // Qualitaet je Mannschaftsteil: gewichteter Mittelwert der Spieler, die
     // dort ueberhaupt etwas beitragen. Damit haengt der Wert an der Klasse
     // der Spieler, nicht an der Zahl der besetzten Rollen.
@@ -458,6 +472,13 @@
     var def = qDef * Math.pow(sd, FORM_GEWICHT);
     var mid = qMid * Math.pow(sm, FORM_GEWICHT);
     var att = qAtt * Math.pow(sa, FORM_GEWICHT);
+
+    // ---- Eigenschaften der Spieler
+    // Antreiber heben die Mannschaft, wenn es zaeh wird; Zweikampfmonster
+    // stabilisieren die Defensive; ein Torwart, der den Strafraum
+    // beherrscht, entschaerft Flanken und Ecken.
+    def *= 1 + Math.min(3, mk.zweikampfmonster) * 0.012 + mk.strafraumbeherrscher * 0.018;
+    mid *= 1 + Math.min(3, mk.antreiber) * 0.010 + mk.mitspielenderTorwart * 0.012;
 
     // ---- Formationsmerkmale
     def *= (0.94 + f.kompaktheit * 0.06);
@@ -513,7 +534,9 @@
       kopfball: kopfball * (aufbau.kopfball || 1) * (linie.kopfballDruck || 1),
       tempo: tempoWert,
       konter: konterWert * (f.konter || 1) * (an.mentalitaet === 'defensiv' || an.mentalitaet === 'abwartend' ? 1.15 : 1),
-      pressing: pressingWert * pressing.ballgewinnHoch * (gegenpressing.rueckgewinn || 1),
+      pressing: pressingWert * pressing.ballgewinnHoch * (gegenpressing.rueckgewinn || 1)
+        * (1 + Math.min(4, mk.pressingmaschine) * 0.020),
+      merkmale: mk,
       standards: standards,
       disziplin: disziplin / n,
       erfahrung: erfahrung / n,
@@ -521,7 +544,7 @@
       moral: moral / n,
       fitness: fitness / n,
       arbeitsrate: arbeitsrate / Math.max(1, n - 1),
-      aufbau: aufbauQualitaet,
+      aufbau: aufbauQualitaet * (1 + mk.mitspielenderTorwart * 0.030),
       // Modifikatoren, die die Simulation direkt braucht
       mod: {
         konterAnfaellig: (pressing.konterAnfaellig || 1) * (gegenpressing.konterAnfaellig || 1)

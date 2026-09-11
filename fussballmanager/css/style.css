@@ -1257,3 +1257,20 @@ td.name { font-weight: 700; }
   tbody tr:hover { background: transparent; }
   .tr-eigen:hover { background: var(--accent-bg) !important; }
 }
+
+/* ---------- Kaderstatus und Merkmale ---------- */
+.rollen-tag {
+  display: inline-block; padding: 2px 7px; border-radius: 6px;
+  background: var(--surface-2); color: var(--text-2);
+  font-size: 11px; font-weight: 700; letter-spacing: .01em; white-space: nowrap;
+}
+.rollen-tag--gruen { background: var(--accent-bg); color: var(--accent); }
+.rollen-tag--rot { background: var(--red-bg); color: var(--red); }
+
+.merkmal {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 8px 10px; margin-top: 6px; border-radius: 8px;
+  background: var(--surface-2); border-left: 3px solid var(--accent);
+}
+.merkmal--minus { border-left-color: var(--red); }
+.merkmal b { font-size: 13px; }

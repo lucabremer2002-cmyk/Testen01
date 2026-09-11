@@ -136,6 +136,7 @@
   // ------------------------------------------------------------ Wochenlauf
 
   function wochenlauf(world) {
+    kaderrollenPflegen(world);
     world.vereinIds.forEach(function (clubId) {
       var club = world.vereine[clubId];
       if (!club) return;
@@ -145,14 +146,28 @@
           ? world.trainingsplan : kiTrainingsplan(world, clubId);
         var meldungen = FM.training.wochenEffekt(world, clubId, plan);
         if (clubId === world.nutzerClubId && meldungen.length) {
-          var text = meldungen.slice(0, 8).map(function (m) {
+          var stufen = meldungen.filter(function (m) { return m.auf !== undefined; });
+          var neueMerkmale = meldungen.filter(function (m) { return m.merkmal; });
+          if (stufen.length) {
+            var text = stufen.slice(0, 8).map(function (m) {
+              var p = world.spieler[m.spielerId];
+              return p.vorname + ' ' + p.nachname + ' (' + m.von + ' → ' + m.auf + ')';
+            }).join(', ');
+            world.nachricht({
+              typ: 'training', prioritaet: 1,
+              titel: 'Trainingsbericht der Woche',
+              text: 'Die Co-Trainer melden Fortschritte bei: ' + text + '.'
+            });
+          }
+          neueMerkmale.forEach(function (m) {
             var p = world.spieler[m.spielerId];
-            return p.vorname + ' ' + p.nachname + ' (' + m.von + ' → ' + m.auf + ')';
-          }).join(', ');
-          world.nachricht({
-            typ: 'training', prioritaet: 1,
-            titel: 'Trainingsbericht der Woche',
-            text: 'Die Co-Trainer melden Fortschritte bei: ' + text + '.'
+            if (!p) return;
+            world.nachricht({
+              typ: 'training', prioritaet: 2,
+              titel: 'Neue Stärke: ' + p.nachname,
+              text: p.vorname + ' ' + p.nachname + ' hat sich im Training eine Eigenheit erarbeitet: ' +
+                m.merkmal + '.'
+            });
           });
         }
         // Zufriedenheit der Spieler
@@ -169,6 +184,21 @@
     unzufriedeneSpielerMelden(world);
     lizenzPruefung(world);
     geruechteStreuen(world);
+  }
+
+  /**
+   * Die KI haelt ihren Kaderstatus laufend aktuell. Beim Verein des
+   * Nutzers bleiben dessen Entscheidungen stehen; nur neue Spieler ohne
+   * Status bekommen einen zugewiesen.
+   */
+  function kaderrollenPflegen(world) {
+    world.vereinIds.forEach(function (clubId) {
+      var club = world.vereine[clubId];
+      if (!club || club.auslaendisch) return;
+      var kader = world.kaderVon(clubId);
+      if (!kader.length) return;
+      P.rollenAusrichten(kader, world, world.istNutzerVerein(clubId));
+    });
   }
 
   function unzufriedeneSpielerMelden(world) {

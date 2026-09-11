@@ -235,6 +235,12 @@
       if (Math.round(nachher) > Math.round(vorher)) {
         meldungen.push({ spielerId: p.id, von: Math.round(vorher), auf: Math.round(nachher) });
       }
+
+      // Junge Spieler praegen im Training neue Eigenheiten aus.
+      var neuesMerkmal = P.merkmaleFortschreiben(rng, p);
+      if (neuesMerkmal) {
+        meldungen.push({ spielerId: p.id, merkmal: neuesMerkmal.name });
+      }
       p.marktwert = P.marktwert(p, world);
     });
 
