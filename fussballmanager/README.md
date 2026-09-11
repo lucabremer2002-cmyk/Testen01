@@ -49,6 +49,16 @@ eine von zwölf **Persönlichkeiten** (vom vorbildlichen Profi bis zum
 Geldorientierten) sowie Vertrag, Marktwert und Statistiken für Saison und
 Karriere.
 
+### Spielervergleich
+
+Zwei Spieler nebeneinander – aus dem Profil heraus, wahlweise gegen einen
+aus dem eigenen Kader oder von der Merkliste. Verglichen wird, was für
+eine Entscheidung zählt: Stärke gesamt und auf der gemeinsamen Position,
+Potenzial, Form, Frische, Moral, Verletzungsanfälligkeit, Saisonbilanz,
+Marktwert, Gehalt, alle Attribute nach Gruppen und die Merkmale. Der
+jeweils bessere Wert ist hervorgehoben – beim Gehalt und bei der
+Verletzungsanfälligkeit entsprechend der niedrigere.
+
 ### Merkmale
 
 Neben den Zahlenwerten hat ein Spieler bis zu drei **Merkmale** – der
@@ -104,6 +114,10 @@ und höchstens fünf von 36 Profivereinen stehen im Minus.
   Spielaufbau, Spieltempo, Spielfeldbreite, Gegenpressing,
   Zweikampfführung und Zeitmanagement.
 * **Standards** (Elfmeter, Freistöße, Ecken, Einwürfe) und Kapitän.
+* **Taktikvorlagen**: Formation, Rollen und Anweisungen lassen sich unter
+  einem Namen sichern und mit einem Griff wieder anwenden – die
+  Aufstellung bleibt dabei erhalten, soweit die Positionen passen. Bis zu
+  sechs Vorlagen.
 * **Einspielgrad**: Wer ständig rotiert, verliert Automatismen.
 
 Die Aufstellungsansicht zeigt zu jedem Spieler auf dem Feld einen

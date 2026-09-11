@@ -79,6 +79,130 @@
     });
   };
 
+  // ============================================================ Spielervergleich
+
+  /**
+   * Zwei Spieler nebeneinander. Verglichen wird, was fuer eine
+   * Entscheidung zaehlt: Klasse auf der gemeinsamen Position, Attribute,
+   * Form, Belastbarkeit, Vertrag und Kosten.
+   */
+  V.vergleich = function (idA, idB) {
+    var world = UI.world;
+    var a = world.spieler[idA];
+    var b = idB ? world.spieler[idB] : null;
+    if (!a) return;
+
+    if (!b) { waehleGegenueber(a); return; }
+
+    function kopf(p) {
+      var club = p.clubId ? world.vereine[p.clubId] : null;
+      return '<div class="vgl__kopf">' +
+        '<b>' + esc(p.vorname + ' ' + p.nachname) + '</b>' +
+        '<span class="klein muted">' + esc(D.POS_NAME[p.pos] || p.pos) + ' · ' + p.alter + ' Jahre · ' +
+        esc(club ? club.name : 'vereinslos') + '</span></div>';
+    }
+
+    // Auf welcher Position wird verglichen? Die gemeinsame, sonst die von A.
+    var pos = a.pos;
+    if (b.pos === a.pos) pos = a.pos;
+    else if (a.nebenpos.indexOf(b.pos) >= 0) pos = b.pos;
+
+    function zeile(label, wa, wb, hoeherIstBesser, format) {
+      format = format || function (v) { return Math.round(v); };
+      var besser = hoeherIstBesser === false ? (wa < wb ? 'a' : wb < wa ? 'b' : null)
+        : (wa > wb ? 'a' : wb > wa ? 'b' : null);
+      return '<div class="vgl__zeile">' +
+        '<span class="vgl__wert' + (besser === 'a' ? ' is-besser' : '') + '">' + format(wa) + '</span>' +
+        '<span class="vgl__label">' + esc(label) + '</span>' +
+        '<span class="vgl__wert' + (besser === 'b' ? ' is-besser' : '') + '">' + format(wb) + '</span>' +
+        '</div>';
+    }
+
+    var html = '<h2>Spielervergleich</h2>' +
+      '<div class="vgl">' + kopf(a) + '<div></div>' + kopf(b) + '</div>' +
+      '<div class="vgl__block">' +
+      zeile('Stärke gesamt', P.gesamt(a), P.gesamt(b)) +
+      zeile('Stärke als ' + (D.POS_NAME[pos] || pos), P.posStaerke(a, pos), P.posStaerke(b, pos)) +
+      zeile('Potenzial', a.potenzial, b.potenzial) +
+      zeile('Form', a.form, b.form) +
+      zeile('Frische', a.fitness, b.fitness) +
+      zeile('Moral', a.moral, b.moral) +
+      zeile('Verletzungsanfälligkeit', a.verletzungsneigung, b.verletzungsneigung, false) +
+      zeile('Ø Note Saison', P.schnitt(a.stats) || 9, P.schnitt(b.stats) || 9, false,
+        function (v) { return v >= 9 ? '–' : U.note(v); }) +
+      zeile('Spiele', a.stats.spiele, b.stats.spiele) +
+      zeile('Tore', a.stats.tore, b.stats.tore) +
+      zeile('Vorlagen', a.stats.vorlagen, b.stats.vorlagen) +
+      zeile('Marktwert', a.marktwert, b.marktwert, true, U.money) +
+      zeile('Gehalt', a.vertrag ? a.vertrag.gehalt : 0, b.vertrag ? b.vertrag.gehalt : 0, false, U.money) +
+      '</div>';
+
+    // Attribute nach Gruppen
+    Object.keys(D.ATTRIBUTE).forEach(function (gruppe) {
+      if (gruppe === 'torwart' && a.pos !== 'TW' && b.pos !== 'TW') return;
+      var g = D.ATTRIBUTE[gruppe];
+      html += '<div class="vgl__block"><h4>' + esc(g.label) + '</h4>' +
+        g.keys.map(function (k) {
+          return zeile(D.ATTR_NAME[k] || k, a.attr[k] || 0, b.attr[k] || 0);
+        }).join('') + '</div>';
+    });
+
+    // Merkmale
+    function merkmale(p) {
+      var liste = (p.merkmale || []).map(function (id) { return D.MERKMAL[id]; }).filter(Boolean);
+      return liste.length
+        ? liste.map(function (m) { return esc(m.name); }).join(', ')
+        : '<span class="muted">keine</span>';
+    }
+    html += '<div class="vgl__block"><h4>Merkmale</h4>' +
+      '<div class="vgl"><div class="klein">' + merkmale(a) + '</div><div></div>' +
+      '<div class="klein">' + merkmale(b) + '</div></div></div>';
+
+    html += '<div class="flex mt">' +
+      '<button class="btn" data-a="anderer">Anderen Spieler wählen</button>' +
+      '<button class="btn" data-a="zu">Profil ' + esc(a.nachname) + '</button>' +
+      '<button class="btn" data-a="zub">Profil ' + esc(b.nachname) + '</button></div>';
+
+    UI.modal(html, {
+      breit: true,
+      nachher: function (body) {
+        body.querySelector('[data-a="anderer"]').onclick = function () { waehleGegenueber(a); };
+        body.querySelector('[data-a="zu"]').onclick = function () { V.spielerProfil(a.id); };
+        body.querySelector('[data-a="zub"]').onclick = function () { V.spielerProfil(b.id); };
+      }
+    });
+  };
+
+  /** Auswahl, mit wem verglichen werden soll. */
+  function waehleGegenueber(a) {
+    var world = UI.world;
+    var kader = world.kaderVon(world.nutzerClubId).filter(function (p) { return p.id !== a.id; });
+    var gemerkt = (world.transfer.beobachtet || [])
+      .map(function (id) { return world.spieler[id]; })
+      .filter(function (p) { return p && p.id !== a.id; });
+
+    function block(titel, liste) {
+      if (!liste.length) return '';
+      return '<h4>' + esc(titel) + '</h4><div class="optionen">' +
+        U.sortBy(liste, function (p) { return -P.gesamt(p); }).map(function (p) {
+          return '<button class="option option--klein" data-v="' + esc(p.id) + '"><b>' +
+            esc(p.nachname) + '</b> <span class="klein muted">' + esc(p.pos) + ' · ' +
+            Math.round(P.gesamt(p)) + '</span></button>';
+        }).join('') + '</div>';
+    }
+
+    UI.modal('<h2>Vergleichen mit</h2>' +
+      '<p class="muted">' + esc(a.vorname + ' ' + a.nachname) + ' gegen …</p>' +
+      block('Eigener Kader', kader) + block('Merkliste', gemerkt), {
+      breit: true,
+      nachher: function (body) {
+        Array.prototype.forEach.call(body.querySelectorAll('[data-v]'), function (btn) {
+          btn.onclick = function () { V.vergleich(a.id, btn.dataset.v); };
+        });
+      }
+    });
+  }
+
   // ============================================================ Umschulung
 
   V.umschulungsDialog = function (spielerId) {

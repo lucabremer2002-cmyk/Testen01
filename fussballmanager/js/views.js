@@ -359,6 +359,49 @@
       }).join('') + '</div>';
   }
 
+  /** Vorlagen sichern und verwalten. */
+  function vorlagenDialog(world, taktik) {
+    var vorlagen = world.taktikVorlagen || [];
+    var html = '<h2>Taktik sichern</h2>' +
+      '<p class="muted">Eine Vorlage hält fest, <b>wie</b> gespielt werden soll – Formation, ' +
+      'Rollen und Anweisungen –, nicht mit wem. Die Aufstellung bleibt beim Anwenden erhalten, ' +
+      'soweit die Positionen passen.</p>' +
+      '<div><label>Name</label><input type="text" data-v="name" maxlength="24" value="' +
+      esc(taktik.formation + ' ' + (D.ANWEISUNGEN && D.ANWEISUNGEN.mentalitaet
+        ? (T.anweisung('mentalitaet', taktik.anweisungen.mentalitaet) || {}).name || ''
+        : '')) + '"></div>' +
+      '<div class="flex mt"><button class="btn btn--primary" data-a="ok">Sichern</button>' +
+      '<button class="btn" data-a="ab">Abbrechen</button></div>';
+
+    if (vorlagen.length) {
+      html += '<div class="trenner"></div><h4>Gespeicherte Vorlagen</h4>' +
+        vorlagen.map(function (v) {
+          return '<div class="stat-row"><span>' + esc(v.name) + ' <span class="klein muted">' +
+            esc(v.formation) + '</span></span>' +
+            '<button class="btn btn--sm btn--ghost" data-del="' + esc(v.name) + '">löschen</button></div>';
+        }).join('');
+    }
+
+    UI.modal(html, {
+      nachher: function (body) {
+        body.querySelector('[data-a="ab"]').onclick = UI.modalZu;
+        body.querySelector('[data-a="ok"]').onclick = function () {
+          var name = body.querySelector('[data-v="name"]').value;
+          var v = T.vorlageSpeichern(world, taktik, name);
+          UI.modalZu();
+          UI.toast('Vorlage "' + v.name + '" gesichert.', 'gut');
+          UI.zeichne();
+        };
+        Array.prototype.forEach.call(body.querySelectorAll('[data-del]'), function (b) {
+          b.onclick = function () {
+            T.vorlageLoeschen(world, b.dataset.del);
+            UI.modalZu(); UI.zeichne(); UI.toast('Vorlage gelöscht.');
+          };
+        });
+      }
+    });
+  }
+
   /** Die besonderen Eigenschaften eines Spielers als eigene Karte. */
   function merkmalKarte(p) {
     var liste = (p.merkmale || []).map(function (id) { return D.MERKMAL[id]; })
@@ -629,6 +672,7 @@
         '<button class="btn" data-a="gespraech">Gespräch führen</button>' +
         '<button class="btn" data-a="vertrag">Vertrag verhandeln</button>' +
         '<button class="btn" data-a="fokus">Individualtraining</button>' +
+        '<button class="btn" data-a="vergleich">Vergleichen</button>' +
         (p.pos !== 'TW' ? '<button class="btn" data-a="umschulung">' +
           (p.umschulung ? 'Umschulung läuft' : 'Position umschulen') + '</button>' : '') +
         '<button class="btn" data-a="transferliste">' + (p.transferliste ? 'Von Transferliste nehmen' : 'Auf Transferliste setzen') + '</button>' +
@@ -638,6 +682,7 @@
       html += '<div class="trenner"></div><div class="flex">' +
         '<button class="btn btn--primary" data-a="angebot">' + (p.clubId ? 'Angebot abgeben' : 'Vertrag anbieten') + '</button>' +
         '<button class="btn" data-a="scouten">Beobachten lassen</button>' +
+        '<button class="btn" data-a="vergleich">Vergleichen</button>' +
         '<button class="btn" data-a="merken">' + (world.transfer.beobachtet.indexOf(p.id) >= 0 ? 'Von Merkliste entfernen' : 'Auf Merkliste') + '</button>' +
         '</div>';
     }
@@ -660,6 +705,7 @@
         bind('vertrag', function () { V.vertragsDialog(p.id); });
         bind('fokus', function () { V.fokusDialog(p.id); });
         bind('umschulung', function () { V.umschulungsDialog(p.id); });
+        bind('vergleich', function () { V.vergleich(p.id); });
         bind('transferliste', function () {
           p.transferliste = !p.transferliste;
           UI.toast(p.transferliste ? p.nachname + ' steht auf der Transferliste.' : 'Von der Transferliste genommen.');
@@ -787,11 +833,20 @@
 
       // ================= Spielfeld =================
       html += '<div class="grid">';
+      var vorlagen = world.taktikVorlagen || [];
       html += '<div class="card"><div class="card__head"><h3>Aufstellung</h3>' +
-        '<select data-f="formation" style="width:auto;max-width:200px">' +
+        '<div class="flex">' +
+        '<select data-f="vorlage" style="width:auto;max-width:170px" title="Gespeicherte Taktiken">' +
+        '<option value="">Vorlage …</option>' +
+        vorlagen.map(function (v) {
+          return '<option value="' + esc(v.name) + '">' + esc(v.name) + ' (' + esc(v.formation) + ')</option>';
+        }).join('') +
+        '</select>' +
+        '<button class="btn btn--sm btn--ghost" data-a="vorlage-neu" title="Formation, Rollen und Anweisungen als Vorlage sichern">Sichern</button>' +
+        '<select data-f="formation" style="width:auto;max-width:170px">' +
         Object.keys(D.FORMATIONEN).map(function (k) {
           return '<option value="' + esc(k) + '"' + (taktik.formation === k ? ' selected' : '') + '>' + esc(k) + '</option>';
-        }).join('') + '</select></div>';
+        }).join('') + '</select></div></div>';
       html += '<p class="klein muted" style="margin-top:-6px">' + esc(f.beschreibung) + '</p>';
 
       html += '<div class="pitch"><div class="pitch__linien">' +
@@ -952,6 +1007,20 @@
           UI.toast(world.spieler[id].nachname + ' aufgestellt.', 'gut');
         };
       });
+      var vsel = container.querySelector('[data-f="vorlage"]');
+      if (vsel) vsel.onchange = function () {
+        var name = vsel.value;
+        if (!name) return;
+        var v = (world.taktikVorlagen || []).filter(function (x) { return x.name === name; })[0];
+        if (!v) return;
+        T.vorlageAnwenden(taktik, v);
+        z.gewaehlterSlot = null;
+        UI.zeichne();
+        UI.toast('Vorlage "' + name + '" angewendet.', 'gut');
+      };
+      var vneu = container.querySelector('[data-a="vorlage-neu"]');
+      if (vneu) vneu.onclick = function () { vorlagenDialog(world, taktik); };
+
       var fsel = container.querySelector('[data-f="formation"]');
       if (fsel) fsel.onchange = function () {
         T.setzeFormation(taktik, fsel.value);

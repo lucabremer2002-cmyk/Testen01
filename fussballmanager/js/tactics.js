@@ -68,6 +68,59 @@
     };
   }
 
+  // ------------------------------------------------------------ Vorlagen
+
+  var MAX_VORLAGEN = 6;
+
+  /**
+   * Eine Taktikvorlage haelt fest, wie gespielt werden soll - Formation,
+   * Rollen und Anweisungen -, nicht mit wem. Die Aufstellung bleibt beim
+   * Anwenden erhalten, soweit die Positionen passen.
+   */
+  function vorlageAus(taktik, name) {
+    return {
+      name: name,
+      formation: taktik.formation,
+      rollen: taktik.rollen.slice(),
+      anweisungen: U.clone(taktik.anweisungen)
+    };
+  }
+
+  function vorlageAnwenden(taktik, vorlage) {
+    if (!vorlage) return taktik;
+    if (vorlage.formation !== taktik.formation) {
+      setzeFormation(taktik, vorlage.formation);
+    }
+    var f = formation(taktik);
+    taktik.rollen = f.slots.map(function (slot, i) {
+      var r = vorlage.rollen[i];
+      return r && rolleFinden(slot.pos, r) ? r : standardRolle(slot.pos);
+    });
+    Object.keys(vorlage.anweisungen).forEach(function (k) {
+      taktik.anweisungen[k] = vorlage.anweisungen[k];
+    });
+    return taktik;
+  }
+
+  function vorlageSpeichern(world, taktik, name) {
+    if (!world.taktikVorlagen) world.taktikVorlagen = [];
+    name = (name || '').trim() || ('Vorlage ' + (world.taktikVorlagen.length + 1));
+    var neu = vorlageAus(taktik, name);
+    var vorhanden = world.taktikVorlagen.filter(function (v) { return v.name === name; })[0];
+    if (vorhanden) {
+      world.taktikVorlagen[world.taktikVorlagen.indexOf(vorhanden)] = neu;
+    } else {
+      world.taktikVorlagen.push(neu);
+      if (world.taktikVorlagen.length > MAX_VORLAGEN) world.taktikVorlagen.shift();
+    }
+    return neu;
+  }
+
+  function vorlageLoeschen(world, name) {
+    if (!world.taktikVorlagen) return;
+    world.taktikVorlagen = world.taktikVorlagen.filter(function (v) { return v.name !== name; });
+  }
+
   function formation(taktik) {
     return D.FORMATIONEN[taktik.formation] || D.FORMATIONEN['4-2-3-1'];
   }
@@ -720,6 +773,11 @@
     setzeKapitaen: setzeKapitaen,
     pruefeAufstellung: pruefeAufstellung,
     aufstellungVorbereiten: aufstellungVorbereiten,
+    vorlageAus: vorlageAus,
+    vorlageAnwenden: vorlageAnwenden,
+    vorlageSpeichern: vorlageSpeichern,
+    vorlageLoeschen: vorlageLoeschen,
+    MAX_VORLAGEN: MAX_VORLAGEN,
     wettbewerbsart: wettbewerbsart,
     bewerteMannschaft: bewerteMannschaft,
     duell: duell,
