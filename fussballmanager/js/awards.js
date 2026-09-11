@@ -42,8 +42,9 @@
   }
 
   function standVon(p) {
-    return [p.stats.spiele, p.stats.tore, p.stats.vorlagen,
-      p.stats.notenSumme, p.stats.notenAnzahl, p.stats.zuNull];
+    // Auch der Monatsvergleich zaehlt nur Ligaspiele.
+    var st = p.ligaStats || p.stats;
+    return [st.spiele, st.tore, st.vorlagen, st.notenSumme, st.notenAnzahl, st.zuNull];
   }
 
   function standSichern(world) {
@@ -170,11 +171,14 @@
     LIGEN.forEach(function (l) {
       var kandidaten = [];
       ligaSpieler(world, l.id).forEach(function (p) {
-        if (p.stats.spiele < 12 || p.stats.notenAnzahl < 10) return;
-        var schnitt = p.stats.notenSumme / p.stats.notenAnzahl;
-        var punkte = (4.0 - schnitt) * 12 + p.stats.tore * 1.6 + p.stats.vorlagen * 1.0;
-        if (p.pos === 'TW') punkte += p.stats.zuNull * 1.8;
-        kandidaten.push({ p: p, punkte: punkte, schnitt: schnitt });
+        // Ehrungen einer Liga richten sich nach Ligaspielen, nicht nach
+        // Pokal- und Europapokalpartien.
+        var st = p.ligaStats || p.stats;
+        if (st.spiele < 12 || st.notenAnzahl < 10) return;
+        var schnitt = st.notenSumme / st.notenAnzahl;
+        var punkte = (4.0 - schnitt) * 12 + st.tore * 1.6 + st.vorlagen * 1.0;
+        if (p.pos === 'TW') punkte += st.zuNull * 1.8;
+        kandidaten.push({ p: p, st: st, punkte: punkte, schnitt: schnitt });
       });
       if (!kandidaten.length) return;
       kandidaten.sort(function (a, b) { return b.punkte - a.punkte; });
@@ -197,12 +201,12 @@
       }));
 
       var torjaeger = kandidaten.slice().sort(function (a, b) {
-        return b.p.stats.tore - a.p.stats.tore;
+        return b.st.tore - a.st.tore;
       })[0];
-      if (torjaeger && torjaeger.p.stats.tore > 0) raus.push(ehre(world, torjaeger.p, {
+      if (torjaeger && torjaeger.st.tore > 0) raus.push(ehre(world, torjaeger.p, {
         typ: 'torjaeger', ligaId: l.id, ligaName: l.name,
         titel: 'Torjägerkanone (' + l.name + ')',
-        zusatz: U.pl(torjaeger.p.stats.tore, 'Tor', 'Tore')
+        zusatz: U.pl(torjaeger.st.tore, 'Tor', 'Tore')
       }));
 
       var elf = elfDerSaison(world, l.id);
@@ -229,10 +233,11 @@
     var schema = [['TW', 1], ['ABW', 4], ['MIT', 3], ['ANG', 3]];
     var bewertet = [];
     ligaSpieler(world, ligaId).forEach(function (p) {
-      if (p.stats.spiele < 10 || p.stats.notenAnzahl < 8) return;
-      var schnitt = p.stats.notenSumme / p.stats.notenAnzahl;
-      var punkte = (4.0 - schnitt) * 12 + p.stats.tore * 1.4 + p.stats.vorlagen * 0.9;
-      if (p.pos === 'TW') punkte += p.stats.zuNull * 1.8;
+      var st = p.ligaStats || p.stats;
+      if (st.spiele < 10 || st.notenAnzahl < 8) return;
+      var schnitt = st.notenSumme / st.notenAnzahl;
+      var punkte = (4.0 - schnitt) * 12 + st.tore * 1.4 + st.vorlagen * 0.9;
+      if (p.pos === 'TW') punkte += st.zuNull * 1.8;
       bewertet.push({ p: p, punkte: punkte, gruppe: p.pos === 'TW' ? 'TW' : D.POS_GRUPPE[p.pos] });
     });
     bewertet.sort(function (a, b) { return b.punkte - a.punkte; });

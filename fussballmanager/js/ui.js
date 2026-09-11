@@ -846,6 +846,75 @@
     });
   }
 
+  /**
+   * Zweiter Bildschirm des Saisonwechsels: Ehrungen, Auf- und Absteiger.
+   * Er laeuft nach saisonAbschluss, weil die Ehrungen erst dort entstehen.
+   */
+  function ehrentafel(world, saison) {
+    var eigene = FM.awards.auszeichnungenVon(world, { saison: saison, clubId: world.nutzerClubId });
+    var alle = FM.awards.auszeichnungenVon(world, { saison: saison });
+    var letzte = world.historie.saisons[world.historie.saisons.length - 1];
+
+    function zeile(a) {
+      var sp = a.spielerId ? world.spieler[a.spielerId] : null;
+      var v = a.clubId ? world.vereine[a.clubId] : null;
+      return '<div class="stat-row"><span>' + esc(a.titel) + '</span><b>' +
+        esc(sp ? sp.vorname + ' ' + sp.nachname : a.text || '–') +
+        (v ? ' <span class="muted klein">' + esc(v.kurz) + '</span>' : '') +
+        (a.zusatz ? ' <span class="muted klein">' + esc(a.zusatz) + '</span>' : '') + '</b></div>';
+    }
+
+    var html = '<h4>Saison ' + saison + '/' + String(saison + 1).slice(2) + '</h4>' +
+      '<h2>Die Ehrungen der Saison</h2>';
+
+    if (eigene.length) {
+      html += '<div class="card card--flat mb"><h4>Aus Ihrem Verein</h4>' +
+        eigene.map(zeile).join('') + '</div>';
+    }
+
+    var saisontitel = alle.filter(function (a) {
+      return ['spielerDerSaison', 'torwartDerSaison', 'nachwuchsDerSaison', 'torjaeger'].indexOf(a.typ) >= 0;
+    });
+    if (saisontitel.length) {
+      html += '<div class="card card--flat mb"><h4>Die Besten der Ligen</h4>' +
+        saisontitel.map(zeile).join('') + '</div>';
+    }
+
+    var elf = alle.filter(function (a) { return a.typ === 'elfDerSaison'; });
+    elf.forEach(function (a) {
+      html += '<div class="card card--flat mb"><h4>' + esc(a.titel) + '</h4>' +
+        '<div class="klein">' + esc(a.text) + '</div></div>';
+    });
+
+    if (letzte && (letzte.aufsteiger.length || letzte.absteiger.length)) {
+      function namen(ids) {
+        return ids.map(function (id) {
+          var v = world.vereine[id];
+          return v ? esc(v.name) : '?';
+        }).join(', ') || '–';
+      }
+      html += '<div class="card card--flat mb"><h4>Auf und ab</h4>' +
+        '<div class="stat-row"><span>Aufsteiger in die Bundesliga</span><b class="w-gut">' +
+        namen(letzte.aufsteiger) + '</b></div>' +
+        '<div class="stat-row"><span>Absteiger aus der Bundesliga</span><b class="w-schlecht">' +
+        namen(letzte.absteiger) + '</b></div></div>';
+    }
+
+    html += '<div class="flex mt"><button class="btn btn--primary btn--big" data-a="los">' +
+      'Saison ' + world.saison + '/' + String(world.saison + 1).slice(2) + ' beginnen</button></div>';
+
+    modal(html, {
+      beimSchliessen: function () { zeige('uebersicht'); },
+      nachher: function (body) {
+        if (eigene.length) konfetti(100);
+        body.querySelector('[data-a="los"]').onclick = function () {
+          modalZu();
+          toast('Willkommen in der Saison ' + world.saison + '/' + String(world.saison + 1).slice(2), 'gut');
+        };
+      }
+    });
+  }
+
   function nachrichtTyp(t) {
     var m = {
       medizin: 'Medizinische Abteilung', transfer: 'Transfermarkt', angebot: 'Angebot',
@@ -896,6 +965,23 @@
 
     html += saisonRueckblick(world);
 
+    // Was der Vorstand daraus macht - das ist die eigentliche Nachricht
+    // des Saisonendes, und sie gehoert nicht nur ins Postfach.
+    var m = world.manager;
+    var kuenftig = U.clamp(m.vorstandsvertrauen + (erreicht ? 15 : -18), 0, 100);
+    var urteil = erreicht
+      ? (eigen && eigen.platz <= 3
+        ? 'Der Vorstand ist begeistert. So eine Saison spricht sich herum.'
+        : 'Der Vorstand ist zufrieden. Sie haben geliefert, was verabredet war.')
+      : (kuenftig < 25
+        ? 'Der Vorstand ist alarmiert. Ein weiterer Fehlschlag kostet Sie das Amt.'
+        : 'Der Vorstand erwartet eine deutliche Steigerung.');
+    html += '<div class="card card--flat mt"><h4>Das Urteil des Vorstands</h4>' +
+      '<p class="klein">' + esc(urteil) + '</p>' +
+      '<div class="stat-row"><span>Vertrauen des Vorstands</span><b class="' +
+      (kuenftig >= 55 ? 'w-gut' : kuenftig >= 30 ? 'w-mittel' : 'w-schlecht') + '">' +
+      Math.round(m.vorstandsvertrauen) + ' % → ' + Math.round(kuenftig) + ' %</b></div></div>';
+
     html += '<div class="flex mt"><button class="btn btn--primary btn--big" data-a="weiter">Neue Saison beginnen</button></div>';
 
     modal(html, {
@@ -903,9 +989,9 @@
         if (erreicht) konfetti(140);
         body.querySelector('[data-a="weiter"]').onclick = function () {
           modalZu();
+          var abgelaufen = world.saison;
           FM.engine.saisonAbschluss(world);
-          zeige('uebersicht');
-          toast('Willkommen in der Saison ' + world.saison + '/' + String(world.saison + 1).slice(2), 'gut');
+          ehrentafel(world, abgelaufen);
         };
       }
     });
