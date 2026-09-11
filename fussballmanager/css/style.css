@@ -1288,3 +1288,15 @@ td.name { font-weight: 700; }
   background: var(--blue-bg); color: var(--blue);
   font-size: 10px; font-weight: 800; letter-spacing: .04em; vertical-align: 1px;
 }
+
+.tausch-liste {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 6px; max-height: 190px; overflow-y: auto; padding-right: 4px;
+}
+.option--klein { padding: 7px 10px; font-size: 12px; text-align: left; }
+.option--klein.is-aktiv {
+  background: var(--accent-bg); border-color: var(--accent-dim); color: var(--text);
+}
+@media (max-width: 820px) {
+  .tausch-liste { grid-template-columns: 1fr; max-height: 220px; }
+}

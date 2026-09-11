@@ -60,6 +60,61 @@
   }
 
   /**
+   * Was ein angebotener Tauschspieler dem abgebenden Verein wert ist.
+   *
+   * Nicht sein Marktwert: Ein Verein zahlt fuer einen Spieler, den er
+   * nicht braucht, keinen vollen Preis, und das Gehalt haengt ihm danach
+   * am Hals. Barmittel sind einem Verein immer lieber als Personal.
+   */
+  function tauschWert(world, verkaeuferId, p) {
+    var club = world.vereine[verkaeuferId];
+    if (!club || !p) return 0;
+    var wert = P.marktwert(p, world);
+
+    // Grundabschlag: ein Spieler ist kein Geld.
+    var faktor = 0.72;
+
+    // Passt die Klasse zum Verein?
+    var niveau = P.niveauFuerVerein(club);
+    var st = P.gesamt(p);
+    if (st < niveau - 10) faktor *= 0.55;             // zu schwach, reine Last
+    else if (st > niveau + 8) faktor *= 1.10;         // Verstaerkung
+
+    // Braucht der Verein die Position?
+    var kader = world.kaderVon(verkaeuferId);
+    var aufPos = kader.filter(function (x) {
+      return x.pos === p.pos && P.gesamt(x) >= st - 4;
+    }).length;
+    if (aufPos === 0) faktor *= 1.18;
+    else if (aufPos >= 3) faktor *= 0.70;
+
+    // Gehaltslast
+    if (p.vertrag) {
+      var f = world.finanzen[verkaeuferId];
+      if (f && f.gehaltsbudget) {
+        var anteil = p.vertrag.gehalt / Math.max(1, f.gehaltsbudget);
+        if (anteil > 0.14) faktor *= U.clamp(1.25 - anteil * 2.2, 0.45, 1.0);
+      }
+    }
+
+    // Alter: ein 34-Jaehriger im Tausch ist wenig wert
+    if (p.alter >= 33) faktor *= 0.55;
+    else if (p.alter >= 31) faktor *= 0.78;
+    else if (p.alter <= 21 && p.potenzial > st + 8) faktor *= 1.12;
+
+    return Math.round(wert * faktor);
+  }
+
+  /** Gesamtwert aller angebotenen Tauschspieler. */
+  function tauschPaket(world, verkaeuferId, ids) {
+    if (!ids || !ids.length) return { wert: 0, spieler: [] };
+    var spieler = ids.map(function (id) { return world.spieler[id]; }).filter(Boolean);
+    var wert = 0;
+    spieler.forEach(function (p) { wert += tauschWert(world, verkaeuferId, p); });
+    return { wert: wert, spieler: spieler };
+  }
+
+  /**
    * Bewertet ein Ablösegebot aus Sicht des abgebenden Vereins.
    * Rueckgabe: { status, gegenangebot, text }
    */
@@ -90,6 +145,10 @@
     if (angebot.boni) barwert += angebot.boni * 0.45;
     if (angebot.weiterverkauf) barwert += P.marktwert(p, world) * (angebot.weiterverkauf / 100) * 0.30;
 
+    // Angebotene Tauschspieler
+    var tausch = tauschPaket(world, p.clubId, angebot.tauschIds);
+    barwert += tausch.wert;
+
     if (bereit < 0.10 && barwert < forderung * 1.6) {
       return {
         status: 'abgelehnt',
@@ -98,19 +157,28 @@
       };
     }
 
+    var tauschText = tausch.spieler.length
+      ? ' ' + (club ? club.name : 'Der Verein') + ' bewertet ' +
+        (tausch.spieler.length === 1 ? tausch.spieler[0].nachname : tausch.spieler.length + ' Tauschspieler') +
+        ' mit ' + U.money(tausch.wert) + '.'
+      : '';
+
     if (barwert >= forderung) {
-      return { status: 'angenommen', forderung: forderung, text: 'Die Vereine haben sich auf eine Ablöse geeinigt.' };
+      return { status: 'angenommen', forderung: forderung, tauschwert: tausch.wert,
+        text: 'Die Vereine haben sich geeinigt.' + tauschText };
     }
     if (barwert >= forderung * 0.72) {
-      var gegen = Math.round(forderung / 50000) * 50000;
+      var gegen = Math.round(Math.max(0, forderung - tausch.wert) / 50000) * 50000;
       return {
-        status: 'gegenangebot', gegenangebot: gegen, forderung: forderung,
-        text: 'Das Angebot liegt unter den Vorstellungen. Verlangt werden ' + U.money(gegen) + '.'
+        status: 'gegenangebot', gegenangebot: gegen, forderung: forderung, tauschwert: tausch.wert,
+        text: 'Das Angebot liegt unter den Vorstellungen. Verlangt werden ' + U.money(gegen) +
+          (tausch.spieler.length ? ' zusätzlich zum Tausch.' : '.') + tauschText
       };
     }
     return {
-      status: 'abgelehnt', forderung: forderung,
-      text: 'Das Angebot wird als deutlich zu niedrig zurückgewiesen. Vorstellung: ' + U.money(forderung) + '.'
+      status: 'abgelehnt', forderung: forderung, tauschwert: tausch.wert,
+      text: 'Das Angebot wird als deutlich zu niedrig zurückgewiesen. Vorstellung: ' +
+        U.money(forderung) + '.' + tauschText
     };
   }
 
@@ -244,6 +312,31 @@
     }
     if (konditionen.handgeld) {
       F.buche(world, kaeuferId, 'aus', 'sonstige', konditionen.handgeld, 'Handgeld ' + p.nachname);
+    }
+
+    // Tauschspieler wechseln in die Gegenrichtung.
+    if (konditionen.tauschIds && konditionen.tauschIds.length && verkaeuferId) {
+      konditionen.tauschIds.forEach(function (tid) {
+        var t = world.spieler[tid];
+        if (!t || t.clubId !== kaeuferId) return;
+        t.exClubId = kaeuferId;
+        world.setzeVerein(t, verkaeuferId);
+        t.leihe = null;
+        t.transferliste = false;
+        t.leihliste = false;
+        t.wechselwunsch = 0;
+        t.unzufriedenheit = { spielzeit: 0, gehalt: 0, ambition: 0, taktik: 0 };
+        t.nummer = freieNummer(world, verkaeuferId, t.nummer);
+        t.kaderrolle = P.vorgeschlageneRolle(t, world.kaderVon(verkaeuferId));
+        t.rollenSeit = world.tag;
+        t.scoutwissen = 1;
+        t.marktwert = P.marktwert(t, world);
+        t.historie.push({ tag: world.tag, typ: 'tausch', von: kaeuferId, zu: verkaeuferId, ablöse: 0 });
+        world.transfer.historie.unshift({
+          tag: world.tag, spielerId: t.id, name: t.vorname + ' ' + t.nachname,
+          vonId: kaeuferId, zuId: verkaeuferId, ablöse: 0, art: 'tausch'
+        });
+      });
     }
 
     p.exClubId = verkaeuferId;
@@ -889,6 +982,8 @@
     pruefeAngebot: pruefeAngebot,
     pruefeVertragsangebot: pruefeVertragsangebot,
     fuehreTransferDurch: fuehreTransferDurch,
+    tauschWert: tauschWert,
+    tauschPaket: tauschPaket,
     fuehreLeiheDurch: fuehreLeiheDurch,
     leiheBeenden: leiheBeenden,
     scoutAuftragAnlegen: scoutAuftragAnlegen,

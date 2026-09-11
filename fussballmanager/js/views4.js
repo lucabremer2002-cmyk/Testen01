@@ -253,6 +253,28 @@
     var abgeber = world.vereine[p.clubId];
     var bereit = FM.transfers.verkaufsbereitschaft(world, p);
     var schaetzung = P.forderung(p, world, abgeber);
+    var tauschIds = [];
+
+    function tauschBlock() {
+      var eigene = U.sortBy(world.kaderVon(club.id), function (x) { return -P.gesamt(x); });
+      var paket = FM.transfers.tauschPaket(world, p.clubId, tauschIds);
+      return '<div class="card card--flat mb"><h4>Spieler im Tausch anbieten</h4>' +
+        '<p class="klein muted">' + esc(abgeber.name) + ' bewertet angebotene Spieler nach ' +
+        'eigenem Bedarf, nicht nach Marktwert – und nimmt lieber Geld.</p>' +
+        '<div class="tausch-liste">' + eigene.map(function (x) {
+          var an = tauschIds.indexOf(x.id) >= 0;
+          return '<button class="option option--klein' + (an ? ' is-aktiv' : '') +
+            '" data-tausch="' + esc(x.id) + '">' +
+            '<b>' + esc(x.nachname) + '</b> <span class="klein muted">' +
+            esc(x.pos) + ' · ' + Math.round(P.gesamt(x)) + ' · ' + U.money(x.marktwert) + '</span>' +
+            (an ? '<span class="chip chip--gruen">dabei</span>' : '') + '</button>';
+        }).join('') + '</div>' +
+        (tauschIds.length
+          ? '<div class="stat-row"><span>Gegenwert für ' + esc(abgeber.kurz) + '</span><b class="w-gut">' +
+            U.money(paket.wert) + '</b></div>'
+          : '') +
+        '</div>';
+    }
 
     function formular(gebot, sofortAnteil, raten, boni, weiterverkauf, meldung) {
       return '<h4>Transferangebot</h4><h2>' + esc(p.vorname + ' ' + p.nachname) + '</h2>' +
@@ -265,6 +287,7 @@
           ? '<div class="tile"><span>Ausstiegsklausel</span><b style="font-size:15px">' + U.money(p.vertrag.ausstiegsklausel) + '</b></div>' : '') +
         '</div>' +
         (meldung ? '<div class="card card--flat mb">' + meldung + '</div>' : '') +
+        tauschBlock() +
         '<div class="grid grid--3">' +
         '<div><label>Ablöse gesamt</label><input type="number" data-v="gebot" value="' + gebot + '" step="100000" min="0"></div>' +
         '<div><label>Sofort zahlbar (%)</label><input type="number" data-v="sofort" value="' + sofortAnteil + '" min="20" max="100" step="10"></div>' +
@@ -283,6 +306,18 @@
           function v(k) { return body.querySelector('[data-v="' + k + '"]'); }
           body.querySelector('[data-a="abbruch"]').onclick = UI.modalZu;
           body.querySelector('[data-a="leihe"]').onclick = function () { V.leiheDialog(spielerId); };
+          Array.prototype.forEach.call(body.querySelectorAll('[data-tausch]'), function (b) {
+            b.onclick = function () {
+              var id = b.dataset.tausch;
+              var i = tauschIds.indexOf(id);
+              if (i >= 0) tauschIds.splice(i, 1); else tauschIds.push(id);
+              zeige(Math.max(0, parseInt(v('gebot').value, 10) || 0),
+                U.clamp(parseInt(v('sofort').value, 10) || 100, 20, 100),
+                U.clamp(parseInt(v('raten').value, 10) || 1, 1, 4),
+                Math.max(0, parseInt(v('boni').value, 10) || 0),
+                U.clamp(parseInt(v('wv').value, 10) || 0, 0, 40), null);
+            };
+          });
           body.querySelector('[data-a="bieten"]').onclick = function () {
             var gesamt = Math.max(0, parseInt(v('gebot').value, 10) || 0);
             var anteil = U.clamp(parseInt(v('sofort').value, 10) || 100, 20, 100);
@@ -291,7 +326,8 @@
               gesamt: gesamt, sofort: sofort,
               raten: U.clamp(parseInt(v('raten').value, 10) || 1, 1, 4),
               boni: Math.max(0, parseInt(v('boni').value, 10) || 0),
-              weiterverkauf: U.clamp(parseInt(v('wv').value, 10) || 0, 0, 40)
+              weiterverkauf: U.clamp(parseInt(v('wv').value, 10) || 0, 0, 40),
+              tauschIds: tauschIds.slice()
             };
             if (sofort > f.kontostand) {
               zeige(gesamt, anteil, angebot.raten, angebot.boni, angebot.weiterverkauf,
@@ -336,7 +372,13 @@
     function zeige(gehalt, jahreW, handgeld, rolle, meldung) {
       var html = '<h4>Die Vereine sind sich einig</h4><h2>Vertrag mit ' + esc(p.nachname) + '</h2>' +
         '<p class="muted">Ablöse: <b>' + U.money(ablösePaket.gesamt) + '</b>' +
-        (ablösePaket.sofort < ablösePaket.gesamt ? ' (davon ' + U.money(ablösePaket.sofort) + ' sofort)' : '') + '</p>' +
+        (ablösePaket.sofort < ablösePaket.gesamt ? ' (davon ' + U.money(ablösePaket.sofort) + ' sofort)' : '') +
+        ((ablösePaket.tauschIds || []).length
+          ? ' · im Tausch: <b>' + ablösePaket.tauschIds.map(function (id) {
+            var t = world.spieler[id];
+            return esc(t ? t.nachname : '?');
+          }).join(', ') + '</b>'
+          : '') + '</p>' +
         (meldung ? '<div class="card card--flat mb">' + meldung + '</div>' : '') +
         '<div class="grid grid--3">' +
         '<div><label>Wochengehalt</label><input type="number" data-v="gehalt" value="' + gehalt + '" step="500" min="500"></div>' +
@@ -371,7 +413,7 @@
               FM.transfers.fuehreTransferDurch(world, p, club.id, {
                 ablöse: ablösePaket.gesamt, sofort: ablösePaket.sofort, raten: ablösePaket.raten,
                 handgeld: angebot.handgeld, weiterverkauf: ablösePaket.weiterverkauf,
-                rolle: angebot.rolle,
+                rolle: angebot.rolle, tauschIds: ablösePaket.tauschIds || [],
                 vertrag: {
                   bis: world.tag + angebot.jahre * 365, unterschrieben: world.tag,
                   gehalt: angebot.gehalt, handgeld: angebot.handgeld, ausstiegsklausel: 0,

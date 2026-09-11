@@ -200,6 +200,16 @@ Seiten machen Gegenangebote.
 * Die KI-Vereine handeln eigenständig, halten ihr Budget ein und geben
   Angebote für Ihre Spieler ab.
 
+### Spielertausch
+
+Im Transferangebot lassen sich eigene Spieler mit anbieten. Der abgebende
+Verein rechnet dabei nicht mit dem Marktwert, sondern mit dem, was ihm
+der Spieler wert ist: Ein Grundabschlag, weil ein Spieler kein Geld ist,
+dazu Zu- und Abschläge für Klasse im Verhältnis zum eigenen Niveau,
+Bedarf auf der Position, Gehaltslast und Alter. Ein 34-Jähriger im Tausch
+bringt wenig, ein 20-jähriges Talent mit Potenzial etwas mehr als sein
+Marktwert hergibt.
+
 ### Training
 
 Ein Wochenplan aus 14 Einheiten (sieben Tage, Vormittag und Nachmittag)
