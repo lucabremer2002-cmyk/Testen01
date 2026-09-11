@@ -187,12 +187,21 @@
       var relevante = state.ereignisse.filter(function (e) {
         return ['ecke', 'geblockt'].indexOf(e.typ) < 0;
       });
-      ticker.innerHTML = relevante.slice().reverse().slice(0, 60).map(function (e) {
+      // Nur neue Meldungen oben anfuegen. Wuerde der ganze Verlauf bei jedem
+      // Takt neu geschrieben, startete die Einblendung jedes Mal von vorn -
+      // bei hohem Tempo bliebe der Ticker dauerhaft unsichtbar.
+      var stand = parseInt(ticker.dataset.stand, 10) || 0;
+      if (relevante.length < stand) { ticker.innerHTML = ''; stand = 0; }
+      for (var ti = stand; ti < relevante.length; ti++) {
+        var e = relevante[ti];
         var gross = ['tor', 'rot', 'gelbrot', 'elfmeterpfiff', 'elfmeterVerschossen', 'elfmeterGehalten'].indexOf(e.typ) >= 0;
-        return '<div class="tick tick--' + esc(e.typ) + (gross ? ' tick--gross' : '') + '">' +
+        ticker.insertAdjacentHTML('afterbegin',
+          '<div class="tick tick--' + esc(e.typ) + (gross ? ' tick--gross' : '') + '">' +
           '<span class="tick__min">' + (e.minute ? e.minute + "'" : '') + '</span>' +
-          '<span>' + esc(e.text) + '</span></div>';
-      }).join('');
+          '<span>' + esc(e.text) + '</span></div>');
+      }
+      ticker.dataset.stand = relevante.length;
+      while (ticker.children.length > 60) ticker.removeChild(ticker.lastChild);
     }
 
     var stats = doc.getElementById('mv-stats');

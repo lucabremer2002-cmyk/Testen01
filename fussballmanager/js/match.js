@@ -456,7 +456,7 @@
     if (state.spiel && state.spiel.wettbewerb === 'test') {
       verhaeltnis = 1 + (verhaeltnis - 1) * 0.62;
     }
-    var rate = 0.1462 * (0.55 + ballanteil * 0.90) * wA.mod.chancen * Math.pow(verhaeltnis, 1.05) * attMod * an.tagesform;
+    var rate = 0.1484 * (0.55 + ballanteil * 0.90) * wA.mod.chancen * Math.pow(verhaeltnis, 1.05) * attMod * an.tagesform;
     var eigene = state.tore[an.heim ? 'heim' : 'gast'];
     var fremde = state.tore[an.heim ? 'gast' : 'heim'];
     if (m > 80 && eigene < fremde) rate *= 1.06;

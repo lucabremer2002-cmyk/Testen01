@@ -730,9 +730,11 @@ td.name { font-weight: 700; }
 .teil__name { color: var(--text-2); font-weight: 700; }
 .teil__spur { height: 8px; background: rgba(255,255,255,.07); border-radius: var(--r-pill); overflow: hidden; position: relative; }
 .teil__wert {
-  height: 100%; width: 0; border-radius: var(--r-pill);
+  /* Breite kommt aus --w. Die Einblendung laeuft von 0 dorthin - mit
+     "forwards" und ohne width blieb der Balken dauerhaft unsichtbar. */
+  display: block; height: 100%; width: var(--w); border-radius: var(--r-pill);
   background: linear-gradient(90deg, var(--accent-dim), var(--accent));
-  animation: fm-fuellen .8s cubic-bezier(.22,.9,.3,1) forwards;
+  animation: fm-fuellen .8s cubic-bezier(.22,.9,.3,1);
 }
 .teil__gegner {
   position: absolute; top: -3px; width: 2px; height: 14px;
