@@ -436,7 +436,14 @@
     var fremde = heim ? ergebnis.gastTore : ergebnis.heimTore;
     var gegnerId = heim ? spiel.gastId : spiel.heimId;
     var gegner = world.vereine[gegnerId];
-    var erwartung = gegner ? U.clamp(0.5 + (club.ruf - gegner.ruf) / 90 + (heim ? 0.10 : -0.10), 0.12, 0.88) : 0.5;
+    // Die Erwartung ist der wahrscheinliche Ergebniswert, nicht die
+    // Siegwahrscheinlichkeit. Weil ein Remis nur 0,45 zaehlt, liegt der
+    // Erwartungswert zweier gleich starker Mannschaften bei etwa 0,49 -
+    // mit 0,5 als Nullpunkt verlor selbst ein Meistertrainer Woche fuer
+    // Woche Vertrauen.
+    var erwartung = gegner
+      ? U.clamp(0.4875 + (club.ruf - gegner.ruf) / 150 + (heim ? 0.065 : -0.065), 0.12, 0.88)
+      : 0.4875;
 
     var ergebnisWert = eigene > fremde ? 1 : eigene === fremde ? 0.45 : 0;
     var delta = (ergebnisWert - erwartung) * 9;

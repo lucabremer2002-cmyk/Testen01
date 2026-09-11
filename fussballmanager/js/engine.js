@@ -1130,8 +1130,12 @@
         neu.kaderrolle = P.vorgeschlageneRolle(neu, world.kaderVon(clubId));
         neu.rollenSeit = world.tag;
       }
+      // Beim Nutzer wird die gewaehlte Elf nicht ueberschrieben, sondern nur
+      // repariert - sonst stellt der Verein montags heimlich um.
       var taktik = world.taktiken[clubId];
-      if (taktik) T.autoAufstellung(world, club, taktik);
+      if (!taktik) return;
+      if (world.istNutzerVerein(clubId)) T.aufstellungVorbereiten(world, clubId, null, false);
+      else T.autoAufstellung(world, club, taktik);
     });
   }
 
@@ -1177,8 +1181,12 @@
         p.nummer = 0;
         p.kapitaen = false;
       }
+      // Beim Nutzer wird die gewaehlte Elf nicht ueberschrieben, sondern nur
+      // repariert - sonst stellt der Verein montags heimlich um.
       var taktik = world.taktiken[clubId];
-      if (taktik) T.autoAufstellung(world, club, taktik);
+      if (!taktik) return;
+      if (world.istNutzerVerein(clubId)) T.aufstellungVorbereiten(world, clubId, null, false);
+      else T.autoAufstellung(world, club, taktik);
     });
   }
 

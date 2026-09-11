@@ -937,7 +937,15 @@
           var idx = taktik.aufstellung.indexOf(p.id);
           return P.posStaerke(p, f.slots[idx >= 0 ? idx : 0].pos);
         })) : 0;
-      var diff = elfStaerke - beste.staerke;
+      // Der Vergleich mit der besten Elf laeuft ueber die Tagesform - sie ist
+      // der Wert, mit dem die Simulation rechnet, und nur sie zeigt, was
+      // Frische und Form gerade kosten.
+      var elfHeute = vorhanden.length
+        ? U.avg(vorhanden.map(function (p) {
+          var idx = taktik.aufstellung.indexOf(p.id);
+          return P.tagesform(p, f.slots[idx >= 0 ? idx : 0].pos);
+        })) : 0;
+      var diff = elfHeute - beste.tagesform;
       var probleme11 = vorhanden.filter(function (p) {
         return p.verletzung || p.sperre > 0 || p.fitness < 62;
       }).length;
@@ -945,8 +953,8 @@
       html += '<div class="tiles mb">' +
         kachel('Stärke der Elf', U.num(elfStaerke, 1), elfEinordnung(world, club, elfStaerke),
           elfStaerke >= 68 ? 'gut' : elfStaerke >= 52 ? '' : 'warn') +
-        kachel('Gegenüber der besten Elf', (diff >= -0.05 ? '±0' : U.num(diff, 1)),
-          diff >= -0.05 ? 'optimal besetzt' : 'Luft nach oben', diff >= -0.05 ? 'gut' : 'warn') +
+        kachel('Gegenüber der besten Elf', (diff >= -0.3 ? '±0' : U.num(diff, 1)),
+          diff >= -0.3 ? 'optimal besetzt' : 'Luft nach oben', diff >= -0.3 ? 'gut' : 'warn') +
         kachel('Einspielgrad', Math.round(taktik.einspielgrad) + ' %',
           taktik.einspielgrad >= 75 ? 'eingespielt' : taktik.einspielgrad >= 50 ? 'wächst' : 'neu formiert',
           taktik.einspielgrad >= 75 ? 'gut' : taktik.einspielgrad >= 50 ? '' : 'warn') +
@@ -1412,16 +1420,28 @@
   }
 
   /** Stärke der bestmöglichen Aufstellung – als Vergleichsmaßstab. */
+  V.bestmoeglicheElf = function (world, club, taktik, spiel) {
+    return bestmoeglicheElf(world, club, taktik, spiel);
+  };
+
   function bestmoeglicheElf(world, club, taktik, spiel) {
     var kopie = U.clone(taktik);
     T.autoAufstellung(world, club, kopie, { wettbewerb: spiel ? spiel.wettbewerb : null });
     var f = T.formation(kopie);
-    var werte = [];
+    var werte = [], heute = [];
     kopie.aufstellung.forEach(function (id, i) {
       var p = id ? world.spieler[id] : null;
-      if (p) werte.push(P.posStaerke(p, f.slots[i].pos));
+      if (!p) return;
+      werte.push(P.posStaerke(p, f.slots[i].pos));
+      heute.push(P.tagesform(p, f.slots[i].pos));
     });
-    return { staerke: werte.length ? U.avg(werte) : 0, aufstellung: kopie.aufstellung };
+    return {
+      staerke: werte.length ? U.avg(werte) : 0,
+      // Tagesform ist der Wert, mit dem die Simulation rechnet. Nur er sagt,
+      // was eine Umstellung am Samstag tatsaechlich brächte.
+      tagesform: heute.length ? U.avg(heute) : 0,
+      aufstellung: kopie.aufstellung
+    };
   }
 
 })(typeof window !== 'undefined' ? window : globalThis);

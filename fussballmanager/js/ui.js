@@ -414,12 +414,33 @@
     return null;
   }
 
+  /**
+   * Wie viel Staerke liegt zwischen der aufgestellten und der besten
+   * verfuegbaren Elf? Ohne diese Zahl merkt niemand, dass er seit vier
+   * Spieltagen mit derselben muedenen Elf antritt.
+   */
+  function elfAbstand(world, club, taktik, spiel) {
+    try {
+      var beste = FM.views.bestmoeglicheElf(world, club, taktik, spiel);
+      var f = FM.tactics.formation(taktik);
+      var werte = [];
+      taktik.aufstellung.forEach(function (id, i) {
+        var sp = id ? world.spieler[id] : null;
+        if (sp) werte.push(FM.players.tagesform(sp, f.slots[i].pos));
+      });
+      return beste.tagesform - (werte.length ? U.avg(werte) : 0);
+    } catch (e) { return 0; }
+  }
+
   function spieltagsband(world) {
     var spiel = anstehendesSpiel(world);
     if (!spiel) return '';
     var heim = world.vereine[spiel.heimId];
     var gast = world.vereine[spiel.gastId];
     var riv = FM.data.rivalitaet(spiel.heimId, spiel.gastId);
+    var nutzerClub = world.nutzerVerein();
+    var bandAbstand = world.einstellungen && world.einstellungen.autoAufstellung
+      ? 0 : elfAbstand(world, nutzerClub, world.taktikVon(nutzerClub.id), spiel);
     return '<div class="spieltagsband">' +
       '<div class="spieltagsband__info">' +
       '<span class="spieltagsband__marke">Heute</span>' +
@@ -430,6 +451,10 @@
       (riv ? '<span class="derby-tag">' + esc(riv.name) + '</span>' : '') +
       '</div>' +
       '<div class="flex">' +
+      (bandAbstand >= 1.2
+        ? '<button class="btn btn--ghost" data-band="beste" title="Frische, Form oder Sperren haben sich geändert">' +
+          'Beste Elf <span class="w-mittel">+' + U.num(bandAbstand, 1) + '</span></button>'
+        : '') +
       '<button class="btn btn--primary" data-band="anpfiff">Spiel leiten</button>' +
       '<button class="btn btn--ghost" data-band="sim">Ergebnis simulieren</button>' +
       '</div></div>';
@@ -438,9 +463,16 @@
   function bandVerdrahten(container, world) {
     var an = container.querySelector('[data-band="anpfiff"]');
     var sim = container.querySelector('[data-band="sim"]');
+    var beste = container.querySelector('[data-band="beste"]');
     if (!an && !sim) return;
     var spiel = anstehendesSpiel(world);
     if (!spiel) return;
+    if (beste) beste.onclick = function () {
+      var club = world.nutzerVerein();
+      FM.tactics.autoAufstellung(world, club, world.taktikVon(club.id), { wettbewerb: spiel.wettbewerb });
+      zeichne();
+      toast('Beste verfügbare Elf aufgestellt.', 'gut');
+    };
     if (an) an.onclick = function () { vorSpielAblauf(spiel); };
     if (sim) sim.onclick = function () {
       var state = FM.match.simuliere(world, spiel);
@@ -679,6 +711,17 @@
         probleme.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></div>';
     }
 
+    // Wer die Aufstellung stehen laesst, spielt schnell mit muedem Personal.
+    // Wenn die beste verfuegbare Elf deutlich staerker waere, steht das hier -
+    // sonst faellt der Nachteil erst in der Tabelle auf.
+    var abstand = elfAbstand(world, club, taktik, spiel);
+    if (abstand >= 1.2) {
+      html += '<div class="card card--flat mb" style="border-color:var(--gold)">' +
+        '<b class="w-mittel">Die beste verfügbare Elf wäre ' + U.num(abstand, 1) + ' Punkte stärker.</b> ' +
+        '<span class="klein muted">Frische, Form oder Sperren haben sich seit Ihrer letzten Aufstellung verändert.</span>' +
+        '<div class="flex mt"><button class="btn btn--sm" data-a="beste">Beste Elf aufstellen</button></div></div>';
+    }
+
     html += '<div class="flex mt">' +
       '<button class="btn btn--primary btn--big" data-a="anpfiff">Spiel leiten</button>' +
       '<button class="btn" data-a="taktik">Zur Taktik</button>' +
@@ -692,6 +735,13 @@
           var pk = FM.media.pkVorSpiel(world, spiel);
           if (pk.fragen.length) pressekonferenz(pk, function () { FM.matchview.starte(spiel); });
           else FM.matchview.starte(spiel);
+        };
+        var bestKnopf = body.querySelector('[data-a="beste"]');
+        if (bestKnopf) bestKnopf.onclick = function () {
+          FM.tactics.autoAufstellung(world, club, taktik, { wettbewerb: spiel.wettbewerb });
+          modalZu();
+          toast('Beste verfügbare Elf aufgestellt.', 'gut');
+          vorSpielAblauf(spiel);
         };
         body.querySelector('[data-a="taktik"]').onclick = function () { modalZu(); zeige('taktik'); };
         body.querySelector('[data-a="simulieren"]').onclick = function () {

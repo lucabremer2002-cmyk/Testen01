@@ -100,9 +100,11 @@
     var gastClub = world.vereine[spiel.gastId];
 
     // Vor dem Anpfiff wird die Aufstellung geprueft: KI-Vereine stellen neu
-    // auf, beim Nutzer werden nur ausgefallene Spieler ersetzt.
-    var heimAuto = !world.istNutzerVerein(spiel.heimId) || !!opts.autoHeim;
-    var gastAuto = !world.istNutzerVerein(spiel.gastId) || !!opts.autoGast;
+    // auf, beim Nutzer werden nur ausgefallene Spieler ersetzt - es sei denn,
+    // er hat das automatische Aufstellen eingeschaltet.
+    var autoWunsch = !!(world.einstellungen && world.einstellungen.autoAufstellung);
+    var heimAuto = !world.istNutzerVerein(spiel.heimId) || !!opts.autoHeim || autoWunsch;
+    var gastAuto = !world.istNutzerVerein(spiel.gastId) || !!opts.autoGast || autoWunsch;
     var heimTaktik = T.aufstellungVorbereiten(world, spiel.heimId, spiel.wettbewerb, heimAuto);
     var gastTaktik = T.aufstellungVorbereiten(world, spiel.gastId, spiel.wettbewerb, gastAuto);
 

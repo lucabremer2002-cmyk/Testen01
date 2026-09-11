@@ -927,9 +927,11 @@
   V.vereinSuche = function () {
     var world = UI.world;
     var m = world.manager;
+    // Der Verein, der einen gerade entlassen hat, ruft nicht am selben Tag an.
+    var frueher = world.nutzerClubId;
     var kandidaten = world.ligen.bl1.teams.concat(world.ligen.bl2.teams).filter(function (id) {
       var c = world.vereine[id];
-      return c.ruf <= m.ruf + 25;
+      return id !== frueher && c.ruf <= m.ruf + 25;
     });
     kandidaten = U.sortBy(kandidaten, function (id) { return -world.vereine[id].ruf; }).slice(0, 10);
 
