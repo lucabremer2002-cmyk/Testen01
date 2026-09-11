@@ -96,9 +96,43 @@
     return 'Deutschland';
   }
 
+  /**
+   * Vor- und Nachnamen stammen aus laendertypischen Listen. Manche
+   * Kombinationen ergeben zufaellig den Namen eines echten Profis - dann
+   * wird der Vorname neu gezogen. Ein erfundener Spieler soll nicht wie
+   * eine Kopie eines bestimmten Menschen aussehen.
+   */
+  var ECHTE_NAMEN = {
+    'Viktor Gyökeres': 1, 'Aleksandar Mitrovic': 1, 'Samuel Chukwueze': 1,
+    'Victor Osimhen': 1, 'Mykhailo Mudryk': 1, 'Artem Dovbyk': 1,
+    'Georgiy Sudakov': 1, 'Oleksandr Zinchenko': 1, 'Randal Kolo Muani': 1,
+    'Jurriën Timber': 1, 'Quinten Timber': 1, 'Cody Gakpo': 1,
+    'Wout Weghorst': 1, 'Teun Koopmeiners': 1, 'Xavi Simons': 1,
+    'Dani Olmo': 1, 'Pau Cubarsí': 1, 'Rafael Leão': 1,
+    'Nicolò Barella': 1, 'Davide Frattesi': 1, 'Borna Sosa': 1,
+    'Luka Sucic': 1, 'Luka Jovic': 1, 'Strahinja Pavlovic': 1,
+    'Filip Kostic': 1, 'Nemanja Gudelj': 1, 'Dusan Vlahovic': 1,
+    'Piotr Zielinski': 1, 'Sebastian Szymanski': 1, 'Jakub Kaminski': 1,
+    'Mikkel Damsgaard': 1, 'Antonio Nusa': 1, 'Wataru Endo': 1,
+    'Kaoru Mitoma': 1, 'Ricardo Pepi': 1, 'Mohammed Kudus': 1,
+    'Bryan Mbeumo': 1, 'Vincent Aboubakar': 1, 'Ismael Saibari': 1,
+    'Ibrahim Sangaré': 1, 'Ismael Bennacer': 1, 'Charles De Ketelaere': 1,
+    'Arthur Vermeeren': 1, 'Arthur Theate': 1, 'Ruben Vargas': 1,
+    'Fabian Schär': 1, 'Fabian Frei': 1, 'Silvan Widmer': 1,
+    'Karl Etta Eyong': 1
+  };
+
   function name(rng, nation) {
     var pool = D.NAMEN[nation] || D.NAMEN.Deutschland;
-    return { vorname: rng.pick(pool.vor), nachname: rng.pick(pool.nach) };
+    var nachname = rng.pick(pool.nach);
+    var vorname = rng.pick(pool.vor);
+    var versuche = 0;
+    while (ECHTE_NAMEN[vorname + ' ' + nachname] && versuche < 8) {
+      vorname = rng.pick(pool.vor);
+      versuche++;
+    }
+    if (ECHTE_NAMEN[vorname + ' ' + nachname]) nachname = rng.pick(pool.nach);
+    return { vorname: vorname, nachname: nachname };
   }
 
   /**
