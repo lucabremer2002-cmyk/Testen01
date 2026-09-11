@@ -489,6 +489,88 @@
   }
 
   /** Prueft, ob der Trainer entlassen wird. */
+  /**
+   * Andere Vereine werben ab. Wer als Trainer einen Namen hat und
+   * ueberzeugend arbeitet, bekommt Angebote - je groesser der Verein,
+   * desto hoeher die Huerde. Ein Angebot laeuft ab, wenn man es liegen
+   * laesst.
+   */
+  function abwerbungPruefen(world) {
+    var m = world.manager;
+    if (!m || !world.nutzerClubId) return null;
+    if (m.entlassen) return null;
+    if (m.jobangebot && world.tag <= m.jobangebot.frist) return null;
+    m.jobangebot = null;
+
+    // Erst nach einer gewissen Amtszeit, und nur bei gutem Stand.
+    if (m.bilanz.spiele < 20) return null;
+    if (m.vorstandsvertrauen < 55) return null;
+
+    // Nach einer Absage ist eine Weile Ruhe.
+    if (m.letzteAbsage && world.tag - m.letzteAbsage < 70) return null;
+
+    var rng = world.rng;
+    if (!rng.chance(0.035)) return null;
+
+    var eigen = world.vereine[world.nutzerClubId];
+    var kandidaten = world.ligen.bl1.teams.concat(world.ligen.bl2.teams).filter(function (id) {
+      if (id === world.nutzerClubId) return false;
+      var c = world.vereine[id];
+      // Interessant ist nur, was groesser ist - und erreichbar bleibt.
+      return c.ruf > eigen.ruf + 4 && c.ruf <= m.ruf + 22;
+    });
+    if (!kandidaten.length) return null;
+
+    var zielId = rng.weighted(kandidaten, function (id) {
+      return Math.max(1, 40 - Math.abs(world.vereine[id].ruf - m.ruf));
+    });
+    if (!zielId) return null;
+    var ziel = world.vereine[zielId];
+
+    m.jobangebot = {
+      clubId: zielId,
+      frist: world.tag + 14,
+      gehalt: Math.round(Math.pow(ziel.ruf / 55, 2.6) * 12000 / 500) * 500
+    };
+    world.nachricht({
+      typ: 'vorstand', prioritaet: 3,
+      titel: 'Anfrage von ' + ziel.name,
+      text: ziel.name + ' sucht einen neuen Trainer und hat bei Ihnen angeklopft. ' +
+        'Angeboten werden ' + U.money(m.jobangebot.gehalt) + ' pro Woche. ' +
+        'Die Anfrage liegt zwei Wochen auf dem Tisch – unter Karriere können Sie entscheiden.'
+    });
+    return m.jobangebot;
+  }
+
+  /** Nimmt ein Jobangebot an. */
+  function jobangebotAnnehmen(world) {
+    var m = world.manager;
+    if (!m || !m.jobangebot) return { fehler: 'Es liegt kein Angebot vor.' };
+    if (world.tag > m.jobangebot.frist) { m.jobangebot = null; return { fehler: 'Die Anfrage ist abgelaufen.' }; }
+    var zielId = m.jobangebot.clubId;
+    var alt = world.vereine[world.nutzerClubId];
+    m.jobangebot = null;
+    FM.world.vereinUebernehmen(world, zielId, m.name);
+    world.nachricht({
+      typ: 'vorstand', prioritaet: 3,
+      titel: 'Neue Aufgabe bei ' + world.vereine[zielId].name,
+      text: 'Sie verlassen ' + (alt ? alt.name : 'Ihren bisherigen Verein') +
+        ' und übernehmen ' + world.vereine[zielId].name + '.'
+    });
+    return { ok: true, clubId: zielId };
+  }
+
+  function jobangebotAblehnen(world) {
+    var m = world.manager;
+    if (!m || !m.jobangebot) return { fehler: 'Es liegt kein Angebot vor.' };
+    var ziel = world.vereine[m.jobangebot.clubId];
+    m.jobangebot = null;
+    m.letzteAbsage = world.tag;
+    // Treue zahlt sich beim eigenen Vorstand aus.
+    m.vorstandsvertrauen = U.clamp(m.vorstandsvertrauen + 4, 0, 100);
+    return { ok: true, name: ziel ? ziel.name : '' };
+  }
+
   function entlassungspruefung(world) {
     var m = world.manager;
     if (!world.nutzerClubId) return null;
@@ -541,6 +623,9 @@
     vertrauenWoche: vertrauenWoche,
     zielabgleich: zielabgleich,
     entlassungspruefung: entlassungspruefung,
+    abwerbungPruefen: abwerbungPruefen,
+    jobangebotAnnehmen: jobangebotAnnehmen,
+    jobangebotAblehnen: jobangebotAblehnen,
     spieltagsBericht: spieltagsBericht
   };
 

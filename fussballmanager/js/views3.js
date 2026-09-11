@@ -771,6 +771,19 @@
         '<div class="tile"><span>Titel</span><b>' + m.titel.length + '</b></div>' +
         '</div>';
 
+      if (m.jobangebot && world.tag <= m.jobangebot.frist) {
+        var ziel = world.vereine[m.jobangebot.clubId];
+        html += '<div class="card card--deadline mb"><div class="card__head">' +
+          '<h3>Anfrage von ' + esc(ziel.name) + '</h3>' +
+          '<span class="chip chip--gold">noch ' + (m.jobangebot.frist - world.tag) + ' Tage</span></div>' +
+          '<p class="muted">' + esc(ziel.name) + ' sucht einen neuen Trainer. Angeboten werden <b>' +
+          U.money(m.jobangebot.gehalt) + ' pro Woche</b> – Ihr aktuelles Gehalt liegt bei ' +
+          U.money(m.gehalt) + '. Ein Wechsel beendet Ihre Arbeit bei ' +
+          esc(world.nutzerVerein().name) + ' sofort.</p>' +
+          '<div class="flex"><button class="btn btn--primary" data-a="job-ja">Angebot annehmen</button>' +
+          '<button class="btn" data-a="job-nein">Ablehnen und bleiben</button></div></div>';
+      }
+
       html += '<div class="card mb"><h3>Ihr Trainerprofil</h3>' +
         '<p class="klein muted">Diese Werte wachsen mit jeder Woche im Amt. Sie wirken auf ' +
         'Trainingsqualität, die taktische Ausrichtung der Mannschaft und darauf, wie leicht ' +
@@ -831,6 +844,25 @@
       return html;
     },
     nachher: function (container, world) {
+      var ja = container.querySelector('[data-a="job-ja"]');
+      if (ja) ja.onclick = function () {
+        var ziel = world.vereine[world.manager.jobangebot.clubId];
+        UI.bestaetigen('Verein wechseln',
+          'Sie übernehmen <b>' + esc(ziel.name) + '</b> und verlassen ' +
+          esc(world.nutzerVerein().name) + '. Fortfahren?', function () {
+            var r = FM.media.jobangebotAnnehmen(world);
+            if (r.fehler) { UI.toast(r.fehler, 'fehler'); return; }
+            UI.zeige('uebersicht');
+            UI.toast('Sie übernehmen ' + world.vereine[r.clubId].name + '.', 'gut');
+          });
+      };
+      var nein = container.querySelector('[data-a="job-nein"]');
+      if (nein) nein.onclick = function () {
+        var r = FM.media.jobangebotAblehnen(world);
+        UI.toast(r.fehler || ('Absage an ' + r.name + '. Ihr Vorstand nimmt das wohlwollend auf.'),
+          r.fehler ? 'fehler' : 'gut');
+        UI.zeichne();
+      };
       var ex = container.querySelector('[data-a="export"]');
       if (ex) ex.onclick = function () {
         FM.save.exportieren(world, function (fehler, status) {

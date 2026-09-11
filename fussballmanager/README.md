@@ -349,6 +349,13 @@ Damit daraus kein einseitiger Vorteil wird, hat **jeder** Verein einen
 Cheftrainer: bei den KI-Vereinen einen gedachten, dessen Klasse am Ruf
 des Vereins hängt.
 
+Wer gut arbeitet, wird **abgeworben**. Größere Vereine klopfen an –
+Voraussetzung ist ein Vorstandsvertrauen von mindestens 55, eine
+Amtszeit von 20 Spielen und ein Trainerruf, der zum anfragenden Verein
+passt. Die Anfrage liegt zwei Wochen unter *Karriere*; eine Absage hebt
+das Vertrauen des eigenen Vorstands und verschafft zehn Wochen Ruhe. Ein
+strauchelnder Trainer bekommt keine Anfragen.
+
 ### Personal
 
 Zehn Funktionen mit eigenen Kompetenzen: Co-Trainer, Torwarttrainer,

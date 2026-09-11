@@ -218,6 +218,7 @@
 
     FM.transfers.kiVerlaengerungen(world);
     FM.media.vertrauenWoche(world);
+    FM.media.abwerbungPruefen(world);
     var trennung = FM.media.entlassungspruefung(world);
     if (trennung && trennung.entlassen) world.entlassungAusgesprochen = true;
     unzufriedeneSpielerMelden(world);
