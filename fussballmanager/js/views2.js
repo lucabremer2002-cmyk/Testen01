@@ -202,7 +202,7 @@
 
       html += '<div class="tiles mb">' +
         '<div class="tile"><span>Bilanz</span><b>' + bilanz.s + '-' + bilanz.u + '-' + bilanz.n + '</b>' +
-        '<small>' + gespielt.length + ' Spiele</small></div>' +
+        '<small>' + U.pl(gespielt.length, 'Spiel', 'Spiele') + '</small></div>' +
         '<div class="tile"><span>Tore</span><b>' + bilanz.t + ':' + bilanz.g + '</b>' +
         '<small>' + (bilanz.t - bilanz.g > 0 ? '+' : '') + (bilanz.t - bilanz.g) + '</small></div>' +
         '<div class="tile"><span>Punkteschnitt</span><b>' +
@@ -553,7 +553,7 @@
         '<label class="klein muted" style="display:flex;align-items:center;gap:6px;margin-top:8px">' +
         '<input type="checkbox" data-rk="' + esc(a.id) + '" style="width:auto">' +
         'Rückkaufoption vereinbaren: ' + U.money(rk.abschlag) + ' weniger Ablöse, dafür ' +
-        'Rückholrecht für ' + U.money(rk.preis) + ' über ' + rk.jahre + ' Jahre</label>' +
+        'Rückholrecht für ' + U.money(rk.preis) + ' über ' + U.pl(rk.jahre, 'Jahr', 'Jahre') + '</label>' +
         '<div class="flex mt"><button class="btn btn--primary btn--sm" data-angebot="' + esc(a.id) + '" data-ja="1">Annehmen</button>' +
         '<button class="btn btn--sm" data-angebot="' + esc(a.id) + '" data-ja="0">Ablehnen</button>' +
         '<button class="btn btn--sm btn--ghost" data-spieler="' + esc(p.id) + '">Spieler ansehen</button></div></div>';

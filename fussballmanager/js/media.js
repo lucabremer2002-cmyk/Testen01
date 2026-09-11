@@ -478,13 +478,23 @@
     var m = world.manager;
     var abgleich = zielabgleich(world);
     if (abgleich) {
-      var delta = U.clamp(-abgleich.abstand * 0.30, -1.8, 2.0);
+      // Ein Platz neben der Vorgabe ist kein Grund zur Unruhe. Erst ab zwei
+      // Plaetzen Rueckstand wird der Vorstand nervoes - vorher zermuerbte
+      // schon eine Saison auf Zielkurs das Vertrauen.
+      var ab = abgleich.abstand;
+      var wirksam = ab > 1 ? ab - 1 : ab < 0 ? ab : 0;
+      var delta = U.clamp(-wirksam * 0.30, -1.4, 2.0);
       m.vorstandsvertrauen = U.clamp(m.vorstandsvertrauen + delta, 0, 100);
     }
-    // Finanzielle Schieflage kostet Vertrauen
+    // Finanzielle Schieflage kostet Vertrauen - aber nach Tiefe des Lochs.
+    // Ein kleiner Verein steht fast dauerhaft leicht im Minus; wer dafuer
+    // jede Woche denselben Abzug bekommt, wird unabhaengig von Ergebnissen
+    // entlassen. Gemessen wird am Monatslohn des eigenen Kaders.
     var f = world.finanzen[world.nutzerClubId];
     if (f && f.kontostand < 0) {
-      m.vorstandsvertrauen = U.clamp(m.vorstandsvertrauen - 1.2, 0, 100);
+      var monatslohn = Math.max(250000, FM.finance.wochenLohnsumme(world, world.nutzerClubId) * 4.3);
+      var tiefe = -f.kontostand / monatslohn;
+      m.vorstandsvertrauen = U.clamp(m.vorstandsvertrauen - U.clamp(0.10 + tiefe * 0.20, 0, 0.5), 0, 100);
       f.lizenzWarnung += 1;
     } else if (f) {
       f.lizenzWarnung = Math.max(0, f.lizenzWarnung - 1);

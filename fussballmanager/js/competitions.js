@@ -27,7 +27,8 @@
     var dummy = null;
     if (n % 2 === 1) { teams.push(dummy); n++; }
 
-    var runden = [];
+    // Schritt 1: Paarungen nach dem Kreisverfahren, noch ohne Heimrecht.
+    var paarungen = [];
     var liste = teams.slice();
     for (var r = 0; r < n - 1; r++) {
       var runde = [];
@@ -35,18 +36,64 @@
         var a = liste[i];
         var b = liste[n - 1 - i];
         if (a === dummy || b === dummy) continue;
-        // Heimrecht abwechseln, damit keine Mannschaft nur zu Hause spielt
-        if ((r + i) % 2 === 0) runde.push([a, b]);
-        else runde.push([b, a]);
+        runde.push([a, b]);
       }
-      runden.push(runde);
-      // Rotation: erstes Element bleibt fix
+      paarungen.push(runde);
       liste = [liste[0]].concat([liste[n - 1]]).concat(liste.slice(1, n - 1));
     }
 
+    // Schritt 2: Heimrecht vergeben. Das Kreisverfahren allein liefert jeder
+    // Mannschaft ueber die ganze Hinrunde dieselbe Rolle - sie spielt siebzehn
+    // Mal hintereinander zu Hause oder siebzehn Mal auswaerts. Deshalb wird
+    // das Heimrecht Spieltag fuer Spieltag so gewaehlt, dass moeglichst keine
+    // Mannschaft dreimal hintereinander dieselbe Rolle hat und die Hinrunde
+    // ausgeglichen endet.
+    var letzte = {};      // teamId -> 'H' oder 'A' des letzten Spieltags
+    var lauf = {};        // wie oft in Folge
+    var heimZahl = {};
+    teams.forEach(function (id) {
+      if (id === dummy) return;
+      letzte[id] = null; lauf[id] = 0; heimZahl[id] = 0;
+    });
+    var halbe = (n - 1) / 2;
+
+    function kosten(heimId, gastId) {
+      var k = 0;
+      if (letzte[heimId] === 'H') k += lauf[heimId] >= 2 ? 6 : 2;
+      if (letzte[gastId] === 'A') k += lauf[gastId] >= 2 ? 6 : 2;
+      // Ausgeglichene Hinrunde: wer schon viele Heimspiele hatte, bekommt
+      // das naechste lieber auswaerts.
+      k += Math.max(0, heimZahl[heimId] - halbe) * 1.5;
+      k += Math.max(0, halbe - heimZahl[gastId]) * 0.2;
+      return k;
+    }
+
+    var runden = paarungen.map(function (runde) {
+      // Innerhalb eines Spieltags zuerst die Paarungen entscheiden, bei denen
+      // die Wahl am meisten ausmacht.
+      var mitDiff = runde.map(function (paar) {
+        var d = Math.abs(kosten(paar[0], paar[1]) - kosten(paar[1], paar[0]));
+        return { paar: paar, diff: d };
+      });
+      mitDiff.sort(function (x, y) { return y.diff - x.diff; });
+      var fertig = [];
+      mitDiff.forEach(function (eintrag) {
+        var a = eintrag.paar[0], b = eintrag.paar[1];
+        var kAB = kosten(a, b), kBA = kosten(b, a);
+        var heim = kAB < kBA ? a : kBA < kAB ? b : (rng.chance(0.5) ? a : b);
+        var gast = heim === a ? b : a;
+        fertig.push([heim, gast]);
+        lauf[heim] = letzte[heim] === 'H' ? lauf[heim] + 1 : 1;
+        lauf[gast] = letzte[gast] === 'A' ? lauf[gast] + 1 : 1;
+        letzte[heim] = 'H'; letzte[gast] = 'A';
+        heimZahl[heim] += 1;
+      });
+      return fertig;
+    });
+
     // Rueckrunde mit vertauschtem Heimrecht
     var rueck = runden.map(function (runde) {
-      return runde.map(function (p) { return [p[1], p[0]]; });
+      return runde.map(function (paar) { return [paar[1], paar[0]]; });
     });
     return runden.concat(rueck);
   }

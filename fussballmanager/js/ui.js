@@ -208,7 +208,7 @@
       var rest = FM.players.restlaufzeitMonate(p, world);
       if (rest <= 12) {
         out.push('<span class="chip chip--' + (rest <= 6 ? 'rot' : 'gelb') +
-          '" title="Vertrag läuft in ' + rest + ' Monaten aus - ab Januar darf er ablösefrei woanders unterschreiben">V ' +
+          '" title="Vertrag läuft in ' + U.pl(rest, 'Monat', 'Monaten') + ' aus - ab Januar darf er ablösefrei woanders unterschreiben">V ' +
           rest + ' M</span>');
       }
     }
@@ -508,7 +508,8 @@
     var ungelesen = world.ungeleseneNachrichten();
     var badge = el('nav-inbox');
     badge.hidden = ungelesen === 0;
-    badge.textContent = ungelesen;
+    // Dreistellige Zahlen sprengen die Plakette und helfen niemandem.
+    badge.textContent = ungelesen > 99 ? '99+' : ungelesen;
     var punkt = el('tab-punkt');
     if (punkt) punkt.hidden = ungelesen === 0;
   }
@@ -1018,7 +1019,10 @@
     // Was der Vorstand daraus macht - das ist die eigentliche Nachricht
     // des Saisonendes, und sie gehoert nicht nur ins Postfach.
     var m = world.manager;
-    var kuenftig = U.clamp(m.vorstandsvertrauen + (erreicht ? 15 : -18), 0, 100);
+    var abweichung = ziel && eigen ? ziel.platz - eigen.platz : 0;
+    var urteilswert = U.clamp(abweichung * 5, -22, 22);
+    if (erreicht) urteilswert = Math.max(urteilswert, 8);
+    var kuenftig = U.clamp(m.vorstandsvertrauen + urteilswert, 0, 100);
     var urteil = erreicht
       ? (eigen && eigen.platz <= 3
         ? 'Der Vorstand ist begeistert. So eine Saison spricht sich herum.'
@@ -1070,11 +1074,11 @@
       }
       if (knipser && knipser.stats.tore) {
         html += '<div class="tile"><span>Meiste Tore</span><b style="font-size:14px">' +
-          esc(knipser.nachname) + '</b><small>' + knipser.stats.tore + ' Tore</small></div>';
+          esc(knipser.nachname) + '</b><small>' + U.pl(knipser.stats.tore, 'Tor', 'Tore') + '</small></div>';
       }
       if (vorbereiter && vorbereiter.stats.vorlagen) {
         html += '<div class="tile"><span>Meiste Vorlagen</span><b style="font-size:14px">' +
-          esc(vorbereiter.nachname) + '</b><small>' + vorbereiter.stats.vorlagen + ' Vorlagen</small></div>';
+          esc(vorbereiter.nachname) + '</b><small>' + U.pl(vorbereiter.stats.vorlagen, 'Vorlage', 'Vorlagen') + '</small></div>';
       }
       html += '</div>';
     }
@@ -1097,7 +1101,7 @@
       html += '<div class="stat-row"><span>Höchster Sieg</span><b>' +
         (r.hoechsterSieg ? r.hoechsterSieg.tore + ':' + r.hoechsterSieg.gegentore +
           ' gegen ' + esc((world.vereine[r.hoechsterSieg.gegnerId] || {}).kurz || '?') : '–') + '</b></div>' +
-        '<div class="stat-row"><span>Längste Siegesserie</span><b>' + (r.besteSerieSiege || 0) + ' Spiele</b></div>';
+        '<div class="stat-row"><span>Längste Siegesserie</span><b>' + U.pl(r.besteSerieSiege || 0, 'Spiel', 'Spiele') + '</b></div>';
     }
     return html;
   }

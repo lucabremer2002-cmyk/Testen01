@@ -46,9 +46,9 @@
               esc(U.fmtDate(r.zuschauerrekord.tag)) + '</span>'
             : '<span class="muted">–</span>') + '</span></div>' +
         '<div class="stat-row"><span>Längste Siegesserie</span><b>' +
-          (r.besteSerieSiege || 0) + ' Spiele</b></div>' +
+          U.pl(r.besteSerieSiege || 0, 'Spiel', 'Spiele') + '</b></div>' +
         '<div class="stat-row"><span>Längste Serie ohne Niederlage</span><b>' +
-          (r.besteSerieUngeschlagen || 0) + ' Spiele</b></div>' +
+          U.pl(r.besteSerieUngeschlagen || 0, 'Spiel', 'Spiele') + '</b></div>' +
         '<div class="stat-row"><span>Teuerster Zugang</span><span>' + transfer(r.rekordzugang) + '</span></div>' +
         '<div class="stat-row"><span>Teuerster Abgang</span><span>' + transfer(r.rekordabgang) + '</span></div>'
       ) + '</div>';
@@ -403,7 +403,7 @@
     var moeglich = kader.filter(function (p) { return P.u23Moeglich(p); });
     var drin = moeglich.filter(function (p) { return p.zweitteam; });
     return '<div class="card mt"><div class="card__head"><h3>Zweite Mannschaft (U23)</h3>' +
-      '<span class="chip">' + drin.length + ' Spieler</span></div>' +
+      '<span class="chip">' + U.pl(drin.length, 'Spieler', 'Spieler') + '</span></div>' +
       '<p class="klein muted">Wer im Profikader keine Minuten bekommt, sammelt sie hier. ' +
       'Spieler in der U23 entwickeln sich weiter und werden nicht unzufrieden, ' +
       'weil sie oben nicht spielen. Bis 23 Jahre.</p>' +
@@ -422,7 +422,7 @@
         { key: 'u23', label: 'U23', klasse: 'num', wert: function (p) { return (p.u23 && p.u23.spiele) || 0; },
           html: function (p) {
             var u = p.u23 || { spiele: 0, tore: 0 };
-            return u.spiele + (u.tore ? ' <span class="muted klein">(' + u.tore + ' Tore)</span>' : '');
+            return u.spiele + (u.tore ? ' <span class="muted klein">(' + U.pl(u.tore, 'Tor', 'Tore') + ')</span>' : '');
           } },
         { key: 'a', label: '', html: function (p) {
           return '<button class="btn btn--sm' + (p.zweitteam ? '' : ' btn--ghost') +
@@ -468,7 +468,7 @@
       (a.gruppen.length
         ? a.gruppen.map(function (g) {
           return '<div class="merkmal' + (g.warnung ? ' merkmal--minus' : '') + '">' +
-            '<b>' + esc(g.name) + ' <span class="klein muted">' + g.spieler.length + ' Spieler</span></b>' +
+            '<b>' + esc(g.name) + ' <span class="klein muted">' + U.pl(g.spieler.length, 'Spieler', 'Spieler') + '</span></b>' +
             '<span class="klein muted">' + esc(g.text) + '</span></div>';
         }).join('')
         : '<div class="leer">Keine erkennbaren Gruppen.</div>') + '</div>';

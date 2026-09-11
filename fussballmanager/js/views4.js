@@ -229,7 +229,7 @@
         html += '<div class="card card--flat"><h4>Läuft gerade</h4>' +
           '<div class="stat-row"><span>Ziel</span><b>' + esc(D.POS_NAME[laufend.pos] || laufend.pos) + '</b></div>' +
           '<div class="stat-row"><span>Fortschritt</span><b>' + Math.round(stand * 100) + ' %</b></div>' +
-          '<div class="stat-row"><span>Noch</span><b>etwa ' + rest + ' Wochen</b></div>' +
+          '<div class="stat-row"><span>Noch</span><b>etwa ' + U.pl(rest, 'Woche', 'Wochen') + '</b></div>' +
           UI.balken(stand) +
           '<div class="flex mt"><button class="btn" data-a="abbruch">Umschulung abbrechen</button></div></div>';
       } else {
@@ -723,7 +723,7 @@
         var pr = F.AUSBAU_PROJEKTE[k];
         return '<button class="option" data-p="' + k + '"><b>' + esc(pr.name) + '</b><br>' +
           '<span class="klein muted">' + esc(pr.beschreibung) + ' · Kosten ' + U.money(pr.kosten(club)) +
-          ' · Bauzeit ' + Math.round(pr.dauer / 30) + ' Monate</span></button>';
+          ' · Bauzeit ' + U.pl(Math.round(pr.dauer / 30), 'Monat', 'Monate') + '</span></button>';
       }).join('') + '</div>';
     UI.modal(html, {
       nachher: function (body) {

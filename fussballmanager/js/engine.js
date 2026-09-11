@@ -638,8 +638,8 @@
             world.nachricht({
               typ: 'verband', prioritaet: 2,
               titel: 'Sperre für ' + p.nachname,
-              text: p.nachname + ' ist nach der ' + p.sperreGrund.toLowerCase() + ' für ' +
-                spiele + ' Spiel' + (spiele > 1 ? 'e' : '') + ' gesperrt.',
+              text: p.nachname + ' ist nach der ' + (d.gelb >= 2 ? 'Gelb-Roten' : 'Roten') +
+                ' Karte für ' + U.pl(spiele, 'Spiel', 'Spiele') + ' gesperrt.',
               spielerId: p.id
             });
           }
@@ -1359,7 +1359,13 @@
       platz: eintrag.platz, punkte: eintrag.punkte - eintrag.punktabzug,
       ziel: m.saisonziel.text, erreicht: erreicht
     });
-    m.vorstandsvertrauen = U.clamp(m.vorstandsvertrauen + (erreicht ? 15 : -18), 0, 100);
+    // Das Urteil faellt nach Abstand zur Vorgabe aus, nicht nach einem harten
+    // Ja/Nein. Wer die Vorgabe um einen Platz verfehlt, wird nicht behandelt
+    // wie einer, der vier Plaetze darunter landet.
+    var abweichung = m.saisonziel.platz - eintrag.platz;
+    var urteil = U.clamp(abweichung * 5, -22, 22);
+    if (erreicht) urteil = Math.max(urteil, 8);
+    m.vorstandsvertrauen = U.clamp(m.vorstandsvertrauen + urteil, 0, 100);
     m.ruf = U.clamp(m.ruf + (erreicht ? 5 : -3) + (eintrag.platz <= 3 ? 5 : 0), 1, 99);
     world.nachricht({
       typ: 'vorstand', prioritaet: 3,

@@ -711,7 +711,7 @@
     if (p.vertrag) {
       html += '<div class="stat-row"><span>Gehalt</span><b>' + U.money(p.vertrag.gehalt) + ' / Woche</b></div>' +
         '<div class="stat-row"><span>Vertrag bis</span><b>' + U.fmtDate(p.vertrag.bis) +
-        ' (' + P.restlaufzeitMonate(p, world) + ' Monate)</b></div>';
+        ' (' + U.pl(P.restlaufzeitMonate(p, world), 'Monat', 'Monate') + ')</b></div>';
       if (p.vertrag.ausstiegsklausel) {
         html += '<div class="stat-row"><span>Ausstiegsklausel</span><b>' + U.money(p.vertrag.ausstiegsklausel) + '</b></div>';
       }
@@ -1370,7 +1370,7 @@
     // Mehrere Kategorien teilen sich die Kennung "normal" oder "aus". Ohne
     // eigenen Text stuende fuenfmal derselbe Satz untereinander.
     var jeKategorie = {
-      abwehrlinie: { normal: 'Kette auf normaler Hoehe - kein Sonderrisiko.' },
+      abwehrlinie: { normal: 'Kette auf normaler Höhe – kein Sonderrisiko.' },
       tempo: { normal: 'Weder forciert noch gebremst.' },
       breite: { normal: 'Zentrum und Flügel gleich gewichtet.' },
       gegenpressing: { normal: 'Nachsetzen nur, wenn die Situation es hergibt.' },
@@ -1404,7 +1404,7 @@
     if (a.schluesselspieler) {
       var s = a.schluesselspieler;
       html += '<div class="stat-row"><span>Schlüsselspieler</span><b>' + esc(s.nachname) +
-        ' <span class="klein muted">' + s.pos + ' · ' + s.stats.tore + ' Tore</span></b></div>';
+        ' <span class="klein muted">' + s.pos + ' · ' + U.pl(s.stats.tore, 'Tor', 'Tore') + '</span></b></div>';
     }
     if (a.hinweise.length) {
       html += '<div class="trenner"></div><h4>Was die Analysten sehen</h4>' +
