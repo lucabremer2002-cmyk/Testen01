@@ -84,6 +84,14 @@ schnell aus Unzufriedenheit ein Wechselwunsch wird.
 Alle Spieler werden prozedural erzeugt. Das Spiel bleibt damit unabhängig
 von Kaderdaten, die nach wenigen Wochen ohnehin veraltet wären.
 
+Die Kader werden nach oben **und nach unten** in Form gehalten: Zu große
+Kader werden verkleinert, zu kleine wieder aufgefüllt – zuerst aus dem
+Markt der Vertragslosen, erst danach mit neu erzeugten Spielern. Ohne
+diese Untergrenze bluten Vereine über die Jahre aus. Über sechs
+simulierte Spielzeiten bleibt die Spielerzahl stabil (rund 3.300),
+Profikader liegen bei 24 bis 30 Spielern, Drittligakader bei 23 bis 27,
+und höchstens fünf von 36 Profivereinen stehen im Minus.
+
 ### Kader und Taktik
 
 * **Zwölf Formationen** von 4-4-2 über 4-2-3-1 und 3-4-3 bis 5-2-3, jede

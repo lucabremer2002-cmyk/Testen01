@@ -197,6 +197,11 @@
       }
     });
 
+    // Kadergroessen einmal woechentlich im Rahmen halten - ohne das
+    // blaehen sich Kader zwischen zwei Saisonwechseln auf.
+    kaderBereinigen(world);
+    kaderAuffuellen(world);
+
     FM.transfers.kiVerlaengerungen(world);
     FM.media.vertrauenWoche(world);
     var trennung = FM.media.entlassungspruefung(world);
@@ -780,7 +785,16 @@
   /** Setzt die Relegationsspiele an, sobald die Ligen durch sind. */
   function relegationAnsetzen(world) {
     if (world.relegation.length) return;
-    var t = C.relegationTermine(world.saison);
+    // Die ueblichen Termine gelten nur, solange sie noch in der Zukunft
+    // liegen. Laenderspielpausen koennen die Ligen weiter nach hinten
+    // schieben als bis zum 21. Mai - dann wuerde ein fest gesetzter
+    // Termin in der Vergangenheit liegen und das Spiel nie stattfinden.
+    var vorgabe = C.relegationTermine(world.saison);
+    var t = {
+      hin: Math.max(vorgabe.hin, world.tag + 3),
+      rueck: 0
+    };
+    t.rueck = Math.max(vorgabe.rueck, t.hin + 4);
     var bl1 = C.sortierteTabelle(world.ligen.bl1);
     var bl2 = C.sortierteTabelle(world.ligen.bl2);
     var l3 = C.sortierteTabelle(world.ligen.l3);
@@ -936,6 +950,7 @@
 
     // --- Kaderpflege: zu grosse Kader werden verkleinert
     kaderBereinigen(world);
+    kaderAuffuellen(world);
 
     // --- Vertragslosenmarkt auf eine handhabbare Groesse bringen
     vertragsloseBereinigen(world);
@@ -961,6 +976,79 @@
    * KI-Vereine trennen sich von ueberzaehligen Spielern. Ohne das waechst
    * die Spielerzahl der Welt Saison fuer Saison unbegrenzt.
    */
+  /**
+   * Fuellt zu kleine Kader wieder auf. Ohne diese Gegenkraft bluten
+   * Vereine ueber die Jahre aus: Vertraege laufen aus, Spieler treten ab,
+   * und niemand zwingt die KI, genug nachzuverpflichten. Zuerst werden
+   * vertragslose Spieler genommen, erst danach wird neu erzeugt.
+   */
+  function kaderAuffuellen(world) {
+    var rng = world.rng;
+    world.vereinIds.forEach(function (clubId) {
+      var club = world.vereine[clubId];
+      if (!club || club.auslaendisch) return;
+      var minimum = club.liga === 1 ? 24 : club.liga === 2 ? 23 : 22;
+      var kader = world.kaderVon(clubId);
+      if (kader.length >= minimum) return;
+
+      var fehlend = minimum - kader.length;
+      var frei = world.spielerIds
+        .map(function (id) { return world.spieler[id]; })
+        .filter(function (p) { return p && !p.clubId; });
+      frei = U.sortBy(frei, function (p) { return -P.gesamt(p); });
+
+      for (var i = 0; i < fehlend; i++) {
+        // Welche Position fehlt am dringendsten?
+        var pos = schwaechstePosition(world, clubId);
+        var passend = frei.filter(function (p) {
+          return p.pos === pos && P.gesamt(p) <= P.niveauFuerVerein(club) + 6;
+        })[0];
+        if (passend) {
+          frei = frei.filter(function (p) { return p.id !== passend.id; });
+          world.setzeVerein(passend, clubId);
+          passend.vertrag = P.vertragErzeugen(rng, passend, club, world, rng.int(1, 3));
+          passend.nummer = FM.transfers.freieNummer(world, clubId, 0);
+          passend.kaderrolle = P.vorgeschlageneRolle(passend, world.kaderVon(clubId));
+          passend.rollenSeit = world.tag;
+          continue;
+        }
+        // Kein passender Freier: ein neuer Spieler kommt in den Markt.
+        var neu = P.erzeugeSpieler(rng, {
+          pos: pos,
+          alter: rng.int(19, 27),
+          ziel: U.clamp(P.niveauFuerVerein(club) + rng.gauss(-6, 5), 14, 90),
+          clubId: clubId
+        });
+        neu.vertrag = P.vertragErzeugen(rng, neu, club, world, rng.int(1, 3));
+        world.fuegeSpielerHinzu(neu);
+        neu.nummer = FM.transfers.freieNummer(world, clubId, 0);
+        neu.kaderrolle = P.vorgeschlageneRolle(neu, world.kaderVon(clubId));
+        neu.rollenSeit = world.tag;
+      }
+      var taktik = world.taktiken[clubId];
+      if (taktik) T.autoAufstellung(world, club, taktik);
+    });
+  }
+
+  /** Die Position, auf der ein Kader am duennsten besetzt ist. */
+  function schwaechstePosition(world, clubId) {
+    var kader = world.kaderVon(clubId);
+    var soll = {};
+    (P.KADER_SCHEMA || []).forEach(function (e) { soll[e[0]] = e[1]; });
+    var zaehler = {};
+    D.POSITIONEN.forEach(function (pos) { zaehler[pos] = 0; });
+    kader.forEach(function (p) { zaehler[p.pos] = (zaehler[p.pos] || 0) + 1; });
+    var beste = null, wenigste = 99;
+    D.POSITIONEN.forEach(function (pos) {
+      var mindest = soll[pos] !== undefined ? soll[pos] : (pos === 'TW' ? 3 : 2);
+      if (zaehler[pos] < mindest && zaehler[pos] < wenigste) { wenigste = zaehler[pos]; beste = pos; }
+    });
+    if (beste) return beste;
+    // Alles besetzt: die Position mit den wenigsten Spielern.
+    var sortiert = U.sortBy(D.POSITIONEN, function (pos) { return zaehler[pos]; });
+    return sortiert[0];
+  }
+
   function kaderBereinigen(world) {
     world.vereinIds.forEach(function (clubId) {
       var club = world.vereine[clubId];
@@ -1151,6 +1239,8 @@
     relegationAnsetzen: relegationAnsetzen,
     torschuetzenkoenig: torschuetzenkoenig,
     leereRekorde: leereRekorde,
+    kaderAuffuellen: kaderAuffuellen,
+    kaderBereinigen: kaderBereinigen,
     leereRekorde: leereRekorde,
     titelVermerken: titelVermerken,
     GELB_SPERRE: GELB_SPERRE
