@@ -61,7 +61,11 @@
       }
 
       // Nächstes Spiel
-      html += '<div class="card"><div class="card__head"><h3>Nächstes Pflichtspiel</h3>';
+      // Ein Testspiel ist kein Pflichtspiel - die Ueberschrift richtet
+      // sich nach dem Wettbewerb.
+      var istPflicht = naechstes && naechstes.wettbewerb !== 'test';
+      html += '<div class="card"><div class="card__head"><h3>' +
+        (istPflicht ? 'Nächstes Pflichtspiel' : 'Nächstes Spiel') + '</h3>';
       if (naechstes) html += '<span class="chip">' + esc(U.fmtDate(naechstes.tag, 'lang')) + ' · ' + esc(naechstes.zeit) + '</span>';
       html += '</div>';
       if (naechstes) {
@@ -75,7 +79,9 @@
           (riv ? ' <span class="derby-tag" title="Ein Derby wirkt stärker auf Stimmung und Moral als ein gewöhnliches Spiel.">' +
             esc(riv.name) + '</span>' : '') + '<br>' +
           '<small class="muted">' + (heim ? 'Heimspiel' : 'Auswärtsspiel') + ' · ' +
-          esc(UI.wettbewerbName(world, naechstes)) + (naechstes.rundeName ? ' · ' + esc(naechstes.rundeName) : '') +
+          esc(UI.wettbewerbName(world, naechstes)) +
+          (naechstes.rundeName && naechstes.rundeName !== UI.wettbewerbName(world, naechstes)
+            ? ' · ' + esc(naechstes.rundeName) : '') +
           '</small></div></div>';
         if (gTab) html += '<div class="rechts klein muted">Tabellenplatz ' + gTab.platz + '<br>' +
           UI.formPunkte(gTab.form) + '</div>';
@@ -359,6 +365,32 @@
       }).join('') + '</div>';
   }
 
+  /**
+   * Wie die eigene Elf im Vergleich zur Liga dasteht. Die Spielerskala
+   * ("Bundesliga-Stammkraft") passt hier nicht: Sie beschreibt einen
+   * einzelnen Spieler, nicht eine Mannschaft.
+   */
+  function elfEinordnung(world, club, staerke) {
+    var liga = world.ligaVon(club.id);
+    if (!liga) return 'Mannschaftsstärke';
+    var werte = liga.teams.map(function (id) {
+      var k = world.kaderVon(id);
+      if (!k.length) return 0;
+      var beste = U.sortBy(k, function (p) { return -P.gesamt(p); }).slice(0, 11);
+      return U.avg(beste.map(function (p) { return P.gesamt(p); }));
+    }).filter(function (v) { return v > 0; });
+    if (!werte.length) return 'Mannschaftsstärke';
+    var besser = werte.filter(function (v) { return v < staerke; }).length;
+    var rang = werte.length - besser;
+    var anteil = rang / werte.length;
+    var wo = anteil <= 0.17 ? 'Spitze der Liga'
+      : anteil <= 0.34 ? 'oberes Drittel'
+        : anteil <= 0.67 ? 'Mittelfeld der Liga'
+          : anteil <= 0.85 ? 'unteres Drittel'
+            : 'Schlusslicht der Liga';
+    return wo + ' (' + rang + '. von ' + werte.length + ')';
+  }
+
   /** Vorlagen sichern und verwalten. */
   function vorlagenDialog(world, taktik) {
     var vorlagen = world.taktikVorlagen || [];
@@ -471,13 +503,14 @@
         { key: 'form', label: 'Form', klasse: 'num', wert: function (p) { return p.form; },
           html: function (p) { return UI.balken(p.form / 100, p.form >= 60 ? '' : p.form >= 40 ? 'bar--gelb' : 'bar--rot'); } },
         { key: 'fitness', label: 'Frische', klasse: 'num', wert: function (p) { return p.fitness; }, html: function (p) { return UI.fitnessBalken(p); } },
-        { key: 'kaderrolle', label: 'Status', titel: 'Kaderstatus: das Spielzeitversprechen an den Spieler',
+        { key: 'kaderrolle', label: 'Kaderplan', titel: 'Kaderstatus: das Spielzeitversprechen an den Spieler',
           wert: function (p) { return D.KADERROLLEN.map(function (r) { return r.id; }).indexOf(p.kaderrolle); },
           html: function (p) { return rollenTag(world, p); } },
         { key: 'moral', label: 'Moral', klasse: 'num', wert: function (p) { return p.moral; },
           html: function (p) { return UI.balken(p.moral / 100, p.moral >= 60 ? '' : p.moral >= 40 ? 'bar--gelb' : 'bar--rot'); } },
         { key: 'wert', label: 'Marktwert', klasse: 'num', wert: function (p) { return p.marktwert; }, html: function (p) { return U.money(p.marktwert); } },
-        { key: 'status', label: 'Status', html: function (p) { return UI.spielerStatus(world, p) || '<span class="muted">–</span>'; } }
+        { key: 'status', label: 'Hinweise', titel: 'Kapitänsbinde, Verletzung, Sperre, Vertragsende, Transferliste',
+          html: function (p) { return UI.spielerStatus(world, p) || '<span class="muted">–</span>'; } }
       ]);
     } else if (z.modus === 'vertrag') {
       spalten = spalten.concat([
@@ -854,7 +887,7 @@
       }).length;
 
       html += '<div class="tiles mb">' +
-        kachel('Stärke der Elf', U.num(elfStaerke, 1), P.staerkeLabel(elfStaerke),
+        kachel('Stärke der Elf', U.num(elfStaerke, 1), elfEinordnung(world, club, elfStaerke),
           elfStaerke >= 68 ? 'gut' : elfStaerke >= 52 ? '' : 'warn') +
         kachel('Gegenüber der besten Elf', (diff >= -0.05 ? '±0' : U.num(diff, 1)),
           diff >= -0.05 ? 'optimal besetzt' : 'Luft nach oben', diff >= -0.05 ? 'gut' : 'warn') +

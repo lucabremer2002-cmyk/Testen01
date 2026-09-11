@@ -413,7 +413,8 @@
       '<span class="spieltagsband__marke">Heute</span>' +
       '<b>' + esc(heim.kurz) + ' – ' + esc(gast.kurz) + '</b>' +
       '<span class="klein muted">' + esc(wettbewerbName(world, spiel)) +
-      (spiel.rundeName ? ' · ' + esc(spiel.rundeName) : '') + ' · ' + esc(spiel.zeit) + ' Uhr</span>' +
+      (spiel.rundeName && spiel.rundeName !== wettbewerbName(world, spiel)
+        ? ' · ' + esc(spiel.rundeName) : '') + ' · ' + esc(spiel.zeit) + ' Uhr</span>' +
       (riv ? '<span class="derby-tag">' + esc(riv.name) + '</span>' : '') +
       '</div>' +
       '<div class="flex">' +
