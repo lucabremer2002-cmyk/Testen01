@@ -820,7 +820,56 @@
   }
 
   /** Der Nutzer entscheidet ueber ein eingehendes Angebot. */
-  function angebotEntscheiden(world, angebotId, annehmen) {
+  /**
+   * Wie teuer eine Rueckkaufoption ist. Der Kaeufer laesst sich das
+   * Risiko bezahlen: Er zieht einen Teil der Abloese ab und verlangt
+   * einen deutlichen Aufschlag auf den Rueckkaufpreis.
+   */
+  function rueckkaufKonditionen(ablöse) {
+    return {
+      abschlag: Math.round(ablöse * 0.09),
+      preis: Math.round(ablöse * 1.75 / 100000) * 100000,
+      jahre: 3
+    };
+  }
+
+  /** Darf dieser Verein den Spieler zurueckholen? */
+  function rueckkaufOffen(world, p, clubId) {
+    var r = p.rueckkauf;
+    if (!r || r.clubId !== clubId) return null;
+    if (world.tag > r.bis) return null;
+    if (p.clubId === clubId) return null;
+    return r;
+  }
+
+  /** Zieht die Rueckkaufoption. Der abgebende Verein kann sie nicht abwehren. */
+  function rueckkaufZiehen(world, spielerId, clubId) {
+    var p = world.spieler[spielerId];
+    if (!p) return { fehler: 'Spieler nicht gefunden.' };
+    var r = rueckkaufOffen(world, p, clubId);
+    if (!r) return { fehler: 'Für diesen Spieler besteht keine gültige Rückkaufoption.' };
+    var f = world.finanzen[clubId];
+    if (f && r.preis > f.transferbudget) {
+      return { fehler: 'Das Transferbudget reicht für den Rückkauf nicht aus (' + U.money(r.preis) + ').' };
+    }
+    var jahre = p.alter <= 26 ? 4 : 3;
+    var club = world.vereine[clubId];
+    fuehreTransferDurch(world, p, clubId, {
+      ablöse: r.preis, sofort: r.preis, raten: 1,
+      vertrag: {
+        bis: world.tag + jahre * 365, unterschrieben: world.tag,
+        gehalt: Math.round(P.gehaltsforderung(p, club, world) * 1.05 / 500) * 500,
+        handgeld: 0, ausstiegsklausel: 0,
+        praemien: { einsatz: 2000, tor: 3000, sieg: 2000, zuNull: 0 },
+        weiterverkauf: 0
+      }
+    });
+    p.rueckkauf = null;
+    return { ok: true, preis: r.preis, name: p.vorname + ' ' + p.nachname };
+  }
+
+  function angebotEntscheiden(world, angebotId, annehmen, opts) {
+    opts = opts || {};
     var angebot = world.transfer.angeboteEin.filter(function (a) { return a.id === angebotId; })[0];
     if (!angebot || angebot.status !== 'offen') return { fehler: 'Angebot nicht mehr gültig.' };
     var p = world.spieler[angebot.spielerId];
@@ -848,8 +897,18 @@
     }
 
     var jahre = p.alter <= 26 ? 4 : 3;
+    // Rueckkaufoption: kostet Abloese, sichert aber den Zugriff.
+    var rk = null;
+    var abloese = angebot.ablöse, sofort = angebot.sofort;
+    if (opts.rueckkauf) {
+      var k = rueckkaufKonditionen(angebot.ablöse);
+      abloese = angebot.ablöse - k.abschlag;
+      sofort = Math.round(sofort * (abloese / Math.max(1, angebot.ablöse)));
+      rk = { clubId: world.nutzerClubId, preis: k.preis, bis: world.tag + k.jahre * 365 };
+    }
+
     fuehreTransferDurch(world, p, angebot.clubId, {
-      ablöse: angebot.ablöse, sofort: angebot.sofort, raten: angebot.raten,
+      ablöse: abloese, sofort: sofort, raten: angebot.raten,
       weiterverkauf: angebot.weiterverkauf,
       vertrag: {
         bis: world.tag + jahre * 365, unterschrieben: world.tag,
@@ -859,8 +918,9 @@
         weiterverkauf: angebot.weiterverkauf || 0
       }
     });
+    if (rk) p.rueckkauf = rk;
     angebot.status = 'abgewickelt';
-    return { ok: true, status: 'verkauft', betrag: angebot.ablöse };
+    return { ok: true, status: 'verkauft', betrag: abloese, rueckkauf: rk ? rk.preis : 0 };
   }
 
   /** Abgelaufene Angebote entfernen. */
@@ -994,6 +1054,9 @@
     kiTick: kiTick,
     kiVertragslosen: kiVertragslosen,
     angebotFuerNutzerspieler: angebotFuerNutzerspieler,
+    rueckkaufKonditionen: rueckkaufKonditionen,
+    rueckkaufOffen: rueckkaufOffen,
+    rueckkaufZiehen: rueckkaufZiehen,
     angebotEntscheiden: angebotEntscheiden,
     angeboteAufraeumen: angeboteAufraeumen,
     verlaengerungAnbieten: verlaengerungAnbieten,

@@ -385,6 +385,8 @@
       else if (z.tab === 'scouting') html += transferScouting(world, z);
       else html += transferHistorie(world);
 
+      if (z.tab === 'angebote' || z.tab === 'merkliste') html += rueckkaufKarte(world);
+
       return html;
     },
     nachher: function (container, world, z) {
@@ -394,11 +396,25 @@
       UI.filterBinden(container, 'transfers', 'data-tf');
       Array.prototype.forEach.call(container.querySelectorAll('[data-angebot]'), function (b) {
         b.onclick = function () {
-          var r = FM.transfers.angebotEntscheiden(world, b.dataset.angebot, b.dataset.ja === '1');
+          var box = container.querySelector('[data-rk="' + b.dataset.angebot + '"]');
+          var r = FM.transfers.angebotEntscheiden(world, b.dataset.angebot, b.dataset.ja === '1',
+            { rueckkauf: !!(box && box.checked) });
           if (r.fehler) UI.toast(r.fehler, 'fehler');
-          else if (r.status === 'verkauft') UI.toast('Verkauft für ' + U.money(r.betrag), 'gut');
+          else if (r.status === 'verkauft') {
+            UI.toast('Verkauft für ' + U.money(r.betrag) +
+              (r.rueckkauf ? ' · Rückkauf für ' + U.money(r.rueckkauf) + ' vereinbart' : ''), 'gut');
+          }
           else if (r.status === 'geplatzt') UI.toast(r.text, 'fehler');
           else UI.toast('Angebot abgelehnt.');
+          UI.zeichne();
+        };
+      });
+      Array.prototype.forEach.call(container.querySelectorAll('[data-rueckkauf]'), function (b) {
+        b.onclick = function (ev) {
+          ev.stopPropagation();
+          var r = FM.transfers.rueckkaufZiehen(world, b.dataset.rueckkauf, world.nutzerClubId);
+          if (r.fehler) UI.toast(r.fehler, 'fehler');
+          else UI.toast(r.name + ' ist zurück – für ' + U.money(r.preis) + '.', 'gut');
           UI.zeichne();
         };
       });
@@ -525,6 +541,7 @@
       var p = world.spieler[a.spielerId];
       var bieter = world.vereine[a.clubId];
       if (!p || !bieter) return;
+      var rk = FM.transfers.rueckkaufKonditionen(a.ablöse);
       html += '<div class="card card--flat mb"><div class="flex flex--zwischen">' +
         '<div><b>' + esc(p.vorname + ' ' + p.nachname) + '</b> ' + UI.posTag(p.pos) +
         ' <span class="muted klein">Marktwert ' + U.money(p.marktwert) + '</span><br>' +
@@ -533,6 +550,10 @@
         '<span class="klein muted">' + U.money(a.sofort) + ' sofort' +
         (a.boni ? ' · Boni bis ' + U.money(a.boni) : '') +
         (a.weiterverkauf ? ' · ' + a.weiterverkauf + ' % Beteiligung' : '') + '</span></div></div>' +
+        '<label class="klein muted" style="display:flex;align-items:center;gap:6px;margin-top:8px">' +
+        '<input type="checkbox" data-rk="' + esc(a.id) + '" style="width:auto">' +
+        'Rückkaufoption vereinbaren: ' + U.money(rk.abschlag) + ' weniger Ablöse, dafür ' +
+        'Rückholrecht für ' + U.money(rk.preis) + ' über ' + rk.jahre + ' Jahre</label>' +
         '<div class="flex mt"><button class="btn btn--primary btn--sm" data-angebot="' + esc(a.id) + '" data-ja="1">Annehmen</button>' +
         '<button class="btn btn--sm" data-angebot="' + esc(a.id) + '" data-ja="0">Ablehnen</button>' +
         '<button class="btn btn--sm btn--ghost" data-spieler="' + esc(p.id) + '">Spieler ansehen</button></div></div>';
@@ -597,6 +618,28 @@
     ], auftraege, { leerText: 'Es läuft kein Auftrag.' });
     html += '</div>';
     return html;
+  }
+
+  /** Spieler, die der Verein per Rueckkaufoption zurueckholen kann. */
+  function rueckkaufKarte(world) {
+    var clubId = world.nutzerClubId;
+    var liste = world.spielerIds.map(function (id) { return world.spieler[id]; })
+      .filter(function (p) { return p && FM.transfers.rueckkaufOffen(world, p, clubId); });
+    if (!liste.length) return '';
+    return '<div class="card mt"><h3>Rückkaufoptionen</h3>' +
+      '<p class="klein muted">Diese Spieler können Sie zum vereinbarten Preis zurückholen. ' +
+      'Der abgebende Verein kann das nicht verhindern.</p>' +
+      liste.map(function (p) {
+        var r = p.rueckkauf;
+        var club = world.vereine[p.clubId];
+        return '<div class="stat-row"><span>' +
+          '<b>' + esc(p.vorname + ' ' + p.nachname) + '</b> ' +
+          '<span class="klein muted">' + esc(club ? club.name : '') + ' · gültig bis ' +
+          esc(U.fmtDate(r.bis)) + '</span></span>' +
+          '<span><b>' + U.money(r.preis) + '</b> ' +
+          '<button class="btn btn--sm btn--primary" data-rueckkauf="' + esc(p.id) + '">Zurückholen</button></span>' +
+          '</div>';
+      }).join('') + '</div>';
   }
 
   function transferHistorie(world) {

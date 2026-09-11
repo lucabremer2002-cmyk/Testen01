@@ -238,6 +238,15 @@ die eigene Bilanz: bester Spieler nach Durchschnittsnote, meiste Tore,
 meiste Vorlagen, die Ehrungen dieser Spielzeit und die Rekorde, die in
 diesen zehn Monaten entstanden sind.
 
+### Rückkaufoption
+
+Beim Verkauf lässt sich eine **Rückkaufoption** vereinbaren. Der Käufer
+lässt sich das Risiko bezahlen: rund neun Prozent weniger Ablöse, dafür
+ein Rückholrecht zum 1,75-fachen der Ablöse, gültig drei Jahre. Wird sie
+gezogen, kann der abgebende Verein das nicht verhindern – wie eine
+Ausstiegsklausel, aber nur für den einen Verein. Offene Optionen stehen
+unter **Transfers → Angebote**.
+
 ### Spielertausch
 
 Im Transferangebot lassen sich eigene Spieler mit anbieten. Der abgebende
