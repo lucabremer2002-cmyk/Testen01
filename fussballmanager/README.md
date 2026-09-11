@@ -238,6 +238,16 @@ die eigene Bilanz: bester Spieler nach Durchschnittsnote, meiste Tore,
 meiste Vorlagen, die Ehrungen dieser Spielzeit und die Rekorde, die in
 diesen zehn Monaten entstanden sind.
 
+### Vorverträge
+
+Ab Januar darf ein Spieler, dessen Vertrag im Sommer ausläuft,
+ablösefrei bei einem anderen Verein unterschreiben. Im Spielerprofil
+steht dann **Vorvertrag anbieten**; zum 1. Juli wechselt er, ohne dass
+eine Ablöse fließt. Der abgebende Verein kann das nur verhindern, indem
+er vorher selbst verlängert – und die KI-Vereine bedienen sich genauso.
+Wer schon woanders unterschrieben hat, tritt nicht zurück und
+verschwindet nicht aus der Welt.
+
 ### Rückkaufoption
 
 Beim Verkauf lässt sich eine **Rückkaufoption** vereinbaren. Der Käufer

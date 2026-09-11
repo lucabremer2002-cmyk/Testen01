@@ -607,6 +607,11 @@
       (p.nationalelf
         ? '<div class="stat-row"><span>Aktuell</span><b class="w-mittel">bei der Nationalmannschaft</b></div>'
         : '') +
+      (p.vorvertrag
+        ? '<div class="stat-row"><span>Vorvertrag</span><b class="w-mittel">' +
+          esc((world.vereine[p.vorvertrag.clubId] || {}).name || '?') + ' ab ' +
+          esc(U.fmtDate(p.vorvertrag.ab)) + '</b></div>'
+        : '') +
       (p.zweitteam
         ? '<div class="stat-row"><span>Zweite Mannschaft</span><b>' +
           ((p.u23 && p.u23.spiele) || 0) + ' Spiele' +
@@ -681,6 +686,8 @@
     } else {
       html += '<div class="trenner"></div><div class="flex">' +
         '<button class="btn btn--primary" data-a="angebot">' + (p.clubId ? 'Angebot abgeben' : 'Vertrag anbieten') + '</button>' +
+        (FM.transfers.vorvertragMoeglich(world, p)
+          ? '<button class="btn" data-a="vorvertrag" title="Sein Vertrag läuft im Sommer aus">Vorvertrag anbieten</button>' : '') +
         '<button class="btn" data-a="scouten">Beobachten lassen</button>' +
         '<button class="btn" data-a="vergleich">Vergleichen</button>' +
         '<button class="btn" data-a="merken">' + (world.transfer.beobachtet.indexOf(p.id) >= 0 ? 'Von Merkliste entfernen' : 'Auf Merkliste') + '</button>' +
@@ -717,6 +724,7 @@
           UI.modalZu(); UI.zeichne();
         });
         bind('angebot', function () { V.angebotsDialog(p.id); });
+        bind('vorvertrag', function () { V.vertragsDialog(p.id, true, true); });
         bind('scouten', function () {
           var r = FM.transfers.scoutAuftragAnlegen(world, world.nutzerClubId, { spielerId: p.id });
           if (r.fehler) UI.toast(r.fehler, 'fehler');

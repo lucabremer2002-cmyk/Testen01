@@ -269,7 +269,7 @@
 
   // ============================================================ Vertragsverhandlung
 
-  V.vertragsDialog = function (spielerId, neuerSpieler) {
+  V.vertragsDialog = function (spielerId, neuerSpieler, vorvertrag) {
     var world = UI.world;
     var p = world.spieler[spielerId];
     if (!p) return;
@@ -279,8 +279,13 @@
     var jahre = p.alter <= 24 ? 4 : p.alter <= 30 ? 3 : 2;
 
     function formular(gehalt, jahreW, handgeld, rolle, klausel, meldung) {
-      return '<h4>' + (neuerSpieler ? 'Vertragsangebot' : 'Vertragsverlängerung') + '</h4>' +
+      return '<h4>' + (vorvertrag ? 'Vorvertrag' : neuerSpieler ? 'Vertragsangebot' : 'Vertragsverlängerung') + '</h4>' +
         '<h2>' + esc(p.vorname + ' ' + p.nachname) + '</h2>' +
+        (vorvertrag
+          ? '<p class="muted">Sein Vertrag läuft im Sommer aus. Unterschreibt er hier, ' +
+            'wechselt er zum 1. Juli ablösefrei – sein Verein kann das nur verhindern, ' +
+            'indem er vorher selbst verlängert.</p>'
+          : '') +
         '<div class="tiles mb">' +
         '<div class="tile"><span>Stärke</span><b>' + Math.round(P.gesamt(p)) + '</b></div>' +
         '<div class="tile"><span>Alter</span><b>' + p.alter + '</b></div>' +
@@ -334,13 +339,17 @@
               return;
             }
 
-            var r = neuerSpieler
-              ? FM.transfers.ablösefreiVerpflichten(world, spielerId, angebot)
-              : FM.transfers.verlaengerungAnbieten(world, spielerId, angebot);
+            var r = vorvertrag
+              ? FM.transfers.vorvertragAnbieten(world, spielerId, angebot, club.id)
+              : neuerSpieler
+                ? FM.transfers.ablösefreiVerpflichten(world, spielerId, angebot)
+                : FM.transfers.verlaengerungAnbieten(world, spielerId, angebot);
 
             if (r.status === 'angenommen') {
               UI.modalZu();
-              UI.toast(p.nachname + ' hat unterschrieben.', 'gut');
+              UI.toast(vorvertrag
+                ? p.nachname + ' kommt zum 1. Juli ablösefrei.'
+                : p.nachname + ' hat unterschrieben.', 'gut');
               UI.zeichne();
             } else if (r.status === 'gegenforderung') {
               zeige(Math.round(r.gefordert / 500) * 500, angebot.jahre, angebot.handgeld, angebot.rolle, angebot.ausstiegsklausel,

@@ -69,7 +69,11 @@
     FM.transfers.scoutingTick(world);
     FM.transfers.kiTick(world);
     FM.transfers.angeboteAufraeumen(world);
+    // Vorvertraege zuerst: Der Spieler wechselt, solange er noch unter
+    // Vertrag steht, statt einen Tag lang vertragslos zu sein.
+    FM.transfers.vorvertraegePruefen(world);
     FM.transfers.vertraegePruefen(world);
+    FM.transfers.kiVorvertraege(world);
     leihenPruefen(world);
     FM.media.bauprojekteTick(world);
 
@@ -990,7 +994,8 @@
       p.gelbeSaison = 0;
       p.sperre = 0;
       p.letzteNoten = [];
-      if (p.alter >= 34 && world.rng.chance((p.alter - 33) * 0.18)) {
+      // Wer schon woanders unterschrieben hat, hoert nicht auf.
+      if (!p.vorvertrag && p.alter >= 34 && world.rng.chance((p.alter - 33) * 0.18)) {
         karriereEnde(world, p);
       }
     });
@@ -1171,12 +1176,12 @@
         || (p.alter >= 30 && st < 48)
         || (p.alter >= 26 && st < 38)
         || (st < 30);
-      if (weg) world.entferneSpieler(p.id);
+      if (weg && !p.vorvertrag) world.entferneSpieler(p.id);
     });
     // Notfalls den Rest kappen, damit die Liste ueberschaubar bleibt.
     frei = world.vertragslose();
     if (frei.length > 140) {
-      U.sortBy(frei, function (p) { return P.gesamt(p); })
+      U.sortBy(frei.filter(function (p) { return !p.vorvertrag; }), function (p) { return P.gesamt(p); })
         .slice(0, frei.length - 140)
         .forEach(function (p) { world.entferneSpieler(p.id); });
     }

@@ -986,6 +986,124 @@
   }
 
   /** Vertragsablauf pruefen, KI verlaengert selbst. */
+  // ------------------------------------------------------------ Vorvertraege
+
+  /**
+   * Ab dem 1. Januar darf ein Spieler, dessen Vertrag im Sommer
+   * auslaeuft, ablösefrei bei einem anderen Verein unterschreiben. Der
+   * abgebende Verein kann das nur verhindern, indem er vorher
+   * verlaengert.
+   */
+  function vorvertragMoeglich(world, p) {
+    if (!p.clubId || !p.vertrag || p.leihe) return false;
+    if (p.vorvertrag) return false;
+    var datum = U.fromDay(world.tag);
+    if (datum.m < 1 || datum.m > 6) return false;          // Januar bis Juni
+    // Vertraege laufen bis zum 1. Juli - dieser Tag zaehlt noch dazu.
+    var saisonende = U.toDay(datum.y, 7, 1);
+    return p.vertrag.bis <= saisonende;
+  }
+
+  /** Wann ein Vorvertrag in Kraft tritt: zum 1. Juli. */
+  function vorvertragStart(world) {
+    var datum = U.fromDay(world.tag);
+    return U.toDay(datum.y, 7, 1);
+  }
+
+  /**
+   * Der Spieler entscheidet ueber einen Vorvertrag. Bewertet wird wie
+   * bei einem gewoehnlichen Vertragsangebot, nur ohne Abloese - was ihn
+   * fuer den Spieler attraktiver macht, weil mehr Gehalt moeglich ist.
+   */
+  function vorvertragAnbieten(world, spielerId, angebot, clubId) {
+    var p = world.spieler[spielerId];
+    if (!p) return { fehler: 'Spieler nicht gefunden.' };
+    if (!vorvertragMoeglich(world, p)) {
+      return { fehler: 'Für diesen Spieler ist kein Vorvertrag möglich.' };
+    }
+    var pruefung = pruefeVertragsangebot(world, p, angebot, clubId);
+    if (pruefung.status !== 'angenommen') return pruefung;
+
+    p.vorvertrag = {
+      clubId: clubId,
+      ab: vorvertragStart(world),
+      gehalt: angebot.gehalt,
+      jahre: angebot.jahre,
+      handgeld: angebot.handgeld || 0,
+      rolle: angebot.rolle || 'rotation'
+    };
+    var alt = world.vereine[p.clubId];
+    var neu = world.vereine[clubId];
+    world.transfer.geruechte.unshift({
+      tag: world.tag, spielerId: p.id, clubId: clubId,
+      text: p.vorname + ' ' + p.nachname + ' hat einen Vorvertrag bei ' + neu.name +
+        ' unterschrieben und verlässt ' + (alt ? alt.name : 'seinen Verein') + ' im Sommer ablösefrei.'
+    });
+    if (world.istNutzerVerein(p.clubId)) {
+      world.nachricht({
+        typ: 'transfer', prioritaet: 3,
+        titel: 'Vorvertrag: ' + p.nachname + ' geht im Sommer',
+        text: p.vorname + ' ' + p.nachname + ' hat bei ' + neu.name + ' unterschrieben. ' +
+          'Zum 1. Juli verlässt er den Verein ablösefrei.',
+        spielerId: p.id
+      });
+    }
+    return { status: 'angenommen', vorvertrag: p.vorvertrag };
+  }
+
+  /** Setzt faellige Vorvertraege um. */
+  function vorvertraegePruefen(world) {
+    world.alleSpieler().forEach(function (p) {
+      var v = p.vorvertrag;
+      if (!v || world.tag < v.ab) return;
+      p.vorvertrag = null;
+      var club = world.vereine[v.clubId];
+      if (!club) return;
+      fuehreTransferDurch(world, p, v.clubId, {
+        ablöse: 0, sofort: 0, raten: 1, handgeld: v.handgeld, rolle: v.rolle,
+        vertrag: {
+          bis: world.tag + v.jahre * 365, unterschrieben: world.tag,
+          gehalt: v.gehalt, handgeld: v.handgeld, ausstiegsklausel: 0,
+          praemien: { einsatz: Math.round(v.gehalt * 0.10), tor: Math.round(v.gehalt * 0.12),
+            sieg: Math.round(v.gehalt * 0.09), zuNull: 0 },
+          weiterverkauf: 0
+        }
+      });
+    });
+  }
+
+  /** Die KI sichert sich ebenfalls auslaufende Vertraege. */
+  function kiVorvertraege(world) {
+    var rng = world.rng;
+    var datum = U.fromDay(world.tag);
+    if (datum.m < 1 || datum.m > 5) return;
+    if (!rng.chance(0.22)) return;
+
+    var kandidaten = world.alleSpieler().filter(function (p) {
+      return vorvertragMoeglich(world, p) && !world.istNutzerVerein(p.clubId) &&
+        P.gesamt(p) >= 58;
+    });
+    if (!kandidaten.length) return;
+    var p = rng.weighted(kandidaten, function (x) { return Math.pow(P.gesamt(x) / 60, 3); });
+    if (!p) return;
+
+    var interessenten = world.ligen.bl1.teams.concat(world.ligen.bl2.teams).filter(function (id) {
+      if (id === p.clubId || world.istNutzerVerein(id)) return false;
+      var club = world.vereine[id];
+      var f = world.finanzen[id];
+      if (!club || !f) return false;
+      if (world.kaderVon(id).length >= (club.liga === 1 ? 29 : 28)) return false;
+      return P.gesamt(p) >= P.niveauFuerVerein(club) - 4;
+    });
+    if (!interessenten.length) return;
+    var zielId = rng.pick(interessenten);
+    var ziel = world.vereine[zielId];
+    vorvertragAnbieten(world, p.id, {
+      gehalt: Math.round(P.gehaltsforderung(p, ziel, world) * rng.range(1.05, 1.25) / 500) * 500,
+      jahre: p.alter <= 27 ? 4 : 2, handgeld: 0, rolle: 'stamm'
+    }, zielId);
+  }
+
   function vertraegePruefen(world) {
     var rng = world.rng;
     world.alleSpieler().forEach(function (p) {
@@ -1065,6 +1183,10 @@
     verlaengerungAnbieten: verlaengerungAnbieten,
     ablösefreiVerpflichten: ablösefreiVerpflichten,
     vertraegePruefen: vertraegePruefen,
+    vorvertragMoeglich: vorvertragMoeglich,
+    vorvertragAnbieten: vorvertragAnbieten,
+    vorvertraegePruefen: vorvertraegePruefen,
+    kiVorvertraege: kiVorvertraege,
     kiVerlaengerungen: kiVerlaengerungen,
     freieNummer: freieNummer
   };

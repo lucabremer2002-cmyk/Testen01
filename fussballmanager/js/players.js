@@ -211,6 +211,7 @@
       laenderspiele: 0,
       laendertore: 0,
       rueckkauf: null,           // { clubId, preis, bis } - Rueckkaufoption
+      vorvertrag: null,          // { clubId, ab, gehalt, jahre } - ab Januar moeglich
       zweitteam: false,          // spielt in der U23
       u23: { spiele: 0, tore: 0 },
       kapitaen: false,
