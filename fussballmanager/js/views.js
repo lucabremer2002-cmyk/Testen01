@@ -682,6 +682,9 @@
           (p.umschulung ? 'Umschulung läuft' : 'Position umschulen') + '</button>' : '') +
         '<button class="btn" data-a="transferliste">' + (p.transferliste ? 'Von Transferliste nehmen' : 'Auf Transferliste setzen') + '</button>' +
         '<button class="btn" data-a="leihliste">' + (p.leihliste ? 'Nicht mehr verleihen' : 'Zum Verleih anbieten') + '</button>' +
+        (!p.leihe && FM.kooperation.partnerVon(world, world.nutzerClubId)
+          .some(function (k) { return k.clubId === world.nutzerClubId; })
+          ? '<button class="btn" data-a="partnerleihe">Zum Partner verleihen</button>' : '') +
         '</div>';
     } else {
       html += '<div class="trenner"></div><div class="flex">' +
@@ -713,6 +716,34 @@
         bind('fokus', function () { V.fokusDialog(p.id); });
         bind('umschulung', function () { V.umschulungsDialog(p.id); });
         bind('vergleich', function () { V.vergleich(p.id); });
+        bind('partnerleihe', function () {
+          var partner = FM.kooperation.partnerVon(world, world.nutzerClubId)
+            .filter(function (k) { return k.clubId === world.nutzerClubId; });
+          if (!partner.length) return;
+          if (partner.length === 1) {
+            var r = FM.kooperation.leiheZumPartner(world, p.id, partner[0].partnerId);
+            if (r.fehler) UI.toast(r.fehler, 'fehler');
+            else UI.toast(r.name + ' spielt bis zum Saisonende bei ' + r.partner + '.', 'gut');
+            UI.modalZu(); UI.zeichne();
+            return;
+          }
+          UI.modal('<h2>Zu welchem Partner?</h2><div class="optionen">' +
+            partner.map(function (k) {
+              return '<button class="option" data-pl="' + esc(k.partnerId) + '"><b>' +
+                esc(world.vereine[k.partnerId].name) + '</b></button>';
+            }).join('') + '</div>', {
+            nachher: function (body) {
+              Array.prototype.forEach.call(body.querySelectorAll('[data-pl]'), function (b) {
+                b.onclick = function () {
+                  var r = FM.kooperation.leiheZumPartner(world, p.id, b.dataset.pl);
+                  if (r.fehler) UI.toast(r.fehler, 'fehler');
+                  else UI.toast(r.name + ' spielt bis zum Saisonende bei ' + r.partner + '.', 'gut');
+                  UI.modalZu(); UI.zeichne();
+                };
+              });
+            }
+          });
+        });
         bind('transferliste', function () {
           p.transferliste = !p.transferliste;
           UI.toast(p.transferliste ? p.nachname + ' steht auf der Transferliste.' : 'Von der Transferliste genommen.');

@@ -207,6 +207,9 @@
     kaderAuffuellen(world);
 
     managerEntwicklung(world);
+    FM.transfers.scoutnetzWoche(world);
+    FM.kooperation.wochenlauf(world);
+    FM.kooperation.erstzugriffPruefen(world);
 
     // Kabinenklima aller Vereine fortschreiben. Der Wert wird nicht
     // gespeichert - er ergibt sich jederzeit wieder aus dem Kader.

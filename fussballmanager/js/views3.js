@@ -110,6 +110,7 @@
       html += '</div>';
       html += '</div>';
 
+      html += kooperationsKarte(world, club);
       html += rekordKarte(world, club);
 
       // Europapokal
@@ -151,9 +152,25 @@
 
       return html;
     },
-    nachher: function (container) {
+    nachher: function (container, world) {
+      var club = world.nutzerVerein();
       var b = container.querySelector('[data-a="bau"]');
       if (b) b.onclick = function () { V.bauDialog(); };
+      var koopNeu = container.querySelector('[data-a="koop-neu"]');
+      if (koopNeu) koopNeu.onclick = function () { kooperationsDialog(world, club); };
+      Array.prototype.forEach.call(container.querySelectorAll('[data-koop-ende]'), function (e) {
+        e.onclick = function () {
+          var id = e.getAttribute('data-koop-ende');
+          UI.bestaetigen('Kooperation beenden',
+            'Die Partnerschaft mit <b>' + esc(world.vereine[id].name) + '</b> auflösen?',
+            function () {
+              FM.kooperation.beenden(world, club.id, id);
+              UI.toast('Partnerschaft beendet.');
+              UI.zeichne();
+            });
+        };
+      });
+      V.verdrahteAllgemein(container, world);
     }
   };
 
@@ -657,6 +674,74 @@
   }
 
   // ============================================================ Karriere
+
+  /**
+   * Kooperationsvereine: wo der Verein Talente unterbringt und wo er das
+   * erste Wort hat, wenn dort jemand auffaellt.
+   */
+  function kooperationsKarte(world, club) {
+    var K = FM.kooperation;
+    var eigene = K.partnerVon(world, club.id);
+    var html = '<div class="card mt"><div class="card__head"><h3>Kooperationsvereine</h3>' +
+      (eigene.length < K.MAX_PARTNER
+        ? '<button class="btn btn--sm btn--primary" data-a="koop-neu">Partner suchen</button>' : '') +
+      '</div>' +
+      '<p class="klein muted">Ein Partnerverein nimmt Ihre Talente ohne Verhandlung auf Leihbasis ' +
+      'und mit Einsatzgarantie. Dafür zahlen Sie eine Jahresgebühr – und bekommen 25 Prozent ' +
+      'Nachlass auf Ablösen sowie das erste Wort, wenn dort jemand auffällt.</p>';
+
+    if (!eigene.length) {
+      html += '<div class="leer">Noch keine Partnerschaft.</div>';
+    } else {
+      eigene.forEach(function (k) {
+        var istGross = k.clubId === club.id;
+        var anderer = world.vereine[istGross ? k.partnerId : k.clubId];
+        if (!anderer) return;
+        html += '<div class="stat-row"><span>' + UI.vereinZelle(world, anderer.id) +
+          ' <span class="klein muted">' + (istGross ? 'Juniorpartner' : 'Seniorpartner') +
+          ' seit ' + esc(U.fmtDate(k.seit)) + '</span></span>' +
+          '<span><b class="klein">' + U.money(k.gebuehr) + ' / Jahr</b> ' +
+          (istGross ? '<button class="btn btn--sm btn--ghost" data-koop-ende="' + esc(anderer.id) +
+            '">beenden</button>' : '') + '</span></div>';
+      });
+    }
+    return html + '</div>';
+  }
+
+  /** Auswahl eines neuen Partnervereins. */
+  function kooperationsDialog(world, club) {
+    var K = FM.kooperation;
+    var liste = K.kandidaten(world, club.id).slice(0, 24);
+    var html = '<h2>Partnerverein suchen</h2>' +
+      '<p class="muted">Infrage kommt nur, wer deutlich kleiner ist – ein Verein auf Augenhöhe ' +
+      'sieht sich nicht als Juniorpartner. Je besser die Akademie des Partners, desto mehr ' +
+      'bringt die Verbindung.</p>';
+    if (!liste.length) {
+      html += '<div class="leer">Zurzeit kommt kein Verein infrage.</div>';
+    } else {
+      html += '<div class="optionen">' + liste.map(function (k) {
+        return '<button class="option" data-koop="' + esc(k.clubId) + '">' +
+          '<b>' + esc(k.name) + '</b><br><span class="klein muted">' +
+          (k.liga === 1 ? 'Bundesliga' : k.liga === 2 ? '2. Bundesliga' : '3. Liga') +
+          ' · Ruf ' + k.ruf + ' · Akademie ' + k.akademie + ' · ' + U.money(k.gebuehr) + ' / Jahr' +
+          '</span></button>';
+      }).join('') + '</div>';
+    }
+    UI.modal(html, {
+      breit: true,
+      nachher: function (body) {
+        Array.prototype.forEach.call(body.querySelectorAll('[data-koop]'), function (b) {
+          b.onclick = function () {
+            var r = K.anbieten(world, club.id, b.dataset.koop);
+            if (r.fehler) { UI.toast(r.fehler, 'fehler'); return; }
+            UI.modalZu();
+            UI.toast('Partnerschaft mit ' + world.vereine[b.dataset.koop].name + ' geschlossen.', 'gut');
+            UI.zeichne();
+          };
+        });
+      }
+    });
+  }
 
   /** Eine Zeile des Trainerprofils mit Balken und Erklaerung. */
   function profilZeile(label, wert, hinweis) {

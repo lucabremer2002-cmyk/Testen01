@@ -27,7 +27,7 @@
   var FELDER = ['version', 'seed', 'saison', 'tag', 'saisonStartTag', 'vereine', 'vereinIds',
     'stab', 'stabIds', 'finanzen', 'taktiken', 'ligen', 'ligaIds',
     'pokal', 'europa', 'supercup', 'relegation', 'nutzerClubId', 'manager',
-    'laenderspielFenster', 'national', 'rekorde', 'taktikVorlagen',
+    'laenderspielFenster', 'national', 'rekorde', 'taktikVorlagen', 'kooperationen',
     'inbox', 'nachrichtenIds', 'transfer', 'trainingsplan', 'historie', 'statistik',
     'einstellungen', 'transferfenster'];
 

@@ -617,7 +617,33 @@
         return U.fmtDate(a.fertig) + ' <span class="klein muted">(' + Math.max(0, a.fertig - world.tag) + ' T)</span>'; } }
     ], auftraege, { leerText: 'Es läuft kein Auftrag.' });
     html += '</div>';
+
+    html += scoutnetzKarte(world);
     return html;
+  }
+
+  /**
+   * Das Scoutingnetz: wo der Verein Augen hat. Jede Reise verdichtet das
+   * Netz, wo nichts mehr passiert, verfaellt es langsam. Wo das Netz
+   * steht, beobachten die Scouts auch ohne Auftrag - und die naechste
+   * Reise dorthin geht schneller.
+   */
+  function scoutnetzKarte(world) {
+    var netz = FM.transfers.scoutnetzVon(world, world.nutzerClubId);
+    var aktiv = netz.filter(function (n) { return n.stand > 0.02; });
+    return '<div class="card mt"><div class="card__head"><h3>Scoutingnetz</h3>' +
+      '<span class="chip">' + aktiv.length + ' von ' + netz.length + ' Regionen</span></div>' +
+      '<p class="klein muted">Jede Reise verdichtet das Netz. Wo es steht, melden die Scouts ' +
+      'auch ohne Auftrag, die Berichte werden genauer und die nächste Reise dorthin geht ' +
+      'schneller. Ohne Pflege verfällt es.</p>' +
+      netz.map(function (n) {
+        var v = n.stand;
+        return '<div class="stat-row"><span>' + esc(n.region.name) + '</span>' +
+          '<span style="display:flex;align-items:center;gap:10px">' +
+          UI.balken(v, v >= 0.58 ? '' : v >= 0.36 ? 'bar--gelb' : 'bar--rot') +
+          '<b class="klein" style="min-width:88px;text-align:right">' +
+          esc(FM.transfers.netzLabel(v)) + '</b></span></div>';
+      }).join('') + '</div>';
   }
 
   /** Spieler, die der Verein per Rueckkaufoption zurueckholen kann. */

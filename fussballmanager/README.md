@@ -358,6 +358,36 @@ Trainingsqualität, Verletzungsvorbeugung, Reha-Tempo,
 Scouting-Genauigkeit, Verhandlungsgeschick und Jahrgangsqualität. Personal
 lässt sich suchen, verpflichten und entlassen.
 
+### Kooperationsvereine
+
+Ein großer Verein und ein kleiner schließen sich zusammen: Der kleine
+bekommt Geld und Spieler, der große einen Ort, an dem seine Talente
+wirklich spielen. Unter **Verein → Kooperationsvereine** lassen sich bis
+zu zwei Partnerschaften schließen.
+
+Ein Partner nimmt Ihre Talente **ohne Verhandlung** auf Leihbasis und mit
+60 Prozent Einsatzgarantie. Dafür zahlen Sie eine Jahresgebühr – und
+bekommen **25 Prozent Nachlass auf Ablösen** sowie das **erste Wort**,
+wenn dort ein Talent auffällt (etwa zweimal je Spielzeit). Wer die
+Gebühr nicht aufbringt, verliert die Partnerschaft.
+
+Infrage kommt nur, wer deutlich kleiner ist: Der Ruf muss mindestens
+zwölf Punkte auseinanderliegen und der Partner darf nicht höher spielen –
+ein Verein auf Augenhöhe sieht sich nicht als Juniorpartner.
+
+### Scoutingnetz
+
+Neben einzelnen Beobachtungsaufträgen und Scoutingreisen führt das Spiel
+einen **bleibenden Kenntnisstand je Region**. Jede Reise verdichtet das
+Netz – die ersten bringen am meisten –, und ohne Pflege verfällt es
+langsam. Drei Reisen nach Südamerika bringen es von null über 35 und 55
+auf 69 Prozent; ein halbes Jahr ohne Reise kostet rund vierzehn Punkte.
+
+Wo das Netz steht, wirkt es dreifach: Die Scouts beobachten auch **ohne
+Auftrag**, die Berichte werden **genauer**, und die nächste Reise dorthin
+geht **schneller** (bis zu 35 Prozent). Der Stand aller zehn Regionen
+steht unter **Transfers → Scouting**.
+
 ### Nachwuchs
 
 Jeden Sommer rückt ein Jahrgang aus der eigenen Jugend nach. Umfang und

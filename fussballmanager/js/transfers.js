@@ -23,6 +23,7 @@
       verhandlungen: [],      // laufende Vertragsverhandlungen
       beobachtet: [],         // Merkliste
       scoutAuftraege: [],
+      scoutnetz: {},
       historie: [],
       geruechte: []
     };
@@ -130,6 +131,11 @@
 
     // Unwillige Vereine rufen Mondpreise auf.
     forderung *= U.clamp(1.85 - bereit * 1.10, 0.80, 1.85);
+
+    // Ein Kooperationspartner laesst mit sich reden.
+    if (FM.kooperation && p.clubId) {
+      forderung *= FM.kooperation.ablöseRabatt(world, kaeuferId, p.clubId);
+    }
 
     // Ausstiegsklausel schlaegt alles
     if (p.vertrag && p.vertrag.ausstiegsklausel && angebot >= p.vertrag.ausstiegsklausel) {
@@ -477,6 +483,69 @@
     { id: 'nordamerika', name: 'Nordamerika', nationen: ['USA'], dauer: 28, kosten: 36000 }
   ];
 
+  // ------------------------------------------------------------ Scoutingnetz
+
+  /**
+   * Der Kenntnisstand eines Vereins in einer Region. Er waechst mit
+   * jeder Reise dorthin und verfaellt langsam, wenn man sich nicht mehr
+   * kuemmert. Wo das Netz dicht ist, melden die Scouts von sich aus, und
+   * die Berichte sind genauer.
+   */
+  function netzStand(world, clubId, regionId) {
+    var netz = world.transfer.scoutnetz || {};
+    var k = netz[clubId];
+    return (k && k[regionId]) || 0;
+  }
+
+  function netzSetzen(world, clubId, regionId, wert) {
+    if (!world.transfer.scoutnetz) world.transfer.scoutnetz = {};
+    if (!world.transfer.scoutnetz[clubId]) world.transfer.scoutnetz[clubId] = {};
+    world.transfer.scoutnetz[clubId][regionId] = U.clamp(wert, 0, 1);
+  }
+
+  /** Das ganze Netz eines Vereins, fuer die Anzeige. */
+  function scoutnetzVon(world, clubId) {
+    return SCOUT_REGIONEN.map(function (r) {
+      return { region: r, stand: netzStand(world, clubId, r.id) };
+    });
+  }
+
+  function netzLabel(stand) {
+    if (stand >= 0.80) return 'hervorragend';
+    if (stand >= 0.58) return 'gut';
+    if (stand >= 0.36) return 'brauchbar';
+    if (stand >= 0.15) return 'dünn';
+    return 'kein Netz';
+  }
+
+  /**
+   * Woechentlich: Das Netz verfaellt ein wenig, und wo es dicht ist,
+   * beobachten die Scouts auch ohne Auftrag.
+   */
+  function scoutnetzWoche(world) {
+    var netz = world.transfer.scoutnetz;
+    if (!netz) return;
+    Object.keys(netz).forEach(function (clubId) {
+      var stab = world.stabWerteVon(clubId);
+      SCOUT_REGIONEN.forEach(function (r) {
+        var stand = netzStand(world, clubId, r.id);
+        if (stand <= 0) return;
+        // Verfall: ein gepflegtes Netz haelt laenger als ein zufaelliges.
+        netzSetzen(world, clubId, r.id, stand - 0.004 - (1 - stand) * 0.004);
+
+        // Laufende Beobachtung in gut abgedeckten Regionen
+        if (stand < 0.36) return;
+        var funde = suche(world, {
+          nationen: r.nationen, minAlter: 16, maxAlter: 30,
+          minStaerke: 0, ausserhalb: clubId
+        }, Math.round(stand * 6));
+        funde.forEach(function (p) {
+          p.scoutwissen = U.clamp(p.scoutwissen + 0.02 + stand * 0.05 * stab.scoutingGenauigkeit, 0, 1);
+        });
+      });
+    });
+  }
+
   function scoutAuftragAnlegen(world, clubId, cfg) {
     var f = world.finanzen[clubId];
     var kosten = cfg.spielerId ? 8000 : (SCOUT_REGIONEN.filter(function (r) { return r.id === cfg.regionId; })[0] || { kosten: 20000 }).kosten;
@@ -484,6 +553,10 @@
     F.buche(world, clubId, 'aus', 'scouting', kosten, cfg.spielerId ? 'Einzelbeobachtung' : 'Scoutingreise');
 
     var region = SCOUT_REGIONEN.filter(function (r) { return r.id === cfg.regionId; })[0];
+    // Wo das Netz steht, geht eine Reise schneller.
+    var stand = region ? netzStand(world, clubId, region.id) : 0;
+    var dauer = cfg.spielerId ? 10
+      : Math.round((region ? region.dauer : 21) * (1 - stand * 0.35));
     var auftrag = {
       id: U.nextId('sc'),
       clubId: clubId,
@@ -494,7 +567,7 @@
       position: cfg.position || null,
       minStaerke: cfg.minStaerke || 0,
       start: world.tag,
-      fertig: world.tag + (cfg.spielerId ? 10 : (region ? region.dauer : 21)),
+      fertig: world.tag + dauer,
       ergebnis: null
     };
     world.transfer.scoutAuftraege.push(auftrag);
@@ -529,13 +602,22 @@
           ausserhalb: a.clubId
         }, 8 + Math.round(stab.scoutingGenauigkeit * 8));
         treffer.forEach(function (p) {
-          p.scoutwissen = U.clamp(p.scoutwissen + 0.22 + stab.scoutingGenauigkeit * 0.35, 0, 1);
+          var netzBonus = region ? netzStand(world, a.clubId, region.id) * 0.20 : 0;
+          p.scoutwissen = U.clamp(p.scoutwissen + 0.22 + stab.scoutingGenauigkeit * 0.35 + netzBonus, 0, 1);
         });
+        if (region) {
+          // Jede Reise verdichtet das Netz - die ersten bringen am meisten.
+          var vorher = netzStand(world, a.clubId, region.id);
+          netzSetzen(world, a.clubId, region.id,
+            vorher + (1 - vorher) * (0.22 + stab.scoutingGenauigkeit * 0.18));
+        }
         if (world.istNutzerVerein(a.clubId)) {
+          var jetzt = region ? netzStand(world, a.clubId, region.id) : 0;
           world.nachricht({
             typ: 'scouting', prioritaet: 1,
             titel: 'Scoutingreise abgeschlossen: ' + (region ? region.name : 'Region'),
             text: 'Die Scouts haben ' + treffer.length + ' Spieler beobachtet, die zum Suchprofil passen. ' +
+              (region ? 'Das Netz in ' + region.name + ' ist jetzt ' + netzLabel(jetzt) + '. ' : '') +
               'Die Berichte stehen im Transfermarkt zur Verfügung.',
             spielerIds: treffer.map(function (p) { return p.id; })
           });
@@ -1168,6 +1250,10 @@
     fuehreLeiheDurch: fuehreLeiheDurch,
     leiheBeenden: leiheBeenden,
     scoutAuftragAnlegen: scoutAuftragAnlegen,
+    scoutnetzVon: scoutnetzVon,
+    netzStand: netzStand,
+    netzLabel: netzLabel,
+    scoutnetzWoche: scoutnetzWoche,
     scoutingTick: scoutingTick,
     berichtstext: berichtstext,
     suche: suche,
