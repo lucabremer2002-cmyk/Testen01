@@ -25,7 +25,9 @@
         '" data-c="' + esc(c.id) + '">' +
         '<span class="crest crest--sm" data-k="' + esc(c.kurz) + '" style="background:' + esc(c.farbe) +
         ';border-color:' + esc(c.farbe2) + '"></span>' +
-        '<span><b>' + esc(c.name) + '</b><small>' + esc(c.stadt) + '</small></span></button>';
+        '<span><b>' + esc(c.name) + '</b><small>' + esc(c.stadt) +
+        ' · <i class="club-card__grad" style="color:' + schwierigkeit(c).color + '">' +
+        schwierigkeit(c).text + '</i></small></span></button>';
     }).join('');
     Array.prototype.forEach.call(grid.querySelectorAll('[data-c]'), function (b) {
       b.onclick = function () {

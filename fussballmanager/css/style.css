@@ -356,6 +356,10 @@ label {
   font-weight: 800;
   letter-spacing: .02em;
 }
+/* Schwierigkeitsgrad in der Zweitzeile der Vereinskachel - als Text, damit
+   der Vereinsname nicht umbrechen muss. */
+.club-card__grad { font-style: normal; font-weight: 800; opacity: .9; }
+
 .start__actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .hint { color: var(--muted-2); font-size: 12px; margin: 12px 0 0; }
 
