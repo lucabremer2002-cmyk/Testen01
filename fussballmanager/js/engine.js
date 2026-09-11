@@ -1093,10 +1093,25 @@
       var club = world.vereine[clubId];
       if (!club || club.auslaendisch) return;
       var minimum = club.liga === 1 ? 24 : club.liga === 2 ? 23 : 22;
+      var maximal = club.liga === 1 ? 30 : club.liga === 2 ? 29 : 27;
       var kader = world.kaderVon(clubId);
-      if (kader.length >= minimum) return;
-
-      var fehlend = minimum - kader.length;
+      // Nicht nur die Kadergroesse zaehlt, sondern auch der Zuschnitt. Ein
+      // Verein ohne Torwart oder ohne Innenverteidiger bleibt sonst so, weil
+      // er zahlenmaessig gross genug ist.
+      // Beim Nutzer greift der Verein nur im Notfall ein - eine Position ganz
+      // ohne Besetzung. Alles andere entscheidet der Trainer selbst.
+      var nutzer = world.istNutzerVerein(clubId);
+      var luecken = nutzer ? notLuecken(world, clubId) : positionsLuecken(world, clubId);
+      var fehlend = Math.max(minimum - kader.length, luecken);
+      if (fehlend <= 0) return;
+      // Ist der Kader schon voll, macht der Verein Platz: der entbehrlichste
+      // Spieler einer ueberbesetzten Position geht.
+      while (fehlend > 0 && kader.length >= maximal && !nutzer) {
+        if (!entbehrlichenAbgeben(world, clubId)) break;
+        kader = world.kaderVon(clubId);
+      }
+      fehlend = Math.min(fehlend, maximal - kader.length);
+      if (fehlend <= 0) return;
       var frei = world.spielerIds
         .map(function (id) { return world.spieler[id]; })
         .filter(function (p) { return p && !p.clubId; });
@@ -1112,7 +1127,7 @@
           frei = frei.filter(function (p) { return p.id !== passend.id; });
           world.setzeVerein(passend, clubId);
           passend.vertrag = P.vertragErzeugen(rng, passend, club, world, rng.int(1, 3));
-          passend.nummer = FM.transfers.freieNummer(world, clubId, 0);
+          passend.nummer = FM.transfers.freieNummer(world, clubId, 0, passend.pos);
           passend.kaderrolle = P.vorgeschlageneRolle(passend, world.kaderVon(clubId));
           passend.rollenSeit = world.tag;
           continue;
@@ -1126,7 +1141,7 @@
         });
         neu.vertrag = P.vertragErzeugen(rng, neu, club, world, rng.int(1, 3));
         world.fuegeSpielerHinzu(neu);
-        neu.nummer = FM.transfers.freieNummer(world, clubId, 0);
+        neu.nummer = FM.transfers.freieNummer(world, clubId, 0, neu.pos);
         neu.kaderrolle = P.vorgeschlageneRolle(neu, world.kaderVon(clubId));
         neu.rollenSeit = world.tag;
       }
@@ -1140,6 +1155,67 @@
   }
 
   /** Die Position, auf der ein Kader am duennsten besetzt ist. */
+  /** Untergrenze einer Position im Kader. */
+  function positionsMindest(pos) {
+    var e = (P.KADER_SCHEMA || []).filter(function (x) { return x[0] === pos; })[0];
+    if (!e) return 1;
+    return pos === 'TW' ? 2 : Math.max(2, Math.ceil(e[1] * 0.6));
+  }
+
+  /** Nur die echten Notfaelle: Position ganz leer oder weniger als zwei Torhueter. */
+  function notLuecken(world, clubId) {
+    var zaehler = {};
+    world.kaderVon(clubId).forEach(function (p) { zaehler[p.pos] = (zaehler[p.pos] || 0) + 1; });
+    var summe = 0;
+    (P.KADER_SCHEMA || []).forEach(function (e) {
+      var pos = e[0];
+      if (pos === 'TW') summe += Math.max(0, 2 - (zaehler[pos] || 0));
+      else if (!zaehler[pos]) summe += 1;
+    });
+    return summe;
+  }
+
+  /**
+   * Gibt den entbehrlichsten Spieler ab: schwach und auf einer Position,
+   * die ohnehin ueberbesetzt ist. Rueckgabe: true, wenn jemand ging.
+   */
+  function entbehrlichenAbgeben(world, clubId) {
+    var kader = world.kaderVon(clubId);
+    var bestand = {};
+    kader.forEach(function (p) { bestand[p.pos] = (bestand[p.pos] || 0) + 1; });
+    var moeglich = kader.filter(function (p) {
+      return !p.leihe && !p.kapitaen && (bestand[p.pos] || 0) > positionsMindest(p.pos);
+    });
+    if (!moeglich.length) return false;
+    var raus = U.sortBy(moeglich, function (p) {
+      var ueber = (bestand[p.pos] || 0) - positionsMindest(p.pos);
+      return P.gesamt(p) + Math.max(0, p.potenzial - P.gesamt(p)) * 0.8 - ueber * 3;
+    })[0];
+    raus.exClubId = clubId;
+    world.setzeVerein(raus, null);
+    raus.vertrag = null;
+    raus.nummer = 0;
+    raus.kapitaen = false;
+    return true;
+  }
+
+  /**
+   * Wie viele Spieler fehlen, um die Mindestbesetzung jeder Position zu
+   * erreichen? Torhueter zaehlen doppelt so dringend: ohne sie steht ein
+   * Feldspieler im Tor.
+   */
+  function positionsLuecken(world, clubId) {
+    var zaehler = {};
+    world.kaderVon(clubId).forEach(function (p) { zaehler[p.pos] = (zaehler[p.pos] || 0) + 1; });
+    var summe = 0;
+    (P.KADER_SCHEMA || []).forEach(function (e) {
+      var pos = e[0];
+      // Untergrenze: gut die Haelfte des Schemas, im Tor mindestens zwei.
+      summe += Math.max(0, positionsMindest(pos) - (zaehler[pos] || 0));
+    });
+    return summe;
+  }
+
   function schwaechstePosition(world, clubId) {
     var kader = world.kaderVon(clubId);
     var soll = {};
@@ -1171,9 +1247,15 @@
           - (p.alter >= 32 ? 8 : 0) + (p.eigengewaechs ? 3 : 0);
       });
       var zuViel = kader.length - maximal;
+      // Mitzaehlen, damit niemand die letzte Besetzung einer Position abgibt.
+      var bestand = {};
+      kader.forEach(function (x) { bestand[x.pos] = (bestand[x.pos] || 0) + 1; });
+      var untergrenze = positionsMindest;
       for (var i = 0; i < zuViel && i < rang.length; i++) {
         var p = rang[i];
         if (p.leihe) continue;
+        if ((bestand[p.pos] || 0) <= untergrenze(p.pos)) { zuViel += 1; continue; }
+        bestand[p.pos] -= 1;
         if (world.istNutzerVerein(clubId)) { p.transferliste = true; continue; }
         p.exClubId = clubId;
         world.setzeVerein(p, null);

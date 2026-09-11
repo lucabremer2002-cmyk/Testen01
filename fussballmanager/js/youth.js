@@ -50,7 +50,7 @@
         praemien: { einsatz: 300, tor: 300, sieg: 200, zuNull: 0 },
         weiterverkauf: 0
       };
-      p.nummer = freieNummer(world, clubId, rng);
+      p.nummer = freieNummer(world, clubId, p.pos);
       p.scoutwissen = 0.55 + qualitaet * 0.35;
       p.marktwert = P.marktwert(p, world);
       world.fuegeSpielerHinzu(p);
@@ -59,9 +59,14 @@
     return spieler;
   }
 
-  function freieNummer(world, clubId, rng) {
+  function freieNummer(world, clubId, pos) {
     var belegt = {};
     world.kaderVon(clubId).forEach(function (p) { belegt[p.nummer] = true; });
+    // Nachwuchs bekommt hohe Nummern; Torhueter zuerst die ueblichen.
+    if (pos === 'TW') {
+      var tw = [22, 30, 33, 40, 21, 31];
+      for (var t = 0; t < tw.length; t++) if (!belegt[tw[t]]) return tw[t];
+    }
     for (var n = 20; n < 60; n++) if (!belegt[n]) return n;
     return 60;
   }

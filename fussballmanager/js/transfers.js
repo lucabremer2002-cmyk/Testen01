@@ -391,7 +391,7 @@
         t.leihliste = false;
         t.wechselwunsch = 0;
         t.unzufriedenheit = { spielzeit: 0, gehalt: 0, ambition: 0, taktik: 0 };
-        t.nummer = freieNummer(world, verkaeuferId, t.nummer);
+        t.nummer = freieNummer(world, verkaeuferId, t.nummer, t.pos);
         t.kaderrolle = P.vorgeschlageneRolle(t, world.kaderVon(verkaeuferId));
         t.rollenSeit = world.tag;
         t.scoutwissen = 1;
@@ -413,7 +413,7 @@
     p.unzufriedenheit = { spielzeit: 0, gehalt: 0, ambition: 0, taktik: 0 };
     p.moral = U.clamp(p.moral + 10, 5, 99);
     p.scoutwissen = 1;
-    p.nummer = freieNummer(world, kaeuferId, p.nummer);
+    p.nummer = freieNummer(world, kaeuferId, p.nummer, p.pos);
     p.vertrag = konditionen.vertrag || p.vertrag;
     // Die zugesagte Rolle ist ab jetzt sein Kaderstatus - daran wird der
     // Verein gemessen.
@@ -466,11 +466,22 @@
     return p;
   }
 
-  function freieNummer(world, clubId, wunsch) {
+  /**
+   * Freie Rueckennummer. Torhueter bekommen zuerst die klassischen
+   * Torwartnummern angeboten - eine Fuenf auf dem Torwarttrikot faellt auf.
+   */
+  var TW_NUMMERN = [1, 12, 22, 30, 13, 21, 33, 40];
+
+  function freieNummer(world, clubId, wunsch, pos) {
     var belegt = {};
     world.kaderVon(clubId).forEach(function (p) { belegt[p.nummer] = true; });
     if (wunsch && !belegt[wunsch]) return wunsch;
-    for (var n = 2; n < 80; n++) if (!belegt[n]) return n;
+    if (pos === 'TW') {
+      for (var t = 0; t < TW_NUMMERN.length; t++) {
+        if (!belegt[TW_NUMMERN[t]]) return TW_NUMMERN[t];
+      }
+    }
+    for (var n = 2; n < 80; n++) if (!belegt[n] && (pos !== 'TW' || n !== 1)) return n;
     return 99;
   }
 
@@ -487,7 +498,7 @@
       einsatzgarantie: konditionen.einsatzgarantie || 0
     };
     world.setzeVerein(p, nehmerId);
-    p.nummer = freieNummer(world, nehmerId, p.nummer);
+    p.nummer = freieNummer(world, nehmerId, p.nummer, p.pos);
     p.scoutwissen = 1;
     if (konditionen.gebuehr) {
       F.buche(world, nehmerId, 'aus', 'ablosen', konditionen.gebuehr, 'Leihgebühr ' + p.nachname);
@@ -513,7 +524,7 @@
     var nehmer = p.clubId;
     world.setzeVerein(p, zurueck);
     p.leihe = null;
-    p.nummer = freieNummer(world, zurueck, p.nummer);
+    p.nummer = freieNummer(world, zurueck, p.nummer, p.pos);
     if (kaufpflicht && option) {
       fuehreTransferDurch(world, p, nehmer, {
         ablöse: option, sofort: option,
