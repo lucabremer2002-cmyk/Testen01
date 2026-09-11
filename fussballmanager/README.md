@@ -216,6 +216,24 @@ Führung noch wachsen.
 Dazu kommen **Trainingslager** von der Sportschule bis zur Winterreise
 nach Katar.
 
+### Umschulung
+
+Ein Spieler lässt sich auf eine neue Position umschulen – im
+Spielerprofil unter **Position umschulen**. Wie lange das dauert, hängt
+daran, wie verwandt die neue Position ist, wie alt der Spieler ist und
+wie gut er Entscheidungen trifft: vom Linksaußen auf den linken Flügel
+sind es gut vier Monate, vom Mittelfeldspieler in die Innenverteidigung
+eher acht. Ist sie abgeschlossen, zählt die neue Position als
+Nebenposition – der Spieler verliert dort kaum noch Klasse. Torhüter
+bleiben Torhüter.
+
+### Rekorde
+
+Unter **Verein** führt das Spiel die Rekorde Ihrer Amtszeit: höchster
+Sieg, höchste Niederlage, Zuschauerrekord, längste Siegesserie, längste
+Serie ohne Niederlage sowie teuerster Zu- und Abgang. Testspiele zählen
+nicht mit.
+
 ### Verletzungen und Sperren
 
 16 Verletzungsbilder von der Prellung bis zum Kreuzbandriss, dazu

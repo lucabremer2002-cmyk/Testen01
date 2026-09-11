@@ -276,6 +276,26 @@
       tag: world.tag, spielerId: p.id, name: p.vorname + ' ' + p.nachname,
       vonId: verkaeuferId, zuId: kaeuferId, ablöse: ablöse, art: 'transfer'
     });
+
+    // Rekordzu- und -abgang des eigenen Vereins
+    if (world.nutzerClubId && ablöse > 0) {
+      if (!world.rekorde) world.rekorde = FM.engine ? FM.engine.leereRekorde() : null;
+      var r = world.rekorde;
+      if (r) {
+        var eintrag = { tag: world.tag, saison: world.saison, spielerId: p.id,
+          name: p.vorname + ' ' + p.nachname, ablöse: ablöse };
+        if (kaeuferId === world.nutzerClubId &&
+          (!r.rekordzugang || ablöse > r.rekordzugang.ablöse)) {
+          eintrag.gegenueber = verkaeuferId;
+          r.rekordzugang = eintrag;
+        }
+        if (verkaeuferId === world.nutzerClubId &&
+          (!r.rekordabgang || ablöse > r.rekordabgang.ablöse)) {
+          eintrag.gegenueber = kaeuferId;
+          r.rekordabgang = eintrag;
+        }
+      }
+    }
     if (world.transfer.historie.length > 400) world.transfer.historie.pop();
 
     // Aufstellungen aktualisieren

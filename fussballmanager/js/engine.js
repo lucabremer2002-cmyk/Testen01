@@ -169,6 +169,16 @@
               text: 'Die Co-Trainer melden Fortschritte bei: ' + text + '.'
             });
           }
+          meldungen.filter(function (m) { return m.umschulung; }).forEach(function (m) {
+            var p = world.spieler[m.spielerId];
+            if (!p) return;
+            world.nachricht({
+              typ: 'training', prioritaet: 2,
+              titel: 'Umschulung abgeschlossen: ' + p.nachname,
+              text: p.vorname + ' ' + p.nachname + ' kann jetzt auch als ' +
+                (D.POS_NAME[m.umschulung] || m.umschulung) + ' spielen.'
+            });
+          });
           neueMerkmale.forEach(function (m) {
             var p = world.spieler[m.spielerId];
             if (!p) return;
@@ -342,6 +352,9 @@
       praemienZahlen(world, state, spiel);
     }
 
+    // Vereinsrekorde fortschreiben
+    rekordePruefen(world, spiel, state, erg);
+
     // Derby: die Mannschaft nimmt Sieg wie Niederlage staerker mit
     derbyNachwirkung(world, spiel, erg);
 
@@ -350,6 +363,60 @@
       FM.media.vertrauenNachSpiel(world, spiel, erg);
     }
     return erg;
+  }
+
+  /**
+   * Schreibt die Vereinsrekorde fort: hoechster Sieg, hoechste
+   * Niederlage, Zuschauerrekord und die laengste Serie ohne Niederlage.
+   * Gefuehrt wird das nur fuer den Verein des Nutzers - fuer alle 36
+   * Vereine waere es Ballast im Spielstand ohne sichtbaren Nutzen.
+   */
+  function rekordePruefen(world, spiel, state, erg) {
+    var clubId = world.nutzerClubId;
+    if (!clubId) return;
+    if (spiel.heimId !== clubId && spiel.gastId !== clubId) return;
+    // Testspiele zaehlen nicht: ein 8:0 gegen einen Amateurverein ist
+    // kein Vereinsrekord.
+    if (spiel.wettbewerb === 'test') return;
+    if (!world.rekorde) world.rekorde = leereRekorde();
+    var r = world.rekorde;
+
+    var heim = spiel.heimId === clubId;
+    var eigene = heim ? erg.heimTore : erg.gastTore;
+    var fremde = heim ? erg.gastTore : erg.heimTore;
+    var gegnerId = heim ? spiel.gastId : spiel.heimId;
+    var eintrag = {
+      tag: world.tag, saison: world.saison, gegnerId: gegnerId, heim: heim,
+      tore: eigene, gegentore: fremde,
+      wettbewerb: spiel.wettbewerb
+    };
+
+    if (!r.hoechsterSieg || eigene - fremde > r.hoechsterSieg.tore - r.hoechsterSieg.gegentore ||
+      (eigene - fremde === r.hoechsterSieg.tore - r.hoechsterSieg.gegentore && eigene > r.hoechsterSieg.tore)) {
+      if (eigene > fremde) r.hoechsterSieg = eintrag;
+    }
+    if (!r.hoechsteNiederlage || fremde - eigene > r.hoechsteNiederlage.gegentore - r.hoechsteNiederlage.tore ||
+      (fremde - eigene === r.hoechsteNiederlage.gegentore - r.hoechsteNiederlage.tore && fremde > r.hoechsteNiederlage.gegentore)) {
+      if (fremde > eigene) r.hoechsteNiederlage = eintrag;
+    }
+    if (heim && state.zuschauer > (r.zuschauerrekord ? r.zuschauerrekord.zahl : 0)) {
+      r.zuschauerrekord = { tag: world.tag, saison: world.saison, gegnerId: gegnerId, zahl: state.zuschauer };
+    }
+
+    // Serien
+    if (fremde < eigene) { r.serieSiege = (r.serieSiege || 0) + 1; } else { r.serieSiege = 0; }
+    if (eigene >= fremde) { r.serieUngeschlagen = (r.serieUngeschlagen || 0) + 1; } else { r.serieUngeschlagen = 0; }
+    r.besteSerieSiege = Math.max(r.besteSerieSiege || 0, r.serieSiege);
+    r.besteSerieUngeschlagen = Math.max(r.besteSerieUngeschlagen || 0, r.serieUngeschlagen);
+  }
+
+  function leereRekorde() {
+    return {
+      hoechsterSieg: null, hoechsteNiederlage: null, zuschauerrekord: null,
+      serieSiege: 0, serieUngeschlagen: 0,
+      besteSerieSiege: 0, besteSerieUngeschlagen: 0,
+      rekordzugang: null, rekordabgang: null
+    };
   }
 
   /**
@@ -1083,6 +1150,8 @@
     saisonAbschluss: saisonAbschluss,
     relegationAnsetzen: relegationAnsetzen,
     torschuetzenkoenig: torschuetzenkoenig,
+    leereRekorde: leereRekorde,
+    leereRekorde: leereRekorde,
     titelVermerken: titelVermerken,
     GELB_SPERRE: GELB_SPERRE
   };

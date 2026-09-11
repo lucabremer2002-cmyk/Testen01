@@ -170,6 +170,7 @@
     world.manager.fanvertrauen = 62;
     world.manager.mannschaftsvertrauen = 62;
     // Eine neue Amtszeit beginnt ohne Altlasten.
+    world.rekorde = FM.engine ? FM.engine.leereRekorde() : null;
     world.manager.entlassen = false;
     world.manager.warnungen = 0;
     world.manager.bilanz = { spiele: 0, siege: 0, remis: 0, niederlagen: 0 };

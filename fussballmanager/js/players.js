@@ -219,6 +219,7 @@
       transferliste: false,
       leihliste: false,
       trainingsfokus: 'keins',
+      umschulung: null,          // { pos, fortschritt } - Training auf eine neue Position
       trainingsleistung: 50,
       sperre: 0,
       sperreGrund: '',
@@ -607,6 +608,69 @@
     return m;
   }
 
+  // ------------------------------------------------------------ Umschulung
+
+  /**
+   * Wie lange die Gewoehnung an eine neue Position dauert. Je naeher die
+   * neue Position an der alten liegt, desto schneller geht es; junge
+   * Spieler lernen leichter um als gestandene.
+   */
+  function umschulungsDauer(p, pos) {
+    var naehe = (D.POS_VERWANDT[p.pos] || {})[pos] || 0.30;
+    var wochen = 40 - naehe * 26;                      // 14 bis 32 Wochen
+    if (p.alter <= 21) wochen *= 0.75;
+    else if (p.alter >= 30) wochen *= 1.35;
+    wochen *= U.clamp(1.25 - p.attr.entscheidung / 240, 0.85, 1.25);
+    return Math.max(8, Math.round(wochen));
+  }
+
+  /** Startet eine Umschulung. Gibt null zurueck, wenn sie sinnlos waere. */
+  function starteUmschulung(p, pos, world) {
+    if (!pos || pos === p.pos) return null;
+    if (p.pos === 'TW' || pos === 'TW') return null;    // Torwart bleibt Torwart
+    if (p.nebenpos.indexOf(pos) >= 0) return null;      // kann er schon
+    p.umschulung = {
+      pos: pos,
+      wochen: 0,
+      ziel: umschulungsDauer(p, pos),
+      seit: world ? world.tag : 0
+    };
+    return p.umschulung;
+  }
+
+  function brichUmschulungAb(p) { p.umschulung = null; }
+
+  /**
+   * Ein Trainingswochenschritt der Umschulung. Ist sie abgeschlossen,
+   * zaehlt die neue Position als Nebenposition - der Spieler verliert
+   * dort kaum noch Klasse.
+   */
+  function umschulungsSchritt(p, trainingsqualitaet) {
+    var u = p.umschulung;
+    if (!u) return null;
+    var tempo = 0.7 + U.clamp(trainingsqualitaet, 5, 99) / 140;
+    u.wochen += tempo;
+    if (u.wochen < u.ziel) return null;
+    p.umschulung = null;
+    if (p.nebenpos.indexOf(u.pos) < 0) p.nebenpos = p.nebenpos.concat([u.pos]);
+    return { pos: u.pos };
+  }
+
+  /** Fortschritt einer laufenden Umschulung, 0 bis 1. */
+  function umschulungsStand(p) {
+    if (!p.umschulung) return 0;
+    return U.clamp(p.umschulung.wochen / Math.max(1, p.umschulung.ziel), 0, 1);
+  }
+
+  /** Positionen, auf die sich ein Spieler umschulen liesse. */
+  function umschulungsZiele(p) {
+    if (p.pos === 'TW') return [];
+    return D.POSITIONEN.filter(function (pos) {
+      if (pos === 'TW' || pos === p.pos) return false;
+      return p.nebenpos.indexOf(pos) < 0;
+    });
+  }
+
   // ------------------------------------------------------------ Kaderstatus
 
   /** Der Status, den ein Spieler nach seiner Stellung im Kader bekaeme. */
@@ -777,7 +841,13 @@
     vorgeschlageneRolle: vorgeschlageneRolle,
     rollenAusrichten: rollenAusrichten,
     rolleVon: rolleVon,
-    setzeKaderrolle: setzeKaderrolle
+    setzeKaderrolle: setzeKaderrolle,
+    starteUmschulung: starteUmschulung,
+    brichUmschulungAb: brichUmschulungAb,
+    umschulungsSchritt: umschulungsSchritt,
+    umschulungsStand: umschulungsStand,
+    umschulungsZiele: umschulungsZiele,
+    umschulungsDauer: umschulungsDauer
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);

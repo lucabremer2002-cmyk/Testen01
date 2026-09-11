@@ -241,6 +241,12 @@
       if (neuesMerkmal) {
         meldungen.push({ spielerId: p.id, merkmal: neuesMerkmal.name });
       }
+
+      // Umschulung auf eine neue Position
+      var fertig = P.umschulungsSchritt(p, qualitaet);
+      if (fertig) {
+        meldungen.push({ spielerId: p.id, umschulung: fertig.pos });
+      }
       p.marktwert = P.marktwert(p, world);
     });
 

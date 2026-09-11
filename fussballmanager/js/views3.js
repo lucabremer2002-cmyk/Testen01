@@ -12,6 +12,48 @@
 
   // ============================================================ Verein
 
+  /**
+   * Vereinsrekorde unter der eigenen Leitung: hoechster Sieg, hoechste
+   * Niederlage, Zuschauerrekord, laengste Serien und die teuersten
+   * Transfers.
+   */
+  function rekordKarte(world, club) {
+    var r = world.rekorde;
+    if (!r) return '';
+    function partie(e, sieg) {
+      if (!e) return '<span class="muted">–</span>';
+      var g = world.vereine[e.gegnerId];
+      return '<b class="' + (sieg ? 'w-gut' : 'w-schlecht') + '">' + e.tore + ':' + e.gegentore + '</b> ' +
+        '<span class="klein muted">' + (e.heim ? 'gegen ' : 'bei ') + esc(g ? g.kurz : '?') +
+        ', ' + esc(U.fmtDate(e.tag)) + '</span>';
+    }
+    function transfer(e) {
+      if (!e) return '<span class="muted">–</span>';
+      var g = world.vereine[e.gegenueber];
+      return '<b>' + U.money(e.ablöse) + '</b> <span class="klein muted">' + esc(e.name) +
+        (g ? ' · ' + esc(g.kurz) : '') + ', ' + esc(U.fmtDate(e.tag)) + '</span>';
+    }
+    var leer = !r.hoechsterSieg && !r.hoechsteNiederlage && !r.zuschauerrekord &&
+      !r.rekordzugang && !r.rekordabgang;
+    return '<div class="card mt"><h3>Rekorde unter Ihrer Leitung</h3>' +
+      (leer ? '<div class="leer">Noch keine Rekorde – die ersten Spiele stehen aus.</div>' :
+        '<div class="stat-row"><span>Höchster Sieg</span><span>' + partie(r.hoechsterSieg, true) + '</span></div>' +
+        '<div class="stat-row"><span>Höchste Niederlage</span><span>' + partie(r.hoechsteNiederlage, false) + '</span></div>' +
+        '<div class="stat-row"><span>Zuschauerrekord</span><span>' +
+          (r.zuschauerrekord
+            ? '<b>' + U.num(r.zuschauerrekord.zahl) + '</b> <span class="klein muted">gegen ' +
+              esc((world.vereine[r.zuschauerrekord.gegnerId] || {}).kurz || '?') + ', ' +
+              esc(U.fmtDate(r.zuschauerrekord.tag)) + '</span>'
+            : '<span class="muted">–</span>') + '</span></div>' +
+        '<div class="stat-row"><span>Längste Siegesserie</span><b>' +
+          (r.besteSerieSiege || 0) + ' Spiele</b></div>' +
+        '<div class="stat-row"><span>Längste Serie ohne Niederlage</span><b>' +
+          (r.besteSerieUngeschlagen || 0) + ' Spiele</b></div>' +
+        '<div class="stat-row"><span>Teuerster Zugang</span><span>' + transfer(r.rekordzugang) + '</span></div>' +
+        '<div class="stat-row"><span>Teuerster Abgang</span><span>' + transfer(r.rekordabgang) + '</span></div>'
+      ) + '</div>';
+  }
+
   UI.views.verein = {
     html: function (world) {
       var club = world.nutzerVerein();
@@ -67,6 +109,8 @@
       }
       html += '</div>';
       html += '</div>';
+
+      html += rekordKarte(world, club);
 
       // Europapokal
       var euro = [];

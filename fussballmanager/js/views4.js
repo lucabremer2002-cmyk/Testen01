@@ -79,6 +79,70 @@
     });
   };
 
+  // ============================================================ Umschulung
+
+  V.umschulungsDialog = function (spielerId) {
+    var world = UI.world;
+    var p = world.spieler[spielerId];
+    if (!p) return;
+
+    if (p.pos === 'TW') {
+      UI.toast('Torhüter lassen sich nicht umschulen.', 'fehler');
+      return;
+    }
+
+    function zeige() {
+      var laufend = p.umschulung;
+      var html = '<h2>Position umschulen</h2>' +
+        '<p class="muted">' + esc(p.nachname) + ' ist ' + esc(D.POS_NAME[p.pos] || p.pos) +
+        (p.nebenpos.length ? ', dazu ' + p.nebenpos.map(function (n) {
+          return esc(D.POS_NAME[n] || n); }).join(' und ') : '') +
+        '. Eine Umschulung dauert Monate und läuft neben dem normalen Training.</p>';
+
+      if (laufend) {
+        var stand = P.umschulungsStand(p);
+        var rest = Math.max(1, Math.ceil(laufend.ziel - laufend.wochen));
+        html += '<div class="card card--flat"><h4>Läuft gerade</h4>' +
+          '<div class="stat-row"><span>Ziel</span><b>' + esc(D.POS_NAME[laufend.pos] || laufend.pos) + '</b></div>' +
+          '<div class="stat-row"><span>Fortschritt</span><b>' + Math.round(stand * 100) + ' %</b></div>' +
+          '<div class="stat-row"><span>Noch</span><b>etwa ' + rest + ' Wochen</b></div>' +
+          UI.balken(stand) +
+          '<div class="flex mt"><button class="btn" data-a="abbruch">Umschulung abbrechen</button></div></div>';
+      } else {
+        var ziele = P.umschulungsZiele(p);
+        html += '<div class="optionen">' + ziele.map(function (pos) {
+          var dauer = P.umschulungsDauer(p, pos);
+          var naehe = (D.POS_VERWANDT[p.pos] || {})[pos] || 0.30;
+          return '<button class="option" data-u="' + pos + '"><b>' +
+            esc(D.POS_NAME[pos] || pos) + '</b>' +
+            '<br><span class="klein muted">etwa ' + dauer + ' Wochen · ' +
+            (naehe >= 0.7 ? 'verwandte Position' : naehe >= 0.55 ? 'machbar' : 'weiter Weg') +
+            '</span></button>';
+        }).join('') + '</div>';
+      }
+
+      UI.modal(html, {
+        nachher: function (body) {
+          var ab = body.querySelector('[data-a="abbruch"]');
+          if (ab) ab.onclick = function () {
+            P.brichUmschulungAb(p);
+            UI.modalZu(); UI.toast('Umschulung abgebrochen.'); UI.zeichne();
+          };
+          Array.prototype.forEach.call(body.querySelectorAll('[data-u]'), function (b) {
+            b.onclick = function () {
+              var r = P.starteUmschulung(p, b.dataset.u, world);
+              if (!r) { UI.toast('Das geht nicht.', 'fehler'); return; }
+              UI.modalZu();
+              UI.toast(p.nachname + ' wird auf ' + (D.POS_NAME[r.pos] || r.pos) + ' umgeschult.', 'gut');
+              UI.zeichne();
+            };
+          });
+        }
+      });
+    }
+    zeige();
+  };
+
   // ============================================================ Vertragsverhandlung
 
   V.vertragsDialog = function (spielerId, neuerSpieler) {

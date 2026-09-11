@@ -549,6 +549,11 @@
         : '') +
       (p.nationalelf
         ? '<div class="stat-row"><span>Aktuell</span><b class="w-mittel">bei der Nationalmannschaft</b></div>'
+        : '') +
+      (p.umschulung
+        ? '<div class="stat-row"><span>Umschulung</span><b>' +
+          esc(D.POS_NAME[p.umschulung.pos] || p.umschulung.pos) + ' · ' +
+          Math.round(P.umschulungsStand(p) * 100) + ' %</b></div>'
         : '');
     if (p.vertrag) {
       html += '<div class="stat-row"><span>Gehalt</span><b>' + U.money(p.vertrag.gehalt) + ' / Woche</b></div>' +
@@ -605,6 +610,8 @@
         '<button class="btn" data-a="gespraech">Gespräch führen</button>' +
         '<button class="btn" data-a="vertrag">Vertrag verhandeln</button>' +
         '<button class="btn" data-a="fokus">Individualtraining</button>' +
+        (p.pos !== 'TW' ? '<button class="btn" data-a="umschulung">' +
+          (p.umschulung ? 'Umschulung läuft' : 'Position umschulen') + '</button>' : '') +
         '<button class="btn" data-a="transferliste">' + (p.transferliste ? 'Von Transferliste nehmen' : 'Auf Transferliste setzen') + '</button>' +
         '<button class="btn" data-a="leihliste">' + (p.leihliste ? 'Nicht mehr verleihen' : 'Zum Verleih anbieten') + '</button>' +
         '</div>';
@@ -633,6 +640,7 @@
         bind('gespraech', function () { V.gespraechsDialog(p.id); });
         bind('vertrag', function () { V.vertragsDialog(p.id); });
         bind('fokus', function () { V.fokusDialog(p.id); });
+        bind('umschulung', function () { V.umschulungsDialog(p.id); });
         bind('transferliste', function () {
           p.transferliste = !p.transferliste;
           UI.toast(p.transferliste ? p.nachname + ' steht auf der Transferliste.' : 'Von der Transferliste genommen.');
