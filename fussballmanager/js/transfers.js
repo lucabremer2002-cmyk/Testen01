@@ -781,9 +781,11 @@
   function kiTick(world) {
     if (!world.transferfenster.offen) return;
     var rng = world.rng;
-    var profis = world.ligen.bl1.teams.concat(world.ligen.bl2.teams)
+    var profis = world.ligen.bl1.teams.concat(world.ligen.bl2.teams, world.ligen.l3.teams)
       .filter(function (id) { return id !== world.nutzerClubId; });
-    var aktive = rng.sample(profis, Math.min(5, profis.length));
+    // Ein Transferfenster, in dem 36 Vereine zusammen fuenfzig Wechsel
+    // zustandebringen, wirkt tot. Mehr Vereine kommen taeglich zum Zug.
+    var aktive = rng.sample(profis, Math.min(12, profis.length));
 
     aktive.forEach(function (clubId) {
       if (!rng.chance(0.5)) return;
@@ -856,14 +858,31 @@
     }
 
     var bedarf = kaderbedarf(world, clubId);
-    if (!bedarf.length) return;
+    var niveau = P.niveauFuerVerein(club);
+    if (!bedarf.length) {
+      // Kein Loch im Kader heisst nicht, dass niemand mehr einkauft. Vereine
+      // verstaerken auch die Position, auf der sie am schwaechsten besetzt
+      // sind - sonst steht der Markt still, sobald alle Kader vollstaendig
+      // sind.
+      if (!rng.chance(0.45)) return;
+      var schwach = null;
+      P.KADER_SCHEMA.forEach(function (e) {
+        var beste = 0;
+        world.kaderVon(clubId).forEach(function (p) {
+          if (p.pos !== e[0] && p.nebenpos.indexOf(e[0]) < 0) return;
+          beste = Math.max(beste, P.gesamt(p));
+        });
+        if (!schwach || beste < schwach.wert) schwach = { pos: e[0], wert: beste };
+      });
+      if (!schwach) return;
+      bedarf = [{ pos: schwach.pos, dringlichkeit: 0.5, vorhanden: 0 }];
+    }
     if (f.transferbudget < 200000 && f.kontostand < 1e6) return;
 
     var ziel = bedarf[0];
-    var niveau = P.niveauFuerVerein(club);
     var kandidatenListe = suche(world, {
       position: ziel.pos,
-      minStaerke: niveau - 3,
+      minStaerke: niveau - 6,
       maxAlter: 33,
       ausserhalb: clubId
     }, 40).filter(function (p) {
@@ -883,9 +902,14 @@
     if (preis > f.transferbudget) return;
     if (preis > f.kontostand * 0.7 && f.kontostand > 0) return;   // Liquiditaet wahren
 
-    // Gehalt muss passen
+    // Gehalt muss passen. Reicht der Rahmen nicht, macht ein Verein Platz,
+    // statt einfach nichts zu tun - sonst steht der Markt still, sobald die
+    // Gehaltsbudgets eng werden.
     var gehalt = P.gehaltsforderung(ziel2, club, world) * 1.08;
-    if (F.wochenLohnsumme(world, clubId) + gehalt > f.gehaltsbudget * 1.15) return;
+    if (F.wochenLohnsumme(world, clubId) + gehalt > f.gehaltsbudget * 1.15) {
+      platzSchaffen(world, clubId, gehalt);
+      if (F.wochenLohnsumme(world, clubId) + gehalt > f.gehaltsbudget * 1.15) return;
+    }
 
     var jahre = ziel2.alter <= 24 ? 4 : ziel2.alter <= 29 ? 3 : 2;
     var vertrag = {
@@ -915,6 +939,33 @@
         spielerId: ziel2.id
       });
     }
+  }
+
+  /**
+   * Gehaltsraum schaffen: der teuerste Spieler ausserhalb der Stammelf wird
+   * auf die Transferliste gesetzt, und wenn sich niemand findet, gibt der
+   * Verein ihn ab. So bleibt der Markt in Bewegung, ohne dass die
+   * Gehaltsobergrenze aufgeweicht wird.
+   */
+  function platzSchaffen(world, clubId, brauchtGehalt) {
+    var kader = world.kaderVon(clubId);
+    var taktik = world.taktikVon(clubId);
+    var elf = {};
+    ((taktik && taktik.aufstellung) || []).forEach(function (id) { if (id) elf[id] = true; });
+    var kandidaten = kader.filter(function (p) {
+      return p.vertrag && !p.leihe && !p.kapitaen && !elf[p.id];
+    });
+    if (!kandidaten.length) return false;
+    var raus = U.sortBy(kandidaten, function (p) { return -p.vertrag.gehalt; })[0];
+    if (raus.vertrag.gehalt < brauchtGehalt * 0.45) return false;
+    if (!raus.transferliste) { raus.transferliste = true; return false; }
+    // Steht er schon laenger auf der Liste, wird der Vertrag aufgeloest.
+    raus.exClubId = clubId;
+    world.setzeVerein(raus, null);
+    raus.vertrag = null;
+    raus.nummer = 0;
+    raus.transferliste = false;
+    return true;
   }
 
   function angebotFuerNutzerspieler(world) {
