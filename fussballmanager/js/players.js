@@ -210,6 +210,8 @@
       nationalelf: false,
       laenderspiele: 0,
       laendertore: 0,
+      zweitteam: false,          // spielt in der U23
+      u23: { spiele: 0, tore: 0 },
       kapitaen: false,
       vertrag: null,
       leihe: null,
@@ -608,6 +610,40 @@
     return m;
   }
 
+  // ------------------------------------------------------------ Zweite Mannschaft
+
+  var U23_HOECHSTALTER = 23;
+
+  /** Darf dieser Spieler ueberhaupt in der zweiten Mannschaft spielen? */
+  function u23Moeglich(p) {
+    return p.alter <= U23_HOECHSTALTER;
+  }
+
+  /**
+   * Ein Wochenspiel der zweiten Mannschaft. Es wird nicht ausgespielt -
+   * was zaehlt, ist die Spielpraxis: Der Spieler entwickelt sich, als
+   * haette er weitgehend durchgespielt, und bleibt bei Laune.
+   */
+  function u23Woche(p, rng) {
+    if (!p.zweitteam || !u23Moeglich(p)) return null;
+    if (p.verletzung || p.sperre > 0) return null;
+    // Wer bei den Profis gespielt hat, ist ausgelaugt - dann kein
+    // zusaetzliches Spiel in der Zweiten.
+    if (p.fitness < 74) return null;
+    if (!p.u23) p.u23 = { spiele: 0, tore: 0 };
+    p.u23.spiele += 1;
+    var torquote = p.pos === 'ST' || p.pos === 'LF' || p.pos === 'RF' ? 0.55
+      : p.pos === 'OM' || p.pos === 'ZM' ? 0.25 : p.pos === 'TW' ? 0 : 0.08;
+    var tore = 0;
+    if (rng.chance(Math.min(0.9, torquote))) tore = 1;
+    if (tore && rng.chance(0.18)) tore += 1;
+    p.u23.tore += tore;
+    p.moral = U.clamp(p.moral + 0.8 + tore * 0.6, 5, 99);
+    p.fitness = U.clamp(p.fitness - 9, 0, 100);
+    return { spiele: 1, tore: tore };
+  }
+
+
   // ------------------------------------------------------------ Umschulung
 
   /**
@@ -743,6 +779,8 @@
     var rolle = rolleVon(p);
     var erwartet = rolle.erwartung;
     if (p.alter <= 20) erwartet *= 0.75;
+    // Wer in der zweiten Mannschaft spielt, bekommt seine Minuten dort.
+    if (p.zweitteam) erwartet *= 0.30;
     var luecke = erwartet - anteil;
     if (world.spieltageGespielt(club.id) >= 5) {
       // Wer mehr spielt als versprochen, wird spuerbar zufriedener.
@@ -847,7 +885,10 @@
     umschulungsSchritt: umschulungsSchritt,
     umschulungsStand: umschulungsStand,
     umschulungsZiele: umschulungsZiele,
-    umschulungsDauer: umschulungsDauer
+    umschulungsDauer: umschulungsDauer,
+    u23Moeglich: u23Moeglich,
+    u23Woche: u23Woche,
+    U23_HOECHSTALTER: U23_HOECHSTALTER
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);

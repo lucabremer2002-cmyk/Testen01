@@ -223,6 +223,15 @@
       var kader = world.kaderVon(clubId);
       if (!kader.length) return;
       P.rollenAusrichten(kader, world, world.istNutzerVerein(clubId));
+
+      // Die KI schickt ihre Talente ohne Einsatzzeit in die Zweite.
+      if (world.istNutzerVerein(clubId)) return;
+      var gespielt = Math.max(1, world.spieltageGespielt(clubId));
+      kader.forEach(function (p) {
+        if (!P.u23Moeglich(p)) { p.zweitteam = false; return; }
+        var anteil = p.stats.minuten / (gespielt * 90);
+        p.zweitteam = anteil < 0.25;
+      });
     });
   }
 

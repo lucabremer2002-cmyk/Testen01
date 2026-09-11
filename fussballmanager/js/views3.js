@@ -353,13 +353,69 @@
         leerText: 'Zurzeit stehen keine Nachwuchsspieler im Kader.'
       }) + '</div>';
 
+      html += u23Karte(world, kader);
+
       html += '<div class="card card--flat mt klein muted">Jedes Jahr im Sommer rückt ein neuer Jahrgang nach. ' +
         'Wie stark er ist, hängt an der Ausbaustufe der Akademie und am Nachwuchsleiter. ' +
         'Talente entwickeln sich nur mit Spielpraxis – wer nie spielt, stagniert.</div>';
       return html;
     },
-    nachher: function (container, world) { V.verdrahteAllgemein(container, world); }
+    nachher: function (container, world) {
+      V.verdrahteAllgemein(container, world);
+      Array.prototype.forEach.call(container.querySelectorAll('[data-u23]'), function (b) {
+        b.onclick = function (ev) {
+          ev.stopPropagation();
+          var p = world.spieler[b.dataset.u23];
+          if (!p) return;
+          p.zweitteam = !p.zweitteam;
+          UI.toast(p.zweitteam
+            ? p.nachname + ' spielt ab sofort in der U23.'
+            : p.nachname + ' ist zurück im Profikader.', 'gut');
+          UI.zeichne();
+        };
+      });
+    }
   };
+
+  /**
+   * Die zweite Mannschaft. Sie wird nicht ausgespielt - was zaehlt, ist
+   * die Spielpraxis: Wer hier spielt, entwickelt sich, als haette er
+   * weitgehend durchgespielt, und verlangt keine Profiminuten.
+   */
+  function u23Karte(world, kader) {
+    var moeglich = kader.filter(function (p) { return P.u23Moeglich(p); });
+    var drin = moeglich.filter(function (p) { return p.zweitteam; });
+    return '<div class="card mt"><div class="card__head"><h3>Zweite Mannschaft (U23)</h3>' +
+      '<span class="chip">' + drin.length + ' Spieler</span></div>' +
+      '<p class="klein muted">Wer im Profikader keine Minuten bekommt, sammelt sie hier. ' +
+      'Spieler in der U23 entwickeln sich weiter und werden nicht unzufrieden, ' +
+      'weil sie oben nicht spielen. Bis 23 Jahre.</p>' +
+      UI.tabelle([
+        { key: 'n', label: 'Spieler', haft: true, wert: function (p) { return p.nachname; },
+          html: function (p) {
+            return '<span class="name">' + esc(p.nachname) + '</span> ' +
+              '<span class="muted klein">' + esc(p.vorname) + '</span>';
+          } },
+        { key: 'pos', label: 'Pos', wert: function (p) { return D.POSITIONEN.indexOf(p.pos); },
+          html: function (p) { return UI.posTag(p.pos); } },
+        { key: 'alter', label: 'Alter', klasse: 'num', wert: function (p) { return p.alter; },
+          html: function (p) { return p.alter; } },
+        { key: 'profi', label: 'Profis', klasse: 'num', wert: function (p) { return p.stats.minuten; },
+          html: function (p) { return p.stats.spiele + ' <span class="muted klein">(' + U.num(p.stats.minuten) + ' Min)</span>'; } },
+        { key: 'u23', label: 'U23', klasse: 'num', wert: function (p) { return (p.u23 && p.u23.spiele) || 0; },
+          html: function (p) {
+            var u = p.u23 || { spiele: 0, tore: 0 };
+            return u.spiele + (u.tore ? ' <span class="muted klein">(' + u.tore + ' Tore)</span>' : '');
+          } },
+        { key: 'a', label: '', html: function (p) {
+          return '<button class="btn btn--sm' + (p.zweitteam ? '' : ' btn--ghost') +
+            '" data-u23="' + esc(p.id) + '">' + (p.zweitteam ? 'in der U23' : 'hochziehen') + '</button>';
+        } }
+      ], U.sortBy(moeglich, function (p) { return -(p.zweitteam ? 1000 : 0) - p.potenzial; }), {
+        zeilenAttr: function (p) { return 'data-spieler="' + esc(p.id) + '"'; },
+        leerText: 'Kein Spieler im Kader ist jung genug für die zweite Mannschaft.'
+      }) + '</div>';
+  }
 
   // ============================================================ Medien
 

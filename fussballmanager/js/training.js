@@ -213,9 +213,22 @@
     var gespielt = Math.max(1, world.spieltageGespielt(clubId));
     var meldungen = [];
 
+    // Laeuft ueberhaupt Spielbetrieb? In Winter- und Sommerpause spielt
+    // auch die zweite Mannschaft nicht.
+    var spielbetrieb = world.spiele.some(function (s) {
+      return !s.gespielt && s.wettbewerb === 'liga' &&
+        (s.heimId === clubId || s.gastId === clubId) &&
+        s.tag >= world.tag && s.tag <= world.tag + 10;
+    });
+
     kader.forEach(function (p) {
       var vorher = P.gesamt(p);
       var anteil = U.clamp(p.stats.minuten / (gespielt * 90), 0, 1);
+
+      // Wer in der zweiten Mannschaft spielt, sammelt dort Spielpraxis -
+      // aber nur, solange auch der Spielbetrieb laeuft.
+      var u23 = spielbetrieb ? P.u23Woche(p, rng) : null;
+      if (u23) anteil = Math.max(anteil, 0.62);
 
       var qualitaet = stab.trainingsqualitaet;
       if (p.pos === 'TW') qualitaet = qualitaet * 0.5 + stab.torwarttrainer * 0.5;

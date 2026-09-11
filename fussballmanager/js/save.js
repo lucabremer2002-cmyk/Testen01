@@ -74,7 +74,8 @@
       p.merkmale || [], p.kaderrolle || 'rotation', p.rollenSeit || 0,
       (p.ehrungen || []).slice(-20),
       p.laenderspiele || 0, p.laendertore || 0, p.nationalelf ? 1 : 0,
-      p.umschulung || null
+      p.umschulung || null,
+      p.zweitteam ? 1 : 0, [(p.u23 && p.u23.spiele) || 0, (p.u23 && p.u23.tore) || 0]
     ];
   }
 
@@ -99,7 +100,8 @@
       merkmale: a[43] || [], kaderrolle: a[44] || 'rotation', rollenSeit: a[45] || 0,
       ehrungen: a[46] || [],
       laenderspiele: a[47] || 0, laendertore: a[48] || 0, nationalelf: !!a[49],
-      umschulung: a[50] || null
+      umschulung: a[50] || null,
+      zweitteam: !!a[51], u23: { spiele: (a[52] || [])[0] || 0, tore: (a[52] || [])[1] || 0 }
     };
   }
 

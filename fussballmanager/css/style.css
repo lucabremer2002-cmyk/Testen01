@@ -1306,3 +1306,5 @@ td.name { font-weight: 700; }
 
 .liste { margin: 0 0 10px; padding-left: 18px; }
 .liste li { margin: 3px 0; font-size: 13px; }
+
+.natio-tag--u23 { background: var(--purple-bg); color: var(--purple); }

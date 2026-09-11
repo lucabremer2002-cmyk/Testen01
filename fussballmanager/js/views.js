@@ -411,7 +411,8 @@
       { key: 'name', label: 'Name', haft: true, wert: function (p) { return p.nachname; },
         html: function (p) {
           return '<span class="name">' + esc(p.nachname) + '</span> <span class="muted klein">' + esc(p.vorname) + '</span>' +
-            (p.nationalelf ? ' <span class="natio-tag" title="Beim Nationalteam">NAT</span>' : '');
+            (p.nationalelf ? ' <span class="natio-tag" title="Beim Nationalteam">NAT</span>' : '') +
+            (p.zweitteam ? ' <span class="natio-tag natio-tag--u23" title="Spielt in der zweiten Mannschaft">U23</span>' : '');
         } },
       { key: 'pos', label: 'Pos', wert: function (p) { return D.POSITIONEN.indexOf(p.pos); }, html: function (p) { return UI.posTag(p.pos); } },
       { key: 'alter', label: 'Alter', klasse: 'num', wert: function (p) { return p.alter; }, html: function (p) { return p.alter; } }
@@ -562,6 +563,11 @@
         : '') +
       (p.nationalelf
         ? '<div class="stat-row"><span>Aktuell</span><b class="w-mittel">bei der Nationalmannschaft</b></div>'
+        : '') +
+      (p.zweitteam
+        ? '<div class="stat-row"><span>Zweite Mannschaft</span><b>' +
+          ((p.u23 && p.u23.spiele) || 0) + ' Spiele' +
+          (p.u23 && p.u23.tore ? ', ' + p.u23.tore + ' Tore' : '') + '</b></div>'
         : '') +
       (p.umschulung
         ? '<div class="stat-row"><span>Umschulung</span><b>' +

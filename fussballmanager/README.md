@@ -352,6 +352,20 @@ ist kein Spiel wie jedes andere: Das Stadion ist voller, Sieg und
 Niederlage wirken deutlich stärker auf Mannschaftsmoral und Fanstimmung,
 und auf der Übersicht steht der Anlass beim Namen.
 
+### Zweite Mannschaft (U23)
+
+Ein Talent, das im Profikader nie zum Zug kommt, stagniert. Deshalb gibt
+es unter **Nachwuchs** die zweite Mannschaft: Spieler bis 23 lassen sich
+dorthin schicken und sammeln Woche für Woche Einsätze. Ausgespielt wird
+das nicht – was zählt, ist die Spielpraxis.
+
+Gemessen über eine Spielzeit: Spieler unter 21 mit mindestens zehn
+U23-Einsätzen legen im Schnitt so stark zu wie Stammspieler der Profis;
+wer weder oben noch unten spielt, entwickelt sich deutlich langsamer.
+Wer bei den Profis gespielt hat, wird in der Zweiten nicht zusätzlich
+belastet, und in Winter- und Sommerpause ruht auch sie. Die KI-Vereine
+nutzen die zweite Mannschaft genauso.
+
 ### Medien und Kabine
 
 * **Pressekonferenzen** vor und nach dem Spiel mit Antwortoptionen, die
