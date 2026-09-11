@@ -163,6 +163,7 @@
     world.nutzerClubId = clubId;
     world.manager.clubId = clubId;
     if (managerName) world.manager.name = managerName;
+    world.kaderVon(clubId).forEach(function (p) { p.scoutwissen = 1; });
     world.manager.vertragBis = world.tag + 3 * 365;
     world.manager.gehalt = Math.round(Math.pow(club.ruf / 55, 2.6) * 12000 / 500) * 500;
     world.manager.saisonziel = saisonziel(club, club.liga);
@@ -424,6 +425,10 @@
           alter: world.rng.int(20, 33), clubId: id, auslandsquote: 0.85
         });
         p.vertrag = P.vertragErzeugen(world.rng, p, club, world, 3);
+        // Europapokalgegner sind bekannte Groessen, aber nicht restlos
+        // durchleuchtet - sonst waere der auslaendische Markt der einzige
+        // Ort, an dem man ohne Scouting einkaufen kann.
+        p.scoutwissen = U.clamp(P.bekanntheit(p, club, world.rng) + 0.22, 0.2, 0.95);
         p.nummer = kader.length + 1;
         kader.push(p);
         world.fuegeSpielerHinzu(p);

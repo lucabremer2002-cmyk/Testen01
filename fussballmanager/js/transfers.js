@@ -394,7 +394,7 @@
         t.nummer = freieNummer(world, verkaeuferId, t.nummer, t.pos);
         t.kaderrolle = P.vorgeschlageneRolle(t, world.kaderVon(verkaeuferId));
         t.rollenSeit = world.tag;
-        t.scoutwissen = 1;
+        t.scoutwissen = world.istNutzerVerein(verkaeuferId) ? 1 : U.clamp(t.scoutwissen + 0.10, 0, 1);
         t.marktwert = P.marktwert(t, world);
         t.historie.push({ tag: world.tag, typ: 'tausch', von: kaeuferId, zu: verkaeuferId, ablöse: 0 });
         world.transfer.historie.unshift({
@@ -412,7 +412,9 @@
     p.wechselwunsch = 0;
     p.unzufriedenheit = { spielzeit: 0, gehalt: 0, ambition: 0, taktik: 0 };
     p.moral = U.clamp(p.moral + 10, 5, 99);
-    p.scoutwissen = 1;
+    // Nur der eigene Kader ist restlos bekannt. Ein Wechsel anderswo hebt
+    // den Bekanntheitsgrad nur etwas an.
+    p.scoutwissen = world.istNutzerVerein(kaeuferId) ? 1 : U.clamp(p.scoutwissen + 0.10, 0, 1);
     p.nummer = freieNummer(world, kaeuferId, p.nummer, p.pos);
     p.vertrag = konditionen.vertrag || p.vertrag;
     // Die zugesagte Rolle ist ab jetzt sein Kaderstatus - daran wird der
@@ -499,7 +501,7 @@
     };
     world.setzeVerein(p, nehmerId);
     p.nummer = freieNummer(world, nehmerId, p.nummer, p.pos);
-    p.scoutwissen = 1;
+    p.scoutwissen = world.istNutzerVerein(nehmerId) ? 1 : U.clamp(p.scoutwissen + 0.10, 0, 1);
     if (konditionen.gebuehr) {
       F.buche(world, nehmerId, 'aus', 'ablosen', konditionen.gebuehr, 'Leihgebühr ' + p.nachname);
       F.buche(world, geberId, 'ein', 'transfers', konditionen.gebuehr, 'Leihgebühr ' + p.nachname);

@@ -51,7 +51,11 @@
         weiterverkauf: 0
       };
       p.nummer = freieNummer(world, clubId, p.pos);
-      p.scoutwissen = 0.55 + qualitaet * 0.35;
+      // Der eigene Nachwuchs ist bekannt, fremde Talente sind es nicht -
+      // genau dort liegt die Arbeit der Scoutingabteilung.
+      p.scoutwissen = world.istNutzerVerein(clubId)
+        ? 0.55 + qualitaet * 0.35
+        : U.clamp(0.10 + qualitaet * 0.18 + rng.range(-0.04, 0.06), 0.05, 0.4);
       p.marktwert = P.marktwert(p, world);
       world.fuegeSpielerHinzu(p);
       spieler.push(p);

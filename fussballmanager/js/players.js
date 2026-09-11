@@ -408,6 +408,20 @@
    * einzelnen Spieler streut um ein Niveau, das sich aus dem Ruf des
    * Vereins ergibt.
    */
+  /**
+   * Wie gut kennt man einen fremden Spieler, ohne ihn beobachtet zu haben?
+   * Ein Nationalspieler eines Spitzenvereins ist jedem ein Begriff, ein
+   * Ergaenzungsspieler aus der 3. Liga niemandem. Ohne dieses Gefaelle
+   * waere die gesamte Scoutingabteilung ohne Aufgabe.
+   */
+  function bekanntheit(p, club, rng) {
+    var ligaAnteil = club.liga === 1 ? 0.34 : club.liga === 2 ? 0.20 : 0.06;
+    var klasse = (gesamt(p) - 42) / 150;              // 0 .. ~0.38
+    var alt = p.alter >= 26 ? 0.08 : p.alter <= 20 ? -0.06 : 0;
+    var wert = 0.16 + ligaAnteil + klasse + alt + (rng ? rng.range(-0.07, 0.07) : 0);
+    return U.clamp(Math.round(wert * 100) / 100, 0.08, 0.92);
+  }
+
   function erzeugeKader(rng, club, world) {
     var niveau = niveauFuerVerein(club);
     var spieler = [];
@@ -438,6 +452,7 @@
         });
         p.vertrag = vertragErzeugen(rng, p, club, world, gewichteteLaufzeit(rng, p));
         p.marktwert = marktwert(p, world);
+        p.scoutwissen = bekanntheit(p, club, rng);
         spieler.push(p);
       }
     });
@@ -889,6 +904,7 @@
   FM.players = {
     erzeugeSpieler: erzeugeSpieler,
     erzeugeKader: erzeugeKader,
+    bekanntheit: bekanntheit,
     erzeugeAttribute: erzeugeAttribute,
     vertragErzeugen: vertragErzeugen,
     gewichte: gewichte,

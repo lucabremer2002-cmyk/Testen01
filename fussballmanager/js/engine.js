@@ -1130,6 +1130,7 @@
           passend.nummer = FM.transfers.freieNummer(world, clubId, 0, passend.pos);
           passend.kaderrolle = P.vorgeschlageneRolle(passend, world.kaderVon(clubId));
           passend.rollenSeit = world.tag;
+          if (world.istNutzerVerein(clubId)) passend.scoutwissen = 1;
           continue;
         }
         // Kein passender Freier: ein neuer Spieler kommt in den Markt.
@@ -1144,6 +1145,7 @@
         neu.nummer = FM.transfers.freieNummer(world, clubId, 0, neu.pos);
         neu.kaderrolle = P.vorgeschlageneRolle(neu, world.kaderVon(clubId));
         neu.rollenSeit = world.tag;
+        neu.scoutwissen = world.istNutzerVerein(clubId) ? 1 : P.bekanntheit(neu, club, rng);
       }
       // Beim Nutzer wird die gewaehlte Elf nicht ueberschrieben, sondern nur
       // repariert - sonst stellt der Verein montags heimlich um.
