@@ -658,6 +658,16 @@
 
   // ============================================================ Karriere
 
+  /** Eine Zeile des Trainerprofils mit Balken und Erklaerung. */
+  function profilZeile(label, wert, hinweis) {
+    var v = Math.round(wert);
+    return '<div class="stat-row" title="' + esc(hinweis) + '">' +
+      '<span>' + esc(label) + '</span>' +
+      '<span style="display:flex;align-items:center;gap:10px">' +
+      UI.balken(v / 100, v >= 70 ? '' : v >= 50 ? 'bar--gelb' : 'bar--rot') +
+      '<b style="min-width:28px;text-align:right">' + v + '</b></span></div>';
+  }
+
   UI.views.karriere = {
     html: function (world) {
       var m = world.manager;
@@ -674,6 +684,17 @@
         '<div class="tile"><span>Punkteschnitt</span><b>' +
         (m.bilanz.spiele ? U.num((m.bilanz.siege * 3 + m.bilanz.remis) / m.bilanz.spiele, 2) : '–') + '</b></div>' +
         '<div class="tile"><span>Titel</span><b>' + m.titel.length + '</b></div>' +
+        '</div>';
+
+      html += '<div class="card mb"><h3>Ihr Trainerprofil</h3>' +
+        '<p class="klein muted">Diese Werte wachsen mit jeder Woche im Amt. Sie wirken auf ' +
+        'Trainingsqualität, die taktische Ausrichtung der Mannschaft und darauf, wie leicht ' +
+        'sich Spieler von Ihnen überzeugen lassen.</p>' +
+        profilZeile('Ruf', m.ruf, 'Wie sehr Ihr Name für sich spricht. Titel heben ihn sprunghaft, ' +
+          'ein verfehltes Saisonziel drückt ihn.') +
+        profilZeile('Taktik', m.taktik, 'Fließt in die taktische Feinabstimmung der Mannschaft ein.') +
+        profilZeile('Training', m.training, 'Hebt die Trainingsqualität neben Ihrem Stab.') +
+        profilZeile('Menschenführung', m.menschenfuehrung, 'Entscheidet, wie gut Gespräche mit Spielern wirken.') +
         '</div>';
 
       html += '<div class="grid grid--2">';

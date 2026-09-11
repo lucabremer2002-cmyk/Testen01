@@ -202,6 +202,8 @@
     kaderBereinigen(world);
     kaderAuffuellen(world);
 
+    managerEntwicklung(world);
+
     // Kabinenklima aller Vereine fortschreiben. Der Wert wird nicht
     // gespeichert - er ergibt sich jederzeit wieder aus dem Kader.
     world.klimaWerte = FM.kabine.alleKlimawerte(world);
@@ -238,6 +240,37 @@
         p.zweitteam = anteil < 0.25;
       });
     });
+  }
+
+  /**
+   * Der Trainer entwickelt sich wie ein Spieler - nur langsamer und
+   * entlang dessen, was er tut. Wer eine Mannschaft ueber ihrem Niveau
+   * spielen laesst, baut Ruf auf; wer scheitert, verliert ihn.
+   */
+  function managerEntwicklung(world) {
+    var m = world.manager;
+    if (!m || !world.nutzerClubId) return;
+    var club = world.vereine[world.nutzerClubId];
+    var liga = world.ligaVon(world.nutzerClubId);
+    if (!club || !liga) return;
+
+    // Erfahrung: jede Woche im Amt zahlt ein wenig ein.
+    var rng = world.rng;
+    var lernen = 0.05;
+    m.taktik = U.clamp(m.taktik + lernen * rng.range(0.6, 1.5), 1, 99);
+    m.menschenfuehrung = U.clamp(m.menschenfuehrung + lernen * rng.range(0.4, 1.3), 1, 99);
+    m.training = U.clamp(m.training + lernen * rng.range(0.5, 1.4), 1, 99);
+
+    // Ruf folgt dem Abschneiden im Verhaeltnis zur Erwartung.
+    var tab = world.tabellenPlatz(world.nutzerClubId);
+    if (!tab || tab.spiele < 5) return;
+    var raenge = U.sortBy(liga.teams, function (id) { return -world.vereine[id].ruf; });
+    var erwartet = raenge.indexOf(world.nutzerClubId) + 1;
+    var besser = erwartet - tab.platz;                 // positiv = besser als erwartet
+    var ligaBonus = liga.stufe === 1 ? 1.0 : liga.stufe === 2 ? 0.72 : 0.48;
+    var ziel = U.clamp(30 + club.ruf * 0.45 + besser * 1.8, 5, 99) * ligaBonus +
+      (1 - ligaBonus) * m.ruf;
+    m.ruf = U.clamp(m.ruf + (ziel - m.ruf) * 0.035, 1, 99);
   }
 
   function unzufriedeneSpielerMelden(world) {
@@ -872,6 +905,9 @@
     world.historie.titel[clubId].push({ saison: world.saison, titel: titel });
     if (world.istNutzerVerein(clubId)) {
       world.manager.titel.push({ saison: world.saison, titel: titel });
+      // Ein Titel ist der schnellste Weg zu Ruf.
+      var sprung = /Meister/.test(titel) ? 9 : /Pokalsieger/.test(titel) ? 6 : 4;
+      world.manager.ruf = U.clamp(world.manager.ruf + sprung, 1, 99);
     }
   }
 
@@ -1290,7 +1326,7 @@
     leereRekorde: leereRekorde,
     kaderAuffuellen: kaderAuffuellen,
     kaderBereinigen: kaderBereinigen,
-    leereRekorde: leereRekorde,
+    managerEntwicklung: managerEntwicklung,
     titelVermerken: titelVermerken,
     GELB_SPERRE: GELB_SPERRE
   };

@@ -573,7 +573,7 @@
       // auf das Ergebnis. Auf die Abwehr wirkt er nur zur Haelfte: eine
       // Mannschaft verteidigt auswaerts kaum schlechter, sie kommt vorne
       // seltener durch.
-      var heimF = 1.056 + kulisse * 0.050;
+      var heimF = 1.064 + kulisse * 0.054;
       att *= heimF; mid *= heimF; def *= 1 + (heimF - 1) * 0.45;
     }
 

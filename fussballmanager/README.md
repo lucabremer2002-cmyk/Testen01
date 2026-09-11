@@ -319,6 +319,26 @@ Stadionkapazität, Trainingszentrum, Nachwuchsleistungszentrum,
 medizinische Abteilung und Scoutingnetzwerk lassen sich ausbauen – jeweils
 mit Kosten und Bauzeit. Dazu Fanstimmung, Mitgliederzahl und Tradition.
 
+### Der Trainer selbst
+
+Sie sind nicht nur Verwalter, sondern eine Figur mit eigenen Werten:
+**Ruf**, **Taktik**, **Training** und **Menschenführung**. Sie standen
+bisher nur im Profil herum – jetzt wirken sie. Training hebt die
+Trainingsqualität neben dem Stab, Taktik fließt in die Feinabstimmung
+der Mannschaft, Menschenführung entscheidet über die Wirkung von
+Gesprächen, und der Ruf bestimmt mit, wie leicht sich Spieler überzeugen
+lassen.
+
+Die drei Fähigkeiten wachsen mit jeder Woche im Amt – über fünf
+Spielzeiten etwa von 55 auf 67. Der Ruf folgt dem Abschneiden im
+Verhältnis zur Erwartung: Wer mit einem Abstiegskandidaten Siebter wird,
+gewinnt ihn; wer mit einem Spitzenteam Zwölfter wird, verliert ihn. Ein
+Titel hebt ihn sprunghaft.
+
+Damit daraus kein einseitiger Vorteil wird, hat **jeder** Verein einen
+Cheftrainer: bei den KI-Vereinen einen gedachten, dessen Klasse am Ruf
+des Vereins hängt.
+
 ### Personal
 
 Zehn Funktionen mit eigenen Kompetenzen: Co-Trainer, Torwarttrainer,

@@ -204,7 +204,10 @@
       if (club.liga < alterClub.liga) reiz -= 0.10;
     }
     if (europaTeilnehmer(world, clubId)) reiz -= 0.06;
-    reiz = U.clamp(reiz, 0.75, 1.4);
+    // Ein Trainer mit Namen muss weniger zahlen als ein unbekannter.
+    var chef = FM.staff.cheftrainer(world, clubId, club);
+    if (chef) reiz -= U.clamp((chef.ruf - 45) / 400, -0.09, 0.12);
+    reiz = U.clamp(reiz, 0.72, 1.4);
     gefordert *= reiz;
     if (pers) gefordert *= (0.75 + pers.gehaltsgier * 0.25);
 

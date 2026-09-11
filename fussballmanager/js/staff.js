@@ -72,6 +72,27 @@
    * Aggregierte Kennzahlen des Stabs. Wird von Training, Verletzungen,
    * Scouting und Transfers ausgewertet.
    */
+  /**
+   * Die Werte des Cheftrainers. Fuer den Nutzer sein eigenes Profil,
+   * sonst ein aus dem Ruf des Vereins abgeleiteter Trainer.
+   */
+  function cheftrainer(world, clubId, club) {
+    if (world.nutzerClubId === clubId && world.manager) {
+      var m = world.manager;
+      return {
+        name: m.name, taktik: m.taktik, training: m.training,
+        menschenfuehrung: m.menschenfuehrung, ruf: m.ruf, nutzer: true
+      };
+    }
+    var ruf = club ? club.ruf : 45;
+    // Ein Verein bekommt in etwa den Trainer, den sein Ruf hergibt.
+    var niveau = U.clamp(34 + ruf * 0.52, 30, 88);
+    return {
+      name: null, taktik: niveau, training: niveau,
+      menschenfuehrung: niveau, ruf: niveau, nutzer: false
+    };
+  }
+
   function stabWerte(world, clubId) {
     var club = world.vereine[clubId];
     var stab = world.stabVon(clubId);
@@ -98,7 +119,14 @@
     var jugend = mittel('nachwuchsleiter', 30);
     var sd = mittel('sportdirektor', 35);
 
+    // Der Cheftrainer. Beim Verein des Nutzers ist das der Nutzer selbst,
+    // bei allen anderen ein gedachter Trainer, dessen Klasse am Ruf des
+    // Vereins haengt. Ohne diesen Gegenwert haette der Nutzer einen
+    // dauerhaften Vorteil, den die KI nie ausgleichen kann.
+    var chef = cheftrainer(world, clubId, club);
+
     return {
+      cheftrainer: chef,
       cotrainer: co,
       athletik: athletik,
       torwarttrainer: tw,
@@ -110,15 +138,16 @@
       nachwuchsleiter: jugend,
       sportdirektor: sd,
       // abgeleitete Groessen
-      trainingsqualitaet: U.clamp(co * 0.45 + athletik * 0.20 + analyst * 0.10
-        + (club ? club.trainingszentrum * 0.25 : 12), 10, 99),
+      trainingsqualitaet: U.clamp(co * 0.32 + athletik * 0.16 + analyst * 0.08
+        + chef.training * 0.22 + (club ? club.trainingszentrum * 0.22 : 11), 10, 99),
       verletzungsschutz: U.clamp((athletik * 0.45 + physio * 0.25 + arzt * 0.15
         + (club ? club.medizin * 0.15 : 8)) / 100, 0.15, 0.99),
       rehaTempo: U.clamp(0.72 + (physio * 0.6 + arzt * 0.4) / 260, 0.72, 1.45),
       scoutingGenauigkeit: U.clamp((chefscout * 0.45 + scout * 0.35
         + (club ? club.scoutingnetz * 0.20 : 8)) / 100, 0.15, 0.99),
       verhandlung: U.clamp(sd / 100, 0.15, 0.99),
-      taktikBonus: U.clamp(0.965 + (co * 0.5 + analyst * 0.5) / 2400, 0.96, 1.045),
+      taktikBonus: U.clamp(0.955 + (co * 0.35 + analyst * 0.35 + chef.taktik * 0.30) / 1900,
+        0.95, 1.055),
       jugendQualitaet: U.clamp((jugend * 0.55 + (club ? club.akademie * 0.45 : 15)) / 100, 0.12, 0.99)
     };
   }
@@ -140,6 +169,7 @@
     'analyst', 'arzt', 'physio', 'chefscout', 'scout', 'nachwuchsleiter'];
 
   FM.staff = {
+    cheftrainer: cheftrainer,
     erzeugeMitarbeiter: erzeugeMitarbeiter,
     erzeugeStab: erzeugeStab,
     stabWerte: stabWerte,
