@@ -186,6 +186,8 @@
     });
 
     el('btn-weiter').onclick = function () { UI.weiter(); };
+    var vor = el('btn-vor');
+    if (vor) vor.onclick = function () { UI.vorspulen(); };
     el('btn-speichern').onclick = function () {
       var b = el('btn-speichern');
       b.disabled = true;
@@ -217,6 +219,8 @@
       var tasten = {
         w: function () { UI.weiter(); },
         W: function () { UI.weiter(); },
+        v: function () { UI.vorspulen(); },
+        V: function () { UI.vorspulen(); },
         '1': function () { UI.zeige('uebersicht'); },
         '2': function () { UI.zeige('kader'); },
         '3': function () { UI.zeige('taktik'); },

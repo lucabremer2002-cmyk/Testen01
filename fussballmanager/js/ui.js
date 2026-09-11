@@ -572,6 +572,37 @@
    * Rueckt einen Tag vor. Erkennt eigene Spiele, Nachrichten und das
    * Saisonende und reagiert entsprechend.
    */
+  /**
+   * Vorspulen: springt bis zum naechsten eigenen Spiel oder einer
+   * wichtigen Nachricht. Ohne das kostet eine Saison dreihundertvierzig
+   * Klicks - einen je Kalendertag.
+   */
+  function vorspulen() {
+    var world = UI.world;
+    if (UI.beschaeftigt) return;
+    // Steht heute schon ein Spiel an, hilft Vorspulen nicht weiter.
+    if (anstehendesSpiel(world)) { vorSpielAblauf(anstehendesSpiel(world)); return; }
+    UI.beschaeftigt = true;
+    try {
+      var r = FM.engine.weiterBisEreignis(world, 45);
+      UI.beschaeftigt = false;
+      zeichne();
+      stilleSicherung(false);
+      if (r.status === 'spiel') { vorSpielAblauf(r.spiel); return; }
+      if (r.status === 'saisonende') { saisonende(); return; }
+      if (r.status === 'entlassen') { entlassung(); return; }
+      if (r.status === 'nachricht' && r.nachrichten.length) {
+        zeigeNachricht(r.nachrichten[0]);
+        return;
+      }
+      toast(r.tage + ' Tage übersprungen – nichts Dringendes.');
+    } catch (e) {
+      UI.beschaeftigt = false;
+      console.error(e);
+      toast('Fehler beim Vorspulen: ' + e.message, 'fehler');
+    }
+  }
+
   function weiter(schnell) {
     var world = UI.world;
     if (UI.beschaeftigt) return;
@@ -912,6 +943,8 @@
     });
   }
 
+  UI.vorspulen = vorspulen;
+  UI.anstehendesSpiel = anstehendesSpiel;
   UI.esc = esc;
   UI.el = el;
   UI.schmal = schmal;

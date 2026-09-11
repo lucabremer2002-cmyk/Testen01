@@ -123,18 +123,23 @@
    * Springt so lange vorwaerts, bis etwas Aufmerksamkeit verlangt:
    * ein eigenes Spiel, eine wichtige Nachricht oder das Saisonende.
    */
-  function weiterBisEreignis(world, maxTage) {
+  /**
+   * Springt vor, bis etwas passiert: ein eigenes Spiel, eine wichtige
+   * Nachricht, das Saisonende oder die Entlassung. Bei Priorität 2 waere
+   * fast jeder zweite Tag ein Halt - deshalb gilt hier Priorität 3.
+   */
+  function weiterBisEreignis(world, maxTage, minPrioritaet) {
     maxTage = maxTage || 60;
-    var ungelesenVorher = world.ungeleseneNachrichten();
+    var minPrio = minPrioritaet === undefined ? 3 : minPrioritaet;
     for (var i = 0; i < maxTage; i++) {
       var r = tagWeiter(world);
-      if (r.status !== 'ok') return r;
+      if (r.status !== 'ok') return { status: r.status, spiel: r.spiel, tage: i };
       var wichtig = world.inbox.filter(function (n) {
-        return !n.gelesen && n.prioritaet >= 2 && n.tag === world.tag - 1;
+        return !n.gelesen && n.prioritaet >= minPrio && n.tag >= world.tag - 1;
       });
-      if (wichtig.length) return { status: 'nachricht', nachrichten: wichtig };
+      if (wichtig.length) return { status: 'nachricht', nachrichten: wichtig, tage: i + 1 };
     }
-    return { status: 'ok' };
+    return { status: 'ok', tage: maxTage };
   }
 
   function kiTrainingsplan(world, clubId) {

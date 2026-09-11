@@ -488,6 +488,10 @@ nur für den eigenen.
 
 ## Bedienung
 
+**Vorspulen** springt bis zum nächsten eigenen Spiel oder einer
+wichtigen Nachricht, statt jeden Kalendertag einzeln zu bestätigen. Ein
+halbes Jahr kostet damit rund 30 Klicks statt 190.
+
 Steht ein eigenes Spiel an, liegt über jeder Ansicht ein **Spieltagsband**
 mit *Spiel leiten* und *Ergebnis simulieren*. Ohne das wäre der
 Spieltagsdialog der einzige Zugang – wer ihn wegklickt oder erst in die
@@ -504,6 +508,7 @@ abgemeldet.
 | Taste | Wirkung |
 | --- | --- |
 | `W` | Einen Tag weiter |
+| `V` | Vorspulen bis zum nächsten Spiel oder einer wichtigen Nachricht |
 | `1` … `9` | Ansicht wechseln |
 | `S` | Speichern |
 | `Esc` | Dialog schließen |
