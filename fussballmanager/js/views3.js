@@ -456,6 +456,8 @@
       ], tab, { sortKey: z.sortKey, absteigend: z.absteigend,
         zeilenKlasse: function (e) { return e.clubId === world.nutzerClubId ? 'tr-eigen' : ''; } }) + '</div>';
 
+      html += ehrentafelKarte(world, z.liga);
+
       return html;
     },
     nachher: function (container, world, z) {
@@ -465,6 +467,35 @@
       V.verdrahteAllgemein(container, world);
     }
   };
+
+  /**
+   * Die Ehrentafel: Auszeichnungen der laufenden und der vergangenen
+   * Spielzeiten, neueste zuerst.
+   */
+  function ehrentafelKarte(world, ligaId) {
+    var alle = FM.awards.auszeichnungenVon(world, { ligaId: ligaId }).slice(0, 40);
+    return '<div class="card mt"><h3>Auszeichnungen</h3>' + UI.tabelle([
+      { key: 'zeit', label: 'Zeitraum', html: function (a) {
+        return '<span class="klein muted">' + a.saison + '/' + String(a.saison + 1).slice(2) +
+          (a.monat ? ' · ' + esc(U.MONATE_KURZ[a.monat - 1]) : '') + '</span>';
+      } },
+      { key: 'titel', label: 'Ehrung', haft: true, html: function (a) {
+        return '<b>' + esc(a.titel.replace(/\s*\([^)]*\)\s*$/, '')) + '</b>';
+      } },
+      { key: 'wer', label: 'Wer', html: function (a) {
+        var p = a.spielerId ? world.spieler[a.spielerId] : null;
+        if (p) {
+          return '<span class="spieler-link" data-spieler="' + esc(p.id) + '">' +
+            esc(p.vorname + ' ' + p.nachname) + '</span>';
+        }
+        return a.clubId ? UI.vereinZelle(world, a.clubId) : '–';
+      } },
+      { key: 'text', label: 'Anmerkung', html: function (a) {
+        return '<span class="klein muted">' + esc(a.text || '') + '</span>';
+      } }
+    ], alle, { leerText: 'Noch keine Ehrungen. Spieler und Trainer des Monats werden am Monatsende gekürt.' }) +
+      '</div>';
+  }
 
   function zuschauerSchnitt(world, clubId) {
     var heim = world.spiele.filter(function (s) {

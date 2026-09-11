@@ -169,6 +169,10 @@
     world.manager.vorstandsvertrauen = 70;
     world.manager.fanvertrauen = 62;
     world.manager.mannschaftsvertrauen = 62;
+    // Eine neue Amtszeit beginnt ohne Altlasten.
+    world.manager.entlassen = false;
+    world.manager.warnungen = 0;
+    world.manager.bilanz = { spiele: 0, siege: 0, remis: 0, niederlagen: 0 };
     world.trainingsplan = FM.training ? FM.training.standardPlan() : null;
   }
 
@@ -206,7 +210,13 @@
     world.spiele = [];
     world.spielIndex = {};
     world.relegation = [];
-    world.statistik = { torschuetzen: {}, vorlagen: {} };
+    // Torschuetzen- und Vorlagenliste gelten je Saison. Die Ehrentafel
+    // bleibt bestehen - sie ist das Gedaechtnis der Karriere.
+    var ehrentafel = (world.statistik && world.statistik.auszeichnungen) || [];
+    world.statistik = {
+      torschuetzen: {}, vorlagen: {},
+      auszeichnungen: ehrentafel, monatsBasis: {}, monatsMarke: null
+    };
 
     // ---- Ligen
     world.ligaIds.forEach(function (lid) {

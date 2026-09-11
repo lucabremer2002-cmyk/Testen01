@@ -260,6 +260,30 @@ Qualität hängen an Akademie und Nachwuchsleiter, gelegentlich schlüpft ein
 echtes Ausnahmetalent durch. Der Nachwuchsleiter gibt eine Einschätzung
 des Potenzials ab – je besser er ist, desto enger die Spanne.
 
+### Auszeichnungen und Ehrentafel
+
+Am Ende jedes Monats kürt jede Liga einen **Spieler des Monats** und
+einen **Trainer des Monats**. Bewertet wird nur, was in diesem Monat
+passiert ist – dafür hält das Spiel zu Monatsbeginn einen Stand der
+Statistiken fest und bildet am Monatsende die Differenz. Beim Trainer
+zählt nicht die reine Punktzahl, sondern der Abstand zur Erwartung: Ein
+Außenseiter braucht weniger Punkte für dieselbe Leistung als ein
+Titelanwärter.
+
+Zum Saisonende kommen **Spieler der Saison**, **Torwart der Saison**,
+**bester Nachwuchsspieler**, die **Torjägerkanone** und die **Elf der
+Saison** in einem 4-3-3 dazu. Alles landet in der Ehrentafel unter
+Statistik und bleibt über die Jahre stehen; die Ehrungen eines Spielers
+stehen zusätzlich in seinem Profil.
+
+### Derbys
+
+31 echte Rivalitäten sind hinterlegt – vom Revierderby und dem Hamburger
+Stadtderby über das Frankenderby bis zum Niedersachsenderby. Ein Derby
+ist kein Spiel wie jedes andere: Das Stadion ist voller, Sieg und
+Niederlage wirken deutlich stärker auf Mannschaftsmoral und Fanstimmung,
+und auf der Übersicht steht der Anlass beim Namen.
+
 ### Medien und Kabine
 
 * **Pressekonferenzen** vor und nach dem Spiel mit Antwortoptionen, die

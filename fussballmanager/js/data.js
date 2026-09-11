@@ -885,6 +885,68 @@
     { name: 'Patrick Ittrich', streng: 1.01 }, { name: 'Frank Willenborg', streng: 1.14 }
   ];
 
+
+  // ------------------------------------------------------------ Rivalitaeten
+
+  /**
+   * Derbys und Traditionsduelle. `stufe` 3 ist ein echtes Stadtderby,
+   * 2 eine gewachsene Rivalitaet, 1 ein Spiel mit Geschichte. Die Stufe
+   * wirkt auf Zuschauer, Stimmung, Moral und die Reaktion der Fans.
+   */
+  var RIVALEN = [
+    ['BVB', 'S04', 3, 'Revierderby'],
+    ['KOE', 'BMG', 3, 'Rheinisches Derby'],
+    ['HSV', 'STP', 3, 'Hamburger Stadtderby'],
+    ['FCN', 'SGF', 3, 'Frankenderby'],
+    ['BSC', 'FCU', 3, 'Berliner Stadtderby'],
+    ['FCB', 'BVB', 2, 'Der Klassiker'],
+    ['HSV', 'SVW', 2, 'Nordderby'],
+    ['VFB', 'KSC', 2, 'Baden-Württemberg-Derby'],
+    ['M05', 'SGE', 2, 'Rhein-Main-Derby'],
+    ['SGE', 'D98', 2, 'Hessenderby'],
+    ['FCK', 'SVE', 2, 'Pfalz-Saar-Duell'],
+    ['BOC', 'S04', 2, 'Revierduell'],
+    ['BOC', 'BVB', 2, 'Revierduell'],
+    ['F95', 'KOE', 2, 'Rheinderby'],
+    ['SGD', 'FCM', 2, 'Ostduell'],
+    ['H96', 'EBS', 3, 'Niedersachsenderby'],
+    ['H96', 'HSV', 1, 'Nordduell'],
+    ['BMG', 'F95', 2, 'Niederrheinderby'],
+    ['RBL', 'SGD', 2, 'Sachsenduell'],
+    ['RBL', 'FCU', 1, 'Ostduell'],
+    ['TSG', 'VFB', 1, 'Baden-Württemberg-Duell'],
+    ['SCF', 'VFB', 1, 'Baden-Württemberg-Duell'],
+    ['FCB', 'FCN', 2, 'Bayernderby'],
+    ['FCB', 'FCA', 2, 'Bayerisches Derby'],
+    ['FCA', 'FCN', 1, 'Bayernduell'],
+    ['DSC', 'SCP', 2, 'Ostwestfalenderby'],
+    ['KSV', 'HSV', 1, 'Nordduell'],
+    ['SCPM', 'DSC', 1, 'Westfalenduell'],
+    ['B04', 'KOE', 1, 'Rheinduell'],
+    ['WOB', 'H96', 1, 'Niedersachsenduell'],
+    ['FCK', 'KSC', 1, 'Südwestduell']
+  ].map(function (r) {
+    return { a: r[0].toLowerCase(), b: r[1].toLowerCase(), stufe: r[2], name: r[3] };
+  });
+
+  /** Findet die Rivalitaet zwischen zwei Vereinen, falls es eine gibt. */
+  function rivalitaet(aId, bId) {
+    for (var i = 0; i < RIVALEN.length; i++) {
+      var r = RIVALEN[i];
+      if ((r.a === aId && r.b === bId) || (r.a === bId && r.b === aId)) return r;
+    }
+    return null;
+  }
+
+  /** Alle Rivalen eines Vereins, stärkste zuerst. */
+  function rivalenVon(clubId) {
+    return RIVALEN.filter(function (r) { return r.a === clubId || r.b === clubId; })
+      .map(function (r) {
+        return { gegner: r.a === clubId ? r.b : r.a, stufe: r.stufe, name: r.name };
+      })
+      .sort(function (x, y) { return y.stufe - x.stufe; });
+  }
+
   var WETTER = [
     { id: 'sonnig', name: 'Sonnig', tempo: 1.00, fehler: 1.00, kondition: 1.02, zuschauer: 1.03 },
     { id: 'bewoelkt', name: 'Bewölkt', tempo: 1.00, fehler: 1.00, kondition: 1.00, zuschauer: 1.00 },
@@ -908,7 +970,8 @@
     TRAININGSEINHEITEN: TRAININGSEINHEITEN, INDIVIDUALTRAINING: INDIVIDUALTRAINING,
     STAFF_ROLLEN: STAFF_ROLLEN, STAFF_ATTR_NAME: STAFF_ATTR_NAME,
     VERLETZUNGEN: VERLETZUNGEN, KRANKHEITEN: KRANKHEITEN,
-    SPONSOREN: SPONSOREN, SCHIEDSRICHTER: SCHIEDSRICHTER, WETTER: WETTER
+    SPONSOREN: SPONSOREN, SCHIEDSRICHTER: SCHIEDSRICHTER, WETTER: WETTER,
+    RIVALEN: RIVALEN, rivalitaet: rivalitaet, rivalenVon: rivalenVon
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1274,3 +1274,11 @@ td.name { font-weight: 700; }
 }
 .merkmal--minus { border-left-color: var(--red); }
 .merkmal b { font-size: 13px; }
+
+.derby-tag {
+  display: inline-block; margin-left: 6px; padding: 2px 8px;
+  border-radius: var(--r-pill); background: var(--gold-bg); color: var(--gold);
+  font-size: 11px; font-weight: 800; letter-spacing: .02em; vertical-align: 2px;
+}
+.spieler-link { color: var(--text); font-weight: 600; cursor: pointer; }
+.spieler-link:hover { color: var(--accent); }

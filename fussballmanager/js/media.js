@@ -492,6 +492,9 @@
   function entlassungspruefung(world) {
     var m = world.manager;
     if (!world.nutzerClubId) return null;
+    // Einmal ausgesprochen, wird die Trennung nicht wiederholt. Erst mit
+    // einer neuen Amtszeit beginnt die Pruefung von vorn.
+    if (m.entlassen) return null;
     // Schonfrist: in den ersten Wochen einer Amtszeit wird nicht getrennt.
     if (m.bilanz.spiele < 10) return null;
     if (m.vorstandsvertrauen > 22) { m.warnungen = 0; return null; }
@@ -506,6 +509,7 @@
       return null;
     }
     if (m.vorstandsvertrauen < 12 && m.warnungen >= 3) {
+      m.entlassen = true;
       return { entlassen: true };
     }
     return null;

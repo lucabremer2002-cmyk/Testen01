@@ -45,8 +45,11 @@
         var gegnerId = heim ? naechstes.gastId : naechstes.heimId;
         var gegner = world.vereine[gegnerId];
         var gTab = world.tabellenPlatz(gegnerId);
+        var riv = D.rivalitaet(naechstes.heimId, naechstes.gastId);
         html += '<div class="flex flex--zwischen mb"><div class="flex">' +
-          UI.wappen(gegner) + '<div><b style="font-size:16px">' + esc(gegner.name) + '</b><br>' +
+          UI.wappen(gegner) + '<div><b style="font-size:16px">' + esc(gegner.name) + '</b>' +
+          (riv ? ' <span class="derby-tag" title="Ein Derby wirkt stärker auf Stimmung und Moral als ein gewöhnliches Spiel.">' +
+            esc(riv.name) + '</span>' : '') + '<br>' +
           '<small class="muted">' + (heim ? 'Heimspiel' : 'Auswärtsspiel') + ' · ' +
           esc(UI.wettbewerbName(world, naechstes)) + (naechstes.rundeName ? ' · ' + esc(naechstes.rundeName) : '') +
           '</small></div></div>';
@@ -318,6 +321,17 @@
     }
   };
 
+  /** Ehrungen, die ein Spieler im Laufe seiner Karriere gesammelt hat. */
+  function ehrungKarte(p) {
+    var liste = (p.ehrungen || []).slice().reverse();
+    if (!liste.length) return '';
+    return '<div class="card card--flat"><h4>Ehrungen</h4>' +
+      liste.slice(0, 12).map(function (e) {
+        return '<div class="stat-row"><span>' + e.saison + '/' + String(e.saison + 1).slice(2) +
+          '</span><b class="klein">' + esc(e.titel) + '</b></div>';
+      }).join('') + '</div>';
+  }
+
   /** Die besonderen Eigenschaften eines Spielers als eigene Karte. */
   function merkmalKarte(p) {
     var liste = (p.merkmale || []).map(function (id) { return D.MERKMAL[id]; })
@@ -544,6 +558,9 @@
 
     // Merkmale
     html += merkmalKarte(p);
+
+    // Ehrungen
+    html += ehrungKarte(p);
 
     // Statistik
     html += '<div class="card card--flat"><h4>Saison &amp; Karriere</h4>' +

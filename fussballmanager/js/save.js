@@ -70,7 +70,8 @@
       (p.letzteNoten || []).slice(-8).map(function (n) { return r(n, 1); }),
       p.eigengewaechs ? 1 : 0, p.exClubId || null, p.versprechen || null,
       p.gemeldetWechsel || 0, p.letztesGespraech || 0,
-      p.merkmale || [], p.kaderrolle || 'rotation', p.rollenSeit || 0
+      p.merkmale || [], p.kaderrolle || 'rotation', p.rollenSeit || 0,
+      (p.ehrungen || []).slice(-20)
     ];
   }
 
@@ -92,7 +93,8 @@
       historie: a[35] || [], scoutwissen: a[36], letzteNoten: a[37] || [],
       eigengewaechs: !!a[38], exClubId: a[39], versprechen: a[40],
       gemeldetWechsel: a[41], letztesGespraech: a[42],
-      merkmale: a[43] || [], kaderrolle: a[44] || 'rotation', rollenSeit: a[45] || 0
+      merkmale: a[43] || [], kaderrolle: a[44] || 'rotation', rollenSeit: a[45] || 0,
+      ehrungen: a[46] || []
     };
   }
 

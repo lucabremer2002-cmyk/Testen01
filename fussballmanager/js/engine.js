@@ -78,6 +78,9 @@
       wochenlauf(world);
     }
 
+    // 6b) Monatsende: Spieler und Trainer des Monats
+    FM.awards.tagesPruefung(world);
+
     // 7) Saisonabschluss?
     if (saisonVorbei(world)) {
       return { status: 'saisonende' };
@@ -85,8 +88,12 @@
 
     // 8) Entlassung? Die Prüfung läuft im Wochenrhythmus (siehe wochenlauf),
     //    damit aus drei schlechten Tagen nicht sofort eine Trennung wird.
+    //    Der Kalender rueckt trotzdem weiter: bliebe er stehen, liefe die
+    //    Wochenpruefung am selben Montag immer wieder und spraeche die
+    //    Trennung endlos erneut aus.
     if (world.entlassungAusgesprochen) {
       world.entlassungAusgesprochen = false;
+      world.tag += 1;
       return { status: 'entlassen' };
     }
 
@@ -332,11 +339,47 @@
       praemienZahlen(world, state, spiel);
     }
 
+    // Derby: die Mannschaft nimmt Sieg wie Niederlage staerker mit
+    derbyNachwirkung(world, spiel, erg);
+
     // Vertrauen und Nachrichten fuer den Nutzer
     if (world.istNutzerVerein(spiel.heimId) || world.istNutzerVerein(spiel.gastId)) {
       FM.media.vertrauenNachSpiel(world, spiel, erg);
     }
     return erg;
+  }
+
+  /**
+   * Ein Derby ist kein Spiel wie jedes andere. Sieg und Niederlage wirken
+   * staerker auf Moral und Fanstimmung, und der Nutzer bekommt eine
+   * Meldung, die den Anlass benennt.
+   */
+  function derbyNachwirkung(world, spiel, erg) {
+    var riv = D.rivalitaet(spiel.heimId, spiel.gastId);
+    if (!riv) return;
+    var wucht = riv.stufe;
+    [[spiel.heimId, erg.heimTore, erg.gastTore], [spiel.gastId, erg.gastTore, erg.heimTore]]
+      .forEach(function (e) {
+        var clubId = e[0], eigene = e[1], fremde = e[2];
+        var club = world.vereine[clubId];
+        if (!club || club.auslaendisch) return;
+        var aus = eigene > fremde ? 1 : eigene === fremde ? 0 : -1;
+        world.kaderVon(clubId).forEach(function (p) {
+          p.moral = U.clamp(p.moral + aus * wucht * 1.6, 5, 99);
+        });
+        club.fans = U.clamp(club.fans + aus * wucht * 0.55, 1, 100);
+        if (!world.istNutzerVerein(clubId)) return;
+        var gegner = world.vereine[clubId === spiel.heimId ? spiel.gastId : spiel.heimId];
+        world.nachricht({
+          typ: 'kabine', prioritaet: aus < 0 ? 3 : 2,
+          titel: riv.name + ': ' + (aus > 0 ? 'gewonnen' : aus === 0 ? 'geteilt' : 'verloren'),
+          text: aus > 0
+            ? 'Der Sieg gegen ' + gegner.name + ' hallt nach. Die Kurve feiert, die Mannschaft ist beflügelt.'
+            : aus === 0
+              ? 'Ein Remis gegen ' + gegner.name + ' nimmt keiner mit nach Hause. Die Fans hätten mehr erwartet.'
+              : 'Die Niederlage gegen ' + gegner.name + ' sitzt tief. In der Kurve ist die Stimmung gekippt.'
+        });
+      });
   }
 
   function uebernehmeSpielerStats(world, seite, spiel, zuNull) {
@@ -747,6 +790,10 @@
         if (sieger === r.unten) { aufBl2.push(r.unten); abBl2.push(r.oben); }
       }
     });
+
+    // --- Ehrungen der Saison. Muss vor dem Ligenumbau laufen, solange
+    //     die Kader noch in ihren Ligen stehen.
+    FM.awards.saisonAuszeichnungen(world);
 
     // --- Historie
     world.historie.saisons.push({

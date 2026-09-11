@@ -252,6 +252,9 @@
     // Wettbewerb
     if (spiel.wettbewerb === 'europa') basis *= 1.10;
     if (spiel.wettbewerb === 'pokal') basis *= 0.94;
+    // Derby: ausverkauft ist die Regel, nicht die Ausnahme
+    var riv = D.rivalitaet(spiel.heimId, spiel.gastId);
+    if (riv) basis *= 1 + riv.stufe * 0.045;
     // Wetter und Anstosszeit
     if (wetter) basis *= wetter.zuschauer;
     var wt = U.weekday(spiel.tag);
