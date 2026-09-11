@@ -17,10 +17,10 @@
 
   // belastung = Faktor auf den Frischeverlust, erholung = Faktor auf die Regeneration
   var INTENSITAETEN = {
-    schonend: { name: 'Schonend', entwicklung: 0.72, belastung: 0.58, erholung: 1.18, verletzung: 0.55, moral: 0.3 },
+    schonend: { name: 'Schonend', entwicklung: 0.66, belastung: 0.58, erholung: 1.18, verletzung: 0.55, moral: 0.3 },
     normal: { name: 'Normal', entwicklung: 1.00, belastung: 1.00, erholung: 1.00, verletzung: 1.00, moral: 0 },
-    intensiv: { name: 'Intensiv', entwicklung: 1.26, belastung: 1.45, erholung: 0.92, verletzung: 1.55, moral: -0.4 },
-    hart: { name: 'Am Limit', entwicklung: 1.45, belastung: 2.00, erholung: 0.85, verletzung: 2.30, moral: -1.0 }
+    intensiv: { name: 'Intensiv', entwicklung: 1.45, belastung: 1.45, erholung: 0.92, verletzung: 1.55, moral: -0.4 },
+    hart: { name: 'Am Limit', entwicklung: 1.78, belastung: 2.00, erholung: 0.85, verletzung: 2.30, moral: -1.0 }
   };
 
   var GRUNDERHOLUNG = 7.0;   // Frischepunkte pro trainingsfreiem Tagesanteil
@@ -314,6 +314,8 @@
     return {
       zaehler: zaehler,
       belastung: belastung * intens.verletzung,
+      entwicklung: intens.entwicklung,
+      intensitaetName: intens.name,
       schwerpunkte: U.sortBy(Object.keys(zaehler), function (k) { return -zaehler[k]; }).slice(0, 3)
     };
   }

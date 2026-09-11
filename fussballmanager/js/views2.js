@@ -36,6 +36,9 @@
         Math.round(U.avg(kader.filter(function (p) { return !p.verletzung; }).map(function (p) { return p.fitness; })) || 0) + ' %</b></div>' +
         '<div class="tile"><span>Belastung</span><b>' + U.num(auswertung.belastung, 0) + '</b>' +
         '<small>' + (auswertung.belastung > 45 ? 'hoch' : auswertung.belastung > 25 ? 'normal' : 'niedrig') + '</small></div>' +
+        '<div class="tile"><span>Entwicklungstempo</span><b>' +
+        (auswertung.entwicklung >= 1 ? '+' : '') + Math.round((auswertung.entwicklung - 1) * 100) + ' %</b>' +
+        '<small>' + esc(auswertung.intensitaetName) + '</small></div>' +
         '</div>';
 
       html += '<div class="grid grid--wide"><div class="card"><div class="card__head"><h3>Wochenplan</h3>' +

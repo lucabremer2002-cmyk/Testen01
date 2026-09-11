@@ -705,11 +705,11 @@
     mentalitaet: {
       label: 'Mentalität',
       werte: [
-        { id: 'defensiv', name: 'Sehr defensiv', att: 0.80, def: 1.16, tempo: 0.85 },
-        { id: 'abwartend', name: 'Abwartend', att: 0.90, def: 1.08, tempo: 0.93 },
-        { id: 'ausgeglichen', name: 'Ausgeglichen', att: 1.00, def: 1.00, tempo: 1.00 },
-        { id: 'offensiv', name: 'Offensiv', att: 1.11, def: 0.92, tempo: 1.07 },
-        { id: 'allesoderNichts', name: 'Alles nach vorn', att: 1.22, def: 0.80, tempo: 1.14 }
+        { id: 'defensiv', name: 'Sehr defensiv', att: 0.80, def: 1.16, tempo: 0.85, kondition: 0.94 },
+        { id: 'abwartend', name: 'Abwartend', att: 0.90, def: 1.08, tempo: 0.93, kondition: 0.97 },
+        { id: 'ausgeglichen', name: 'Ausgeglichen', att: 1.00, def: 1.00, tempo: 1.00, kondition: 1.00 },
+        { id: 'offensiv', name: 'Offensiv', att: 1.11, def: 0.88, tempo: 1.07, kondition: 1.06 },
+        { id: 'allesoderNichts', name: 'Alles nach vorn', att: 1.22, def: 0.60, tempo: 1.14, kondition: 1.16 }
       ]
     },
     pressing: {
@@ -732,7 +732,7 @@
     aufbau: {
       label: 'Spielaufbau',
       werte: [
-        { id: 'kurz', name: 'Kurzes Aufbauspiel', ballbesitz: 1.16, risiko: 1.10, chancenQualitaet: 1.05 },
+        { id: 'kurz', name: 'Kurzes Aufbauspiel', ballbesitz: 1.12, risiko: 1.14, chancenQualitaet: 1.05 },
         { id: 'gemischt', name: 'Gemischt', ballbesitz: 1.00, risiko: 1.00, chancenQualitaet: 1.00 },
         { id: 'lang', name: 'Lange Bälle', ballbesitz: 0.82, risiko: 0.85, chancenQualitaet: 0.92, kopfball: 1.20 }
       ]
@@ -740,9 +740,10 @@
     tempo: {
       label: 'Spieltempo',
       werte: [
-        { id: 'langsam', name: 'Ruhig zirkulieren', chancen: 0.88, ballbesitz: 1.12, kondition: 0.92 },
-        { id: 'normal', name: 'Normal', chancen: 1.00, ballbesitz: 1.00, kondition: 1.00 },
-        { id: 'schnell', name: 'Schnell nach vorn', chancen: 1.14, ballbesitz: 0.90, kondition: 1.10 }
+        { id: 'langsam', name: 'Ruhig zirkulieren', chancen: 0.88, ballbesitz: 1.12, kondition: 0.92, qualitaet: 1.05 },
+        { id: 'normal', name: 'Normal', chancen: 1.00, ballbesitz: 1.00, kondition: 1.00, qualitaet: 1.00 },
+        // Mehr Abschluesse, aber hastiger vorgetragen.
+        { id: 'schnell', name: 'Schnell nach vorn', chancen: 1.12, ballbesitz: 0.88, kondition: 1.10, qualitaet: 0.94 }
       ]
     },
     breite: {

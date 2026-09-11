@@ -542,6 +542,7 @@
     def *= mentalitaet.def;
     def *= (linie.raumHinten > 1 ? 1.03 : linie.raumHinten < 1 ? 1.05 : 1.0);   // beides hat Vorteile
     att *= aufbau.chancenQualitaet;
+    att *= tempo.qualitaet || 1;
     mid *= aufbau.ballbesitz * tempo.ballbesitz;
 
     // ---- Einspielgrad und Moral der Mannschaft
@@ -620,6 +621,7 @@
         kartenrisiko: zweikampf.karten * (zeitspiel.karten || 1),
         zweikampf: zweikampf.zweikampf,
         konditionsbedarf: pressing.kondition * tempo.kondition * (gegenpressing.kondition || 1)
+          * (mentalitaet.kondition || 1)
           * (ctx.wetter ? ctx.wetter.kondition : 1),
         risiko: aufbau.risiko,
         tempoSpaet: zeitspiel.tempoSpaet || 1,
@@ -652,13 +654,32 @@
     // Lange Baelle gegen hohe Abwehrlinie
     if (aufbauA === 'lang' && b.taktik.anweisungen.abwehrlinie === 'hoch') out.attA *= 1.10;
     if (aufbauB === 'lang' && a.taktik.anweisungen.abwehrlinie === 'hoch') out.attB *= 1.10;
-    // Konterspiel gegen offensive Gegner
-    if (b.mod.mentalitaet === 'offensiv' || b.mod.mentalitaet === 'allesoderNichts') {
-      out.konterA *= 1.25;
+    // Konterspiel gegen offensive Gegner. Wer alles nach vorn wirft, laesst
+    // entsprechend mehr Raum - sonst waere "Alles nach vorn" eine Einstellung
+    // ohne Nachteil und damit immer richtig.
+    function konterfaktor(mentalitaet) {
+      if (mentalitaet === 'allesoderNichts') return 1.55;
+      if (mentalitaet === 'offensiv') return 1.22;
+      return 1;
     }
-    if (a.mod.mentalitaet === 'offensiv' || a.mod.mentalitaet === 'allesoderNichts') {
-      out.konterB *= 1.25;
+    out.konterA *= konterfaktor(b.mod.mentalitaet);
+    out.konterB *= konterfaktor(a.mod.mentalitaet);
+    // Die geoeffnete Abwehr wirkt direkt auf die Zahl der gegnerischen
+    // Gelegenheiten. Ueber das Kraefteverhaeltnis allein kaeme sie kaum an,
+    // weil dessen Stauchung gerade den schuetzt, der alles nach vorn wirft.
+    function offenheit(mentalitaet) {
+      if (mentalitaet === 'allesoderNichts') return 1.20;
+      if (mentalitaet === 'offensiv') return 1.07;
+      if (mentalitaet === 'defensiv') return 0.90;
+      if (mentalitaet === 'abwartend') return 0.96;
+      return 1;
     }
+    out.attA *= offenheit(b.mod.mentalitaet);
+    out.attB *= offenheit(a.mod.mentalitaet);
+    // Wer hinten heraus kombiniert, verliert den Ball auch mal dort, wo es
+    // wehtut. Ohne diesen Preis waere kurzes Aufbauspiel immer richtig.
+    out.attA *= 1 + ((b.mod.risiko || 1) - 1) * 1.25;
+    out.attB *= 1 + ((a.mod.risiko || 1) - 1) * 1.25;
     // Breite gegen enges Zentrum
     if (a.mod.flanken > 1.1 && b.mod.zentrum > 1.1) out.attA *= 1.06;
     if (b.mod.flanken > 1.1 && a.mod.zentrum > 1.1) out.attB *= 1.06;
