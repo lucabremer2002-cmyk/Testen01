@@ -610,6 +610,12 @@
         st.xG += d.xg;
         st.xA += d.xa;
         st.paraden += d.paraden;
+        // Zweikaempfe und Paesse standen im Spielermodell, wurden aber nie
+        // gefuellt - jedes Profil zeigte eine Quote von null Prozent.
+        st.zweikaempfe += d.zweikaempfe || 0;
+        st.zweikaempfeGewonnen += d.zweikaempfeGew || 0;
+        st.paesse += d.paesse || 0;
+        st.paesseAngekommen += d.paesseAn || 0;
         st.kmGelaufen += d.km;
         st.gegentore += d.gegentore;
         if (p.pos === 'TW' && zuNull && d.minuten >= 60) st.zuNull += 1;
@@ -1544,30 +1550,47 @@
       aufgestiegen: gespielt === 2 && eintrag.platz <= 2,
       abgestiegen: club.liga > gespielt
     });
-    // Das Urteil faellt nach Abstand zur Vorgabe aus, nicht nach einem harten
-    // Ja/Nein. Wer die Vorgabe um einen Platz verfehlt, wird nicht behandelt
-    // wie einer, der vier Plaetze darunter landet.
-    var abweichung = m.saisonziel.platz - eintrag.platz;
+    // Das Urteil faellt nach Abstand zur Messlatte aus, nicht nach einem
+    // harten Ja/Nein - und die Messlatte kennt den eigenen Kader. Wer die
+    // Vorgabe um einen Platz verfehlt, wird nicht behandelt wie einer, der
+    // vier Plaetze darunter landet, und wer aus dem viertschwaechsten Kader
+    // einen Mittelfeldplatz holt, wird nicht behandelt wie ein Versager.
+    var rang = P.ligaRang(world, club.id);
+    var messlatte = rang
+      ? U.clamp(Math.round(m.saisonziel.platz * 0.6 + rang.rang * 0.4), 1, rang.von)
+      : m.saisonziel.platz;
+    var abweichung = messlatte - eintrag.platz;
+    // Achtbar heisst: die Vorgabe verfehlt, aber mehr aus der Mannschaft
+    // geholt, als in ihr steckte. Das darf nicht wie ein Fehlschlag zaehlen.
+    var achtbar = !erreicht && abweichung >= 2;
     var urteil = U.clamp(abweichung * 5, -22, 22);
     if (erreicht) urteil = Math.max(urteil, 8);
     m.vorstandsvertrauen = U.clamp(m.vorstandsvertrauen + urteil, 0, 100);
     // Ueber der Marke von 100 verpufft jeder weitere Erfolg. Deshalb wandert
-    // eine erfuellte Spielzeit in den Rueckhalt: ein Guthaben, das erst in
+    // eine gelungene Spielzeit in den Rueckhalt: ein Guthaben, das erst in
     // der Krise eingeloest wird. Drei gute Jahre sind das Maximum - danach
     // muss man liefern, nicht von gestern leben.
     if (!m.rueckhalt) m.rueckhalt = 0;
     if (erreicht) {
       m.rueckhalt = Math.min(3, m.rueckhalt + (abweichung >= 3 ? 2 : 1));
+    } else if (achtbar) {
+      m.rueckhalt = Math.min(3, m.rueckhalt + 1);
     } else if (abweichung <= -4) {
       m.rueckhalt = Math.max(0, m.rueckhalt - 1);
     }
-    m.ruf = U.clamp(m.ruf + (erreicht ? 5 : -3) + (eintrag.platz <= 3 ? 5 : 0), 1, 99);
+    m.ruf = U.clamp(m.ruf + (erreicht ? 5 : achtbar ? 1 : -3) + (eintrag.platz <= 3 ? 5 : 0), 1, 99);
+    var kaderSatz = rang
+      ? ' Der Vorstand weiß, dass dieser Kader der ' + rang.rang + '.-beste der Liga ist;' +
+        ' realistisch war Platz ' + messlatte + '.'
+      : '';
     world.nachricht({
       typ: 'vorstand', prioritaet: 3,
-      titel: erreicht ? 'Saisonziel erreicht' : 'Saisonziel verfehlt',
+      titel: erreicht ? 'Saisonziel erreicht' : achtbar ? 'Vorgabe verfehlt - Arbeit anerkannt' : 'Saisonziel verfehlt',
       text: 'Abschlussplatz ' + eintrag.platz + ' mit ' + (eintrag.punkte - eintrag.punktabzug) +
-        ' Punkten. Vorgabe war: ' + m.saisonziel.text + '. ' +
-        (erreicht ? 'Der Vorstand ist zufrieden.' : 'Der Vorstand erwartet eine deutliche Steigerung.')
+        ' Punkten. Vorgabe war: ' + m.saisonziel.text + '.' + kaderSatz + ' ' +
+        (erreicht ? 'Der Vorstand ist zufrieden.'
+          : achtbar ? 'Aus dieser Mannschaft war kaum mehr herauszuholen - der Vorstand hält an Ihnen fest.'
+            : 'Der Vorstand erwartet eine deutliche Steigerung.')
     });
   }
 

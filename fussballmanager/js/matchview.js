@@ -251,14 +251,19 @@
       if (d.tore) marker.push('<span class="chip chip--gruen">' + d.tore + ' Tor' + (d.tore > 1 ? 'e' : '') + '</span>');
       if (d.vorlagen) marker.push('<span class="chip chip--blau">' + d.vorlagen + ' V</span>');
       if (d.gelb) marker.push('<span class="chip chip--gelb">G</span>');
+      // Die laufende Note ist der Grund, waehrend des Spiels ueberhaupt
+      // hinzusehen: sie sagt, wer traegt und wer gewechselt gehoert.
+      var note = FM.match.zwischennote(d, p);
+      var noteHtml = UI.noteZelle(note);
       return '<tr><td>' + UI.posTag(e.pos) + '</td>' +
         '<td class="name">' + esc(p.nachname) + '</td>' +
+        '<td class="num">' + noteHtml + '</td>' +
         '<td style="width:70px">' + UI.balken(fit / 100, fit >= 70 ? '' : fit >= 50 ? 'bar--gelb' : 'bar--rot') + '</td>' +
         '<td class="num">' + fit + '</td>' +
         '<td>' + marker.join(' ') + '</td></tr>';
     }).join('');
     return '<div class="table-wrap"><table><thead><tr>' +
-      '<th>Pos</th><th>Spieler</th><th colspan="2">Frische</th><th></th>' +
+      '<th>Pos</th><th>Spieler</th><th class="num">Note</th><th colspan="2">Frische</th><th></th>' +
       '</tr></thead><tbody>' + zeilen + '</tbody></table></div>' +
       '<div class="klein muted mt">Bank: ' + eigeneSeite.bank.map(function (id) {
         var p = world.spieler[id];

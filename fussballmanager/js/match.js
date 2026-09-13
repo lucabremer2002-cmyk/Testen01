@@ -387,8 +387,10 @@
     H.stat.paesseAn += Math.round(passH * U.clamp(0.62 + wH.aufbau / 600, 0.55, 0.93));
     G.stat.paesseAn += Math.round(passG * U.clamp(0.62 + wG.aufbau / 600, 0.55, 0.93));
 
-    // Zweikaempfe
-    var zk = rng.int(2, 5);
+    // Zweikaempfe. Rund ein Duell pro Minute - so viele zaehlt auch die
+    // echte Statistik. Vorher waren es vier, was als Quote niemandem
+    // auffiel; sobald die Zahl beim einzelnen Spieler steht, faellt sie auf.
+    var zk = rng.int(0, 2);
     var quoteH = wH.def + wH.mid;
     var quoteG = wG.def + wG.mid;
     var gewH = 0;
@@ -408,6 +410,11 @@
 
     // ---- Momentum klingt ab
     state.momentum *= 0.90;
+
+    // Die laufenden Noten brauchen Zweikampf- und Passzahlen. Alle
+    // Viertelstunde reicht: haeufiger kostet in der Massensimulation
+    // spuerbar Zeit, seltener sieht man die Entwicklung nicht.
+    if (m % 15 === 0) { statistikVerteilen(state, H); statistikVerteilen(state, G); }
 
     // ---- Automatische Wechsel der KI
     if (m >= 46) {
@@ -1187,8 +1194,103 @@
    * Kicker-Noten von 1,0 (überragend) bis 6,0 (ungenügend).
    * Ausgangspunkt ist 3,5, davon werden die gesammelten Punkte abgezogen.
    */
+  /**
+   * Eine vorlaeufige Note waehrend des Spiels. Sie rechnet wie die Endnote,
+   * laesst aber Ergebnisbonus, Zu-null-Praemie und Zufall weg - die stehen
+   * erst am Schlusspfiff fest. So sieht man in der 60. Minute, wer das
+   * Spiel traegt und wer durchgereicht wird, ohne dass die Zahl hinterher
+   * unerklaerlich springt.
+   */
+  function zwischennote(d, p) {
+    if (!d || !p || d.minuten < 1) return null;
+    var note = 3.5 + d.notenPunkte;
+    if (p.pos === 'TW') note += d.gegentore * 0.22 - d.paraden * 0.13;
+    if (d.zweikaempfe >= 4) {
+      note -= U.clamp((d.zweikaempfeGew / d.zweikaempfe - 0.5) * 1.5, -0.5, 0.5);
+    }
+    if (d.paesse >= 12) {
+      note -= U.clamp((d.paesseAn / d.paesse - 0.78) * 2.6, -0.4, 0.4);
+    }
+    note -= (P.gesamt(p) - 60) / 130;
+    if (d.minuten < 30) note = 3.5 + (note - 3.5) * (0.45 + d.minuten / 60);
+    return U.clamp(Math.round(note * 10) / 10, 1.0, 6.0);
+  }
+
+  // Wie stark eine Position am Passspiel bzw. an Zweikaempfen beteiligt ist.
+  var PASS_ANTEIL = { TW: 0.45, ABW: 1.05, MIT: 1.65, ANG: 0.85 };
+  var ZK_ANTEIL   = { TW: 0.15, ABW: 1.40, MIT: 1.25, ANG: 1.00 };
+
+  /**
+   * Verteilt Paesse und Zweikaempfe der Mannschaft auf ihre Spieler. Die
+   * Engine wuerfelt beides nur auf Teamebene; ohne diese Verteilung bleiben
+   * die Quoten in jedem Spielerprofil leer, und in der Note unterscheiden
+   * sich elf Spieler allein durch Tore - wer neunzig Minuten das Mittelfeld
+   * beherrscht hat, bekaeme dieselbe 3,5 wie einer, der spazieren ging.
+   * Die Summen der Mannschaft bleiben dabei exakt erhalten.
+   */
+  function statistikVerteilen(state, seite) {
+    var world = state.world;
+    var ids = Object.keys(seite.spielerDaten);
+    var eintraege = [];
+    var summeP = 0, summeZ = 0;
+    ids.forEach(function (id) {
+      var d = seite.spielerDaten[id];
+      var p = world.spieler[id];
+      if (!p || d.minuten < 1) return;
+      var gruppe = D.POS_GRUPPE[p.pos] || 'MIT';
+      var anteil = d.minuten / 90;
+      var gp = anteil * (PASS_ANTEIL[gruppe] || 1) * (0.70 + (p.attr.passen || 50) / 200);
+      var gz = anteil * (ZK_ANTEIL[gruppe] || 1) * (0.70 + (p.attr.zweikampf || 50) / 200);
+      summeP += gp; summeZ += gz;
+      eintraege.push({ d: d, p: p, gp: gp, gz: gz });
+    });
+    if (!eintraege.length) return;
+
+    verteileGenau(eintraege, seite.stat.paesse, summeP, 'gp', 'paesse');
+    verteileGenau(eintraege, seite.stat.zweikaempfe, summeZ, 'gz', 'zweikaempfe');
+
+    // Erfolge: nach Anzahl der Versuche, gewichtet mit der eigenen Klasse.
+    var gp2 = 0, gz2 = 0;
+    eintraege.forEach(function (e) {
+      e.hp = e.d.paesse * (0.70 + (e.p.attr.passen || 50) / 170);
+      e.hz = e.d.zweikaempfe * (0.70 + (e.p.attr.zweikampf || 50) / 170);
+      gp2 += e.hp; gz2 += e.hz;
+    });
+    verteileGenau(eintraege, seite.stat.paesseAn, gp2, 'hp', 'paesseAn', 'paesse');
+    verteileGenau(eintraege, seite.stat.zweikaempfeGew, gz2, 'hz', 'zweikaempfeGew', 'zweikaempfe');
+  }
+
+  /**
+   * Teilt `gesamt` nach Gewicht auf und legt den Rundungsrest beim
+   * groessten Posten ab, damit die Summe genau stimmt. `deckel` begrenzt
+   * einen Spieler auf seine eigenen Versuche - mehr Paesse ankommen als
+   * gespielt kann niemand.
+   */
+  function verteileGenau(eintraege, gesamt, summe, feldG, feldZ, deckel) {
+    if (!(gesamt > 0) || !(summe > 0)) {
+      eintraege.forEach(function (e) { e.d[feldZ] = 0; });
+      return;
+    }
+    var rest = gesamt, groesster = eintraege[0];
+    eintraege.forEach(function (e) {
+      var wert = Math.floor(gesamt * e[feldG] / summe);
+      if (deckel) wert = Math.min(wert, e.d[deckel]);
+      e.d[feldZ] = wert;
+      rest -= wert;
+      if (e[feldG] > groesster[feldG]) groesster = e;
+    });
+    // Rest der Reihe nach verteilen, wieder mit Deckel.
+    for (var i = 0; rest > 0 && i < eintraege.length * 3; i++) {
+      var e2 = eintraege[i % eintraege.length];
+      if (deckel && e2.d[feldZ] >= e2.d[deckel]) continue;
+      e2.d[feldZ] += 1; rest -= 1;
+    }
+    if (rest > 0 && !deckel) groesster.d[feldZ] += rest;
+  }
+
   function noten(state, seite, gegner) {
     var world = state.world;
+    statistikVerteilen(state, seite);
     var eigene = seite.stat.tore;
     var gegentore = gegner.stat.tore;
     var ergebnisBonus = eigene > gegentore ? -0.30 : eigene < gegentore ? 0.22 : 0;
@@ -1207,6 +1309,16 @@
         if (d.gegentore === 0 && d.minuten >= 80) note -= 0.45;
       } else if (D.POS_GRUPPE[p.pos] === 'ABW') {
         if (gegentore === 0 && d.minuten >= 70) note -= 0.40;
+      }
+
+      // Zweikaempfe und Paesse trennen den, der das Spiel getragen hat, von
+      // dem, der unauffaellig blieb. Ohne sie waere jede Note ohne Torbeteiligung
+      // exakt 3,5 - und die Zahl damit wertlos.
+      if (d.zweikaempfe >= 4) {
+        note -= U.clamp((d.zweikaempfeGew / d.zweikaempfe - 0.5) * 1.5, -0.5, 0.5);
+      }
+      if (d.paesse >= 12) {
+        note -= U.clamp((d.paesseAn / d.paesse - 0.78) * 2.6, -0.4, 0.4);
       }
 
       // Klasse des Spielers wirkt leicht mit
@@ -1272,6 +1384,7 @@
     neuBewerten: neuBewerten,
     torwartVon: torwartVon,
     spielerDaten: spielerDaten,
+    zwischennote: zwischennote,
     CHANCEN: CHANCEN
   };
 

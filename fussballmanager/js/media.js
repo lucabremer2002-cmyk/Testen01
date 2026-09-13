@@ -476,7 +476,20 @@
     var tab = world.tabellenPlatz(club.id);
     if (!tab || tab.spiele < 5) return null;
     var abstand = tab.platz - m.saisonziel.platz;
-    return { platz: tab.platz, ziel: m.saisonziel.platz, abstand: abstand, tabelle: tab };
+    // Der Vorstand misst am Ziel - aber er kennt auch die eigene Mannschaft.
+    // Wer den dreizehntbesten Kader der Liga auf Platz zwoelf fuehrt,
+    // arbeitet gut, selbst wenn die Vorgabe ein einstelliger Platz war.
+    // Ohne diese Korrektur wurde jeder Trainer eines schwachen Kaders
+    // zwangslaeufig entlassen, egal wie gut er ihn fuehrte.
+    var rang = P.ligaRang(world, club.id);
+    var messlatte = rang
+      ? U.clamp(Math.round(m.saisonziel.platz * 0.6 + rang.rang * 0.4), 1, rang.von)
+      : m.saisonziel.platz;
+    return {
+      platz: tab.platz, ziel: m.saisonziel.platz, abstand: abstand,
+      messlatte: messlatte, wirkAbstand: tab.platz - messlatte,
+      kaderRang: rang, tabelle: tab
+    };
   }
 
   /** Woechentliche Anpassung des Vertrauens anhand des Saisonziels. */
@@ -486,7 +499,7 @@
     if (abgleich) {
       // Ein Platz neben der Vorgabe ist kein Grund zur Unruhe. Erst ab zwei
       // Plaetzen Rueckstand wird der Vorstand nervoes.
-      var ab = abgleich.abstand;
+      var ab = abgleich.wirkAbstand;
       var wirksam = ab > 1 ? ab - 1 : ab < 0 ? ab : 0;
       // Der Vorstand hat eine Vorstellung davon, welches Vertrauen die
       // Tabellenlage rechtfertigt. Das Wochenurteil zieht das Vertrauen

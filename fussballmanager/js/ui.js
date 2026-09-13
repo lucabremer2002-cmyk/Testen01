@@ -833,7 +833,7 @@
     naechste();
   }
 
-  var JUBEL_TITEL = /Aufstieg geschafft|Meister|Pokalsieger|Saisonziel erreicht/i;
+  var JUBEL_TITEL = /Aufstieg geschafft|Meister|Pokalsieger|Saisonziel erreicht|^Meilenstein/i;
 
   function zeigeNachricht(n) {
     n.gelesen = true;
@@ -841,6 +841,24 @@
     if (JUBEL_TITEL.test(n.titel)) konfetti(120);
     var html = '<h4>' + esc(nachrichtTyp(n.typ)) + ' · ' + U.fmtDate(n.tag, 'lang') + '</h4>' +
       '<h2>' + esc(n.titel) + '</h2><p>' + esc(n.text).replace(/\n/g, '<br>') + '</p>';
+
+    // Ein Meilenstein soll nicht nur abgehakt werden, sondern den Blick auf
+    // den naechsten lenken - sonst ist der Moment vorbei, sobald er da ist.
+    if (/^Meilenstein/.test(n.titel) && FM.meilensteine) {
+      var bil = FM.meilensteine.bilanz(world);
+      var weiter = FM.meilensteine.naechste(world, 3);
+      html += '<div class="card card--flat mt"><div class="flex flex--zwischen">' +
+        '<b>Ihre Laufbahn</b><span class="chip chip--gruen">' + bil.erreicht + ' von ' + bil.gesamt + '</span></div>' +
+        '<div class="progress mt"><i style="width:' + Math.round(bil.erreicht / bil.gesamt * 100) + '%"></i></div>';
+      if (weiter.length) {
+        html += '<div class="klein muted" style="margin-top:10px">Als Nächstes in Reichweite</div>';
+        html += weiter.map(function (e) {
+          return '<div class="stat-row"><span>' + esc(e.name) + '</span><b>' +
+            Math.round(e.anteil * 100) + ' %</b></div>';
+        }).join('');
+      }
+      html += '<div class="flex mt"><button class="btn btn--sm" data-a="laufbahn">Alle Meilensteine</button></div></div>';
+    }
 
     if (n.aktion === 'angebot' && n.angebotId) {
       var angebot = world.transfer.angeboteEin.filter(function (a) { return a.id === n.angebotId; })[0];
@@ -869,6 +887,8 @@
     modal(html, {
       beimSchliessen: function () { kopfzeile(); },
       nachher: function (body) {
+        var lb = body.querySelector('[data-a="laufbahn"]');
+        if (lb) lb.onclick = function () { modalZu(); zeige('karriere'); };
         var ja = body.querySelector('[data-a="ja"]');
         if (ja) ja.onclick = function () {
           var r = FM.transfers.angebotEntscheiden(world, n.angebotId, true);
@@ -1019,7 +1039,14 @@
     // Was der Vorstand daraus macht - das ist die eigentliche Nachricht
     // des Saisonendes, und sie gehoert nicht nur ins Postfach.
     var m = world.manager;
-    var abweichung = ziel && eigen ? ziel.platz - eigen.platz : 0;
+    // Dieselbe Messlatte wie im Urteil des Vorstands: die Vorgabe, gemildert
+    // um das, was dieser Kader in dieser Liga ueberhaupt hergibt.
+    var rang = world.nutzerClubId ? FM.players.ligaRang(world, world.nutzerClubId) : null;
+    var messlatte = ziel
+      ? (rang ? U.clamp(Math.round(ziel.platz * 0.6 + rang.rang * 0.4), 1, rang.von) : ziel.platz)
+      : 0;
+    var abweichung = ziel && eigen ? messlatte - eigen.platz : 0;
+    var achtbar = !erreicht && abweichung >= 2;
     var urteilswert = U.clamp(abweichung * 5, -22, 22);
     if (erreicht) urteilswert = Math.max(urteilswert, 8);
     var kuenftig = U.clamp(m.vorstandsvertrauen + urteilswert, 0, 100);
@@ -1027,9 +1054,13 @@
       ? (eigen && eigen.platz <= 3
         ? 'Der Vorstand ist begeistert. So eine Saison spricht sich herum.'
         : 'Der Vorstand ist zufrieden. Sie haben geliefert, was verabredet war.')
-      : (kuenftig < 25
-        ? 'Der Vorstand ist alarmiert. Ein weiterer Fehlschlag kostet Sie das Amt.'
-        : 'Der Vorstand erwartet eine deutliche Steigerung.');
+      : achtbar
+        ? 'Die Vorgabe steht auf dem Papier, die Mannschaft auf dem Platz. Aus diesem Kader ' +
+          (rang ? '- dem ' + rang.rang + '.-besten der Liga - ' : '') +
+          'war kaum mehr herauszuholen. Der Vorstand hält an Ihnen fest.'
+        : (kuenftig < 25
+          ? 'Der Vorstand ist alarmiert. Ein weiterer Fehlschlag kostet Sie das Amt.'
+          : 'Der Vorstand erwartet eine deutliche Steigerung.');
     html += '<div class="card card--flat mt"><h4>Das Urteil des Vorstands</h4>' +
       '<p class="klein">' + esc(urteil) + '</p>' +
       '<div class="stat-row"><span>Vertrauen des Vorstands</span><b class="' +
@@ -1037,9 +1068,10 @@
       Math.round(m.vorstandsvertrauen) + ' % → ' + Math.round(kuenftig) + ' %</b></div>' +
       // Ein erfuelltes Jahr wandert ins Guthaben - das ist der Grund, warum
       // sich Konstanz lohnt, auch wenn das Vertrauen schon bei 100 steht.
-      (erreicht
+      (erreicht || achtbar
         ? '<div class="stat-row"><span>Rückhalt beim Vorstand</span><b class="w-gut">+' +
-          (abweichung >= 3 ? 2 : 1) + ' → ' + Math.min(3, (m.rueckhalt || 0) + (abweichung >= 3 ? 2 : 1)) +
+          (erreicht && abweichung >= 3 ? 2 : 1) + ' → ' +
+          Math.min(3, (m.rueckhalt || 0) + (erreicht && abweichung >= 3 ? 2 : 1)) +
           ' von 3</b></div>'
         : abweichung <= -4
           ? '<div class="stat-row"><span>Rückhalt beim Vorstand</span><b class="w-schlecht">−1 → ' +

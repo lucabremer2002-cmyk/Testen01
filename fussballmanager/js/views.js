@@ -318,7 +318,15 @@
       '<div class="progress"><i style="width:' + Math.round(anteil * 100) + '%"></i></div>' +
       '<div class="flex flex--zwischen klein muted" style="margin-top:5px">' +
       '<span>Platz ' + eintrag.platz + '</span>' +
-      '<span>' + (erreicht ? 'im Plan' : 'Vorgabe: Platz ' + ziel.platz) + '</span></div></div>';
+      '<span>' + (erreicht ? 'im Plan' : 'Vorgabe: Platz ' + ziel.platz) + '</span></div>' +
+      // Was der Vorstand dem Kader zutraut, ist die zweite, ehrlichere Zahl.
+      // Sie erklaert, warum eine verfehlte Vorgabe nicht gleich das Amt kostet.
+      (function () {
+        var ab = FM.media.zielabgleich(world);
+        if (!ab || !ab.kaderRang) return '';
+        return '<div class="klein muted" style="margin-top:4px">Kader: ' + ab.kaderRang.rang +
+          '.-bester der Liga · realistisch wäre Platz ' + ab.messlatte + '</div>';
+      })() + '</div>';
   }
 
   /** Wiederkehrende Klickziele: Nachrichten, Sprungmarken, Spielberichte. */
@@ -888,6 +896,15 @@
       statZeile('Vorlagen', p.stats.vorlagen, p.karriere.vorlagen) +
       statZeile('Ø Note', P.schnitt(p.stats) ? U.note(P.schnitt(p.stats)) : '–', P.schnitt(p.karriere) ? U.note(P.schnitt(p.karriere)) : '–') +
       statZeile('Gelbe Karten', p.stats.gelb, p.karriere.gelb) +
+      // Zweikampf- und Passquote sagen ueber einen Innenverteidiger mehr
+      // aus als jede Torzahl.
+      quote('Zweikampfquote', p.stats.zweikaempfeGewonnen, p.stats.zweikaempfe,
+        p.karriere.zweikaempfeGewonnen, p.karriere.zweikaempfe) +
+      quote('Passquote', p.stats.paesseAngekommen, p.stats.paesse,
+        p.karriere.paesseAngekommen, p.karriere.paesse) +
+      (p.stats.kmGelaufen >= 1
+        ? statZeile('Laufleistung', U.num(p.stats.kmGelaufen, 1) + ' km', U.num(p.karriere.kmGelaufen, 1) + ' km')
+        : '') +
       (p.pos === 'TW' ? statZeile('Zu-Null-Spiele', p.stats.zuNull, p.karriere.zuNull) : '') +
       '</div>';
     html += '</div>';
@@ -996,6 +1013,14 @@
       }
     });
   };
+
+  /** Eine Quote als Prozentzeile - leer, solange nichts gemessen wurde. */
+  function quote(label, teil, gesamt, kTeil, kGesamt) {
+    if (!gesamt) return '';
+    var jetzt = Math.round(teil / gesamt * 100) + ' %';
+    var karr = kGesamt ? Math.round(kTeil / kGesamt * 100) + ' %' : '–';
+    return statZeile(label, jetzt, karr);
+  }
 
   function statZeile(label, saison, karriere) {
     return '<div class="stat-row"><span>' + esc(label) + '</span><b>' + saison +

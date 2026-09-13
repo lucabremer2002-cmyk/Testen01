@@ -809,6 +809,30 @@
   // ------------------------------------------------------------ Kaderstatus
 
   /** Der Status, den ein Spieler nach seiner Stellung im Kader bekaeme. */
+  /**
+   * Wo steht dieser Kader in seiner Liga? Gemessen an den elf staerksten
+   * Spielern - grob, aber ehrlich, denn das ist die Mannschaft, die am
+   * Samstag auflaufen kann. Der Vorstand braucht diese Zahl, um zwischen
+   * schlechter Arbeit und einem schlechten Kader unterscheiden zu koennen.
+   */
+  function ligaRang(world, clubId) {
+    var liga = world.ligaVon ? world.ligaVon(clubId) : null;
+    if (!liga || !liga.teams || !liga.teams.length) return null;
+    var werte = liga.teams.map(function (id) {
+      var elf = sortBesteElf(world, id);
+      return { id: id, wert: elf.length ? U.avg(elf.map(gesamt)) : 0 };
+    });
+    werte = U.sortBy(werte, function (e) { return -e.wert; });
+    for (var i = 0; i < werte.length; i++) {
+      if (werte[i].id === clubId) return { rang: i + 1, von: werte.length };
+    }
+    return null;
+  }
+
+  function sortBesteElf(world, clubId) {
+    return U.sortBy(world.kaderVon(clubId), function (p) { return -gesamt(p); }).slice(0, 11);
+  }
+
   function vorgeschlageneRolle(p, kader) {
     var rang = kaderRang(p, kader);
     if (p.alter <= 19 && rang > 14) return 'perspektive';
@@ -979,6 +1003,7 @@
     merkmaleWaehlen: merkmaleWaehlen,
     merkmaleFortschreiben: merkmaleFortschreiben,
     hatMerkmal: hatMerkmal,
+    ligaRang: ligaRang,
     vorgeschlageneRolle: vorgeschlageneRolle,
     rollenAusrichten: rollenAusrichten,
     rolleVon: rolleVon,
