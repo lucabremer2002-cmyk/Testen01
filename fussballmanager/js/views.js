@@ -1189,7 +1189,7 @@
       html += '</div>';
 
       if (probleme.length) {
-        html += '<div class="mt klein" style="color:var(--red)">' +
+        html += '<div class="mt klein" style="color:var(--schlecht)">' +
           probleme.map(function (t) { return '⚠ ' + esc(t); }).join('<br>') + '</div>';
       }
       html += '<div class="flex klein muted mt" style="gap:14px">' +

@@ -14,6 +14,54 @@
 
   function el(id) { return doc.getElementById(id); }
 
+  // ------------------------------------------------------------ Erscheinungsbild
+
+  /*
+   * Hell oder dunkel. Ohne Wahl folgt das Spiel dem Betriebssystem - das
+   * ist der Normalfall und braucht keine Einstellung. Wer umschaltet, legt
+   * sich fest, und die Festlegung ueberlebt den Neustart.
+   */
+  var THEMA_KEY = 'bl-manager-thema';
+
+  function themaLesen() {
+    try { return global.localStorage.getItem(THEMA_KEY) || ''; } catch (e) { return ''; }
+  }
+
+  /*
+   * Wichtig: Ohne eigene Wahl wird das Attribut nicht angefasst. Laeuft das
+   * Spiel eingebettet, hat die Umgebung dort moeglicherweise schon das
+   * Erscheinungsbild des Betrachters gesetzt - das duerfen wir nicht
+   * ueberschreiben.
+   */
+  function themaAnwenden(wert) {
+    var wurzel = doc.documentElement;
+    if (wert === 'hell' || wert === 'dunkel') {
+      wurzel.setAttribute('data-theme', wert === 'hell' ? 'light' : 'dark');
+    }
+    var knopf = el('btn-thema');
+    if (knopf) {
+      var dunkel = istDunkel();
+      knopf.textContent = dunkel ? '\u25D1' : '\u25D0';
+      knopf.title = dunkel ? 'Auf helles Erscheinungsbild wechseln' : 'Auf dunkles Erscheinungsbild wechseln';
+    }
+  }
+
+  /** Was gerade tatsaechlich zu sehen ist - Attribut schlaegt System. */
+  function istDunkel() {
+    var gesetzt = doc.documentElement.getAttribute('data-theme');
+    if (gesetzt === 'dark') return true;
+    if (gesetzt === 'light') return false;
+    return !!(global.matchMedia && global.matchMedia('(prefers-color-scheme: dark)').matches);
+  }
+
+  function themaUmschalten() {
+    var neu = istDunkel() ? 'hell' : 'dunkel';
+    try { global.localStorage.setItem(THEMA_KEY, neu); } catch (e) { /* privates Fenster */ }
+    themaAnwenden(neu);
+  }
+
+  themaAnwenden(themaLesen());
+
   // ------------------------------------------------------------ Startbildschirm
 
   function zeichneVereine() {
@@ -59,7 +107,7 @@
     var s = schwierigkeit(c);
     var ziel = FM.world.saisonziel(c, c.liga);
     box.innerHTML = '<div class="flex flex--zwischen"><div>' +
-      '<b style="color:var(--text);font-size:15px">' + esc(c.name) + '</b> ' +
+      '<b style="color:var(--ink);font-size:15px">' + esc(c.name) + '</b> ' +
       '<span class="schwierigkeit" style="background:' + s.farbe + ';color:' + s.color + '">' + s.text + '</span><br>' +
       esc(c.stadion) + ' · ' + U.num(c.kapazitaet) + ' Plätze · ' +
       (c.liga === 1 ? '1. Bundesliga' : '2. Bundesliga') + '</div>' +
@@ -186,6 +234,9 @@
     el('sheet').addEventListener('click', function (e) {
       if (e.target.dataset && e.target.dataset.sheetZu) UI.blattZu();
     });
+
+    var thema = el('btn-thema');
+    if (thema) thema.onclick = function () { themaUmschalten(); };
 
     el('btn-weiter').onclick = function () { UI.weiter(); };
     var vor = el('btn-vor');

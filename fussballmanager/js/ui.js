@@ -93,7 +93,9 @@
     var radius = (groesse - dicke) / 2;
     var umfang = 2 * Math.PI * radius;
     var wert = U.clamp(anteil, 0, 1);
-    var farbe = opts.farbe || (wert >= .66 ? 'var(--accent)' : wert >= .34 ? 'var(--gold)' : 'var(--red)');
+    // Helle Töne: der Ring liegt oft auf dem dunklen Rasen, wo ein
+    // dunkles Ocker als Schmutzrand liest.
+    var farbe = opts.farbe || (wert >= .66 ? 'var(--accent)' : wert >= .34 ? 'var(--warn-hell)' : 'var(--schlecht)');
     return '<span class="ring" style="width:' + groesse + 'px;height:' + groesse + 'px">' +
       '<svg width="' + groesse + '" height="' + groesse + '" viewBox="0 0 ' + groesse + ' ' + groesse + '">' +
       '<circle class="ring__spur" cx="' + groesse / 2 + '" cy="' + groesse / 2 + '" r="' + radius +
@@ -330,6 +332,9 @@
       '<button class="btn btn--primary" data-blatt-a="speichern" style="flex:1;justify-content:center">Speichern</button>' +
       '<button class="btn" data-blatt-a="export" style="flex:1;justify-content:center">Als Datei sichern</button>' +
       '</div>' +
+      '<div class="flex mt" style="gap:8px">' +
+      '<button class="btn" data-blatt-a="thema" style="flex:1;justify-content:center">Erscheinungsbild wechseln</button>' +
+      '</div>' +
       '<p class="klein muted" style="margin:10px 0 0" id="blatt-stand">' + speicherStandText() + '</p>';
 
     el('sheet-body').innerHTML = html;
@@ -350,6 +355,12 @@
           if (st) st.textContent = speicherStandText();
         }
       });
+    };
+    var th = el('sheet-body').querySelector('[data-blatt-a="thema"]');
+    if (th) th.onclick = function () {
+      var knopf = el('btn-thema');
+      if (knopf) knopf.click();
+      blattZu();
     };
     var ex = el('sheet-body').querySelector('[data-blatt-a="export"]');
     if (ex) ex.onclick = function () {
@@ -708,7 +719,7 @@
       '</div></div>';
 
     if (probleme.length) {
-      html += '<div class="card card--flat mb" style="border-color:var(--rot)"><h4 style="color:var(--rot)">Hinweise zur Aufstellung</h4><ul class="klein">' +
+      html += '<div class="card card--flat mb" style="border-color:var(--schlecht)"><h4 style="color:var(--schlecht)">Hinweise zur Aufstellung</h4><ul class="klein">' +
         probleme.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></div>';
     }
 

@@ -729,7 +729,7 @@
         '</div>';
 
       if (f.lizenzWarnung > 3) {
-        html += '<div class="card card--flat mb" style="border-color:var(--rot)"><b class="w-schlecht">Lizenzauflage:</b> ' +
+        html += '<div class="card card--flat mb" style="border-color:var(--schlecht)"><b class="w-schlecht">Lizenzauflage:</b> ' +
           'Der Verein ist seit ' + f.lizenzWarnung + ' Wochen im Minus. Bei anhaltender Unterdeckung droht Punktabzug.</div>';
       }
 
