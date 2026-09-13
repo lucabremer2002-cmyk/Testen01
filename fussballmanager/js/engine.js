@@ -1052,6 +1052,10 @@
       neuerAnfang(world);
     }
 
+    // Der Trainer altert mit. In einem Spiel, das ueber Jahrzehnte laufen
+    // soll, bleibt sonst ausgerechnet die eigene Figur stehen.
+    if (world.manager) world.manager.alter += 1;
+
     // --- Spieler altern lassen, Statistiken zuruecksetzen
     world.alleSpieler().forEach(function (p) {
       p.alter += 1;
