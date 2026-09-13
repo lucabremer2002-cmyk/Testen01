@@ -176,6 +176,9 @@
           '<p>' + esc(pt[2]) + '</p></div></div>';
       }).join('') + '</div></div>';
 
+      // ---- Ehrungen: was der eigene Verein zuletzt geholt hat
+      html += ehrungsStreifen(world, club);
+
       // ---- Entwicklung: wer waechst gerade, wer faellt ab
       html += entwicklungsKarte(world, kader);
 
@@ -295,6 +298,35 @@
    * Wie weit ist das Saisonziel erreicht? Der Balken vergleicht den
    * aktuellen Tabellenplatz mit der Vorgabe des Vorstands.
    */
+  /**
+   * Die letzten Ehrungen des eigenen Vereins. Ohne sie verschwindet eine
+   * Auszeichnung nach einem Klick im Postfach - dabei ist sie das, woran
+   * man sich nach zehn Spielzeiten erinnert.
+   */
+  function ehrungsStreifen(world, club) {
+    if (!FM.awards) return '';
+    var alle = FM.awards.auszeichnungenVon(world, {}).filter(function (a) {
+      if (a.clubId === club.id) return true;
+      var sp = a.spielerId ? world.spieler[a.spielerId] : null;
+      return !!(sp && sp.clubId === club.id);
+    }).slice(0, 4);
+    if (!alle.length) return '';
+    return '<div class="card"><div class="card__head"><h3>Ehrungen</h3>' +
+      '<button class="btn btn--sm" data-goto="statistik">Ehrentafel</button></div>' +
+      '<div class="ehrungen">' + alle.map(function (a) {
+        var sp = a.spielerId ? world.spieler[a.spielerId] : null;
+        var trainerpreis = a.typ === 'trainerDesMonats' || /Trainer/.test(a.titel);
+        var symbol = trainerpreis ? '\u2605' : '\u2691';
+        // Beim Trainerpreis steht der Trainer im Mittelpunkt, nicht der Verein.
+        var wer = sp ? sp.vorname + ' ' + sp.nachname
+          : trainerpreis ? world.manager.name : club.name;
+        return '<div class="ehrung"' + (sp ? ' data-spieler="' + sp.id + '"' : '') + '>' +
+          '<span class="ehrung__zeichen">' + symbol + '</span>' +
+          '<div><b>' + esc(wer) + '</b>' +
+          '<div class="klein muted">' + esc(a.titel) + '</div></div></div>';
+      }).join('') + '</div></div>';
+  }
+
   function zielFortschritt(world, eintrag, liga) {
     var ziel = world.manager.saisonziel;
     if (!ziel || !eintrag) {

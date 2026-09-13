@@ -1458,3 +1458,18 @@ details.card[open] summary::before { transform: rotate(90deg); }
 .rueckhalt__text { flex: 1; }
 /* Lange Zielbeschreibungen dürfen umbrechen, statt die Tabelle zu sprengen. */
 .zeilenumbruch { white-space: normal; line-height: 1.35; margin-top: 2px; }
+
+/* ---- Ehrungen auf der Übersicht ------------------------------------- */
+.ehrungen { display: grid; gap: 8px; }
+.ehrung {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: var(--r-sm);
+  background: var(--surface-2); cursor: pointer;
+  transition: background .15s;
+}
+.ehrung:hover { background: var(--surface-3); }
+.ehrung__zeichen {
+  width: 26px; height: 26px; flex: 0 0 26px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--gold-bg); color: var(--gold); font-size: 13px;
+}

@@ -262,7 +262,9 @@
       if ((m.vertragsalarm[p.id] || 0) >= stufe) return;
       m.vertragsalarm[p.id] = stufe;
       world.nachricht({
-        typ: 'vertrag', prioritaet: stufe === 2 ? 4 : 3,
+        // Der fruehe Hinweis soll informieren, nicht das Vorspulen anhalten;
+        // die letzte Frist dagegen verlangt eine Entscheidung.
+        typ: 'vertrag', prioritaet: stufe === 2 ? 4 : 2,
         titel: (stufe === 2 ? 'Letzte Frist: ' : 'Vertrag läuft aus: ') + p.vorname + ' ' + p.nachname,
         text: stufe === 2
           ? p.nachname + ' hat nur noch ' + monate + ' Monate Vertrag. Ab sofort darf er ' +
