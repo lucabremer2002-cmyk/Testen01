@@ -1400,10 +1400,15 @@ td.name { font-weight: 700; }
 .vgl__wert { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-2); }
 .vgl__zeile .vgl__wert:first-child { text-align: right; }
 .vgl__wert.is-besser { color: var(--accent); font-weight: 800; }
-.vgl__label { text-align: center; font-size: 12px; color: var(--muted); }
+/* Lange Bezeichnungen wie "Verletzungsanfaelligkeit" muessen umbrechen
+   duerfen, sonst schieben sie sich am Telefon ueber die Zahlen. */
+.vgl__label {
+  text-align: center; font-size: 12px; color: var(--muted);
+  line-height: 1.25; overflow-wrap: anywhere; hyphens: auto;
+}
 @media (max-width: 820px) {
-  .vgl, .vgl__zeile { grid-template-columns: 1fr 96px 1fr; gap: 4px; }
-  .vgl__label { font-size: 11px; }
+  .vgl, .vgl__zeile { grid-template-columns: 1fr 104px 1fr; gap: 4px; }
+  .vgl__label { font-size: 10.5px; }
 }
 
 /* ---------- Spieltagsband ---------- */
@@ -1473,3 +1478,19 @@ details.card[open] summary::before { transform: rotate(90deg); }
   display: grid; place-items: center;
   background: var(--gold-bg); color: var(--gold); font-size: 13px;
 }
+
+/* ---- Netzdiagramm im Spielervergleich -------------------------------- */
+.radar { display: grid; justify-items: center; margin: 4px 0 14px; }
+.radar svg { width: 100%; max-width: 260px; height: auto; overflow: visible; }
+.radar__netz { fill: none; stroke: var(--line-2); stroke-width: 1; }
+.radar__achse { stroke: var(--line); stroke-width: 1; }
+.radar__text { fill: var(--muted); font: 600 9px var(--font-ui); }
+.radar__a { fill: rgba(0, 229, 133, .26); stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.radar__b { fill: rgba(86, 168, 255, .22); stroke: var(--blue); stroke-width: 2; stroke-linejoin: round; }
+.radar__legende { display: flex; gap: 16px; margin-top: 8px; font-size: 12px; color: var(--text-2); }
+.radar__punkt {
+  display: inline-block; width: 9px; height: 9px; border-radius: 2px;
+  margin-right: 6px; vertical-align: -1px;
+}
+.radar__punkt--a { background: var(--accent); }
+.radar__punkt--b { background: var(--blue); }

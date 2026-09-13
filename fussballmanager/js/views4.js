@@ -82,6 +82,78 @@
   // ============================================================ Spielervergleich
 
   /**
+   * Sechs Werte, die einen Spieler beschreiben. Fuer Torhueter gilt eine
+   * eigene Achsenbelegung - Tempo und Abschluss sagen dort nichts.
+   */
+  function profilWerte(p) {
+    var a = p.attr || {};
+    function m() {
+      var summe = 0, n = 0;
+      for (var i = 0; i < arguments.length; i++) { summe += a[arguments[i]] || 0; n++; }
+      return n ? summe / n : 0;
+    }
+    if (p.pos === 'TW') {
+      return [
+        ['Reflexe', a.reflexe || 0],
+        ['Strafraum', a.strafraum || 0],
+        ['Handling', a.handling || 0],
+        ['Eröffnung', m('abschlag', 'passen')],
+        ['1 gegen 1', a.einsgegeneins || 0],
+        ['Nerven', m('nervenstaerke', 'entscheidung')]
+      ];
+    }
+    return [
+      ['Technik', m('technik', 'dribbling', 'passen')],
+      ['Abschluss', m('abschluss', 'weitschuss', 'kopfball')],
+      ['Tempo', m('tempo', 'antritt', 'beweglichkeit')],
+      ['Physis', m('kraft', 'ausdauer', 'sprungkraft', 'balance')],
+      ['Defensive', m('zweikampf', 'positionierung', 'antizipation')],
+      ['Spielwitz', m('uebersicht', 'entscheidung', 'teamwork')]
+    ];
+  }
+
+  /** Zeichnet das Netzdiagramm zweier Spieler uebereinander. */
+  function radarVergleich(a, b) {
+    var wa = profilWerte(a), wb = profilWerte(b);
+    var mitte = 116, radius = 82, n = wa.length;
+    function punkt(i, wert) {
+      var winkel = (-90 + i * (360 / n)) * Math.PI / 180;
+      var r = radius * U.clamp(wert, 0, 100) / 100;
+      return [mitte + r * Math.cos(winkel), mitte + r * Math.sin(winkel)];
+    }
+    function rund(pt) { return Math.round(pt[0] * 10) / 10 + ',' + Math.round(pt[1] * 10) / 10; }
+    function flaeche(werte) {
+      return werte.map(function (w, i) { return rund(punkt(i, w[1])); }).join(' ');
+    }
+    var netz = '';
+    [0.25, 0.5, 0.75, 1].forEach(function (stufe) {
+      var ecken = [];
+      for (var i = 0; i < n; i++) ecken.push(rund(punkt(i, stufe * 100)));
+      netz += '<polygon class="radar__netz" points="' + ecken.join(' ') + '"></polygon>';
+    });
+    var achsen = '', beschriftung = '';
+    for (var i = 0; i < n; i++) {
+      var e = punkt(i, 100);
+      achsen += '<line class="radar__achse" x1="' + mitte + '" y1="' + mitte + '" x2="' +
+        Math.round(e[0]) + '" y2="' + Math.round(e[1]) + '"></line>';
+      var t = punkt(i, 122);
+      beschriftung += '<text class="radar__text" x="' + Math.round(t[0]) + '" y="' + Math.round(t[1] + 3) +
+        '" text-anchor="' + (Math.abs(t[0] - mitte) < 8 ? 'middle' : t[0] > mitte ? 'start' : 'end') + '">' +
+        esc(wa[i][0]) + '</text>';
+    }
+    return '<div class="radar">' +
+      '<svg viewBox="0 0 232 232" role="img" aria-label="Vergleich der Spielerprofile">' +
+      netz + achsen +
+      '<polygon class="radar__a" points="' + flaeche(wa) + '"></polygon>' +
+      '<polygon class="radar__b" points="' + flaeche(wb) + '"></polygon>' +
+      beschriftung + '</svg>' +
+      '<div class="radar__legende">' +
+      '<span><i class="radar__punkt radar__punkt--a"></i>' + esc(a.nachname) + '</span>' +
+      '<span><i class="radar__punkt radar__punkt--b"></i>' + esc(b.nachname) + '</span>' +
+      '</div></div>';
+  }
+
+  /**
    * Zwei Spieler nebeneinander. Verglichen wird, was fuer eine
    * Entscheidung zaehlt: Klasse auf der gemeinsamen Position, Attribute,
    * Form, Belastbarkeit, Vertrag und Kosten.
@@ -120,6 +192,9 @@
 
     var html = '<h2>Spielervergleich</h2>' +
       '<div class="vgl">' + kopf(a) + '<div></div>' + kopf(b) + '</div>' +
+      // Dreissig Attribute sagen mehr aus, aber sie sagen es nicht sofort.
+      // Das Netz zeigt auf einen Blick, wo die beiden sich unterscheiden.
+      radarVergleich(a, b) +
       '<div class="vgl__block">' +
       zeile('Stärke gesamt', P.gesamt(a), P.gesamt(b)) +
       zeile('Stärke als ' + (D.POS_NAME[pos] || pos), P.posStaerke(a, pos), P.posStaerke(b, pos)) +
