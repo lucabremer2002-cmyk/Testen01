@@ -73,6 +73,7 @@
     // Vertrag steht, statt einen Tag lang vertragslos zu sein.
     FM.transfers.vorvertraegePruefen(world);
     FM.transfers.einigungenPruefen(world);
+    FM.meilensteine.pruefe(world);
     FM.transfers.vertraegePruefen(world);
     FM.transfers.kiVorvertraege(world);
     leihenPruefen(world);
@@ -223,6 +224,7 @@
     if (world.nutzerClubId) world.kabinenklima = world.klimaWerte[world.nutzerClubId];
 
     FM.transfers.kiVerlaengerungen(world);
+    vertragsWarnungen(world);
     FM.media.vertrauenWoche(world);
     FM.media.abwerbungPruefen(world);
     var trennung = FM.media.entlassungspruefung(world);
@@ -230,6 +232,48 @@
     unzufriedeneSpielerMelden(world);
     lizenzPruefung(world);
     geruechteStreuen(world);
+  }
+
+  /**
+   * Kein Verein verliert seinen Kapitaen, ohne es kommen zu sehen. Neun
+   * Monate vor Vertragsende meldet sich die Geschaeftsstelle, vier Monate
+   * vorher noch einmal - danach darf der Spieler frei mit anderen
+   * verhandeln. Gemeldet wird nur, wessen Abgang wehtaete: Leistungstraeger
+   * und Talente, deren Potenzial ueber dem Vereinsniveau liegt.
+   */
+  function vertragsWarnungen(world) {
+    var clubId = world.nutzerClubId;
+    if (!clubId) return;
+    var m = world.manager;
+    if (!m) return;
+    if (!m.vertragsalarm) m.vertragsalarm = {};
+    var club = world.vereine[clubId];
+    var niveau = P.niveauFuerVerein(club);
+    world.kaderVon(clubId).forEach(function (p) {
+      if (!p.vertrag || p.leihe) return;
+      var monate = P.restlaufzeitMonate(p, world);
+      if (monate > 10) { delete m.vertragsalarm[p.id]; return; }
+      if (p.vorvertrag) return;
+      var stufe = monate <= 4 ? 2 : monate <= 9 ? 1 : 0;
+      if (!stufe) return;
+      var wichtig = P.gesamt(p) >= niveau - 8 ||
+        (p.alter <= 21 && p.potenzial >= niveau);
+      if (!wichtig) return;
+      if ((m.vertragsalarm[p.id] || 0) >= stufe) return;
+      m.vertragsalarm[p.id] = stufe;
+      world.nachricht({
+        typ: 'vertrag', prioritaet: stufe === 2 ? 4 : 3,
+        titel: (stufe === 2 ? 'Letzte Frist: ' : 'Vertrag läuft aus: ') + p.vorname + ' ' + p.nachname,
+        text: stufe === 2
+          ? p.nachname + ' hat nur noch ' + monate + ' Monate Vertrag. Ab sofort darf er ' +
+            'mit anderen Vereinen verhandeln und im Sommer ablösefrei gehen. Wer ihn halten ' +
+            'will, muss jetzt ein Angebot auf den Tisch legen - oder ihn verkaufen, solange ' +
+            'er noch etwas einbringt.'
+          : p.nachname + ' (' + p.alter + ') steht noch ' + monate + ' Monate unter Vertrag. ' +
+            'Die Geschäftsstelle rät zu einem Gespräch, bevor andere Vereine aufmerksam werden.',
+        spielerId: p.id
+      });
+    });
   }
 
   /**
@@ -996,13 +1040,15 @@
 
     // --- Saisonziel-Bilanz des Nutzers
     if (world.nutzerClubId) {
-      saisonBilanzNutzer(world, bl1, bl2);
+      saisonBilanzNutzer(world, bl1, bl2, l3);
+      neuerAnfang(world);
     }
 
     // --- Spieler altern lassen, Statistiken zuruecksetzen
     world.alleSpieler().forEach(function (p) {
       p.alter += 1;
       P.saisonAbschliessen(p, world);
+      p.staerkeStart = Math.round(P.gesamt(p) * 10) / 10;
       p.stats = P.leereStats();
       p.ligaStats = P.leereStats();
       p.gelbeSaison = 0;
@@ -1018,7 +1064,8 @@
     world.vereinIds.forEach(function (clubId) {
       var club = world.vereine[clubId];
       if (!club || club.auslaendisch || club.liga > 3) return;
-      var neue = FM.youth.jahrgang(world, clubId);
+      var raum = (club.liga === 1 ? 32 : club.liga === 2 ? 31 : 29) - world.kaderVon(clubId).length;
+      var neue = FM.youth.jahrgang(world, clubId, raum);
       if (world.istNutzerVerein(clubId) && neue.length) {
         world.nachricht({
           typ: 'nachwuchs', prioritaet: 2,
@@ -1087,6 +1134,21 @@
    * und niemand zwingt die KI, genug nachzuverpflichten. Zuerst werden
    * vertragslose Spieler genommen, erst danach wird neu erzeugt.
    */
+  /**
+   * Wer im Kader steht, ist nicht automatisch einsatzfaehig. Ein Talent mit
+   * Staerke 23 fuellt eine Zeile in der Liste, aber keine Planstelle. Wer
+   * es mitzaehlt, haelt einen Verein fuer gut besetzt, dessen Profikader
+   * gerade auseinanderfaellt - genau so verkam ein Meisterkader binnen drei
+   * Jahren zu einer Jugendmannschaft.
+   */
+  function einsatzKader(world, clubId) {
+    var club = world.vereine[clubId];
+    var niveau = P.niveauFuerVerein(club);
+    return world.kaderVon(clubId).filter(function (p) {
+      return P.gesamt(p) >= niveau - 16;
+    });
+  }
+
   function kaderAuffuellen(world) {
     var rng = world.rng;
     world.vereinIds.forEach(function (clubId) {
@@ -1102,7 +1164,11 @@
       // ohne Besetzung. Alles andere entscheidet der Trainer selbst.
       var nutzer = world.istNutzerVerein(clubId);
       var luecken = nutzer ? notLuecken(world, clubId) : positionsLuecken(world, clubId);
-      var fehlend = Math.max(minimum - kader.length, luecken);
+      // Beim Nutzer greift der Verein erst, wenn wirklich keine Mannschaft
+      // mehr zusammenkommt; die KI plant vorausschauender.
+      var tauglich = nutzer ? 14 : (club.liga === 1 ? 18 : 17);
+      var einsatz = einsatzKader(world, clubId).length;
+      var fehlend = Math.max(minimum - kader.length, tauglich - einsatz, luecken);
       if (fehlend <= 0) return;
       // Ist der Kader schon voll, macht der Verein Platz: der entbehrlichste
       // Spieler einer ueberbesetzten Position geht.
@@ -1110,7 +1176,12 @@
         if (!entbehrlichenAbgeben(world, clubId)) break;
         kader = world.kaderVon(clubId);
       }
-      fehlend = Math.min(fehlend, maximal - kader.length);
+      // In der Notlage darf der Kader ueber die uebliche Grenze wachsen.
+      // Lieber ein Spieler zu viel auf der Liste als eine Mannschaft, die
+      // nicht mehr antreten kann.
+      var notlage = Math.max(tauglich - einsatz, luecken);
+      var obergrenze = notlage > 0 ? Math.max(maximal, kader.length + notlage) : maximal;
+      fehlend = Math.min(fehlend, obergrenze - kader.length);
       if (fehlend <= 0) return;
       var frei = world.spielerIds
         .map(function (id) { return world.spieler[id]; })
@@ -1120,8 +1191,11 @@
       for (var i = 0; i < fehlend; i++) {
         // Welche Position fehlt am dringendsten?
         var pos = schwaechstePosition(world, clubId);
+        // Eine Untergrenze gehoert dazu: ein Notkauf, der ohnehin nie
+        // spielen kann, loest das Problem nicht, er verdeckt es nur.
         var passend = frei.filter(function (p) {
-          return p.pos === pos && P.gesamt(p) <= P.niveauFuerVerein(club) + 6;
+          return p.pos === pos && P.gesamt(p) <= P.niveauFuerVerein(club) + 6 &&
+            P.gesamt(p) >= P.niveauFuerVerein(club) - 14;
         })[0];
         if (passend) {
           frei = frei.filter(function (p) { return p.id !== passend.id; });
@@ -1431,17 +1505,44 @@
     }
   }
 
-  function saisonBilanzNutzer(world, bl1, bl2) {
+  /**
+   * Eine neue Spielzeit ist ein neuer Anfang. Der Vorstand nimmt das Urteil
+   * des Vorjahres mit, aber niemand beginnt eine Saison bereits als
+   * entlassener Mann - sonst waere die erste Niederlage im August das Ende
+   * einer Laufbahn, die gerade erst begonnen hat. Auch die Verwarnungen
+   * verfallen: gezaehlt wird ab dem ersten Spieltag neu.
+   */
+  function neuerAnfang(world) {
+    var m = world.manager;
+    if (!m) return;
+    m.vorstandsvertrauen = U.clamp(Math.max(m.vorstandsvertrauen, 20) * 0.8 + 55 * 0.2, 0, 100);
+    m.fanvertrauen = U.clamp(Math.max(m.fanvertrauen, 25) * 0.8 + 55 * 0.2, 0, 100);
+    m.mannschaftsvertrauen = U.clamp(Math.max(m.mannschaftsvertrauen, 30) * 0.8 + 58 * 0.2, 0, 100);
+    m.warnungen = 0;
+  }
+
+  function saisonBilanzNutzer(world, bl1, bl2, l3) {
     var m = world.manager;
     var club = world.nutzerVerein();
-    var tabelle = club.liga === 1 ? bl1 : bl2;
-    var eintrag = tabelle.filter(function (e) { return e.clubId === club.id; })[0];
+    // Achtung: die Ligen sind zu diesem Zeitpunkt schon umgebaut. Wer
+    // abgestiegen ist, steht bereits in Liga 2 - suchte man ihn dort in der
+    // abgelaufenen Tabelle, faende man ihn nie, und ausgerechnet die
+    // Abstiegssaison fehlte spurlos in der Laufbahn.
+    var tabellen = [bl1, bl2, l3 || []];
+    var eintrag = null;
+    var gespielt = 1;
+    for (var t = 0; t < tabellen.length && !eintrag; t++) {
+      eintrag = tabellen[t].filter(function (e) { return e.clubId === club.id; })[0] || null;
+      if (eintrag) gespielt = t + 1;
+    }
     if (!eintrag || !m.saisonziel) return;
     var erreicht = eintrag.platz <= m.saisonziel.platz;
     m.karriere.push({
-      saison: world.saison, clubId: club.id, liga: club.liga,
+      saison: world.saison, clubId: club.id, liga: gespielt,
       platz: eintrag.platz, punkte: eintrag.punkte - eintrag.punktabzug,
-      ziel: m.saisonziel.text, erreicht: erreicht
+      ziel: m.saisonziel.text, erreicht: erreicht,
+      aufgestiegen: gespielt === 2 && eintrag.platz <= 2,
+      abgestiegen: club.liga > gespielt
     });
     // Das Urteil faellt nach Abstand zur Vorgabe aus, nicht nach einem harten
     // Ja/Nein. Wer die Vorgabe um einen Platz verfehlt, wird nicht behandelt
@@ -1450,6 +1551,16 @@
     var urteil = U.clamp(abweichung * 5, -22, 22);
     if (erreicht) urteil = Math.max(urteil, 8);
     m.vorstandsvertrauen = U.clamp(m.vorstandsvertrauen + urteil, 0, 100);
+    // Ueber der Marke von 100 verpufft jeder weitere Erfolg. Deshalb wandert
+    // eine erfuellte Spielzeit in den Rueckhalt: ein Guthaben, das erst in
+    // der Krise eingeloest wird. Drei gute Jahre sind das Maximum - danach
+    // muss man liefern, nicht von gestern leben.
+    if (!m.rueckhalt) m.rueckhalt = 0;
+    if (erreicht) {
+      m.rueckhalt = Math.min(3, m.rueckhalt + (abweichung >= 3 ? 2 : 1));
+    } else if (abweichung <= -4) {
+      m.rueckhalt = Math.max(0, m.rueckhalt - 1);
+    }
     m.ruf = U.clamp(m.ruf + (erreicht ? 5 : -3) + (eintrag.platz <= 3 ? 5 : 0), 1, 99);
     world.nachricht({
       typ: 'vorstand', prioritaet: 3,

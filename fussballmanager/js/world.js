@@ -135,9 +135,18 @@
       vorstandsvertrauen: 70,
       fanvertrauen: 65,
       mannschaftsvertrauen: 65,
+      // Rueckhalt ist das Guthaben aus erfuellten Spielzeiten. Wer geliefert
+      // hat, bekommt nicht beim ersten Sturmtief die Kuendigung - der
+      // Vorstand zehrt erst von diesem Guthaben.
+      rueckhalt: 0,
+      rueckhaltGenutzt: 0,
       saisonziel: null,
       karriere: [],
       bilanz: { spiele: 0, siege: 0, remis: 0, niederlagen: 0 },
+      // Die Gesamtbilanz ueberlebt jeden Vereinswechsel - sie ist die
+      // Grundlage der Meilensteine einer ganzen Laufbahn.
+      gesamtbilanz: { spiele: 0, siege: 0, remis: 0, niederlagen: 0 },
+      meilensteine: {},
       titel: []
     };
 
@@ -170,6 +179,9 @@
     world.manager.vorstandsvertrauen = 70;
     world.manager.fanvertrauen = 62;
     world.manager.mannschaftsvertrauen = 62;
+    // Der Rueckhalt ist beim neuen Verein noch nicht verdient.
+    world.manager.rueckhalt = 0;
+    world.manager.rueckhaltGenutzt = 0;
     // Eine neue Amtszeit beginnt ohne Altlasten.
     world.rekorde = FM.engine ? FM.engine.leereRekorde() : null;
     world.manager.entlassen = false;

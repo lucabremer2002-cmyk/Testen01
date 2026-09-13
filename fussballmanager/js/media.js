@@ -460,6 +460,12 @@
     if (eigene > fremde) m.bilanz.siege++;
     else if (eigene === fremde) m.bilanz.remis++;
     else m.bilanz.niederlagen++;
+
+    if (!m.gesamtbilanz) m.gesamtbilanz = { spiele: 0, siege: 0, remis: 0, niederlagen: 0 };
+    m.gesamtbilanz.spiele++;
+    if (eigene > fremde) m.gesamtbilanz.siege++;
+    else if (eigene === fremde) m.gesamtbilanz.remis++;
+    else m.gesamtbilanz.niederlagen++;
   }
 
   /** Vergleicht Tabellenstand mit dem Saisonziel. */
@@ -479,12 +485,27 @@
     var abgleich = zielabgleich(world);
     if (abgleich) {
       // Ein Platz neben der Vorgabe ist kein Grund zur Unruhe. Erst ab zwei
-      // Plaetzen Rueckstand wird der Vorstand nervoes - vorher zermuerbte
-      // schon eine Saison auf Zielkurs das Vertrauen.
+      // Plaetzen Rueckstand wird der Vorstand nervoes.
       var ab = abgleich.abstand;
       var wirksam = ab > 1 ? ab - 1 : ab < 0 ? ab : 0;
-      var delta = U.clamp(-wirksam * 0.30, -1.4, 2.0);
-      m.vorstandsvertrauen = U.clamp(m.vorstandsvertrauen + delta, 0, 100);
+      // Der Vorstand hat eine Vorstellung davon, welches Vertrauen die
+      // Tabellenlage rechtfertigt. Das Wochenurteil zieht das Vertrauen
+      // dorthin, statt es Woche fuer Woche weiter abzutragen. Der
+      // Unterschied ist gewaltig: vorher war jede schwache Saison ein
+      // Countdown ohne Rueckweg, jetzt faengt sich, wer sich faengt.
+      var verdient = U.clamp(72 - wirksam * 8, 6, 96);
+      // Ein Abstiegsplatz ist unabhaengig von jeder Vorgabe Alarmzustand.
+      if (abgleich.platz >= 16) verdient = Math.min(verdient, 24);
+      m.vorstandsvertrauen = U.clamp(
+        m.vorstandsvertrauen + (verdient - m.vorstandsvertrauen) * 0.06, 0, 100);
+      // Die Fans haben ein kuerzeres Gedaechtnis und ein heisseres Gemuet:
+      // Sie ziehen staerker nach, in beide Richtungen.
+      var fanZiel = U.clamp(70 - wirksam * 9, 3, 98);
+      m.fanvertrauen = U.clamp(m.fanvertrauen + (fanZiel - m.fanvertrauen) * 0.09, 0, 100);
+      var club = world.nutzerVerein();
+      if (club) {
+        club.fanstimmung = U.clamp(club.fanstimmung + (fanZiel - club.fanstimmung) * 0.07, 0, 100);
+      }
     }
     // Finanzielle Schieflage kostet Vertrauen - aber nach Tiefe des Lochs.
     // Ein kleiner Verein steht fast dauerhaft leicht im Minus; wer dafuer
@@ -610,6 +631,25 @@
       return null;
     }
     if (m.vorstandsvertrauen < 12 && m.warnungen >= 3) {
+      // Bevor der Vorstand trennt, zaehlt er die guten Jahre. Wer welche
+      // vorzuweisen hat, bekommt eine zweite Chance statt der Kuendigung -
+      // aber jede kostet ein Jahr Guthaben.
+      if (m.rueckhalt > 0) {
+        m.rueckhalt -= 1;
+        m.rueckhaltGenutzt = (m.rueckhaltGenutzt || 0) + 1;
+        m.warnungen = 0;
+        m.vorstandsvertrauen = 34;
+        world.nachricht({
+          typ: 'vorstand', prioritaet: 4,
+          titel: 'Der Vorstand stellt sich hinter Sie',
+          text: 'Die Diskussion um Ihre Person war weit gediehen. Am Ende gab Ihre bisherige ' +
+            'Arbeit den Ausschlag: Sie bleiben im Amt. ' +
+            (m.rueckhalt > 0
+              ? 'Der Vorstand macht aber deutlich, dass dieses Guthaben endlich ist.'
+              : 'Ein weiteres Mal wird das nicht passieren - der Kredit ist aufgebraucht.')
+        });
+        return { rueckhalt: true };
+      }
       m.entlassen = true;
       return { entlassen: true };
     }

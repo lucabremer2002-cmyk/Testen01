@@ -747,6 +747,50 @@
     });
   }
 
+  /**
+   * Meilensteine: das Rueckgrat einer langen Laufbahn. Ein Saisonziel ist
+   * nach neun Monaten abgehakt - diese Vorhaben tragen ueber Jahre und
+   * zeigen jederzeit, wie weit man ist.
+   */
+  function meilensteinKarte(world) {
+    var liste = FM.meilensteine.uebersicht(world);
+    var bilanz = FM.meilensteine.bilanz(world);
+    var gruppen = [];
+    liste.forEach(function (e) {
+      var g = gruppen.filter(function (x) { return x.name === e.gruppe; })[0];
+      if (!g) { g = { name: e.gruppe, eintraege: [] }; gruppen.push(g); }
+      g.eintraege.push(e);
+    });
+
+    function zeile(e) {
+      var wertText = e.geld
+        ? U.money(e.wert) + ' von ' + U.money(e.ziel)
+        : (e.alsWert ? Math.round(e.wert) + ' von ' + e.ziel
+          : Math.min(Math.round(e.wert), e.ziel) + ' / ' + e.ziel);
+      return '<div class="mstein' + (e.erreicht ? ' mstein--fertig' : '') + '">' +
+        '<div class="mstein__kopf">' +
+        '<span class="mstein__haken">' + (e.erreicht ? '✓' : '') + '</span>' +
+        '<b>' + esc(e.name) + '</b>' +
+        '<span class="klein muted mstein__stand">' +
+        (e.erreicht ? U.fmtDate(e.tag) : wertText) + '</span></div>' +
+        '<div class="progress progress--duenn"><i style="width:' + Math.round(e.anteil * 100) + '%"></i></div>' +
+        '<div class="klein muted mstein__text">' + esc(e.text) + '</div>' +
+        '</div>';
+    }
+
+    return '<div class="card mb"><div class="card__head"><h3>Meilensteine</h3>' +
+      '<span class="chip' + (bilanz.erreicht ? ' chip--gruen' : '') + '">' +
+      bilanz.erreicht + ' von ' + bilanz.gesamt + '</span></div>' +
+      '<div class="progress mb"><i style="width:' +
+      Math.round(bilanz.erreicht / Math.max(1, bilanz.gesamt) * 100) + '%"></i></div>' +
+      '<div class="msteine">' +
+      gruppen.map(function (g) {
+        return '<div class="msteine__gruppe"><h4>' + esc(g.name) + '</h4>' +
+          g.eintraege.map(zeile).join('') + '</div>';
+      }).join('') +
+      '</div></div>';
+  }
+
   /** Eine Zeile des Trainerprofils mit Balken und Erklaerung. */
   function profilZeile(label, wert, hinweis) {
     var v = Math.round(wert);
@@ -799,16 +843,26 @@
         profilZeile('Menschenführung', m.menschenfuehrung, 'Entscheidet, wie gut Gespräche mit Spielern wirken.') +
         '</div>';
 
+      // Die Meilensteine bekommen die volle Breite - sie sind die
+      // Landkarte der Laufbahn, nicht eine Randnotiz.
+      html += meilensteinKarte(world);
+
       html += '<div class="grid grid--2">';
       html += '<div class="card"><h3>Stationen</h3>' + UI.tabelle([
         { key: 's', label: 'Saison', html: function (k) { return k.saison + '/' + String(k.saison + 1).slice(2); } },
         { key: 'v', label: 'Verein', html: function (k) { return UI.vereinZelle(world, k.clubId, true); } },
         { key: 'l', label: 'Liga', html: function (k) { return k.liga === 1 ? 'BL' : k.liga === 2 ? '2. BL' : '3. L'; } },
-        { key: 'p', label: 'Platz', klasse: 'num', html: function (k) { return k.platz + '.'; } },
+        { key: 'p', label: 'Platz', klasse: 'num', html: function (k) {
+          // Auf- und Abstieg sind die Wendepunkte einer Laufbahn und
+          // gehoeren neben den Platz, nicht in eine Fussnote.
+          var pfeil = k.aufgestiegen ? '<span class="w-gut" title="Aufstieg">\u2191</span>'
+            : k.abgestiegen ? '<span class="w-schlecht" title="Abstieg">\u2193</span>' : '';
+          return k.platz + '. ' + pfeil; } },
         { key: 'pk', label: 'Punkte', klasse: 'num', html: function (k) { return k.punkte; } },
         { key: 'z', label: 'Ziel', html: function (k) {
           return '<span class="chip ' + (k.erreicht ? 'chip--gruen' : 'chip--rot') + '">' +
-            (k.erreicht ? 'erreicht' : 'verfehlt') + '</span> <span class="klein muted">' + esc(k.ziel) + '</span>'; } }
+            (k.erreicht ? 'erreicht' : 'verfehlt') + '</span>' +
+            '<div class="klein muted zeilenumbruch">' + esc(k.ziel) + '</div>'; } }
       ], m.karriere.slice().reverse(), { leerText: 'Noch keine abgeschlossene Saison.' }) + '</div>';
 
       html += '<div class="card"><h3>Titel</h3>' + UI.tabelle([

@@ -13,14 +13,21 @@
   var D = FM.data;
   var P = FM.players;
 
-  /** Zieht den neuen Jahrgang. Rueckgabe: Liste der Spieler. */
-  function jahrgang(world, clubId) {
+  /**
+   * Zieht den neuen Jahrgang. Rueckgabe: Liste der Spieler.
+   * `platz` begrenzt, wie viele Talente der Profikader noch aufnimmt - ein
+   * Kader, der ohnehin aus allen Naehten platzt, verkraftet keinen ganzen
+   * Jahrgang. Die uebrigen Talente gehen ihren Weg anderswo.
+   */
+  function jahrgang(world, clubId, platz) {
     var club = world.vereine[clubId];
     var rng = world.rng;
     var stab = world.stabWerteVon(clubId);
     var qualitaet = stab.jugendQualitaet;      // 0..1
 
     var anzahl = U.clamp(Math.round(2 + qualitaet * 6 + rng.gauss(0, 1.1)), 1, 9);
+    if (typeof platz === 'number') anzahl = Math.min(anzahl, Math.max(0, platz));
+    if (anzahl <= 0) return [];
     var spieler = [];
     var positionen = ['TW', 'IV', 'IV', 'LV', 'RV', 'DM', 'ZM', 'ZM', 'OM', 'LF', 'RF', 'ST', 'ST'];
 

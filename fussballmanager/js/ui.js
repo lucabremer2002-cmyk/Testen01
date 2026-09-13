@@ -1034,7 +1034,18 @@
       '<p class="klein">' + esc(urteil) + '</p>' +
       '<div class="stat-row"><span>Vertrauen des Vorstands</span><b class="' +
       (kuenftig >= 55 ? 'w-gut' : kuenftig >= 30 ? 'w-mittel' : 'w-schlecht') + '">' +
-      Math.round(m.vorstandsvertrauen) + ' % → ' + Math.round(kuenftig) + ' %</b></div></div>';
+      Math.round(m.vorstandsvertrauen) + ' % → ' + Math.round(kuenftig) + ' %</b></div>' +
+      // Ein erfuelltes Jahr wandert ins Guthaben - das ist der Grund, warum
+      // sich Konstanz lohnt, auch wenn das Vertrauen schon bei 100 steht.
+      (erreicht
+        ? '<div class="stat-row"><span>Rückhalt beim Vorstand</span><b class="w-gut">+' +
+          (abweichung >= 3 ? 2 : 1) + ' → ' + Math.min(3, (m.rueckhalt || 0) + (abweichung >= 3 ? 2 : 1)) +
+          ' von 3</b></div>'
+        : abweichung <= -4
+          ? '<div class="stat-row"><span>Rückhalt beim Vorstand</span><b class="w-schlecht">−1 → ' +
+            Math.max(0, (m.rueckhalt || 0) - 1) + ' von 3</b></div>'
+          : '') +
+      '</div>';
 
     html += '<div class="flex mt"><button class="btn btn--primary btn--big" data-a="weiter">Neue Saison beginnen</button></div>';
 

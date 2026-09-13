@@ -672,28 +672,37 @@ td.name { font-weight: 700; }
   transition: transform .16s;
 }
 .spot:hover { transform: translate(-50%, 50%) scale(1.09); z-index: 3; }
-.spot__ring { position: relative; width: 42px; height: 42px; margin: 0 auto; }
+.spot__ring { position: relative; width: 46px; height: 46px; margin: 0 auto; }
 .spot__ring .ring { position: absolute; inset: 0; }
 .spot__ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
-.spot__nr {
+/* Die Staerke auf dieser Position - die Zahl, nach der man aufstellt. */
+.spot__wert {
   position: absolute; inset: 4px;
   border-radius: 50%;
-  background: rgba(10,14,12,.82);
+  background: rgba(10,14,12,.86);
   backdrop-filter: blur(3px);
   display: flex; align-items: center; justify-content: center;
-  font: 800 13px var(--font-display);
-  color: #fff;
+  font: 800 16px var(--font-display);
+  letter-spacing: -.02em;
   box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.22);
 }
-.spot--leer .spot__nr { color: var(--muted); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.14); }
-.spot--gewaehlt .spot__nr { background: var(--accent); color: #04160E; box-shadow: 0 0 0 3px rgba(0,229,133,.35); }
-.spot--problem .spot__nr { box-shadow: inset 0 0 0 2px var(--red); }
+.spot--leer .spot__wert { color: var(--muted); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.14); }
+.spot--gewaehlt .spot__wert { box-shadow: 0 0 0 3px rgba(0,229,133,.4), inset 0 0 0 1.5px rgba(255,255,255,.3); }
+.spot--problem .spot__wert { box-shadow: inset 0 0 0 2px var(--red); }
 .spot__name {
   font: 700 10.5px var(--font-ui);
   margin-top: 3px; color: #fff;
   text-shadow: 0 1px 4px rgba(0,0,0,.95);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.spot__nr {
+  font: 700 9px var(--font-display); color: rgba(255,255,255,.5);
+  margin-left: 4px;
+}
+.spot__laune { font-size: 9px; line-height: 1; }
+.laune--gut { color: var(--accent); }
+.laune--mittel { color: var(--gold); }
+.laune--schlecht { color: var(--red); }
 .spot__zeile {
   display: flex; align-items: center; justify-content: center; gap: 3px;
   font: 800 8.5px var(--font-display);
@@ -718,6 +727,46 @@ td.name { font-weight: 700; }
 .marke--f { background: var(--blue); color: #04182E; }
 .marke--v { background: var(--red); color: #fff; }
 .marke--s { background: var(--gold); color: #2A1C00; }
+.marke--plus { background: var(--accent); color: #04160E; width: auto; min-width: 15px; padding: 0 3px; border-radius: var(--r-pill); }
+.marke--minus { background: var(--red); color: #fff; width: auto; min-width: 15px; padding: 0 3px; border-radius: var(--r-pill); }
+
+/* Meilensteine der Laufbahn */
+.msteine { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+.msteine__gruppe h4 {
+  font: 800 10.5px var(--font-display); letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted-2); margin: 0 0 8px;
+}
+.mstein { padding: 7px 0; }
+.mstein__kopf { display: flex; align-items: baseline; gap: 7px; margin-bottom: 5px; }
+.mstein__kopf b { font-size: 12.5px; }
+.mstein__haken {
+  width: 14px; height: 14px; flex: none; border-radius: 50%;
+  display: grid; place-items: center;
+  font: 800 9px var(--font-display);
+  background: rgba(255,255,255,.06); color: transparent;
+  align-self: center;
+}
+.mstein--fertig .mstein__haken { background: var(--accent); color: #04160E; }
+.mstein--fertig .mstein__kopf b { color: var(--accent); }
+.mstein__stand { margin-left: auto; white-space: nowrap; }
+.mstein__text { margin-top: 4px; }
+.mstein--fertig .progress > i { background: var(--accent); }
+
+/* Entwicklungskarte auf der Uebersicht */
+.entw { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.045); }
+.entw:last-child { border-bottom: 0; }
+.entw__kopf { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
+.entw__kopf .name { font-weight: 700; }
+.entw__kopf b { margin-left: auto; font-size: 13px; }
+.progress--duenn { height: 4px; }
+
+/* Entwicklungsmarke: wie viel ein Spieler seit Saisonbeginn zugelegt hat. */
+.wachstum {
+  display: inline-block; padding: 1px 5px; border-radius: var(--r-pill);
+  font: 800 9.5px var(--font-display); vertical-align: 1px;
+}
+.wachstum--plus { background: var(--accent-bg); color: var(--accent); }
+.wachstum--minus { background: rgba(255,90,95,.14); color: var(--red); }
 
 .eignung {
   display: inline-block; width: 6px; height: 6px; border-radius: 50%;
@@ -1217,8 +1266,9 @@ td.name { font-weight: 700; }
   .pitch { aspect-ratio: 68 / 88; }
   .spot { width: 58px; margin-left: -5px; }
   .spot__ring { width: 34px; height: 34px; }
-  .spot__nr { inset: 3px; font-size: 11px; }
+  .spot__wert { inset: 3px; font-size: 13.5px; }
   .spot__name { font-size: 9.5px; }
+  .spot__nr { display: none; }
   .spot__zeile { font-size: 8px; }
   .spot__rolle { display: none; }
   .spot__pos { display: inline; }
@@ -1389,3 +1439,19 @@ details.card[open] summary::before { transform: rotate(90deg); }
   .topbar kbd { display: none; }
   #btn-vor { padding-inline: 12px; }
 }
+
+/* ---- Rückhalt: das Guthaben beim Vorstand ---------------------------- */
+.rueckhalt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 2px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.rueckhalt__schilde { letter-spacing: 2px; font-size: 13px; line-height: 1; }
+.schild--voll { color: var(--accent); }
+.schild--leer { color: var(--muted-2); }
+.rueckhalt__text { flex: 1; }
+/* Lange Zielbeschreibungen dürfen umbrechen, statt die Tabelle zu sprengen. */
+.zeilenumbruch { white-space: normal; line-height: 1.35; margin-top: 2px; }

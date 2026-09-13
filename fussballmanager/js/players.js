@@ -262,6 +262,7 @@
       sperre: 0,
       sperreGrund: '',
       gelbeSaison: 0,
+      staerkeStart: 0,             // Staerke zu Saisonbeginn - Grundlage der Entwicklungsmarke
       stats: leereStats(),
       ligaStats: leereStats(),     // nur Ligaspiele - fuer Torjaegerliste und Tabellen
       karriere: leereStats(),
@@ -272,6 +273,7 @@
     };
     p.merkmale = merkmaleWaehlen(rng, p);
     p.marktwert = marktwert(p);
+    p.staerkeStart = Math.round(gesamt(p) * 10) / 10;
     return p;
   }
 
@@ -311,6 +313,16 @@
     p.saisonhistorie.push(eintrag);
     if (p.saisonhistorie.length > 24) p.saisonhistorie.shift();
     return eintrag;
+  }
+
+  /**
+   * Wie viel staerker (oder schwaecher) ist ein Spieler seit Saisonbeginn?
+   * Diese Zahl ist der sichtbarste Beweis dafuer, dass Training, Spielzeit
+   * und Nachwuchsarbeit etwas bewirken.
+   */
+  function entwicklungSeitSaisonstart(p) {
+    if (!p.staerkeStart) return 0;
+    return Math.round((gesamt(p) - p.staerkeStart) * 10) / 10;
   }
 
   /** Beste Saison nach Toren - fuer Kurzportraets und Scoutberichte. */
@@ -961,6 +973,7 @@
     schnitt: schnitt,
     saisonAbschliessen: saisonAbschliessen,
     besteSaison: besteSaison,
+    entwicklungSeitSaisonstart: entwicklungSeitSaisonstart,
     alterFaktor: alterFaktor,
     KADER_SCHEMA: KADER_SCHEMA,
     merkmaleWaehlen: merkmaleWaehlen,

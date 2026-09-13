@@ -78,7 +78,8 @@
       p.zweitteam ? 1 : 0, [(p.u23 && p.u23.spiele) || 0, (p.u23 && p.u23.tore) || 0],
       p.rueckkauf || null, p.vorvertrag || null,
       (p.saisonhistorie || []).slice(-24),
-      packStats(p.ligaStats || FM.players.leereStats())
+      packStats(p.ligaStats || FM.players.leereStats()),
+      r(p.staerkeStart || 0, 1)
     ];
   }
 
@@ -107,7 +108,8 @@
       zweitteam: !!a[51], u23: { spiele: (a[52] || [])[0] || 0, tore: (a[52] || [])[1] || 0 },
       rueckkauf: a[53] || null, vorvertrag: a[54] || null,
       saisonhistorie: a[55] || [],
-      ligaStats: entpackStats(a[56])
+      ligaStats: entpackStats(a[56]),
+      staerkeStart: a[57] || 0
     };
   }
 

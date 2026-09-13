@@ -176,6 +176,9 @@
           '<p>' + esc(pt[2]) + '</p></div></div>';
       }).join('') + '</div></div>';
 
+      // ---- Entwicklung: wer waechst gerade, wer faellt ab
+      html += entwicklungsKarte(world, kader);
+
       html += '</div>'; // linke Spalte
 
       // ---- rechte Spalte
@@ -187,7 +190,7 @@
         vertrauensRing('Vorstand', m.vorstandsvertrauen) +
         vertrauensRing('Fans', m.fanvertrauen) +
         vertrauensRing('Kabine', m.mannschaftsvertrauen) +
-        '</div><div class="trenner"></div>' +
+        '</div>' + rueckhaltZeile(m) + '<div class="trenner"></div>' +
         zielFortschritt(world, eigen, liga) +
         '<div class="stat-row"><span>Vertrag bis</span><b>' + U.fmtDate(m.vertragBis) + '</b></div>' +
         '<div class="stat-row"><span>Bilanz als Trainer</span><b>' + m.bilanz.siege + 'S · ' +
@@ -222,11 +225,70 @@
     }
   };
 
+  /**
+   * Zeigt das Guthaben aus erfuellten Spielzeiten. Drei Schilde sind das
+   * Maximum; ein eingeloestes Schild bleibt als Narbe sichtbar, damit man
+   * weiss, wie oft der Vorstand schon Gnade walten liess.
+   */
+  function rueckhaltZeile(m) {
+    var hat = m.rueckhalt || 0;
+    var weg = Math.min(3 - hat, m.rueckhaltGenutzt || 0);
+    if (!hat && !weg) return '';
+    var s = '';
+    for (var i = 0; i < hat; i++) s += '<span class="schild schild--voll">\u25CF</span>';
+    for (var j = 0; j < weg; j++) s += '<span class="schild schild--leer">\u25CB</span>';
+    return '<div class="rueckhalt" title="Guthaben aus erfüllten Spielzeiten. Der Vorstand zehrt davon, bevor er trennt.">' +
+      '<span class="rueckhalt__schilde">' + s + '</span>' +
+      '<span class="rueckhalt__text">' + (hat
+        ? 'Rückhalt: ' + hat + ' gute ' + (hat === 1 ? 'Saison' : 'Spielzeiten') + ' im Rücken'
+        : 'Kein Rückhalt mehr - die nächste Krise entscheidet') + '</span></div>';
+  }
+
   function vertrauensRing(label, wert) {
     var v = Math.round(wert);
     return '<div style="text-align:center">' +
       UI.ring(v / 100, { groesse: 78, dicke: 7, text: '<b>' + v + '<small>%</small></b>' }) +
       '<div class="klein muted" style="margin-top:5px;font-weight:700">' + esc(label) + '</div></div>';
+  }
+
+  /**
+   * Wer legt gerade zu? Ohne diese Karte bleibt die wichtigste Belohnung
+   * der Nachwuchs- und Trainingsarbeit unsichtbar - man merkt erst nach
+   * Jahren, dass aus einem 44er ein 70er geworden ist.
+   */
+  function entwicklungsKarte(world, kader) {
+    var mitWachstum = kader.filter(function (p) {
+      return Math.abs(P.entwicklungSeitSaisonstart(p)) >= 0.5;
+    });
+    if (!mitWachstum.length) {
+      return '<div class="card"><h3>Entwicklung</h3>' +
+        '<div class="leer">Noch keine messbaren Veränderungen in dieser Saison.</div></div>';
+    }
+    var sortiert = U.sortBy(mitWachstum, function (p) { return -P.entwicklungSeitSaisonstart(p); });
+    var oben = sortiert.slice(0, 4);
+    var unten = sortiert.filter(function (p) { return P.entwicklungSeitSaisonstart(p) < 0; }).slice(-2);
+
+    function zeile(p) {
+      var d = P.entwicklungSeitSaisonstart(p);
+      var von = Math.round(p.staerkeStart);
+      var bis = Math.round(P.gesamt(p));
+      var anteil = p.potenzial > von ? U.clamp((bis - von) / (p.potenzial - von), 0, 1) : 1;
+      return '<div class="entw" data-spieler="' + esc(p.id) + '">' +
+        '<div class="entw__kopf"><span class="name">' + esc(p.nachname) + '</span>' +
+        '<span class="klein muted">' + p.alter + ' J · ' + esc(p.pos) + '</span>' +
+        '<b class="mono">' + von + ' <span class="muted">→</span> ' + bis + '</b>' +
+        '<span class="wachstum wachstum--' + (d > 0 ? 'plus' : 'minus') + '">' +
+        (d > 0 ? '+' : '') + Math.round(d) + '</span></div>' +
+        '<div class="progress progress--duenn"><i style="width:' + Math.round(anteil * 100) + '%"></i></div>' +
+        '<div class="klein muted">Potenzial ' + p.potenzial + '</div>' +
+        '</div>';
+    }
+
+    return '<div class="card"><div class="card__head"><h3>Entwicklung</h3>' +
+      '<button class="btn btn--sm" data-goto="kader">Ganzer Kader</button></div>' +
+      oben.map(zeile).join('') +
+      (unten.length ? '<div class="trenner"></div>' + unten.map(zeile).join('') : '') +
+      '</div>';
   }
 
   /**
@@ -382,14 +444,47 @@
    * ("Bundesliga-Stammkraft") passt hier nicht: Sie beschreibt einen
    * einzelnen Spieler, nicht eine Mannschaft.
    */
+  /**
+   * Staerke der aufgestellten Elf eines Vereins: jeder Spieler auf dem Platz,
+   * den er tatsaechlich besetzt. Nur so sind die Vereine vergleichbar - misst
+   * man die anderen an ihren elf besten Spielern auf deren Lieblingsposition,
+   * steht der eigene Verein immer schlechter da, als er ist.
+   */
+  function elfWertVon(world, clubId) {
+    var taktik = world.taktiken[clubId];
+    var k = world.kaderVon(clubId);
+    if (!k.length) return 0;
+    if (taktik && taktik.aufstellung) {
+      var f = T.formation(taktik);
+      var werte = [];
+      taktik.aufstellung.forEach(function (id, idx) {
+        var sp = id ? world.spieler[id] : null;
+        if (sp && f.slots[idx]) werte.push(P.posStaerke(sp, f.slots[idx].pos));
+      });
+      if (werte.length >= 9) return U.avg(werte);
+    }
+    var beste = U.sortBy(k, function (p) { return -P.gesamt(p); }).slice(0, 11);
+    return U.avg(beste.map(function (p) { return P.gesamt(p); }));
+  }
+
+  /**
+   * Was die bestmoegliche Elf eines Vereins hergibt. Vergleichsmassstab fuer
+   * die Kaderqualitaet - unabhaengig davon, wer gerade aufgestellt ist.
+   */
+  function besteElfWert(world, clubId) {
+    var club = world.vereine[clubId];
+    var taktik = world.taktiken[clubId];
+    if (!club || !taktik) return elfWertVon(world, clubId);
+    try {
+      return bestmoeglicheElf(world, club, taktik, null).staerke;
+    } catch (e) { return elfWertVon(world, clubId); }
+  }
+
   function elfEinordnung(world, club, staerke) {
     var liga = world.ligaVon(club.id);
     if (!liga) return 'Mannschaftsstärke';
     var werte = liga.teams.map(function (id) {
-      var k = world.kaderVon(id);
-      if (!k.length) return 0;
-      var beste = U.sortBy(k, function (p) { return -P.gesamt(p); }).slice(0, 11);
-      return U.avg(beste.map(function (p) { return P.gesamt(p); }));
+      return besteElfWert(world, id);
     }).filter(function (v) { return v > 0; });
     if (!werte.length) return 'Mannschaftsstärke';
     var besser = werte.filter(function (v) { return v < staerke; }).length;
@@ -492,6 +587,21 @@
     return { stand: 'erfuellt', anteil: anteil, soll: soll, text: txt };
   }
 
+  /**
+   * Kleine Marke hinter der Staerke: wie viel hat der Spieler seit
+   * Saisonbeginn zugelegt. Diese Zahl ist der beste Beleg dafuer, dass
+   * Training und Spielzeit sich lohnen.
+   */
+  function wachstumTag(p) {
+    var d = P.entwicklungSeitSaisonstart(p);
+    if (Math.abs(d) < 0.5) return '';
+    var v = (d > 0 ? '+' : '') + Math.round(d);
+    return ' <span class="wachstum wachstum--' + (d > 0 ? 'plus' : 'minus') +
+      '" title="Entwicklung seit Saisonbeginn">' + v + '</span>';
+  }
+
+  V.wachstumTag = wachstumTag;
+
   /** Baut die Kadertabelle je nach gewählter Ansicht. */
   function kaderTabelle(world, kader, z) {
     var spalten = [
@@ -510,7 +620,8 @@
       spalten = spalten.concat([
         { key: 'nation', label: 'Nation', wert: function (p) { return p.nation; }, html: function (p) { return '<span class="klein muted">' + esc(p.nation) + '</span>'; } },
         { key: 'staerke', label: 'Stärke', klasse: 'num', titel: 'Aktuelle Spielstärke auf der Hauptposition',
-          wert: function (p) { return P.gesamt(p); }, html: function (p) { return UI.wert(P.gesamt(p)); } },
+          wert: function (p) { return P.gesamt(p); },
+          html: function (p) { return UI.wert(P.gesamt(p)) + wachstumTag(p); } },
         { key: 'potenzial', label: 'Pot', klasse: 'num', titel: 'Geschätztes Entwicklungspotenzial',
           wert: function (p) { return p.potenzial; }, html: function (p) { return UI.wert(p.potenzial); } },
         { key: 'form', label: 'Form', klasse: 'num', wert: function (p) { return p.form; },
@@ -674,7 +785,8 @@
       '<div class="flex mt">' + (UI.spielerStatus(world, p) || '') + '</div>' +
       '</div>' +
       '<div class="tiles" style="min-width:280px">' +
-      '<div class="tile"><span>Stärke</span><b>' + staerkeAnzeige(p, wissen) + '</b><small>' +
+      '<div class="tile"><span>Stärke</span><b>' + staerkeAnzeige(p, wissen) +
+      (eigener ? wachstumTag(p) : '') + '</b><small>' +
       (wissen >= 0.55 ? esc(P.staerkeLabel(P.gesamt(p))) : 'Schätzung der Scouts') + '</small></div>' +
       '<div class="tile"><span>Potenzial</span><b>' + (wissen > 0.6 ? UI.wert(p.potenzial) : '<span class="muted">?</span>') + '</b>' +
       '<small>' + (wissen > 0.6 ? esc(P.staerkeLabel(p.potenzial)) : 'Scouting nötig') + '</small></div>' +
@@ -974,7 +1086,8 @@
       }).length;
 
       html += '<div class="tiles mb">' +
-        kachel('Stärke der Elf', U.num(elfStaerke, 1), elfEinordnung(world, club, elfStaerke),
+        kachel('Stärke der Elf', U.num(elfStaerke, 1),
+          'Kader: ' + elfEinordnung(world, club, beste.staerke),
           elfStaerke >= 68 ? 'gut' : elfStaerke >= 52 ? '' : 'warn') +
         kachel('Gegenüber der besten Elf', (diff >= -0.3 ? '±0' : U.num(diff, 1)),
           diff >= -0.3 ? 'optimal besetzt' : 'Luft nach oben', diff >= -0.3 ? 'gut' : 'warn') +
@@ -1259,6 +1372,14 @@
   }
 
   /** Ein Spieler auf dem Spielfeld – mit Frischering, Rolle und Eignung. */
+  /** Kleines Stimmungszeichen wie auf der Spielerkarte. */
+  function laune(p) {
+    var k = p.moral >= 78 ? 'gut' : p.moral >= 55 ? 'mittel' : 'schlecht';
+    var z = p.moral >= 78 ? '☺' : p.moral >= 55 ? '•' : '☹';
+    var t = p.moral >= 78 ? 'sehr zufrieden' : p.moral >= 55 ? 'zufrieden' : 'unzufrieden';
+    return '<span class="spot__laune laune--' + k + '" title="Moral: ' + t + '">' + z + '</span>';
+  }
+
   function spotHtml(world, club, taktik, f, i, z) {
     var slot = f.slots[i];
     var id = taktik.aufstellung[i];
@@ -1279,22 +1400,34 @@
 
     var innen;
     if (p) {
-      innen = UI.ring(p.fitness / 100, { groesse: 42, dicke: 3.5 }) +
-        '<span class="spot__nr">' + (p.nummer || '·') + '</span>';
+      // Die Zahl im Ring ist die Staerke auf genau dieser Position - das ist
+      // die Angabe, nach der man eine Elf zusammenstellt. Die Rueckennummer
+      // steht klein daneben.
+      var wert = Math.round(P.posStaerke(p, slot.pos));
+      innen = UI.ring(p.fitness / 100, { groesse: 46, dicke: 3.5 }) +
+        '<span class="spot__wert ' + UI.wertKlasse(wert) + '">' + wert + '</span>';
     } else {
-      innen = '<span class="spot__nr">+</span>';
+      innen = '<span class="spot__wert muted">+</span>';
+    }
+
+    var wachstum = p ? P.entwicklungSeitSaisonstart(p) : 0;
+    if (p && Math.abs(wachstum) >= 0.5) {
+      marken += '<span class="spot__marke marke--' + (wachstum > 0 ? 'plus' : 'minus') +
+        '" title="Entwicklung seit Saisonbeginn">' +
+        (wachstum > 0 ? '+' : '') + Math.round(wachstum) + '</span>';
     }
 
     var zeile2 = p
       ? eignungPunkt(T.eignung(p, slot.pos)) +
         '<span class="spot__rolle">' + esc(rolleKurz(rolle)) + '</span>' +
-        '<span class="spot__pos">' + esc(slot.pos) + '</span>' + formPfeil(p)
+        '<span class="spot__pos">' + esc(slot.pos) + '</span>' + formPfeil(p) + laune(p)
       : esc(slot.pos);
 
     return '<div class="spot' + (p ? '' : ' spot--leer') + (problem ? ' spot--problem' : '') +
       (z.gewaehlterSlot === i ? ' spot--gewaehlt' : '') + '" data-slot="' + i + '" style="' + stil + '">' +
       '<div class="spot__ring">' + innen + (marken ? '<span class="spot__marken">' + marken + '</span>' : '') + '</div>' +
-      '<div class="spot__name">' + (p ? esc(p.nachname) : '<i class="muted">frei</i>') + '</div>' +
+      '<div class="spot__name">' + (p ? esc(p.nachname) : '<i class="muted">frei</i>') +
+      (p && p.nummer ? '<span class="spot__nr">' + p.nummer + '</span>' : '') + '</div>' +
       '<div class="spot__zeile">' + zeile2 + '</div>' +
       '</div>';
   }
