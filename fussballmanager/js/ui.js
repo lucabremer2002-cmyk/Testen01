@@ -16,7 +16,7 @@
 
   var UI = FM.ui = {
     world: null,
-    ansicht: 'uebersicht',
+    ansicht: 'kacheln',
     zustand: {},          // je Ansicht: Sortierung, Filter usw.
     views: {},
     beschaeftigt: false
@@ -289,7 +289,7 @@
   // ------------------------------------------------------------ Navigation
 
   function zeige(name, zustand) {
-    if (!UI.views[name]) name = 'uebersicht';
+    if (!UI.views[name]) name = 'kacheln';
     UI.ansicht = name;
     if (zustand) UI.zustand[name] = Object.assign(UI.zustand[name] || {}, zustand);
     Array.prototype.forEach.call(doc.querySelectorAll('.nav__item'), function (b) {
@@ -309,13 +309,10 @@
   /** Alle Bereiche als Kachelraster – die Navigation für schmale Geräte. */
   function mehrBlatt() {
     var world = UI.world;
-    var eintraege = Array.prototype.map.call(doc.querySelectorAll('.nav__item'), function (b) {
-      return {
-        view: b.dataset.view,
-        label: b.dataset.label || b.dataset.view,
-        icon: b.querySelector('i') ? b.querySelector('i').textContent : '•'
-      };
-    });
+    var eintraege = [{ view: 'kacheln', label: 'Start', icon: '\u25A6' }].concat(
+      (FM.kacheln && FM.kacheln.BEREICHE || []).map(function (b) {
+        return { view: b.id, label: b.name, icon: b.zeichen };
+      }));
     var ungelesen = world ? world.ungeleseneNachrichten() : 0;
 
     var html = '<h3 style="margin-bottom:12px">Alle Bereiche</h3><div class="sheet__liste">' +
@@ -398,14 +395,37 @@
     var world = UI.world;
     if (!world) return;
     kopfzeile();
-    var name = UI.views[UI.ansicht] ? UI.ansicht : 'uebersicht';
+    var name = UI.views[UI.ansicht] ? UI.ansicht : 'kacheln';
     var view = UI.views[name];
     var zustand = UI.zustand[name] = UI.zustand[name] || {};
     var content = el('content');
-    content.innerHTML = spieltagsband(world) + view.html(world, zustand);
+    content.innerHTML = zurueckLeiste(name) + spieltagsband(world) + view.html(world, zustand);
     if (view.nachher) view.nachher(content, world, zustand);
+    var zur = content.querySelector('[data-a="zum-start"]');
+    if (zur) zur.onclick = function () { zeige('kacheln'); };
     bandVerdrahten(content, world);
     ringeStarten(content);
+  }
+
+  /**
+   * Der Weg zurueck. Das Kachelbrett ist die einzige Navigation; aus einem
+   * Bereich muss man ohne Suchen wieder herausfinden.
+   */
+  function zurueckLeiste(name) {
+    if (name === 'kacheln') return '';
+    var b = (FM.kacheln && FM.kacheln.BEREICHE || []).filter(function (x) { return x.id === name; })[0];
+    var html = '<div class="bereichskopf">' +
+      '<button type="button" class="zurueck" data-a="zum-start">' +
+      '<span class="zurueck__pfeil">\u2039</span>' +
+      '<span class="zurueck__wort">Start</span>' +
+      '</button>';
+    if (b) {
+      html += '<div class="bereichskopf__titel">' +
+        '<span class="bereichskopf__zeichen kachel__zeichen kachel__zeichen--' + b.farbe + '">' + b.zeichen + '</span>' +
+        '<div><b>' + esc(b.name) + '</b><small>' + esc(b.was) + '</small></div>' +
+        '</div>';
+    }
+    return html + '</div>';
   }
 
   /**
@@ -511,17 +531,12 @@
       (world.manager.saisonziel ? ' · Ziel: ' + world.manager.saisonziel.text : '');
     el('tb-datum').textContent = U.fmtDate(world.tag, 'lang');
     el('tb-platz').textContent = tab ? tab.platz + '. (' + (tab.punkte - tab.punktabzug) + ' Pkt)' : '–';
-    el('tb-konto').textContent = U.money(f.kontostand);
-    el('tb-konto').className = f.kontostand < 0 ? 'w-schlecht' : '';
-    var v = Math.round(world.manager.vorstandsvertrauen);
-    el('tb-vorstand').innerHTML = '<span class="' + (v >= 60 ? 'w-gut' : v >= 35 ? 'w-mittel' : 'w-schlecht') +
-      '">' + v + ' %</span>';
+    // Kontostand und Vorstandsvertrauen stehen auf ihren eigenen Kacheln;
+    // in der Kopfzeile waeren sie nur eine zweite Stelle fuer dieselbe Zahl.
 
+    // Die ungelesene Post steht auf der Post-Kachel; am Telefon zeigt die
+    // untere Leiste zusaetzlich einen Punkt.
     var ungelesen = world.ungeleseneNachrichten();
-    var badge = el('nav-inbox');
-    badge.hidden = ungelesen === 0;
-    // Dreistellige Zahlen sprengen die Plakette und helfen niemandem.
-    badge.textContent = ungelesen > 99 ? '99+' : ungelesen;
     var punkt = el('tab-punkt');
     if (punkt) punkt.hidden = ungelesen === 0;
   }
@@ -1109,7 +1124,7 @@
       'Saison ' + world.saison + '/' + String(world.saison + 1).slice(2) + ' beginnen</button></div>';
 
     modal(html, {
-      beimSchliessen: function () { zeige('uebersicht'); },
+      beimSchliessen: function () { zeige('kacheln'); },
       nachher: function (body) {
         if (eigene.length) konfetti(100);
         body.querySelector('[data-a="los"]').onclick = function () {

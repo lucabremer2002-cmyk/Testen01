@@ -422,8 +422,7 @@
         return true;
       });
 
-      var html = '<div class="card__head"><h2>Kader<span class="nur-gross"> &middot; ' +
-        esc(club.name) + '</span></h2>' +
+      var html = '<div class="card__head"><span></span>' +
         '<div class="flex"><button class="btn btn--sm" data-a="druck">Kaderbericht</button></div></div>';
 
       // Kennzahlen
@@ -1118,7 +1117,7 @@
       // Wie weit ist die aktuelle Elf von der bestmöglichen entfernt?
       var beste = bestmoeglicheElf(world, club, taktik, naechstes);
 
-      var html = '<div class="card__head"><h2>Aufstellung &amp; Taktik</h2><div class="flex">' +
+      var html = '<div class="card__head"><span></span><div class="flex">' +
         '<button class="btn btn--sm" data-a="auto">Beste Elf</button>' +
         '<button class="btn btn--sm" data-a="standards">Standards neu vergeben</button>' +
         '</div></div>';

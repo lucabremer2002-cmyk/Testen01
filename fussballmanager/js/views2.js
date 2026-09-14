@@ -20,7 +20,7 @@
       var kader = world.kaderVon(club.id);
       var auswertung = FM.training.planAuswertung(plan);
 
-      var html = '<div class="card__head"><h2>Training</h2><div class="flex">' +
+      var html = '<div class="card__head"><span></span><div class="flex">' +
         '<button class="btn btn--sm" data-a="standard">Standardwoche</button>' +
         '<button class="btn btn--sm" data-a="vorbereitung">Vorbereitungswoche</button>' +
         '<button class="btn btn--sm" data-a="lager">Trainingslager</button></div></div>';
@@ -196,7 +196,7 @@
         if (e > a) bilanz.s++; else if (e === a) bilanz.u++; else bilanz.n++;
       });
 
-      var html = '<div class="card__head"><h2>Spielplan</h2>' +
+      var html = '<div class="card__head"><span></span>' +
         '<select data-f="wettbewerb" style="width:auto">' +
         [['alle', 'Alle Wettbewerbe'], ['liga', 'Liga'], ['pokal', 'DFB-Pokal'],
          ['europa', 'Europapokal'], ['test', 'Testspiele'], ['relegation', 'Relegation']].map(function (o) {
@@ -260,7 +260,7 @@
       var liga = world.ligen[z.liga] || world.ligen.bl1;
       var tab = C.sortierteTabelle(liga);
 
-      var html = '<div class="card__head"><h2>Tabellen</h2><div class="flex">' +
+      var html = '<div class="card__head"><span></span><div class="flex">' +
         '<select data-f="liga" style="width:auto">' +
         world.ligaIds.map(function (id) {
           return '<option value="' + id + '"' + (z.liga === id ? ' selected' : '') + '>' + esc(world.ligen[id].name) + '</option>';
@@ -360,7 +360,7 @@
       var f = world.finanzen[club.id];
       z.tab = z.tab || 'suche';
 
-      var html = '<div class="card__head"><h2>Transfermarkt</h2>' +
+      var html = '<div class="card__head"><span></span>' +
         '<span class="chip ' + (world.transferfenster.offen ? 'chip--gruen' : 'chip--rot') + '">' +
         (world.transferfenster.offen ? 'Transferfenster geöffnet' : 'Transferfenster geschlossen') + '</span></div>';
 
@@ -710,7 +710,7 @@
         geschaeft: 'Vertrieb, Reisen &amp; Abschreibungen',
         zinsen: 'Zinsen', sonstige: 'Sonstiges' };
 
-      var html = '<div class="card__head"><h2>Finanzen</h2><div class="flex">' +
+      var html = '<div class="card__head"><span></span><div class="flex">' +
         '<button class="btn btn--sm" data-a="vorstand">Vorstandsanfrage</button>' +
         '<button class="btn btn--sm" data-a="tickets">Ticketpreise</button></div></div>';
 

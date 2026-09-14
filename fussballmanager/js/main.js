@@ -163,7 +163,7 @@
     UI.world = world;
     el('start').hidden = true;
     el('app').hidden = false;
-    UI.zeige('uebersicht');
+    UI.zeige('kacheln');
     if (!world.inbox.length) {
       var club = world.nutzerVerein();
       world.nachricht({
@@ -283,7 +283,7 @@
         W: function () { UI.weiter(); },
         v: function () { UI.vorspulen(); },
         V: function () { UI.vorspulen(); },
-        '1': function () { UI.zeige('uebersicht'); },
+        '1': function () { UI.zeige('kacheln'); },
         '2': function () { UI.zeige('kader'); },
         '3': function () { UI.zeige('taktik'); },
         '4': function () { UI.zeige('training'); },

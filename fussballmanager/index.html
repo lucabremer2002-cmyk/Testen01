@@ -72,8 +72,6 @@
     <div class="topbar__mid">
       <div class="kpi"><span>Datum</span><b id="tb-datum">&nbsp;</b></div>
       <div class="kpi"><span>Tabelle</span><b id="tb-platz">&nbsp;</b></div>
-      <div class="kpi"><span>Kontostand</span><b id="tb-konto">&nbsp;</b></div>
-      <div class="kpi"><span>Vorstand</span><b id="tb-vorstand">&nbsp;</b></div>
     </div>
 
     <div class="topbar__actions">
@@ -85,32 +83,16 @@
   </header>
 
   <div class="layout">
-    <nav class="nav" id="nav">
-      <button class="nav__item is-active" data-view="uebersicht" data-label="Übersicht"><i>◉</i>Übersicht</button>
-      <button class="nav__item" data-view="kader" data-label="Kader"><i>☰</i>Kader</button>
-      <button class="nav__item" data-view="taktik" data-label="Taktik"><i>▦</i>Taktik</button>
-      <button class="nav__item" data-view="training" data-label="Training"><i>◷</i>Training</button>
-      <button class="nav__item" data-view="spielplan" data-label="Spielplan"><i>▤</i>Spielplan</button>
-      <button class="nav__item" data-view="tabelle" data-label="Tabellen"><i>≡</i>Tabellen</button>
-      <button class="nav__item" data-view="transfers" data-label="Transfers"><i>⇄</i>Transfers</button>
-      <button class="nav__item" data-view="finanzen" data-label="Finanzen"><i>€</i>Finanzen</button>
-      <button class="nav__item" data-view="verein" data-label="Verein"><i>⌂</i>Verein</button>
-      <button class="nav__item" data-view="personal" data-label="Personal"><i>&#9863;</i>Personal</button>
-      <button class="nav__item" data-view="nachwuchs" data-label="Nachwuchs"><i>★</i>Nachwuchs</button>
-      <button class="nav__item" data-view="medien" data-label="Medien"><i>✉</i>Medien<span class="badge" id="nav-inbox" hidden>0</span></button>
-      <button class="nav__item" data-view="statistik" data-label="Statistik"><i>∑</i>Statistik</button>
-      <button class="nav__item" data-view="karriere" data-label="Karriere"><i>◆</i>Karriere</button>
-    </nav>
 
     <main class="content" id="content"></main>
   </div>
 
   <!-- Bedienleiste am unteren Rand, nur auf schmalen Bildschirmen -->
   <nav class="tabbar" id="tabbar" aria-label="Hauptbereiche">
-    <button type="button" data-view="uebersicht" data-label="Übersicht"><i>◉</i><span>Übersicht</span></button>
-    <button type="button" data-view="kader" data-label="Kader"><i>☰</i><span>Kader</span></button>
-    <button type="button" data-view="taktik" data-label="Taktik"><i>▦</i><span>Taktik</span></button>
-    <button type="button" data-view="spielplan" data-label="Spielplan"><i>▤</i><span>Spiele</span></button>
+    <button type="button" data-view="kacheln" data-label="Start"><i>▦</i><span>Start</span></button>
+    <button type="button" data-view="kader" data-label="Mannschaft"><i>☰</i><span>Mannschaft</span></button>
+    <button type="button" data-view="taktik" data-label="Aufstellung"><i>▤</i><span>Aufstellung</span></button>
+    <button type="button" data-view="spielplan" data-label="Spiele"><i>▥</i><span>Spiele</span></button>
     <button type="button" data-mehr="1"><i>⋯</i><span>Mehr</span><b class="tabbar__punkt" id="tab-punkt" hidden></b></button>
   </nav>
 </div>
@@ -163,6 +145,7 @@
 <script src="js/views2.js"></script>
 <script src="js/views3.js"></script>
 <script src="js/views4.js"></script>
+<script src="js/kacheln.js"></script>
 <script src="js/matchview.js"></script>
 <script src="js/main.js"></script>
 </body>

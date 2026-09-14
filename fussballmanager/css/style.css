@@ -1559,3 +1559,231 @@ details.card[open] summary::before { transform: rotate(90deg); }
   .club-card:hover { background: transparent; box-shadow: none; }
   .club-card.is-active { background: var(--accent); }
 }
+
+/* ==========================================================================
+   Kachelbrett — die Startseite und die einzige Navigation
+
+   Ein Startbildschirm, kein Menü. Jede Kachel trägt ein Bild, ein Wort und
+   eine Zahl, in dieser Reihenfolge: wer nicht lesen kann, erkennt das Bild;
+   wer lesen kann, muss die Zahl nicht suchen.
+   ========================================================================== */
+
+.kachelbrett {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+  gap: 14px;
+}
+
+.kachel {
+  background: var(--surface);
+  border-radius: var(--r-l);
+  box-shadow: var(--sh-2);
+  padding: 18px;
+  text-align: left;
+  min-width: 0;
+}
+
+.kachel--bereich {
+  appearance: none; border: 0; font: inherit; color: inherit;
+  cursor: pointer;
+  display: grid;
+  grid-template-rows: auto auto auto auto 1fr;
+  gap: 2px;
+  min-height: 178px;
+  transition: transform 110ms ease, box-shadow var(--schnell);
+}
+.kachel--bereich:hover { transform: translateY(-2px); box-shadow: var(--sh-3); }
+.kachel--bereich:active { transform: scale(.975); }
+
+/* Das Bild sitzt auf einem Plättchen — wie ein App-Zeichen. */
+.kachel__zeichen {
+  width: 52px; height: 52px; border-radius: 15px;
+  display: grid; place-items: center;
+  font-size: 26px; line-height: 1;
+  margin-bottom: 12px;
+}
+.kachel__zeichen--gross { width: 58px; height: 58px; font-size: 30px; margin: 0; }
+.kachel__zeichen--blau   { background: var(--blau-weich); }
+.kachel__zeichen--gruen  { background: var(--gut-weich); }
+.kachel__zeichen--gold   { background: var(--gold-weich); }
+.kachel__zeichen--rot    { background: var(--schlecht-weich); }
+.kachel__zeichen--lila   { background: var(--lila-weich); }
+.kachel__zeichen--orange { background: var(--warn-weich); }
+
+.kachel__name {
+  font-size: 17px; font-weight: 600; letter-spacing: -.022em;
+}
+.kachel__wert {
+  font-size: 23px; font-weight: 600; letter-spacing: -.032em;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.kachel__wert.ist-gut { color: var(--gut); }
+.kachel__wert.ist-warn { color: var(--warn); }
+.kachel__wert.ist-schlecht { color: var(--schlecht); }
+.kachel__hinweis { font-size: 13px; color: var(--ink-2); }
+.kachel__was {
+  font-size: 12.5px; color: var(--ink-3);
+  align-self: end; margin-top: 10px; line-height: 1.35;
+}
+
+/* ---- Die grosse Kachel: das nächste Spiel ---- */
+.kachel--spiel {
+  display: grid; gap: 16px; justify-items: center;
+  padding: 24px 20px;
+  margin-bottom: 14px;
+}
+.kachel--spiel.ist-heute { box-shadow: var(--sh-2), 0 0 0 2px var(--accent); }
+.kachel--spiel__kopf { display: flex; align-items: center; gap: 12px; }
+.kachel--spiel__kopf b { display: block; font-size: 17px; font-weight: 600; }
+.kachel--spiel__kopf small { color: var(--ink-2); font-size: 13.5px; }
+.kachel__marke {
+  padding: 4px 12px; border-radius: var(--r-pill);
+  background: var(--accent-weich); color: var(--accent-tief);
+  font-size: 12.5px; font-weight: 600;
+}
+.paarung { display: flex; align-items: center; gap: 20px; }
+.paarung__team { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.paarung__team b { font-size: 19px; font-weight: 600; letter-spacing: -.028em; }
+.paarung__team .crest { width: 52px; height: 52px; border-radius: 16px; }
+.paarung__team .crest::after { font-size: 16px; }
+.paarung__gegen { color: var(--ink-3); font-size: 13.5px; }
+.paarung__du {
+  padding: 2px 9px; border-radius: var(--r-pill);
+  background: var(--accent); color: var(--auf-accent);
+  font-size: 11px; font-weight: 600; letter-spacing: .03em;
+}
+
+.btn--riesig {
+  min-height: 58px; padding: 0 34px;
+  font-size: 18px; font-weight: 600;
+  border-radius: var(--r-l);
+  width: min(420px, 100%);
+}
+
+/* ---- Was jetzt wichtig ist ---- */
+.aufgaben {
+  background: var(--surface);
+  border-radius: var(--r-l);
+  box-shadow: var(--sh-2);
+  padding: 18px 20px;
+  margin-bottom: 14px;
+}
+.aufgaben__titel { margin: 0 0 10px; font-size: 17px; }
+.aufgabe {
+  display: flex; align-items: center; gap: 13px;
+  padding: 11px 0; font-size: 15px;
+}
+.aufgabe + .aufgabe { border-top: 1px solid var(--hairline); }
+.aufgabe__zeichen {
+  width: 38px; height: 38px; flex: none; border-radius: 12px;
+  display: grid; place-items: center; font-size: 19px;
+  background: var(--surface-2);
+}
+.aufgabe.ist-warn .aufgabe__zeichen { background: var(--warn-weich); }
+.aufgabe.ist-schlecht .aufgabe__zeichen { background: var(--schlecht-weich); }
+.aufgabe.ist-gut .aufgabe__zeichen { background: var(--gut-weich); }
+.aufgabe__text { flex: 1; min-width: 0; }
+.aufgabe .btn { flex: none; }
+
+/* ---- Der Weg zurück ---- */
+.zurueck {
+  appearance: none; border: 0; font: inherit; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--surface); color: var(--ink);
+  box-shadow: var(--sh-1);
+  border-radius: var(--r-pill);
+  padding: 0 18px 0 12px; min-height: 42px;
+  margin-bottom: 14px;
+  transition: background var(--schnell), transform 90ms ease;
+}
+.zurueck:hover { background: var(--surface-3); }
+.zurueck:active { transform: scale(.97); }
+.zurueck__pfeil { font-size: 24px; line-height: 1; color: var(--accent); margin-top: -3px; }
+.zurueck__wort { font-size: 15px; font-weight: 600; }
+.zurueck__hier { font-size: 15px; color: var(--ink-3); }
+.zurueck__hier::before { content: '·'; margin-right: 8px; }
+
+@media (max-width: 820px) {
+  .kachelbrett { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .kachel { padding: 14px; border-radius: var(--r); }
+  .kachel--bereich { min-height: 162px; }
+  .kachel__zeichen { width: 46px; height: 46px; font-size: 23px; border-radius: 13px; margin-bottom: 10px; }
+  .kachel__name { font-size: 15.5px; }
+  .kachel__wert { font-size: 19px; }
+  .kachel__was { display: none; }
+  .kachel--spiel { padding: 18px 14px; gap: 14px; }
+  .paarung { gap: 14px; }
+  .paarung__team .crest { width: 44px; height: 44px; }
+  .btn--riesig { min-height: 54px; font-size: 17px; width: 100%; }
+  .aufgaben { padding: 14px 16px; }
+  .aufgabe { font-size: 14.5px; gap: 11px; }
+  .zurueck { min-height: 44px; }
+}
+
+@media (max-width: 400px) {
+  .kachelbrett { gap: 8px; }
+  .kachel { padding: 12px; }
+  .kachel--bereich { min-height: 148px; }
+  .kachel__zeichen { width: 42px; height: 42px; font-size: 21px; }
+  .kachel__name { font-size: 14.5px; }
+  .kachel__wert { font-size: 17.5px; }
+  .kachel__hinweis { font-size: 12px; }
+}
+
+/* ---- Bereichskopf: wo bin ich, was kann ich hier, und zurück ---------- */
+.bereichskopf {
+  display: flex; align-items: center; gap: 16px;
+  flex-wrap: wrap; margin-bottom: 18px;
+}
+.bereichskopf .zurueck { margin: 0; }
+.bereichskopf__titel { display: flex; align-items: center; gap: 13px; min-width: 0; }
+.bereichskopf__zeichen { width: 44px; height: 44px; font-size: 22px; margin: 0; flex: none; }
+.bereichskopf__titel b {
+  display: block; font-size: 21px; font-weight: 700; letter-spacing: -.028em; line-height: 1.15;
+}
+.bereichskopf__titel small { color: var(--ink-2); font-size: 13.5px; }
+
+@media (max-width: 820px) {
+  .bereichskopf { gap: 12px; margin-bottom: 14px; }
+  .bereichskopf__zeichen { width: 38px; height: 38px; font-size: 19px; }
+  .bereichskopf__titel b { font-size: 18px; }
+  .bereichskopf__titel small { display: none; }
+}
+
+/* ---- Die drei Schritte, aus denen das Spiel besteht ------------------- */
+.anleitung {
+  background: var(--accent-weich);
+  border-radius: var(--r-l);
+  padding: 18px 20px;
+  margin-bottom: 14px;
+}
+.anleitung__kopf { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.anleitung__kopf h3 { margin: 0; }
+.anleitung__schritte { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.schritt {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  grid-template-areas: 'zahl zeichen' 'zahl titel' 'zahl text';
+  align-items: center;
+  gap: 2px 12px;
+  background: var(--surface);
+  border-radius: var(--r);
+  padding: 14px 16px;
+}
+.schritt__zahl {
+  grid-area: zahl; align-self: start;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--accent); color: var(--auf-accent);
+  font-size: 15px; font-weight: 700;
+}
+.schritt__zeichen { grid-area: zeichen; font-size: 20px; line-height: 1; margin-bottom: 4px; }
+.schritt b { grid-area: titel; font-size: 16px; font-weight: 600; letter-spacing: -.02em; }
+.schritt__text { grid-area: text; font-size: 13.5px; color: var(--ink-2); line-height: 1.4; }
+
+@media (max-width: 820px) {
+  .anleitung { padding: 14px 16px; }
+  .anleitung__schritte { grid-template-columns: 1fr; gap: 8px; }
+  .schritt { padding: 12px 14px; }
+}

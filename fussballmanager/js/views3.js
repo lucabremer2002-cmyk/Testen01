@@ -60,7 +60,7 @@
       var f = world.finanzen[club.id];
       var titel = world.historie.titel[club.id] || [];
 
-      var html = '<div class="card__head"><h2>' + esc(club.name) + '</h2>' +
+      var html = '<div class="card__head"><span></span>' +
         '<button class="btn btn--sm" data-a="bau">Baumaßnahme beantragen</button></div>';
 
       html += '<div class="grid grid--2">';
@@ -191,7 +191,7 @@
       var werte = world.stabWerteVon(club.id);
       var m = world.manager;
 
-      var html = '<div class="card__head"><h2>Trainerstab &amp; Mitarbeiter</h2>' +
+      var html = '<div class="card__head"><span></span>' +
         '<button class="btn btn--sm" data-a="einstellen">Mitarbeiter suchen</button></div>';
 
       html += '<div class="card mb"><h3>Cheftrainer</h3>' +
@@ -328,7 +328,7 @@
       var stab = world.stabWerteVon(club.id);
       var hinweise = FM.youth.entwicklungsHinweise(world, club.id);
 
-      var html = '<div class="card__head"><h2>Nachwuchs</h2></div>';
+      var html = '';
 
       html += '<div class="tiles mb">' +
         '<div class="tile"><span>Akademie</span><b>' + club.akademie + '</b><small>Ausbaustufe</small></div>' +
@@ -495,7 +495,7 @@
         return n.typ === z.filter;
       });
 
-      var html = '<div class="card__head"><h2>Postfach</h2><div class="flex">' +
+      var html = '<div class="card__head"><span></span><div class="flex">' +
         '<select data-f="filter" style="width:auto">' +
         [['alle', 'Alle'], ['ungelesen', 'Ungelesen'], ['transfer', 'Transfermarkt'], ['angebot', 'Angebote'],
          ['medizin', 'Medizin'], ['kabine', 'Kabine'], ['vorstand', 'Vorstand'], ['verband', 'Verband'],
@@ -549,7 +549,7 @@
       // Europapokal wuerden die Torjaegerliste sonst verfaelschen.
       function ls(p) { return p.ligaStats || p.stats; }
 
-      var html = '<div class="card__head"><h2>Statistik</h2>' +
+      var html = '<div class="card__head"><span></span>' +
         '<select data-f="liga" style="width:auto">' +
         world.ligaIds.slice(0, 2).map(function (id) {
           return '<option value="' + id + '"' + (z.liga === id ? ' selected' : '') + '>' + esc(world.ligen[id].name) + '</option>';
@@ -804,7 +804,7 @@
   UI.views.karriere = {
     html: function (world) {
       var m = world.manager;
-      var html = '<div class="card__head"><h2>Karriere</h2><div class="flex">' +
+      var html = '<div class="card__head"><span></span><div class="flex">' +
         '<button class="btn btn--sm" data-a="export">Spielstand exportieren</button>' +
         '<button class="btn btn--sm btn--danger" data-a="neu">Neue Karriere</button></div></div>';
 
