@@ -86,6 +86,11 @@
         gewaehlterVerein = b.dataset.c;
         zeichneVereine();
         zeigeVereinsinfo();
+        // Die Oberflaeche nimmt sofort die Farbe des Vereins an - der erste
+        // Moment, in dem aus einer Liste "mein Verein" wird.
+        if (UI.vereinsfarbeAnwenden) {
+          UI.vereinsfarbeAnwenden(D.VEREINE.filter(function (c) { return c.id === gewaehlterVerein; })[0]);
+        }
         el('btn-start').disabled = false;
       };
     });

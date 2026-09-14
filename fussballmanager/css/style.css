@@ -468,6 +468,9 @@ label {
   align-items: center;
   gap: 11px;
   padding: 9px 11px;
+  /* Ein zweizeiliger Vereinsname darf die Reihe nicht aus dem Tritt
+     bringen - alle Kacheln stehen auf derselben Höhe. */
+  min-height: 54px;
   border: 0;
   border-radius: var(--r-s);
   background: transparent;
@@ -720,8 +723,10 @@ td .flex, th .flex { flex-wrap: nowrap; }
 .bar > i {
   /* Der Ruhezustand ist die Zielbreite; die Animation läuft nur von null
      dorthin. So steht der Balken auch dann richtig, wenn eine Ansicht
-     schneller neu zeichnet, als die Animation dauert. */
-  display: block; height: 100%; width: var(--w);
+     schneller neu zeichnet, als die Animation dauert.
+     Die Mindestbreite hält kleine Posten sichtbar: ein Pixelsplitter mit
+     runden Enden liest sich als Fehler, nicht als kleiner Wert. */
+  display: block; height: 100%; width: var(--w); min-width: 5px;
   background: var(--accent);
   border-radius: var(--r-pill);
   animation: fm-fuellen .6s cubic-bezier(.32,.72,0,1);
