@@ -55,6 +55,8 @@
 
   /* ---- Bedeutung */
   --gut:         #00875A;
+  --gut-text:    #006946;
+  --auf-gut:     #FFFFFF;
   --gut-weich:   rgba(0, 135, 90, .10);
   --warn:        #A65F00;
   --warn-hell:   #F0A32A;
@@ -120,12 +122,14 @@
     --ink-4:       #5B6560;
 
     --accent:      #2FD394;
-    --accent-tief: #17A874;
+    --accent-tief: #74EEBC;
     --accent-hell: #6DEFBB;
     --accent-weich: rgba(47, 211, 148, .13);
     --auf-accent:  #04180F;
 
     --gut:         #2FD394;
+    --gut-text:    #74EEBC;
+    --auf-gut:     #04180F;
     --gut-weich:   rgba(47, 211, 148, .13);
     --warn:        #F2A742;
     --warn-hell:   #F2A742;
@@ -169,12 +173,14 @@
   --ink-4:       #5B6560;
 
   --accent:      #2FD394;
-  --accent-tief: #17A874;
+  --accent-tief: #74EEBC;
   --accent-hell: #6DEFBB;
   --accent-weich: rgba(47, 211, 148, .13);
   --auf-accent:  #04180F;
 
   --gut:         #2FD394;
+  --gut-text:    #74EEBC;
+  --auf-gut:     #04180F;
   --gut-weich:   rgba(47, 211, 148, .13);
   --warn:        #F2A742;
   --warn-hell:   #F2A742;
@@ -692,7 +698,7 @@ td .flex, th .flex { flex-wrap: nowrap; }
 }
 .pos-TW  { background: var(--warn-weich);   color: var(--warn); }
 .pos-ABW { background: var(--blau-weich);   color: var(--blau); }
-.pos-MIT { background: var(--accent-weich); color: var(--accent-tief); }
+.pos-MIT { background: var(--gut-weich); color: var(--gut-text); }
 .pos-ANG { background: var(--schlecht-weich); color: var(--schlecht); }
 
 /* Werte: Farbe nur an den Rändern der Skala. Ein mittlerer Wert ist keine
@@ -734,7 +740,7 @@ td .flex, th .flex { flex-wrap: nowrap; }
 }
 .chip--rot   { background: var(--schlecht-weich); color: var(--schlecht); }
 .chip--gelb  { background: var(--warn-weich);     color: var(--warn); }
-.chip--gruen { background: var(--accent-weich);   color: var(--accent-tief); }
+.chip--gruen { background: var(--gut-weich);      color: var(--gut-text); }
 .chip--blau  { background: var(--blau-weich);     color: var(--blau); }
 .chip--lila  { background: var(--lila-weich);     color: var(--lila); }
 .chip--gold  { background: var(--gold-weich);     color: var(--gold); }
@@ -745,7 +751,7 @@ td .flex, th .flex { flex-wrap: nowrap; }
   font: 600 10px/18px var(--font); font-style: normal;
   text-align: center;
 }
-.form-S { background: var(--accent-weich); color: var(--accent-tief); }
+.form-S { background: var(--gut-weich); color: var(--gut-text); }
 .form-U { background: var(--surface-3); color: var(--ink-2); }
 .form-N { background: var(--schlecht-weich); color: var(--schlecht); }
 
@@ -889,8 +895,8 @@ td .flex, th .flex { flex-wrap: nowrap; }
   font-size: 9px; font-weight: 700;
   background: var(--surface-3); color: transparent;
 }
-.mstein--fertig .mstein__haken { background: var(--accent); color: var(--auf-accent); }
-.mstein--fertig .mstein__kopf b { color: var(--accent-tief); }
+.mstein--fertig .mstein__haken { background: var(--gut); color: var(--auf-gut); }
+.mstein--fertig .mstein__kopf b { color: var(--gut-text); }
 .mstein__stand { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .mstein__text { margin-top: 5px; }
 
@@ -906,7 +912,7 @@ td .flex, th .flex { flex-wrap: nowrap; }
   font-size: 10px; font-weight: 600; vertical-align: 1px;
   font-variant-numeric: tabular-nums;
 }
-.wachstum--plus { background: var(--accent-weich); color: var(--accent-tief); }
+.wachstum--plus { background: var(--gut-weich); color: var(--gut-text); }
 .wachstum--minus { background: var(--schlecht-weich); color: var(--schlecht); }
 
 .eignung { display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
@@ -1075,8 +1081,8 @@ td .flex, th .flex { flex-wrap: nowrap; }
 }
 .tick + .tick { border-top: 1px solid var(--hairline); }
 .tick__min { font-size: 12px; font-weight: 600; color: var(--ink-3); width: 34px; flex: none; font-variant-numeric: tabular-nums; }
-.tick--tor { background: var(--accent-weich); font-weight: 600; }
-.tick--tor .tick__min { color: var(--accent); }
+.tick--tor { background: var(--gut-weich); font-weight: 600; }
+.tick--tor .tick__min { color: var(--gut); }
 .tick--gelb { box-shadow: inset 3px 0 0 var(--warn); }
 .tick--rot, .tick--gelbrot { box-shadow: inset 3px 0 0 var(--schlecht); }
 .tick--wechsel { color: var(--ink-2); }
@@ -1167,14 +1173,14 @@ td .flex, th .flex { flex-wrap: nowrap; }
 
 .progress { height: 8px; background: var(--hairline); border-radius: var(--r-pill); overflow: hidden; }
 .progress > i { display: block; height: 100%; background: var(--accent); border-radius: var(--r-pill); }
-.mstein--fertig .progress > i { background: var(--accent); }
+.mstein--fertig .progress > i { background: var(--gut); }
 
 .rollen-tag {
   display: inline-block; padding: 2px 8px; border-radius: 7px;
   background: var(--surface-3); color: var(--ink-2);
   font-size: 11.5px; font-weight: 500; white-space: nowrap;
 }
-.rollen-tag--gruen { background: var(--accent-weich); color: var(--accent-tief); }
+.rollen-tag--gruen { background: var(--gut-weich); color: var(--gut-text); }
 .rollen-tag--rot { background: var(--schlecht-weich); color: var(--schlecht); }
 
 .merkmal {
@@ -1182,6 +1188,7 @@ td .flex, th .flex { flex-wrap: nowrap; }
   padding: 9px 12px; margin-top: 7px; border-radius: var(--r-s);
   background: var(--surface-2); border-left: 3px solid var(--accent);
 }
+.merkmal { border-left-color: var(--gut); }
 .merkmal--minus { border-left-color: var(--schlecht); }
 .merkmal b { font-size: 13.5px; font-weight: 600; }
 
@@ -1206,6 +1213,7 @@ td .flex, th .flex { flex-wrap: nowrap; }
 }
 .option--klein { padding: 8px 11px; font-size: 12.5px; text-align: left; }
 .option--klein.is-aktiv { background: var(--accent-weich); color: var(--accent-tief); font-weight: 600; }
+.trainingsgrid .zelle--spiel { color: var(--accent-tief); }
 
 .card--deadline { border-left: 3px solid var(--warn); }
 
@@ -1224,7 +1232,7 @@ td .flex, th .flex { flex-wrap: nowrap; }
 }
 .vgl__wert { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--ink-2); }
 .vgl__zeile .vgl__wert:first-child { text-align: right; }
-.vgl__wert.is-besser { color: var(--accent-tief); font-weight: 700; }
+.vgl__wert.is-besser { color: var(--gut-text); font-weight: 700; }
 /* Lange Bezeichnungen wie "Verletzungsanfälligkeit" müssen umbrechen dürfen,
    sonst schieben sie sich am Telefon über die Zahlen. */
 .vgl__label { text-align: center; font-size: 12px; color: var(--ink-3); line-height: 1.25; overflow-wrap: anywhere; hyphens: auto; }
@@ -1245,7 +1253,7 @@ td .flex, th .flex { flex-wrap: nowrap; }
 /* ---------- Rückhalt beim Vorstand ---------- */
 .rueckhalt { display: flex; align-items: center; gap: 9px; margin: 10px 0 2px; font-size: 12.5px; color: var(--ink-2); }
 .rueckhalt__schilde { letter-spacing: 2px; font-size: 13px; line-height: 1; }
-.schild--voll { color: var(--accent); }
+.schild--voll { color: var(--gut); }
 .schild--leer { color: var(--ink-4); }
 .rueckhalt__text { flex: 1; }
 .zeilenumbruch { white-space: normal; line-height: 1.35; margin-top: 2px; }

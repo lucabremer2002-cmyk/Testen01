@@ -95,7 +95,7 @@
     var wert = U.clamp(anteil, 0, 1);
     // Helle Töne: der Ring liegt oft auf dem dunklen Rasen, wo ein
     // dunkles Ocker als Schmutzrand liest.
-    var farbe = opts.farbe || (wert >= .66 ? 'var(--accent)' : wert >= .34 ? 'var(--warn-hell)' : 'var(--schlecht)');
+    var farbe = opts.farbe || (wert >= .66 ? 'var(--gut)' : wert >= .34 ? 'var(--warn-hell)' : 'var(--schlecht)');
     return '<span class="ring" style="width:' + groesse + 'px;height:' + groesse + 'px">' +
       '<svg width="' + groesse + '" height="' + groesse + '" viewBox="0 0 ' + groesse + ' ' + groesse + '">' +
       '<circle class="ring__spur" cx="' + groesse / 2 + '" cy="' + groesse / 2 + '" r="' + radius +
@@ -498,6 +498,7 @@
     var world = UI.world;
     var club = world.nutzerVerein();
     if (!club) return;
+    vereinsfarbeAnwenden(club);
     var f = world.finanzen[club.id];
     var tab = world.tabellenPlatz(club.id);
     var liga = world.ligaVon(club.id);
@@ -523,6 +524,128 @@
     badge.textContent = ungelesen > 99 ? '99+' : ungelesen;
     var punkt = el('tab-punkt');
     if (punkt) punkt.hidden = ungelesen === 0;
+  }
+
+  // ------------------------------------------------------------ Vereinsfarbe
+
+  /**
+   * Die Farbe des eigenen Vereins wird zur Farbe der Oberflaeche: aktiver
+   * Menuepunkt, Hauptknopf, die eigene Tabellenzeile, der Jubel nach einem
+   * Tor. Damit das auf hellem wie dunklem Grund lesbar bleibt, wird nur der
+   * Farbton uebernommen - Saettigung und Helligkeit zwingt die Rechnung in
+   * ein Band, in dem Text darauf noch zu lesen ist. Gelb bleibt also Gelb,
+   * wird aber zu einem tiefen Goldton statt zu Neon auf Weiss.
+   *
+   * Ein Verein in Schwarz oder Weiss hat keinen Farbton; dort greift die
+   * Zweitfarbe, und wenn auch die grau ist, bleibt es beim Gruen des Platzes.
+   */
+  var AKZENT_TOKEN = ['--accent', '--accent-tief', '--accent-hell', '--accent-weich',
+    '--auf-accent', '--sh-akzent'];
+
+  function hexZuHsl(hex) {
+    if (!hex) return null;
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+    if (!m) return null;
+    var z = parseInt(m[1], 16);
+    var r = ((z >> 16) & 255) / 255, g = ((z >> 8) & 255) / 255, b = (z & 255) / 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var l = (max + min) / 2, h = 0, sat = 0;
+    if (max !== min) {
+      var d = max - min;
+      sat = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+    }
+    return { h: h, s: sat, l: l };
+  }
+
+  function hsl(h, s, l, a) {
+    var w = Math.round(h) + ' ' + Math.round(s * 100) + '% ' + Math.round(l * 100) + '%';
+    return a === undefined ? 'hsl(' + w + ')' : 'hsl(' + w + ' / ' + a + ')';
+  }
+
+  /** Relative Leuchtdichte einer HSL-Farbe nach WCAG. */
+  function leuchtdichte(h, s, l) {
+    var c = (1 - Math.abs(2 * l - 1)) * s;
+    var x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    var m = l - c / 2;
+    var r, g, b;
+    if (h < 60)       { r = c; g = x; b = 0; }
+    else if (h < 120) { r = x; g = c; b = 0; }
+    else if (h < 180) { r = 0; g = c; b = x; }
+    else if (h < 240) { r = 0; g = x; b = c; }
+    else if (h < 300) { r = x; g = 0; b = c; }
+    else              { r = c; g = 0; b = x; }
+    function k(v) { v += m; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+    return 0.2126 * k(r) + 0.7152 * k(g) + 0.0722 * k(b);
+  }
+
+  function kontrast(a, b) {
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  }
+
+  /**
+   * Sucht die Helligkeit, bei der die Farbe gegen den Grund noch zu lesen
+   * ist. Eine feste Helligkeit reicht nicht: Gelb ist bei gleichem Wert
+   * sehr viel heller als Rot, und Dortmunds Gelb verfehlte damit die
+   * Lesbarkeitsschwelle, waehrend Bayerns Rot sie weit uebertraf.
+   */
+  function helligkeitFuerKontrast(h, s, grundDichte, ziel, start, schritt) {
+    var l = start;
+    for (var i = 0; i < 60; i++) {
+      if (kontrast(leuchtdichte(h, s, l), grundDichte) >= ziel) return l;
+      l += schritt;
+      if (l < 0.05 || l > 0.95) break;
+    }
+    return U.clamp(l, 0.05, 0.95);
+  }
+
+  function dunklesThema() {
+    var t = doc.documentElement.getAttribute('data-theme');
+    if (t === 'dark') return true;
+    if (t === 'light') return false;
+    return !!(global.matchMedia && global.matchMedia('(prefers-color-scheme: dark)').matches);
+  }
+
+  function vereinsfarbeAnwenden(club) {
+    var wurzel = doc.documentElement;
+    function zuruecksetzen() {
+      AKZENT_TOKEN.forEach(function (n) { wurzel.style.removeProperty(n); });
+    }
+    if (!club) { zuruecksetzen(); return; }
+    var f = hexZuHsl(club.farbe);
+    if (!f || f.s < 0.16) f = hexZuHsl(club.farbe2);
+    if (!f || f.s < 0.16) { zuruecksetzen(); return; }
+
+    var h = f.h;
+    var s = U.clamp(f.s, 0.45, 0.90);
+
+    if (dunklesThema()) {
+      // Gegen den dunklen Grund muss die Farbe hell genug sein. Sie traegt
+      // dort Text und dient zugleich als Flaeche - auf ihr steht dann ein
+      // sehr dunkler Ton aus demselben Farbton.
+      var lD = helligkeitFuerKontrast(h, s, leuchtdichte(0, 0, 0.09), 4.6, 0.46, 0.015);
+      wurzel.style.setProperty('--accent', hsl(h, s, lD));
+      // "tief" meint die betonte Variante, nicht die dunklere: hier steht
+      // sie als Text auf getoenter Flaeche und muss heller sein.
+      wurzel.style.setProperty('--accent-tief', hsl(h, s, Math.min(0.84, lD + 0.14)));
+      wurzel.style.setProperty('--accent-hell', hsl(h, s, Math.min(0.82, lD + 0.15)));
+      wurzel.style.setProperty('--accent-weich', hsl(h, s, lD, 0.15));
+      wurzel.style.setProperty('--auf-accent', hsl(h, s * 0.5, 0.07));
+      wurzel.style.setProperty('--sh-akzent', '0 6px 20px -8px ' + hsl(h, s, lD, 0.45));
+    } else {
+      // Dieselbe Farbe traegt hier Text auf Weiss und Weiss auf sich selbst.
+      // Beides ist dieselbe Bedingung: Kontrast gegen Weiss.
+      var lH = helligkeitFuerKontrast(h, s, 1, 4.6, 0.44, -0.015);
+      wurzel.style.setProperty('--accent', hsl(h, s, lH));
+      wurzel.style.setProperty('--accent-tief', hsl(h, s, Math.max(0.08, lH - 0.07)));
+      wurzel.style.setProperty('--accent-hell', hsl(h, s, Math.min(0.60, lH + 0.10)));
+      wurzel.style.setProperty('--accent-weich', hsl(h, s, Math.min(0.55, lH + 0.10), 0.12));
+      wurzel.style.setProperty('--auf-accent', '#FFFFFF');
+      wurzel.style.setProperty('--sh-akzent', '0 6px 18px -8px ' + hsl(h, s, lH, 0.5));
+    }
   }
 
   // ------------------------------------------------------------ Sortierbare Tabellen
@@ -1211,6 +1334,7 @@
   UI.modalZu = modalZu;
   UI.bestaetigen = bestaetigen;
   UI.zeige = zeige;
+  UI.vereinsfarbeAnwenden = vereinsfarbeAnwenden;
   UI.mehrBlatt = mehrBlatt;
   UI.blattZu = blattZu;
   UI.speicherStandText = speicherStandText;

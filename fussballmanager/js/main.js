@@ -38,6 +38,10 @@
     if (wert === 'hell' || wert === 'dunkel') {
       wurzel.setAttribute('data-theme', wert === 'hell' ? 'light' : 'dark');
     }
+    // Die Vereinsfarbe haengt am Thema - nach dem Wechsel neu rechnen.
+    if (UI.vereinsfarbeAnwenden && UI.world) {
+      UI.vereinsfarbeAnwenden(UI.world.nutzerVerein ? UI.world.nutzerVerein() : null);
+    }
     var knopf = el('btn-thema');
     if (knopf) {
       var dunkel = istDunkel();
