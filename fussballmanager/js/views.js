@@ -60,49 +60,11 @@
           '</p></div>';
       }
 
-      // Nächstes Spiel
-      // Ein Testspiel ist kein Pflichtspiel - die Ueberschrift richtet
-      // sich nach dem Wettbewerb.
-      var istPflicht = naechstes && naechstes.wettbewerb !== 'test';
-      html += '<div class="card"><div class="card__head"><h3>' +
-        (istPflicht ? 'Nächstes Pflichtspiel' : 'Nächstes Spiel') + '</h3>';
-      if (naechstes) html += '<span class="chip">' + esc(U.fmtDate(naechstes.tag, 'lang')) + ' · ' + esc(naechstes.zeit) + '</span>';
-      html += '</div>';
-      if (naechstes) {
-        var heim = naechstes.heimId === club.id;
-        var gegnerId = heim ? naechstes.gastId : naechstes.heimId;
-        var gegner = world.vereine[gegnerId];
-        var gTab = world.tabellenPlatz(gegnerId);
-        var riv = D.rivalitaet(naechstes.heimId, naechstes.gastId);
-        html += '<div class="flex flex--zwischen mb"><div class="flex">' +
-          UI.wappen(gegner) + '<div><b style="font-size:16px">' + esc(gegner.name) + '</b>' +
-          (riv ? ' <span class="derby-tag" title="Ein Derby wirkt stärker auf Stimmung und Moral als ein gewöhnliches Spiel.">' +
-            esc(riv.name) + '</span>' : '') + '<br>' +
-          '<small class="muted">' + (heim ? 'Heimspiel' : 'Auswärtsspiel') + ' · ' +
-          esc(UI.wettbewerbName(world, naechstes)) +
-          (naechstes.rundeName && naechstes.rundeName !== UI.wettbewerbName(world, naechstes)
-            ? ' · ' + esc(naechstes.rundeName) : '') +
-          '</small></div></div>';
-        if (gTab) html += '<div class="rechts klein muted">Tabellenplatz ' + gTab.platz + '<br>' +
-          UI.formPunkte(gTab.form) + '</div>';
-        html += '</div>';
-        html += '<div class="tiles">' +
-          '<div class="tile"><span>Einsatzbereit</span><b>' +
-          kader.filter(function (p) { return T.einsatzbereit(p, world, naechstes.wettbewerb); }).length +
-          '</b><small>von ' + kader.length + '</small></div>' +
-          '<div class="tile"><span>Formation</span><b style="font-size:16px">' +
-          esc(world.taktikVon(club.id).formation) + '</b><small>Einspielgrad ' +
-          Math.round(world.taktikVon(club.id).einspielgrad) + ' %</small></div>' +
-          '<div class="tile"><span>Ø Frische</span><b>' +
-          Math.round(U.avg(kader.filter(function (p) { return !p.verletzung; }).map(function (p) { return p.fitness; })) || 0) +
-          ' %</b></div>' +
-          '<div class="tile"><span>Ø Moral</span><b>' +
-          Math.round(U.avg(kader.map(function (p) { return p.moral; })) || 0) + ' %</b></div>' +
-          '</div>';
-      } else {
-        html += '<div class="leer">Kein weiteres Spiel angesetzt.</div>';
-      }
-      html += '</div>';
+      // Nächstes Spiel, Tabelle, Postfach, Finanzen und die Liste der
+      // anstehenden Aufgaben haben eigene Kacheln auf dem Startbildschirm.
+      // Hier stuenden sie ein zweites Mal - und genau das macht eine
+      // Oberflaeche unuebersichtlich. Geblieben ist, was nur hier steht:
+      // wie der Verein zu dir steht.
 
       // Letztes Spiel
       if (letztes && letztes.ergebnis) {
@@ -121,60 +83,6 @@
           '<span class="chip ' + (eTore > gTore ? 'chip--gruen' : eTore === gTore ? '' : 'chip--rot') + '">' + ausgang + '</span>' +
           '</div></div>';
       }
-
-      // Tabellenausschnitt
-      if (eigen && !eigen.spiele) {
-        html += '<div class="card"><div class="card__head"><h3>' + esc(liga.name) + '</h3>' +
-          '<button class="btn btn--sm" data-a="tabelle">Ganze Tabelle</button></div>' +
-          '<div class="leer">Die Tabelle füllt sich ab dem 1. Spieltag.</div></div>';
-      } else if (eigen) {
-        var von = Math.max(0, eigen.platz - 3);
-        var bis = Math.min(tab.length, von + 6);
-        html += '<div class="card"><div class="card__head"><h3>' + esc(liga.name) + '</h3>' +
-          '<div class="flex">' + UI.serie(eigen.form) +
-          '<button class="btn btn--sm" data-a="tabelle">Ganze Tabelle</button></div></div>' +
-          UI.tabelle([
-            { key: 'platz', label: '#', klasse: 'num', html: function (e) { return e.platz; } },
-            { key: 'club', label: 'Verein', html: function (e) { return UI.vereinZelle(world, e.clubId); } },
-            { key: 'sp', label: 'Sp', klasse: 'num', html: function (e) { return e.spiele; } },
-            { key: 'diff', label: 'Diff', klasse: 'num', html: function (e) { return (e.tore - e.gegentore > 0 ? '+' : '') + (e.tore - e.gegentore); } },
-            { key: 'pkt', label: 'Pkt', klasse: 'num', html: function (e) { return '<b>' + (e.punkte - e.punktabzug) + '</b>'; } },
-            { key: 'form', label: 'Form', html: function (e) { return UI.formPunkte(e.form); } }
-          ], tab.slice(von, bis), {
-            zeilenKlasse: function (e) { return e.clubId === club.id ? 'tr-eigen' : ''; }
-          }) + '</div>';
-      }
-
-      // Kaderprobleme
-      var verletzt = kader.filter(function (p) { return p.verletzung; });
-      var gesperrt = kader.filter(function (p) { return p.sperre > 0; });
-      var muede = kader.filter(function (p) { return !p.verletzung && p.fitness < 62; });
-      var unzufrieden = kader.filter(function (p) { return p.wechselwunsch > 55; });
-      var auslaufend = kader.filter(function (p) { return p.vertrag && P.restlaufzeitMonate(p, world) <= 7; });
-
-      html += '<div class="card"><h3>Was ansteht</h3>';
-      var punkte = [];
-      if (verletzt.length) punkte.push(['✚', verletzt.length + ' Spieler verletzt', verletzt.map(function (p) {
-        return p.nachname + ' (' + UI.tage(p.verletzung.tage) + ')';
-      }).join(', '), 'kader']);
-      if (gesperrt.length) punkte.push(['⛔', gesperrt.length + ' Spieler gesperrt', gesperrt.map(function (p) {
-        return p.nachname + ' (' + p.sperre + ')';
-      }).join(', '), 'kader']);
-      if (muede.length) punkte.push(['◷', muede.length + ' Spieler unter 62 % Frische',
-        'Rotation oder ein schonender Trainingsplan wären sinnvoll.', 'training']);
-      if (unzufrieden.length) punkte.push(['👥', unzufrieden.length + ' Spieler mit Wechselwunsch',
-        unzufrieden.map(function (p) { return p.nachname; }).join(', '), 'kader']);
-      if (auslaufend.length) punkte.push(['✎', auslaufend.length + ' Verträge laufen bald aus',
-        auslaufend.map(function (p) { return p.nachname; }).join(', '), 'kader']);
-      if (f.kontostand < 0) punkte.push(['€', 'Das Konto ist im Minus',
-        'Die DFL verlangt einen Liquiditätsnachweis. Verkäufe oder ein Kredit könnten helfen.', 'finanzen']);
-      if (!punkte.length) punkte.push(['✓', 'Alles im grünen Bereich', 'Keine dringenden Aufgaben.', null]);
-
-      html += '<div>' + punkte.map(function (pt) {
-        return '<div class="msg" ' + (pt[3] ? 'data-goto="' + pt[3] + '"' : '') + '>' +
-          '<div class="msg__icon">' + pt[0] + '</div><div class="msg__body"><b>' + esc(pt[1]) + '</b>' +
-          '<p>' + esc(pt[2]) + '</p></div></div>';
-      }).join('') + '</div></div>';
 
       // ---- Ehrungen: was der eigene Verein zuletzt geholt hat
       html += ehrungsStreifen(world, club);
@@ -199,26 +107,6 @@
         '<div class="stat-row"><span>Bilanz als Trainer</span><b>' + m.bilanz.siege + 'S · ' +
         m.bilanz.remis + 'U · ' + m.bilanz.niederlagen + 'N</b></div>' +
         '</div>';
-
-      html += '<div class="card"><div class="card__head"><h3>Finanzen</h3>' +
-        '<button class="btn btn--sm" data-goto="finanzen">Details</button></div>' +
-        '<div class="stat-row"><span>Kontostand</span><b class="' + (f.kontostand < 0 ? 'w-schlecht' : 'w-gut') + '">' + U.money(f.kontostand) + '</b></div>' +
-        '<div class="stat-row"><span>Transferbudget</span><b>' + U.money(f.transferbudget) + '</b></div>' +
-        '<div class="stat-row"><span>Gehaltsbudget</span><b>' + U.money(f.gehaltsbudget) + ' / Woche</b></div>' +
-        '<div class="stat-row"><span>Lohnkosten</span><b>' + U.money(F.wochenLohnsumme(world, club.id)) + ' / Woche</b></div>' +
-        '<div class="stat-row"><span>Kaderwert</span><b>' + U.money(U.sum(kader.map(function (p) { return p.marktwert; }))) + '</b></div>' +
-        '</div>';
-
-      var neueste = world.inbox.slice(0, 5);
-      html += '<div class="card"><div class="card__head"><h3>Postfach</h3>' +
-        '<button class="btn btn--sm" data-goto="medien">Alle</button></div>';
-      html += neueste.length ? neueste.map(function (n) {
-        return '<div class="msg' + (n.gelesen ? '' : ' msg--ungelesen') + '" data-msg="' + esc(n.id) + '">' +
-          '<div class="msg__icon">' + UI.nachrichtIcon(n.typ) + '</div>' +
-          '<div class="msg__body"><b>' + esc(n.titel) + '</b><p>' + esc(n.text.slice(0, 90)) + '…</p></div>' +
-          '<div class="msg__datum">' + U.fmtDate(n.tag, 'kurz') + '</div></div>';
-      }).join('') : '<div class="leer">Keine Nachrichten.</div>';
-      html += '</div>';
 
       html += '</div></div>';
       return html;
