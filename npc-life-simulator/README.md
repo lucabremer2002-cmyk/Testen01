@@ -10,12 +10,13 @@ Der Spieler ist Beobachter und Gott zugleich: zusehen, die Zeit beschleunigen, e
 ## Schnellstart
 
 ```bash
+cd npc-life-simulator
 npm install
 npm run dev
 ```
 
-Danach `http://localhost:5173` öffnen. Das Spiel läuft vollständig lokal und offline – es gibt
-keine Server- oder API-Abhängigkeit.
+Danach `http://localhost:5173` öffnen. Vorausgesetzt wird Node 18 oder neuer. Das Spiel läuft
+vollständig lokal und offline – es gibt keine Server- oder API-Abhängigkeit.
 
 | Befehl | Zweck |
 | --- | --- |
@@ -24,7 +25,16 @@ keine Server- oder API-Abhängigkeit.
 | `npm run typecheck` | TypeScript ohne Emit prüfen |
 | `npm run simtest -- <Jahre> <Einwohner> <Seed>` | Headless-Langzeittest inkl. Plausibilitätsprüfungen |
 | `npm run probe -- <Geschwindigkeit>` | Tagesrhythmus der Stadt nach Uhrzeit messen |
-| `npm run e2e` | Browser-Smoketest (benötigt laufenden `npm run dev`) |
+| `npm run e2e` | Browser-Smoketest (optional, siehe unten) |
+
+Für den Browser-Smoketest wird Playwright zusätzlich gebraucht – es ist bewusst keine reguläre
+Abhängigkeit, damit zum Spielen kein Browser heruntergeladen werden muss:
+
+```bash
+npm i -D playwright && npx playwright install chromium
+npm run dev          # in einem zweiten Terminal
+npm run e2e
+```
 
 ## Steuerung
 
