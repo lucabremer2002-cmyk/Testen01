@@ -95,9 +95,32 @@ await page.locator('button[title^="Welt speichern"]').click();
 await page.waitForTimeout(1200);
 await page.screenshot({ path: `${SHOTS}/11-saved.png` });
 
-const stats = await page.evaluate(() => {
-  const el = document.querySelector('.clock .date');
-  return el ? el.textContent : null;
+// Snapshot the world so the reload can be verified properly, not just by date.
+const before = await page.evaluate(() => {
+  const e = window.__engine;
+  return {
+    date: document.querySelector('.clock .date')?.textContent ?? null,
+    population: e.aliveIds.length,
+    npcObjects: e.npcs.length,
+    relationships: e.rels.size,
+    companies: e.companies.length,
+    seed: e.seed,
+    city: e.world.name,
+    buildings: e.world.buildings.length,
+    events: e.events.count,
+    // A concrete person, to prove individual state survives.
+    sample: (() => {
+      const npc = e.npcs[e.aliveIds[0]];
+      return {
+        id: npc.id,
+        name: `${npc.firstName} ${npc.lastName}`,
+        age: npc.ageYears,
+        links: npc.links.length,
+        memories: npc.memories.length,
+        bank: Math.round(npc.bank),
+      };
+    })(),
+  };
 });
 
 await page.reload({ waitUntil: 'networkidle' });
@@ -107,10 +130,54 @@ await page.waitForSelector('.map-canvas', { timeout: 45000 });
 await page.waitForTimeout(2500);
 await page.screenshot({ path: `${SHOTS}/12-loaded.png` });
 
-const loadedDate = await page.evaluate(() => document.querySelector('.clock .date')?.textContent);
+const after = await page.evaluate((sampleId) => {
+  const e = window.__engine;
+  return {
+    date: document.querySelector('.clock .date')?.textContent ?? null,
+    population: e.aliveIds.length,
+    npcObjects: e.npcs.length,
+    relationships: e.rels.size,
+    companies: e.companies.length,
+    seed: e.seed,
+    city: e.world.name,
+    buildings: e.world.buildings.length,
+    events: e.events.count,
+    sample: (() => {
+      const npc = e.npcs[sampleId];
+      return {
+        id: npc.id,
+        name: `${npc.firstName} ${npc.lastName}`,
+        age: npc.ageYears,
+        links: npc.links.length,
+        memories: npc.memories.length,
+        bank: Math.round(npc.bank),
+      };
+    })(),
+  };
+}, before.sample.id);
 
-console.log('Datum vor dem Speichern :', stats);
-console.log('Datum nach dem Laden    :', loadedDate);
+console.log('\n--- Spielstand-Integritaet ---');
+console.log('vor dem Speichern:', JSON.stringify(before));
+console.log('nach dem Laden   :', JSON.stringify(after));
+
+// The world keeps running between save and reload, so only structural
+// identity must match exactly; counts may drift by a few entries.
+const mustMatch = ['seed', 'city', 'buildings', 'companies'];
+for (const key of mustMatch) {
+  if (before[key] !== after[key]) errors.push(`Spielstand: ${key} weicht ab (${before[key]} -> ${after[key]})`);
+}
+if (before.sample.name !== after.sample.name) {
+  errors.push(`Spielstand: Person ${before.sample.id} heisst nach dem Laden anders`);
+}
+if (Math.abs(before.relationships - after.relationships) > before.relationships * 0.05) {
+  errors.push(`Spielstand: Beziehungszahl weicht stark ab (${before.relationships} -> ${after.relationships})`);
+}
+if (Math.abs(before.population - after.population) > 5) {
+  errors.push(`Spielstand: Bevoelkerung weicht stark ab (${before.population} -> ${after.population})`);
+}
+if (before.sample.memories > 0 && after.sample.memories === 0) {
+  errors.push('Spielstand: Erinnerungen gingen verloren');
+}
 console.log('\nFehler im Browser:', errors.length);
 for (const e of errors.slice(0, 20)) console.log('  -', e);
 console.log('Screenshots:', SHOTS);

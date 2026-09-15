@@ -135,9 +135,13 @@ der Zahl der NPCs:
 * **Zeitbudget pro Tick** – überschreitet ein Tick sein Budget, verschiebt der Scheduler den Rest.
   Die Bildrate bleibt stabil, die simulierte Zeit läuft kurzzeitig etwas langsamer.
 
-Messwerte auf dem Entwicklungsrechner (1.200 Einwohner, Seed 847291, 500×, Node):
-rund 60.000 Entscheidungen pro Sekunde bei etwa 38 ms je Tick. Bei 1× bis 10× liegt die Tickzeit
-im niedrigen einstelligen Millisekundenbereich.
+Messwerte auf dem Entwicklungsrechner (1.200 Einwohner, Seed 847291, 500×, Node): rund 86.000
+Entscheidungen pro Sekunde bei etwa 28 ms je Tick. Im Browser bei 100× liegt die Tickzeit bei
+3–5 ms und die Bildrate bei 60 fps.
+
+Langzeitprüfung: `npm run simtest -- 20 800 555123` simuliert zwanzig Jahre am Stück und prüft
+anschließend Bevölkerung, Altersstruktur, Arbeitslosigkeit, Obdachlosigkeit, Unternehmenszahl und
+das Entstehen von Geschichten auf Plausibilität.
 
 ## Determinismus
 

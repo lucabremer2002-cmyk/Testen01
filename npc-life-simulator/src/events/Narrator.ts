@@ -58,8 +58,27 @@ const SINGLE_TITLES: Record<string, string> = {
   relationship: 'Eine neue Liebe',
 };
 
+/** How a chain ends colours it more than what it contains. */
+const ENDING_TITLES: Record<string, string[]> = {
+  breakup: ['Als es zu Ende ging', 'Das Ende einer Beziehung', 'Auseinandergelebt'],
+  divorce: ['Das Ende einer Ehe', 'Getrennte Wege'],
+  wedding: ['Eine Hochzeit', 'Der gemeinsame Weg'],
+  death: ['Ein Abschied', 'Das letzte Kapitel'],
+  bankruptcy: ['Das Ende eines Unternehmens', 'Aufstieg und Fall'],
+  birth: ['Ein neues Leben', 'Familienzuwachs'],
+  fired: ['Der Bruch im Berufsleben', 'Ohne Arbeit'],
+  homeless: ['Ohne festen Boden'],
+  company_founded: ['Der Sprung ins Risiko'],
+};
+
 function pickTitle(events: GameEvent[], name: string, seed: number): string {
   const types = events.map((e) => e.type as string);
+
+  // A chain that ends in a break-up is not "a second attempt", whatever else
+  // happened along the way.
+  const ending = ENDING_TITLES[events[events.length - 1].type];
+  if (ending) return ending[seed % ending.length];
+
   for (const rule of TITLE_RULES) {
     if (rule.needs.every((n) => types.includes(n))) return rule.title;
   }
