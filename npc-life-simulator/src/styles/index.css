@@ -635,3 +635,130 @@ input[type="range"] { padding: 0; background: none; border: none; accent-color: 
   background: var(--border);
 }
 .help-progress span.active { background: var(--accent); }
+
+/* ------------------------------------------------------------ phone layout */
+
+/* Canvas gestures must not scroll or zoom the page itself. */
+.map-canvas { touch-action: none; }
+
+.mobile-bar { display: none; }
+
+@media (max-width: 760px) {
+  .app { grid-template-rows: auto 1fr; }
+
+  /* One column: the map is the base layer, panels slide over it. */
+  .workspace,
+  .workspace.no-left,
+  .workspace.no-right,
+  .workspace.no-left.no-right {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: absolute;
+    inset: 0 0 56px 0;
+    z-index: 40;
+    border: none;
+    border-top: 1px solid var(--border);
+    background: var(--panel);
+  }
+  .sidebar.right { border-left: none; }
+
+  .stage { grid-column: 1; grid-row: 1; }
+
+  .mobile-bar {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    background: var(--panel-2);
+    border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .mobile-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 7px 2px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-faint);
+    min-height: 54px;
+    justify-content: center;
+  }
+  .mobile-tab .mi { font-size: 17px; line-height: 1; }
+  .mobile-tab.active { color: var(--accent); background: rgba(77, 163, 255, 0.09); }
+  .mobile-tab:disabled { opacity: 0.35; }
+
+  /* The map keeps the full stage; only the news bar shares it. */
+  .map-wrap { padding-bottom: 56px; }
+  .newsbar { display: none; }
+
+  /* Top bar has to fit a phone: two rows, nothing cramped. */
+  .topbar {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    padding: calc(7px + env(safe-area-inset-top, 0px)) 10px 7px;
+    align-items: center;
+  }
+  .brand { font-size: 13px; }
+  .clock .time { font-size: 14px; }
+  .clock .date { font-size: 11px; }
+  /* Search lives in the "Leute" panel on a phone; the top bar has no room. */
+  .search-wrap { display: none; }
+  .brand { order: 0; }
+  .spacer { display: block; flex: 1 1 auto; order: 1; }
+  .icon-btn { order: 2; }
+  .clock { order: 3; }
+  .speeds {
+    order: 4;
+    flex: 1 1 auto;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .speeds::-webkit-scrollbar { display: none; }
+  .speed-btn { min-width: 42px; padding: 8px 9px; font-size: 12px; }
+  .icon-btn { width: 33px; height: 32px; }
+
+  /* Touch targets need room. */
+  .person-row { padding: 11px; }
+  .tab { padding: 8px 11px; font-size: 12px; }
+  .btn { padding: 9px 12px; }
+  .chip { padding: 7px 11px; }
+  .god-grid { grid-template-columns: 1fr; }
+
+  .map-controls { top: 8px; right: 8px; gap: 8px; align-items: flex-end; }
+  .overlay-picker { display: none; }
+  .overlay-select { max-width: 46vw; }
+  .map-legend { display: none; }
+  .map-tooltip { display: none; }
+
+  .search-results { width: calc(100vw - 20px); left: 0; }
+  .debug { max-width: calc(100vw - 20px); font-size: 10px; }
+  .toasts { bottom: 66px; width: calc(100vw - 24px); }
+  .toast { width: 100%; text-align: center; }
+
+  .menu-card { padding: 20px 18px; }
+  .menu-card h1 { font-size: 21px; }
+}
+
+/* Very narrow phones: drop the least useful top-bar items. */
+@media (max-width: 400px) {
+  .brand .sub { display: none; }
+  .mobile-tab { font-size: 9px; }
+}
+
+.overlay-select {
+  background: rgba(16, 21, 30, 0.92);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 9px;
+  font-size: 12px;
+  font-weight: 600;
+}

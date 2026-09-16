@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MapRenderer } from '../render/MapRenderer';
 import { useEngine, useEngineContext } from '../state/EngineContext';
 import { useUI, type MapOverlay } from '../state/store';
+import { TOUCH_QUERY, useMediaQuery } from '../core/useMediaQuery';
 import { ACTION_COLORS } from '../render/palette';
 import { activityShort, fullName, jobTitle } from '../npc/describe';
 import { ACTIONS } from '../simulation/Actions';
@@ -33,6 +34,7 @@ export function MapView() {
   const rendererRef = useRef<MapRenderer | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; id: number } | null>(null);
   const [dragging, setDragging] = useState(false);
+  const touch = useMediaQuery(TOUCH_QUERY);
 
   // The UI store is read through refs so the render loop never re-subscribes.
   const uiRef = useRef(useUI.getState());
@@ -89,55 +91,106 @@ export function MapView() {
     return useUI.subscribe(update);
   }, [engine]);
 
-  const localPoint = (e: React.MouseEvent): { x: number; y: number } => {
+  const localPoint = (e: { clientX: number; clientY: number; target: EventTarget | null }) => {
     const rect = (e.target as HTMLCanvasElement).getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
-  const dragState = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  /**
+   * Pointer events cover mouse, pen and touch in one path. Two fingers pinch to
+   * zoom; one finger pans; a pointer that barely moved counts as a tap.
+   */
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const gesture = useRef<{ moved: boolean; pinchDistance: number }>({
+    moved: false,
+    pinchDistance: 0,
+  });
+
+  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const p = localPoint(e);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    pointers.current.set(e.pointerId, p);
+    if (pointers.current.size === 1) {
+      gesture.current.moved = false;
+      setDragging(true);
+    } else if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      gesture.current.pinchDistance = Math.hypot(a.x - b.x, a.y - b.y);
+      gesture.current.moved = true;
+    }
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+    const p = localPoint(e);
+    const previous = pointers.current.get(e.pointerId);
+
+    if (!previous) {
+      // Hovering with a mouse: show who is under the cursor.
+      const id = renderer.pickNpc(p.x, p.y, touch ? 26 : 14);
+      useUI.getState().setHover(id);
+      setTooltip(id >= 0 ? { x: p.x, y: p.y, id } : null);
+      return;
+    }
+    pointers.current.set(e.pointerId, p);
+
+    if (pointers.current.size >= 2) {
+      const [a, b] = [...pointers.current.values()];
+      const distance = Math.hypot(a.x - b.x, a.y - b.y);
+      const previousDistance = gesture.current.pinchDistance || distance;
+      if (previousDistance > 0 && distance > 0) {
+        renderer.zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, distance / previousDistance);
+      }
+      gesture.current.pinchDistance = distance;
+      return;
+    }
+
+    const dx = p.x - previous.x;
+    const dy = p.y - previous.y;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) gesture.current.moved = true;
+    renderer.pan(dx, dy);
+  };
+
+  const endPointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const renderer = rendererRef.current;
+    const wasTracked = pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) gesture.current.pinchDistance = 0;
+    if (pointers.current.size === 0) setDragging(false);
+    if (!renderer || !wasTracked || gesture.current.moved) return;
+
+    const p = localPoint(e);
+    const id = renderer.pickNpc(p.x, p.y, touch ? 26 : 14);
+    if (id >= 0) {
+      const ui = useUI.getState();
+      const now = performance.now();
+      // A second tap on the same person within half a second tracks them.
+      if (id === lastTap.current.id && now - lastTap.current.at < 500) {
+        ui.toggleTrack(id);
+        lastTap.current = { id: -1, at: 0 };
+      } else {
+        lastTap.current = { id, at: now };
+      }
+      ui.select(id);
+      if (touch) useUI.setState({ rightOpen: true, leftOpen: false });
+    } else if (touch) {
+      setTooltip(null);
+    }
+  };
+
+  const lastTap = useRef<{ id: number; at: number }>({ id: -1, at: 0 });
 
   return (
     <div className="map-wrap">
       <canvas
         ref={canvasRef}
         className={dragging ? 'map-canvas dragging' : 'map-canvas'}
-        onMouseDown={(e) => {
-          const p = localPoint(e);
-          dragState.current = { x: p.x, y: p.y, moved: false };
-          setDragging(true);
-        }}
-        onMouseMove={(e) => {
-          const renderer = rendererRef.current;
-          if (!renderer) return;
-          const p = localPoint(e);
-          if (dragState.current) {
-            const dx = p.x - dragState.current.x;
-            const dy = p.y - dragState.current.y;
-            if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-              dragState.current.moved = true;
-              renderer.pan(dx, dy);
-              dragState.current.x = p.x;
-              dragState.current.y = p.y;
-            }
-            return;
-          }
-          const id = renderer.pickNpc(p.x, p.y);
-          useUI.getState().setHover(id);
-          setTooltip(id >= 0 ? { x: p.x, y: p.y, id } : null);
-        }}
-        onMouseUp={(e) => {
-          const renderer = rendererRef.current;
-          setDragging(false);
-          const wasDrag = dragState.current?.moved;
-          dragState.current = null;
-          if (!renderer || wasDrag) return;
-          const p = localPoint(e);
-          const id = renderer.pickNpc(p.x, p.y);
-          if (id >= 0) useUI.getState().select(id);
-        }}
-        onMouseLeave={() => {
-          dragState.current = null;
-          setDragging(false);
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endPointer}
+        onPointerCancel={endPointer}
+        onPointerLeave={(e) => {
+          endPointer(e);
           setTooltip(null);
           useUI.getState().setHover(-1);
         }}
@@ -147,33 +200,38 @@ export function MapView() {
           const p = localPoint(e);
           renderer.zoomAt(p.x, p.y, e.deltaY < 0 ? 1.14 : 1 / 1.14);
         }}
-        onDoubleClick={(e) => {
-          const renderer = rendererRef.current;
-          if (!renderer) return;
-          const p = localPoint(e);
-          const id = renderer.pickNpc(p.x, p.y);
-          if (id >= 0) {
-            useUI.getState().select(id);
-            useUI.getState().toggleTrack(id);
-          }
-        }}
       />
 
       {tooltip && <MapTooltip x={tooltip.x} y={tooltip.y} id={tooltip.id} />}
 
       <div className="map-controls">
-        <div className="overlay-picker">
-          {OVERLAYS.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              className={`tab${overlay === o.id ? ' active' : ''}`}
-              onClick={() => setOverlay(o.id)}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
+        {touch ? (
+          <select
+            className="overlay-select"
+            aria-label="Kartenansicht"
+            value={overlay}
+            onChange={(e) => setOverlay(e.target.value as MapOverlay)}
+          >
+            {OVERLAYS.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <div className="overlay-picker">
+            {OVERLAYS.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                className={`tab${overlay === o.id ? ' active' : ''}`}
+                onClick={() => setOverlay(o.id)}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
           <button
             type="button"

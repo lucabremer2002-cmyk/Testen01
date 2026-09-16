@@ -12,6 +12,8 @@ import { NewsFeed } from './components/NewsFeed';
 import { DebugOverlay } from './components/DebugOverlay';
 import { Toasts } from './components/Toasts';
 import { HelpOverlay } from './components/HelpOverlay';
+import { MobileBar } from './components/MobileBar';
+import { PHONE_QUERY, useMediaQuery } from './core/useMediaQuery';
 import { deserializeEngine, serializeEngine, type SaveData } from './storage/serialize';
 import { QUICK_SLOT, saveGame } from './storage/SaveGame';
 
@@ -93,6 +95,13 @@ function Game({ onBackToMenu }: { onBackToMenu: () => void }) {
   const toast = useUI((s) => s.toast);
   const lastSpeed = useRef<Speed>(1);
   const [helpOpen, setHelpOpen] = useState(false);
+  const phone = useMediaQuery(PHONE_QUERY);
+
+  // On a phone the panels are overlays, so both start closed and the map shows.
+  useEffect(() => {
+    if (phone) useUI.setState({ leftOpen: false, rightOpen: false });
+    else useUI.setState({ leftOpen: true, rightOpen: true });
+  }, [phone]);
 
   const save = useCallback(async () => {
     try {
@@ -170,6 +179,7 @@ function Game({ onBackToMenu }: { onBackToMenu: () => void }) {
           <HelpOverlay force={helpOpen} onClose={() => setHelpOpen(false)} />
         </div>
         {ui.rightOpen && <NpcPanel />}
+        {phone && <MobileBar />}
       </div>
     </div>
   );

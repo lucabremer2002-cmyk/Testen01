@@ -49,6 +49,8 @@ export class MapRenderer {
   private hitIds: number[] = [];
   private hitX: number[] = [];
   private hitY: number[] = [];
+  /** Set once the player pans or zooms, so resizes stop re-framing the city. */
+  userAdjusted = false;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -67,6 +69,8 @@ export class MapRenderer {
   }
 
   resize(): void {
+    const previousWidth = this.width;
+    const previousHeight = this.height;
     const rect = this.canvas.getBoundingClientRect();
     this.dpr = Math.min(2, window.devicePixelRatio || 1);
     this.width = Math.max(1, Math.floor(rect.width));
@@ -74,17 +78,23 @@ export class MapRenderer {
     this.canvas.width = Math.floor(this.width * this.dpr);
     this.canvas.height = Math.floor(this.height * this.dpr);
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    // The canvas often mounts before the layout has settled. Until the player
+    // takes control, keep the whole city framed whenever the size changes.
+    if (!this.userAdjusted && (previousWidth !== this.width || previousHeight !== this.height)) {
+      this.fitToWorld();
+    }
   }
 
   fitToWorld(): void {
+    this.userAdjusted = false;
     const w = this.engine.world;
     this.camera.x = w.width / 2;
     this.camera.y = w.height / 2;
-    this.camera.zoom = clamp(
-      Math.min(this.width / w.width, this.height / w.height) * 0.95,
-      MIN_ZOOM,
-      MAX_ZOOM,
-    );
+    const byWidth = this.width / w.width;
+    const byHeight = this.height / w.height;
+    // On a portrait screen, fitting both axes wastes most of the display.
+    const portrait = this.height > this.width * 1.15;
+    this.camera.zoom = clamp((portrait ? byHeight : Math.min(byWidth, byHeight)) * 0.95, MIN_ZOOM, MAX_ZOOM);
   }
 
   centerOn(x: number, y: number): void {
@@ -93,6 +103,7 @@ export class MapRenderer {
   }
 
   zoomAt(screenX: number, screenY: number, factor: number): void {
+    this.userAdjusted = true;
     const before = this.screenToWorld(screenX, screenY);
     this.camera.zoom = clamp(this.camera.zoom * factor, MIN_ZOOM, MAX_ZOOM);
     const after = this.screenToWorld(screenX, screenY);
@@ -101,6 +112,7 @@ export class MapRenderer {
   }
 
   pan(dxScreen: number, dyScreen: number): void {
+    this.userAdjusted = true;
     this.camera.x -= dxScreen / this.camera.zoom;
     this.camera.y -= dyScreen / this.camera.zoom;
     const w = this.engine.world;

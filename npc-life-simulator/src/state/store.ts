@@ -1,5 +1,15 @@
 import { create } from 'zustand';
 import type { Speed } from '../time/SimulationClock';
+import { PHONE_QUERY } from '../core/useMediaQuery';
+
+/** On a phone the panels are overlays, so only one may be open at a time. */
+const isPhone = (): boolean => {
+  try {
+    return window.matchMedia(PHONE_QUERY).matches;
+  } catch {
+    return false;
+  }
+};
 
 export type LeftTab = 'people' | 'tracked' | 'stats' | 'economy' | 'stories';
 export type DetailTab = 'overview' | 'needs' | 'social' | 'life' | 'career' | 'goals';
@@ -90,7 +100,8 @@ export const useUI = create<UIState>((set, get) => ({
   toasts: [],
 
   setScreen: (screen, loadingMessage = '') => set({ screen, loadingMessage }),
-  select: (selectedId) => set({ selectedId, rightOpen: true }),
+  select: (selectedId) =>
+    set(isPhone() ? { selectedId, rightOpen: true, leftOpen: false } : { selectedId, rightOpen: true }),
   setHover: (hoverId) => set({ hoverId }),
   toggleTrack: (id) =>
     set((s) => ({
@@ -99,7 +110,8 @@ export const useUI = create<UIState>((set, get) => ({
         : [...s.trackedIds, id].slice(-12),
     })),
   clearTracked: () => set({ trackedIds: [] }),
-  setLeftTab: (leftTab) => set({ leftTab, leftOpen: true }),
+  setLeftTab: (leftTab) =>
+    set(isPhone() ? { leftTab, leftOpen: true, rightOpen: false } : { leftTab, leftOpen: true }),
   setDetailTab: (detailTab) => set({ detailTab }),
   setSpeed: (speed) => set({ speed }),
   setOverlay: (overlay) => set({ overlay }),

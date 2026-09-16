@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { hashSeed } from '../core/rng';
 import { CITY_NAMES } from '../world/worldNames';
 import { deleteSave, listSaves, loadGame, type SaveSlotInfo } from '../storage/SaveGame';
+import { PHONE_QUERY, useMediaQuery } from '../core/useMediaQuery';
 import { formatDate } from '../time/calendar';
 import type { SaveData } from '../storage/serialize';
 
@@ -20,8 +21,9 @@ export function StartScreen({
   onLoad: (data: SaveData) => void;
   error?: string;
 }) {
+  const phone = useMediaQuery(PHONE_QUERY);
   const [seedText, setSeedText] = useState('847291');
-  const [population, setPopulation] = useState(1200);
+  const [population, setPopulation] = useState(phone ? 500 : 1200);
   const [cityName, setCityName] = useState('');
   const [saves, setSaves] = useState<SaveSlotInfo[]>([]);
   const [busy, setBusy] = useState(false);
@@ -96,8 +98,9 @@ export function StartScreen({
             onChange={(e) => setPopulation(Number(e.target.value))}
           />
           <div className="hint">
-            Die Stadt wächst mit der Bevölkerung. Ab etwa 2.000 Einwohnern läuft die höchste
-            Geschwindigkeitsstufe auf schwächeren Geräten spürbar langsamer.
+            {phone
+              ? 'Die Stadt wächst mit der Bevölkerung. Auf dem Handy laufen 300 bis 800 Einwohner flüssig.'
+              : 'Die Stadt wächst mit der Bevölkerung. Ab etwa 2.000 Einwohnern läuft die höchste Geschwindigkeitsstufe auf schwächeren Geräten spürbar langsamer.'}
           </div>
         </div>
 
