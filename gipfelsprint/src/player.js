@@ -99,6 +99,7 @@
       this.lean = 0;
       this.airTime = 0;
       this.alive = true;
+      this.floatUp = false;
       this.speed = 0;
     };
 
@@ -231,8 +232,8 @@
       /* -------------------------------------------------------- Schwerkraft */
       if (this.dashTimer <= 0) {
         var grav;
-        if (this.vy > 0) grav = cmd.jumpHeld ? P.GRAV_HOLD : P.GRAV_UP;
-        else grav = P.GRAV_DOWN;
+        if (this.vy > 0) grav = (cmd.jumpHeld || this.floatUp) ? P.GRAV_HOLD : P.GRAV_UP;
+        else { grav = P.GRAV_DOWN; this.floatUp = false; }
         this.vy -= grav * dt;
         if (this.vy < -P.MAX_FALL) this.vy = -P.MAX_FALL;
       }
@@ -259,6 +260,7 @@
           if (c.tag === 'hazard') { ev.push('hazard'); }
           else if (c.tag === 'bounce' && this.vy <= 0.5) {
             this.vy = c.power;
+            this.floatUp = true;   /* volle Hoehe, auch ohne gehaltene Taste */
             this.jumps = 1;
             this.dashCharge = 1;
             this.squash = 1.5;
@@ -360,8 +362,8 @@
       put('sphere', 0, 2.08 * sq, -0.02, 0.2, 0.2, 0.2, MAT_SCARF);
       /* Schal weht mit dem Tempo */
       var flap = Math.sin(t * 14) * 0.1 + Math.min(0.9, this.speed / P.SPRINT);
-      put('box', 0, 1.28 * sq, -0.06, 0.78, 0.26, 0.6, MAT_SCARF);
-      put('box', 0, 1.2 * sq, -0.4 - flap * 0.5, 0.34, 0.22, 0.5 + flap * 1.2, MAT_SCARF, -0.4 - flap * 0.7);
+      put('box', 0, 1.26 * sq, 0.04, 0.72, 0.22, 0.52, MAT_SCARF);
+      put('box', 0, 1.12 * sq, -0.34 - flap * 0.4, 0.26, 0.18, 0.5 + flap * 1.1, MAT_SCARF, -0.7 - flap * 0.5);
 
       /* Schattenfleck als Landehilfe */
       if (opts && opts.shadow === false) return;

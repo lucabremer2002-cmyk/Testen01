@@ -251,7 +251,7 @@
     '  vec3 amb = mix(uGroundCol, uSkyCol, sky);',
     /* Gegenlicht haelt abgewandte Flaechen lesbar statt schwarz. */
     '  float fill = max(dot(N, normalize(vec3(-L.x, 0.25, -L.z))), 0.0);',
-    '  vec3 col = base * (amb * 0.82 + uSunCol * ndl * 0.95 + uSunCol * fill * 0.22);',
+    '  vec3 col = base * (amb * 0.60 + uSunCol * ndl * 1.05 + uSunCol * fill * 0.18);',
 
     /* Glanz fuer Wasser und Kristall */
     '  if (pat == 4 || pat == 6) {',
@@ -363,8 +363,8 @@
     'out vec4 outColor;',
     'void main(){',
     '  vec3 c = texture(uScene, vUv).rgb + texture(uBloom, vUv).rgb * uBloomStrength;',
-    '  c = c / (c + vec3(1.05)) * 1.62;',          /* weiche Saettigung statt Clipping */
-    '  c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, 1.12);',
+    '  c = c / (c + vec3(1.6)) * 2.1;',            /* nur Spitzlichter komprimieren */
+    '  c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, 1.22);',
     '  vec2 q = vUv - 0.5;',
     '  c *= 1.0 - dot(q, q) * uVignette;',
     '  c = pow(max(c, 0.0), vec3(0.94));',
@@ -609,7 +609,7 @@
       sunDir: [0.46, 0.66, 0.38],
       sunCol: [1.05, 0.96, 0.80],
       skyCol: [0.46, 0.66, 0.92],
-      groundCol: [0.34, 0.32, 0.26],
+      groundCol: [0.30, 0.28, 0.22],
       fogCol: [0.66, 0.80, 0.94],
       zenith: [0.13, 0.42, 0.84],
       horizon: [0.74, 0.88, 0.99],

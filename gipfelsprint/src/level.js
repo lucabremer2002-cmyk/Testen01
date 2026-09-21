@@ -410,13 +410,16 @@
   B.bouncePad = function (lx, ly, lz, o) {
     o = o || {};
     var r = o.r || 2.6;
-    var c = this.block(lx, ly - 0.5, lz, r * 2, 1.0, r * 2, null, { tag: 'bounce' });
+    /* Der Pilz ragt ein Stueck ueber die Plattform hinaus - sonst liegt seine
+       Oberkante exakt auf Fusshoehe und wird beim Darueberlaufen nie beruehrt.
+       0,25 liegt unter dem Kapselradius, bremst also nicht. */
+    var c = this.block(lx, ly - 0.25, lz, r * 2, 1.0, r * 2, null, { tag: 'bounce' });
     c.power = o.power || 22;
-    this.deco('cylinder', lx, ly - 1.7, lz, r * 0.5, 2.4, r * 0.5, MAT.bounceStem);
-    this.deco('sphere', lx, ly - 0.35, lz, r * 2, 1.7, r * 2, MAT.bounce);
+    this.deco('cylinder', lx, ly - 1.5, lz, r * 0.5, 2.4, r * 0.5, MAT.bounceStem);
+    this.deco('sphere', lx, ly - 0.1, lz, r * 2, 1.7, r * 2, MAT.bounce);
     for (var i = 0; i < 5; i++) {
       var a = i / 5 * Math.PI * 2;
-      this.deco('sphere', lx + Math.cos(a) * r * 0.5, ly + 0.05, lz + Math.sin(a) * r * 0.5, 0.5, 0.3, 0.5, MAT.bounceStem);
+      this.deco('sphere', lx + Math.cos(a) * r * 0.5, ly + 0.3, lz + Math.sin(a) * r * 0.5, 0.5, 0.3, 0.5, MAT.bounceStem);
     }
     return c;
   };
@@ -425,13 +428,13 @@
 
   B.boostPad = function (lx, ly, lz, w, d, o) {
     o = o || {};
-    var c = this.plat(lx, ly, lz, w, d, MAT.boost, { tag: 'boost', thickness: 0.5 });
+    var c = this.plat(lx, ly + 0.12, lz, w, d, MAT.boost, { tag: 'boost', thickness: 0.6 });
     c.boostDirX = this.dirX(0, 1);
     c.boostDirZ = this.dirZ(0, 1);
     c.boostSpeed = o.speed || 30;
     for (var i = 0; i < 3; i++) {
-      this.deco('box', lx, ly + 0.06, lz - d / 2 + 1.6 + i * (d - 3) / 2, w * 0.55, 0.12, 0.9, MAT.goal, [0, 0, 0]);
-      this.deco('box', lx, ly + 0.06, lz - d / 2 + 2.3 + i * (d - 3) / 2, w * 0.3, 0.12, 0.9, MAT.goal, [0, 0, 0]);
+      this.deco('box', lx, ly + 0.2, lz - d / 2 + 1.6 + i * (d - 3) / 2, w * 0.55, 0.12, 0.9, MAT.goal, [0, 0, 0]);
+      this.deco('box', lx, ly + 0.2, lz - d / 2 + 2.3 + i * (d - 3) / 2, w * 0.3, 0.12, 0.9, MAT.goal, [0, 0, 0]);
     }
     return c;
   };
@@ -663,8 +666,10 @@
     b.mover(-8, 7.4, 62, 8, 8, { dx: 16, period: 5.0 });         /* 58 .. 66 */
     b.mover(8, 8.6, 78, 8, 8, { dx: -16, period: 4.4, phase: 0.25 });  /* 74 .. 82 */
     b.gem(0, 12.5, 78);
-    b.mark(0, 8, 70);
+    b.mark(0, 7.4, 62);
+    b.mark(0, 8.6, 78);
 
+    b.mark(0, 9.4, 97);
     b.plat(0, 9.4, 97, 11, 14, MAT.stone, { thickness: 1.8 });   /* 90 .. 104 */
     b.mass(0, 7.6, 97, 9, 30, 12);
 
@@ -696,10 +701,11 @@
     /* Lange Bahn mit zwei Tempofeldern und einem drehenden Balken */
     b.plat(0, 0, 29, 9, 32, MAT.grass, { thickness: 1.6 });      /* 13 .. 45 */
     b.mass(0, -1.6, 29, 7.5, 28, 30);
-    b.boostPad(0, 0.9, 20, 7, 7);
-    b.boostPad(0, 0.9, 38, 7, 7);
+    b.boostPad(0, 0, 20, 7, 7);
+    b.boostPad(0, 0, 38, 7, 7);
     b.spinner(0, 1.5, 29, { len: 11, period: 3.4 });
-    b.mark(0, 0, 29);
+    b.mark(0, 0, 16);
+    b.mark(0, 0, 42);
 
     /* Hochroute fuer Mutige: spart den Balken und bringt einen Kristall */
     b.plat(-10.5, 4.0, 22, 5, 8, MAT.stone);
@@ -710,6 +716,7 @@
     b.plat(0, -1.0, 63, 9, 14, MAT.stone);                       /* 56 .. 70 (Luecke 11) */
     b.mass(0, -2.6, 63, 7.5, 26, 12);
     b.checkpoint(0, -1.0, 64, { name: 'Tempobahn' });
+    b.mark(0, -1.0, 63);
     b.plat(0, -1.5, 86, 9, 16, MAT.grass, { thickness: 1.6 });   /* 78 .. 94 (Luecke 8) */
     b.plat(0, -3.0, 107, 9, 14, MAT.grass, { thickness: 1.6 });  /* 100 .. 114 (Luecke 6) */
     b.mass(0, -3.1, 86, 7.5, 30, 14);
@@ -720,19 +727,20 @@
     b.mark(0, -2, 96);
 
     /* Absprung ueber die grosse Schlucht: Pilz plus Doppelsprung */
-    b.plat(0, -3.0, 123, 8, 10, MAT.grass);                      /* 118 .. 128 */
-    b.mass(0, -4.6, 123, 6.5, 30, 8);
-    b.bouncePad(0, -3.0, 123, { power: 25 });
-    b.gem(0, 7.0, 136, { hint: 'Sprungbogen' });
-    b.plat(0, -9.0, 140, 8, 8, MAT.stone);                       /* Rettungsinsel */
-    b.gem(0, -7.4, 140);
+    b.plat(0, -3.0, 120, 8, 16, MAT.grass);                      /* 112 .. 128, schliesst an */
+    b.mass(0, -4.6, 120, 6.5, 30, 14);
+    b.mark(0, -3.0, 118);
+    b.bouncePad(0, -3.0, 120, { power: 25 });
+    b.gem(0, 7.0, 134, { hint: 'im Sprungbogen' });
+    b.plat(0, -6.0, 138, 8, 8, MAT.stone);                       /* Rettungsinsel */
+    b.gem(0, -4.4, 138);
 
-    b.plat(0, -2.0, 157, 13, 14, MAT.grass, { thickness: 2.0 }); /* 150 .. 164 */
-    b.mass(0, -4, 157, 11, 34, 12);
-    b.tree(5.5, -2, 161, 1.0);
-    b.checkpoint(0, -2.0, 155, { name: 'Abfahrt' });
-    b.mark(0, -2, 157);
-    return { len: 164, rise: -2.0, turn: -30 };
+    b.plat(0, -2.0, 150, 13, 16, MAT.grass, { thickness: 2.0 }); /* 142 .. 158 */
+    b.mass(0, -4, 150, 11, 34, 14);
+    b.tree(5.5, -2, 155, 1.0);
+    b.checkpoint(0, -2.0, 149, { name: 'Abfahrt' });
+    b.mark(0, -2, 150);
+    return { len: 158, rise: -2.0, turn: -30 };
   }
 
   /* ------------------------------------------------ 4 - Tropfsteinhoehle */
@@ -765,6 +773,7 @@
     b.gem(7.8, 1.7, 60);
     b.crystalCluster(9, 0.2, 60, 0.8);
 
+    b.mark(0, 0, 72);
     b.plat(0, 0, 85, 9, 14, MAT.caveRock, { thickness: 1.6 });   /* 78 .. 92 */
     b.mass(0, -1.6, 85, 7.5, 26, 12);
     b.enemy(2.6, 1.15, 83, { range: 3, speed: 0.6 });
@@ -798,7 +807,7 @@
     b.deco('blob', -15, 6, 24, 14, 24, 16, MAT.cliff, [0, 0.4, 0.1]);
     b.block(0, -7, 40, 30, 1.6, 44, MAT.water, { tag: 'hazard', trigger: true });
 
-    b.plat(0, 0, 21, 8, 10, MAT.grass);                          /* 16 .. 26 */
+    b.plat(0, 0, 20, 10, 16, MAT.grass);                         /* 12 .. 28, schliesst an */
     b.bouncePad(0, 0, 21, { power: 24 });
     b.plat(0, 7.0, 38, 8, 12, MAT.stone, { thickness: 1.6 });    /* 32 .. 44 */
     b.mass(0, 5.4, 38, 6.5, 22, 10);
@@ -807,9 +816,10 @@
     b.mark(0, 7, 38);
 
     /* Karussell um eine Felsnadel: Arme reichen von z 46,5 bis 61,5 */
-    b.rotator(0, 9.0, 54, { radius: 7.5, count: 3, period: 8.0, w: 6, d: 6 });
+    b.rotator(0, 9.0, 54, { radius: 7.5, count: 3, period: 9.0, w: 6.5, d: 6.5 });
     b.mark(0, 9, 54);
 
+    b.mark(0, 11.0, 72);
     b.plat(0, 11.0, 72, 8, 12, MAT.stone, { thickness: 1.6 });   /* 66 .. 78 */
     b.mass(0, 9.4, 72, 6.5, 24, 10);
     b.mover(0, 11.0, 86, 7, 7, { dy: 9.5, period: 6.0, rail: false });
@@ -824,7 +834,10 @@
     b.plat(-3.5, 22.0, 115, 7, 10, MAT.stone);                   /* 110 .. 120 */
     b.plat(3, 24.0, 129, 7, 10, MAT.stone);                      /* 124 .. 134 */
     b.plat(-1, 26.0, 143, 7, 10, MAT.stone);                     /* 138 .. 148 */
-    b.mark(0, 24, 129);
+    b.mark(0, 20, 100);
+    b.mark(-3.5, 22, 115);
+    b.mark(3, 24, 129);
+    b.mark(-1, 26, 143);
 
     b.plat(0, 27.5, 159, 12, 14, MAT.grass, { thickness: 2.0 }); /* 152 .. 166 */
     b.mass(0, 25.5, 159, 10, 34, 12);
@@ -853,16 +866,21 @@
     b.plat(-5, 1.5, 67, 7, 10, MAT.snow);     /* 62 .. 72 */
     b.plat(5, 2.5, 83, 7, 10, MAT.snow);      /* 78 .. 88 */
     b.plat(-5, 3.5, 99, 7, 10, MAT.snow);     /* 94 .. 104 */
+    b.mark(-5, 1.5, 67);
+    b.mark(5, 2.5, 83);
+    b.mark(-5, 3.5, 99);
     b.gem(5, 4.0, 83);
     b.checkpoint(-5, 3.5, 99, { name: 'Zickzack' });
-    b.mark(0, 2.5, 83);
 
     /* Grosse Sprungkombination ueber dem Nichts */
     b.plat(0, 4.5, 121, 8, 10, MAT.snow);     /* 116 .. 126 (Luecke 12) */
     b.plat(0, 5.5, 143, 8, 10, MAT.snow);     /* 138 .. 148 (Luecke 12) */
     b.gem(0, 9.5, 132, { hint: 'ueber dem Abgrund' });
     b.plat(0, 6.0, 163, 8, 10, MAT.snow);     /* 158 .. 168 (Luecke 10) */
+    b.mark(0, 4.5, 121);
     b.mark(0, 5.5, 143);
+    b.mark(0, 6.0, 163);
+    b.mark(0, 6.5, 181);
 
     b.plat(0, 6.5, 181, 3.4, 18, MAT.snow);   /* 172 .. 190 */
     b.mass(0, 5.1, 181, 3, 26, 17);

@@ -82,8 +82,9 @@ Sechs Abschnitte ohne Pause hintereinander, jeder mit eigenem Charakter:
 6. **Gipfelgrat** - Pendel, Zickzack ueber dem Abgrund, grosse
    Sprungkombination, Ziel auf dem Gipfel
 
-Dazwischen liegen vier Checkpoints. Nach einem Sturz geht es in gut einer
-Drittelsekunde am letzten Checkpoint weiter - **die Uhr laeuft weiter**.
+Dazwischen liegen zehn Checkpoints, also etwa alle 10 bis 15 Sekunden einer.
+Nach einem Sturz geht es in gut einer Drittelsekunde am letzten Checkpoint
+weiter - **die Uhr laeuft weiter**.
 
 ## Time Trial
 
@@ -94,21 +95,26 @@ verglichen und als `+0,42` bzw. `-1,13` eingeblendet.
 Die Medaillenzeiten leiten sich aus der tatsaechlichen Streckenlaenge ab
 (siehe `build()` in `src/level.js`), aktuell etwa:
 
-| Medaille | Zeit |
-| --- | --- |
-| Platin | ~0:46 |
-| Gold | ~0:54 |
-| Silber | ~1:05 |
-| Bronze | ~1:25 |
+| Medaille | Zeit | gedacht fuer |
+| --- | --- | --- |
+| Platin | 1:06.7 | nahezu perfekte Linie, Dash und Tempofelder voll genutzt |
+| Gold | 1:18.7 | sicherer Lauf ohne Sturz |
+| Silber | 1:34.7 | ein paar Stuerze |
+| Bronze | 2:03.3 | erstes Durchkommen |
+
+Die Strecke ist rund 940 Einheiten lang; die Figur laeuft 13,5 und sprintet
+18 Einheiten pro Sekunde. Ein fluessiger Lauf liegt damit bei gut anderthalb
+Minuten, ein geuebter bei etwas ueber einer Minute.
 
 Bestzeit, Zwischenzeiten, Kristalle und Stuerze liegen im `localStorage`
 (`gipfelsprint.record.v1`).
 
 ## Kristalle
 
-13 Stueck sind verteilt: ein Teil liegt auf der Strecke, der Rest ueber
-Abguenden, hinter dem Wasserfall, in einer Hoehlennische oder auf der
-riskanten Hochroute. Sie sind optional - wer alle mitnimmt, verliert Zeit.
+14 Stueck sind verteilt: ein Teil liegt auf der Strecke, der Rest ueber
+Abgruenden, hinter dem Wasserfall, in einer Hoehlennische, im Bogen eines
+Pilzsprungs oder auf der riskanten Hochroute. Sie sind optional - wer alle
+mitnimmt, verliert Zeit.
 
 ## Aufbau
 
@@ -142,3 +148,22 @@ src/game.js     Zustaende, fester Zeitschritt, HUD, Bestzeiten
   Entwerfen mit Weltkoordinaten zu rechnen.
 * **Leistung**: faellt die Bildrate laenger unter 40, schaltet sich Bloom
   ab und die Aufloesung wird auf 1x gesetzt.
+
+### Wie die Sprungweiten festgelegt wurden
+
+Die Reichweite der Figur wurde in der laufenden Simulation gemessen und die
+Strecke danach ausgelegt:
+
+| Manoever | Weite | Hoehe |
+| --- | --- | --- |
+| Laufsprung | 11,7 m | 3,8 m |
+| Sprintsprung | 15,6 m | 3,8 m |
+| kurz angetippt | 10,8 m | 2,3 m |
+| Sprint + Doppelsprung | 25,6 m | 6,7 m |
+| Dash + Sprung | 24,3 m | 3,8 m |
+| Dash + Sprung + Doppelsprung | 37,1 m | 6,7 m |
+
+Daraus folgt die Faustregel im Level: Landeflaechen sind 10 bis 16 Einheiten
+tief, Luecken bis 9 Einheiten sind Tempo-Huepfer, 10 bis 14 verlangen Sprint,
+ab 16 braucht es den Doppelsprung. Waeren die Luecken kleiner, wuerde man bei
+vollem Tempo ueber die Plattformen hinwegfliegen.
