@@ -1,3 +1,15 @@
+# Browser-Spiele
+
+Zwei eigenstaendige Spiele ohne Framework, ohne Build-Schritt und ohne
+Abhaengigkeiten:
+
+| Spiel | Start | Kurz |
+| --- | --- | --- |
+| **Gipfelsprint** | [`gipfelsprint/index.html`](gipfelsprint/) | 3D-Jump-'n'-Run als Time-Trial mit eigenem WebGL2-Renderer, Doppelsprung, Dash, Checkpoints, Bestzeit und Medaillen. Details in [`gipfelsprint/README.md`](gipfelsprint/README.md). |
+| **Tetris** | [`index.html`](index.html) | Vollstaendiges Tetris mit SRS, Hold, Lock-Delay, T-Spins und Wertung (unten dokumentiert). |
+
+---
+
 # Tetris
 
 Ein vollstaendiges Tetris fuer den Browser – reines HTML, CSS und JavaScript,
@@ -72,4 +84,6 @@ entsprechend schneller.
 index.html   Aufbau der Seite
 style.css    Darstellung, Layout und Responsive-Verhalten
 game.js      Spiellogik und Rendering auf dem Canvas
+
+gipfelsprint/   3D-Jump-'n'-Run (eigene README im Ordner)
 ```

@@ -1,0 +1,491 @@
+/*
+ * Spielfigur und Verfolgerkamera.
+ *
+ * Bewegungsgefuehl ist hier wichtiger als alles andere:
+ *   - hohe Beschleunigung, klare Hoechstgeschwindigkeit
+ *   - Schwung aus Dash und Tempofeld bleibt erhalten (weicher Abbau)
+ *   - Coyote-Zeit und gepufferter Sprung verzeihen ein paar Frames
+ *   - Doppelsprung und Dash als Mobilitaet in der Luft
+ */
+(function (root) {
+  'use strict';
+
+  var M = root.MR.math;
+  var m4 = M.m4;
+  var Physics = root.MR.physics;
+  var MAT = root.MR.level.MAT;
+
+  var P = {
+    RADIUS: 0.42,
+    HEIGHT: 1.7,
+    RUN: 13.5,
+    SPRINT: 18.0,
+    ACCEL_GROUND: 105,
+    ACCEL_AIR: 62,
+    FRICTION: 16,
+    OVER_DECAY_GROUND: 20,
+    OVER_DECAY_AIR: 7,
+    GRAV_HOLD: 30,
+    GRAV_UP: 48,
+    GRAV_DOWN: 58,
+    MAX_FALL: 52,
+    JUMP_V: 15.2,
+    DJUMP_V: 13.4,
+    DASH_SPEED: 31,
+    DASH_TIME: 0.19,
+    DASH_COOLDOWN: 0.5,
+    COYOTE: 0.11,
+    BUFFER: 0.13,
+    TURN_RATE: 16
+  };
+
+  var MAT_BODY = root.MR.level.mat([0.11, 0.42, 0.72], [0.30, 0.68, 0.98], { emissive: 0.05 });
+  var MAT_TRIM = root.MR.level.mat([0.98, 0.78, 0.20], [1.0, 0.95, 0.60], { emissive: 0.2 });
+  var MAT_SKIN = root.MR.level.mat([0.98, 0.80, 0.66], [1.0, 0.90, 0.78]);
+  var MAT_EYE = root.MR.level.mat([1, 1, 1], [1, 1, 1], { emissive: 0.25 });
+  var MAT_PUPIL = root.MR.level.mat([0.05, 0.06, 0.12], [0.05, 0.06, 0.12]);
+  var MAT_SCARF = root.MR.level.mat([0.86, 0.22, 0.26], [1.0, 0.48, 0.42], { emissive: 0.12 });
+  var MAT_SHOE = root.MR.level.mat([0.16, 0.16, 0.22], [0.28, 0.28, 0.36]);
+
+  function create(level) {
+    var p = {
+      x: 0, y: 0, z: 0,
+      vx: 0, vy: 0, vz: 0,
+      radius: P.RADIUS,
+      height: P.HEIGHT,
+      yaw: 0,
+      grounded: false,
+      groundCollider: null,
+      coyote: 0,
+      buffer: 0,
+      jumps: 2,
+      dashCharge: 1,
+      dashTimer: 0,
+      dashCooldown: 0,
+      dashDirX: 0,
+      dashDirZ: 1,
+      boostTimer: 0,
+      boostCap: 0,
+      squash: 1,
+      lean: 0,
+      runCycle: 0,
+      airTime: 0,
+      alive: true,
+      speed: 0,
+      platVX: 0,
+      platVZ: 0,
+      contact: Physics.makeContact(),
+      events: []
+    };
+
+    var hit = Physics.makeHit();
+
+    p.spawnAt = function (cp) {
+      this.x = cp.x;
+      this.y = cp.y + this.height * 0.5 + 0.05;
+      this.z = cp.z;
+      this.vx = this.vy = this.vz = 0;
+      this.yaw = cp.yaw || 0;
+      this.grounded = false;
+      this.groundCollider = null;
+      this.coyote = 0;
+      this.buffer = 0;
+      this.jumps = 2;
+      this.dashCharge = 1;
+      this.dashTimer = 0;
+      this.dashCooldown = 0;
+      this.boostTimer = 0;
+      this.squash = 1;
+      this.lean = 0;
+      this.airTime = 0;
+      this.alive = true;
+      this.speed = 0;
+    };
+
+    /* Ein fester Simulationsschritt. wish = Wunschrichtung in Weltkoordinaten. */
+    p.step = function (dt, cmd) {
+      var ev = this.events;
+
+      /* Mitnahme durch bewegliche Plattformen */
+      var g = this.groundCollider;
+      if (g && g.dynamic) {
+        var dx = g.x - g.px, dy = g.y - g.py, dz = g.z - g.pz;
+        var dyaw = g.yaw - g.pyaw;
+        if (Math.abs(dyaw) > 1e-6) {
+          var rx = this.x - g.px, rz = this.z - g.pz;
+          var c2 = Math.cos(dyaw), s2 = Math.sin(dyaw);
+          this.x = g.x + (c2 * rx + s2 * rz) - dx;
+          this.z = g.z + (-s2 * rx + c2 * rz) - dz;
+          var nvx = c2 * this.vx + s2 * this.vz;
+          this.vz = -s2 * this.vx + c2 * this.vz;
+          this.vx = nvx;
+          this.yaw += dyaw;
+        }
+        this.x += dx; this.y += dy; this.z += dz;
+        this.platVX = dt > 0 ? dx / dt : 0;
+        this.platVZ = dt > 0 ? dz / dt : 0;
+      } else {
+        this.platVX *= 0.85;
+        this.platVZ *= 0.85;
+      }
+
+      if (this.dashCooldown > 0) this.dashCooldown -= dt;
+      if (this.boostTimer > 0) this.boostTimer -= dt;
+      if (this.coyote > 0) this.coyote -= dt;
+      if (this.buffer > 0) this.buffer -= dt;
+
+      var wishX = cmd.wishX, wishZ = cmd.wishZ;
+      var wishLen = Math.hypot(wishX, wishZ);
+      var targetSpeed = (cmd.sprint ? P.SPRINT : P.RUN) * (wishLen > 0.01 ? Math.min(1, wishLen) : 0);
+
+      /* ------------------------------------------------------------ Dash */
+      if (cmd.dash && this.dashTimer <= 0 && this.dashCooldown <= 0 && this.dashCharge > 0) {
+        var dx2 = wishLen > 0.05 ? wishX / wishLen : Math.sin(this.yaw);
+        var dz2 = wishLen > 0.05 ? wishZ / wishLen : Math.cos(this.yaw);
+        this.dashDirX = dx2;
+        this.dashDirZ = dz2;
+        this.dashTimer = P.DASH_TIME;
+        this.dashCooldown = P.DASH_COOLDOWN;
+        if (!this.grounded) this.dashCharge = 0;
+        this.vy = Math.max(this.vy, 0);
+        this.yaw = Math.atan2(dx2, dz2);
+        ev.push('dash');
+      }
+
+      if (this.dashTimer > 0) {
+        this.dashTimer -= dt;
+        this.vx = this.dashDirX * P.DASH_SPEED;
+        this.vz = this.dashDirZ * P.DASH_SPEED;
+        this.vy *= 0.5;
+      } else {
+        /* ------------------------------------------------- Laufen / Lenken */
+        var accel = this.grounded ? P.ACCEL_GROUND : P.ACCEL_AIR;
+        if (wishLen > 0.01) {
+          /* Beschleunigen nur bis zur Wunschgeschwindigkeit in Blickrichtung:
+             so bleibt Schwung aus Dash oder Tempofeld erhalten, statt sich
+             aufzuschaukeln. */
+          var dirX = wishX / wishLen, dirZ = wishZ / wishLen;
+          var cur = this.vx * dirX + this.vz * dirZ;
+          var add = targetSpeed - cur;
+          if (add > 0) {
+            var acc = Math.min(accel * dt, add);
+            this.vx += dirX * acc;
+            this.vz += dirZ * acc;
+          }
+          if (this.grounded) {
+            /* Seitwaertsanteil daempfen - macht Richtungswechsel direkt. */
+            var k = Math.min(1, 10 * dt);
+            this.vx -= (this.vx - dirX * cur) * k;
+            this.vz -= (this.vz - dirZ * cur) * k;
+          }
+        } else if (this.grounded) {
+          var sp0 = Math.hypot(this.vx, this.vz);
+          if (sp0 > 0.001) {
+            var drop = Math.min(sp0, P.FRICTION * dt * (1 + sp0 * 0.08));
+            this.vx -= this.vx / sp0 * drop;
+            this.vz -= this.vz / sp0 * drop;
+          }
+        }
+
+        /* Hoechstgeschwindigkeit: Schwung darueber baut sich nur langsam ab. */
+        var sp = Math.hypot(this.vx, this.vz);
+        var cap = Math.max(targetSpeed, this.boostTimer > 0 ? this.boostCap : 0);
+        if (sp > cap && sp > 0.001) {
+          var decay = (this.grounded ? P.OVER_DECAY_GROUND : P.OVER_DECAY_AIR) * dt;
+          var target = Math.max(cap, sp - decay);
+          this.vx *= target / sp;
+          this.vz *= target / sp;
+        }
+      }
+
+      /* ---------------------------------------------------------- Sprung */
+      if (cmd.jumpPressed) this.buffer = P.BUFFER;
+      if (this.buffer > 0) {
+        if (this.grounded || this.coyote > 0) {
+          this.dashTimer = 0;          /* Sprung bricht den Dash ab, Tempo bleibt */
+          this.vy = P.JUMP_V;
+          this.vx += this.platVX * 0.85;
+          this.vz += this.platVZ * 0.85;
+          this.grounded = false;
+          this.groundCollider = null;
+          this.coyote = 0;
+          this.buffer = 0;
+          this.jumps = 1;
+          this.squash = 1.35;
+          ev.push('jump');
+        } else if (this.jumps > 0) {
+          this.dashTimer = 0;
+          this.vy = P.DJUMP_V;
+          this.jumps = 0;
+          this.buffer = 0;
+          this.squash = 1.3;
+          if (wishLen > 0.05) {
+            var sp2 = Math.max(Math.hypot(this.vx, this.vz), P.RUN * 0.8);
+            this.vx = wishX / wishLen * sp2;
+            this.vz = wishZ / wishLen * sp2;
+          }
+          ev.push('doublejump');
+        }
+      }
+
+      /* -------------------------------------------------------- Schwerkraft */
+      if (this.dashTimer <= 0) {
+        var grav;
+        if (this.vy > 0) grav = cmd.jumpHeld ? P.GRAV_HOLD : P.GRAV_UP;
+        else grav = P.GRAV_DOWN;
+        this.vy -= grav * dt;
+        if (this.vy < -P.MAX_FALL) this.vy = -P.MAX_FALL;
+      }
+
+      /* ------------------------------------------------ Bewegung + Kollision */
+      var wasGrounded = this.grounded;
+      var moveX = this.vx * dt, moveY = this.vy * dt, moveZ = this.vz * dt;
+      var dist = Math.hypot(moveX, moveY, moveZ);
+      var steps = Math.max(1, Math.ceil(dist / 0.3));
+      var contact = this.contact;
+      var grounded = false;
+      var ground = null;
+      var landing = 0;
+
+      for (var s = 0; s < steps; s++) {
+        this.x += moveX / steps;
+        this.y += moveY / steps;
+        this.z += moveZ / steps;
+        Physics.resolveCapsule(level.world, this, contact);
+        if (contact.grounded) { grounded = true; ground = contact.ground; }
+        if (contact.landingImpact > landing) landing = contact.landingImpact;
+        for (var h = 0; h < contact.hits.length; h++) {
+          var c = contact.hits[h];
+          if (c.tag === 'hazard') { ev.push('hazard'); }
+          else if (c.tag === 'bounce' && this.vy <= 0.5) {
+            this.vy = c.power;
+            this.jumps = 1;
+            this.dashCharge = 1;
+            this.squash = 1.5;
+            grounded = false;
+            ground = null;
+            ev.push('bounce');
+          } else if (c.tag === 'boost' && contact.grounded) {
+            var cur = this.vx * c.boostDirX + this.vz * c.boostDirZ;
+            if (cur < c.boostSpeed) {
+              this.vx = c.boostDirX * c.boostSpeed;
+              this.vz = c.boostDirZ * c.boostSpeed;
+              this.boostCap = c.boostSpeed;
+              this.boostTimer = 0.8;
+              if (this.boostFlash === undefined || root.performance.now() - this.boostFlash > 400) {
+                this.boostFlash = root.performance.now();
+                ev.push('boost');
+              }
+            }
+          }
+        }
+      }
+
+      this.grounded = grounded;
+      this.groundCollider = ground;
+
+      if (grounded) {
+        this.coyote = P.COYOTE;
+        this.jumps = 2;
+        this.dashCharge = 1;
+        if (!wasGrounded) {
+          this.squash = Math.max(0.55, 1 - Math.min(0.45, landing / 60));
+          if (landing > 8) ev.push(landing > 26 ? 'land_hard' : 'land');
+          this.airTime = 0;
+        }
+      } else {
+        this.airTime += dt;
+      }
+
+      /* Ausrichtung, Neigung und Squash rein optisch */
+      this.speed = Math.hypot(this.vx, this.vz);
+      if (this.speed > 0.6) {
+        this.yaw = M.angleToward(this.yaw, Math.atan2(this.vx, this.vz), P.TURN_RATE * dt);
+      }
+      var leanTarget = Math.min(0.32, this.speed / P.SPRINT * 0.22) * (this.grounded ? 1 : 0.4);
+      this.lean = M.damp(this.lean, leanTarget, 9, dt);
+      this.squash = M.damp(this.squash, 1, 11, dt);
+      if (this.grounded) this.runCycle += this.speed * dt * 1.5;
+      else this.runCycle += dt * 3;
+      return ev;
+    };
+
+    /* Figur zeichnen: ein paar Grundkoerper mit Lauf- und Sprungpose. */
+    p.render = function (batch, glass, t, opts) {
+      var m = new Float32Array(16);
+      var sq = this.squash;
+      var st = 1 / Math.max(0.35, sq);
+      var bx = this.x, bz = this.z;
+      var footY = this.y - this.height * 0.5;
+      var yaw = this.yaw;
+      var lean = this.lean;
+      var run = this.grounded ? Math.sin(this.runCycle * 2.4) : 0.4;
+      var runB = this.grounded ? Math.cos(this.runCycle * 2.4) : -0.2;
+      var fx = Math.sin(yaw), fz = Math.cos(yaw);
+      var rx = Math.cos(yaw), rz = -Math.sin(yaw);
+      var alpha = opts && opts.alpha !== undefined ? opts.alpha : 1;
+      var body = opts && opts.mat ? opts.mat : MAT_BODY;
+
+      function put(mesh, ox, oy, oz, sx, sy, sz, material, pitch, roll) {
+        var wx = bx + rx * ox + fx * oz;
+        var wz = bz + rz * ox + fz * oz;
+        m4.compose(m, wx, footY + oy, wz, (pitch || 0) + lean, yaw, roll || 0, sx, sy, sz);
+        if (alpha < 1) {
+          glass.add(mesh, m, {
+            color: material.color, accent: material.accent, emissive: material.emissive,
+            pattern: 0, patternScale: 1, alpha: alpha
+          });
+        } else {
+          batch.add(mesh, m, material);
+        }
+      }
+
+      /* Beine */
+      put('box', -0.22, 0.26 * sq, run * 0.3, 0.27, 0.54 * sq, 0.32, MAT_SHOE, -run * 0.9);
+      put('box', 0.22, 0.26 * sq, -run * 0.3, 0.27, 0.54 * sq, 0.32, MAT_SHOE, run * 0.9);
+      /* Rumpf */
+      put('blob', 0, 0.92 * sq, 0, 0.90 * st, 1.06 * sq, 0.74 * st, body);
+      put('box', 0, 0.58 * sq, 0, 0.94 * st, 0.22 * sq, 0.78 * st, MAT_TRIM);
+      /* Arme */
+      put('box', -0.52 * st, 1.0 * sq, -runB * 0.3, 0.22, 0.6, 0.24, body, runB * 1.1);
+      put('box', 0.52 * st, 1.0 * sq, runB * 0.3, 0.22, 0.6, 0.24, body, -runB * 1.1);
+      /* Kopf */
+      put('sphere', 0, 1.56 * sq, 0.02, 0.62 * st, 0.60 * sq, 0.60 * st, MAT_SKIN);
+      put('sphere', -0.16, 1.6 * sq, 0.24, 0.22, 0.24, 0.16, MAT_EYE);
+      put('sphere', 0.16, 1.6 * sq, 0.24, 0.22, 0.24, 0.16, MAT_EYE);
+      put('sphere', -0.16, 1.6 * sq, 0.3, 0.11, 0.13, 0.09, MAT_PUPIL);
+      put('sphere', 0.16, 1.6 * sq, 0.3, 0.11, 0.13, 0.09, MAT_PUPIL);
+      /* Muetze */
+      put('cone', 0, 1.86 * sq, -0.02, 0.72, 0.44, 0.7, MAT_TRIM);
+      put('sphere', 0, 2.08 * sq, -0.02, 0.2, 0.2, 0.2, MAT_SCARF);
+      /* Schal weht mit dem Tempo */
+      var flap = Math.sin(t * 14) * 0.1 + Math.min(0.9, this.speed / P.SPRINT);
+      put('box', 0, 1.28 * sq, -0.06, 0.78, 0.26, 0.6, MAT_SCARF);
+      put('box', 0, 1.2 * sq, -0.4 - flap * 0.5, 0.34, 0.22, 0.5 + flap * 1.2, MAT_SCARF, -0.4 - flap * 0.7);
+
+      /* Schattenfleck als Landehilfe */
+      if (opts && opts.shadow === false) return;
+      if (Physics.raycast(level.world, this.x, this.y - this.height * 0.5 + 0.1, this.z, 0, -1, 0, 26, hit)) {
+        var d = hit.t;
+        var sc = 2.6 * (1 - Math.min(0.72, d / 26));
+        m4.composeYaw(m, this.x, this.y - this.height * 0.5 + 0.1 - d + 0.06, this.z, 0, sc, 1, sc);
+        glass.add('quad', m, {
+          color: MAT.shadow.color, accent: MAT.shadow.color, emissive: 0,
+          pattern: 7, patternScale: 1, alpha: 0.42 * (1 - Math.min(0.75, d / 26)) * alpha
+        });
+      }
+    };
+
+    return p;
+  }
+
+  /* ------------------------------------------------------------- Kamera */
+
+  function createCamera() {
+    var cam = {
+      yaw: 0,
+      pitch: 0.22,
+      dist: 8.2,
+      distNow: 8.2,
+      fov: 1.12,
+      pos: new Float32Array(3),
+      look: new Float32Array(3),
+      target: new Float32Array(3),
+      manualTimer: 0,
+      shake: 0,
+      view: m4.make(),
+      proj: m4.make(),
+      viewProj: m4.make(),
+      invViewProj: m4.make()
+    };
+    var hit = Physics.makeHit();
+
+    cam.snap = function (player) {
+      this.yaw = player.yaw;
+      this.target[0] = player.x;
+      this.target[1] = player.y + 0.7;
+      this.target[2] = player.z;
+      this.distNow = this.dist;
+      this.update(0.016, player, null, null, true);
+    };
+
+    cam.update = function (dt, player, input, world, instant) {
+      /* Manuelle Steuerung hat Vorrang, danach richtet sich die Kamera
+         langsam wieder hinter die Figur aus. */
+      if (input) {
+        var mdx = input.mouse.locked ? input.mouse.dx * input.mouse.sensitivity : 0;
+        var mdy = input.mouse.locked ? input.mouse.dy * input.mouse.sensitivity : 0;
+        var ca = input.camAxis();
+        var kx = ca.x * 2.6 * dt, ky = ca.y * 1.4 * dt;
+        if (mdx || mdy || kx || ky) this.manualTimer = 0.9;
+        this.yaw += mdx + kx;
+        this.pitch += mdy + ky;
+      }
+      this.pitch = M.clamp(this.pitch, -0.55, 0.95);
+      if (this.manualTimer > 0) this.manualTimer -= dt;
+
+      var speed = Math.hypot(player.vx, player.vz);
+      if (this.manualTimer <= 0 && speed > 5.5) {
+        var want = Math.atan2(player.vx, player.vz);
+        var rate = Math.min(3.4, 0.7 + speed * 0.14);
+        this.yaw = this.yaw + M.wrapAngle(want - this.yaw) * Math.min(1, rate * dt);
+      }
+
+      /* Bei Tempo etwas weiter weg, beim Fallen hoeher und mit Blick nach unten. */
+      var fall = M.clamp(-player.vy / 26, 0, 1);
+      var wantDist = this.dist + M.clamp(speed - 10, 0, 22) * 0.16 + fall * 1.4;
+      this.distNow = instant ? wantDist : M.damp(this.distNow, wantDist, 5, dt);
+
+      var tx = player.x + M.clamp(player.vx * 0.10, -2.4, 2.4);
+      var ty = player.y + 0.75 + fall * 1.1;
+      var tz = player.z + M.clamp(player.vz * 0.10, -2.4, 2.4);
+      var k = instant ? 1 : 1 - Math.exp(-14 * dt);
+      this.target[0] += (tx - this.target[0]) * k;
+      this.target[1] += (ty - this.target[1]) * (instant ? 1 : 1 - Math.exp(-9 * dt));
+      this.target[2] += (tz - this.target[2]) * k;
+
+      var pitch = this.pitch + fall * 0.12;
+      var cp = Math.cos(pitch), sp = Math.sin(pitch);
+      var dirX = Math.sin(this.yaw) * cp, dirZ = Math.cos(this.yaw) * cp, dirY = -sp;
+
+      var dist = this.distNow;
+      if (world) {
+        /* Kamera nicht in den Fels schieben lassen. */
+        var ox = this.target[0], oy = this.target[1], oz = this.target[2];
+        var h = Physics.raycast(world, ox, oy, oz, -dirX, -dirY, -dirZ, dist + 0.6, hit);
+        if (h) dist = Math.max(2.0, h.t - 0.55);
+      }
+
+      var shake = this.shake > 0 ? this.shake : 0;
+      if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 2.4);
+
+      this.pos[0] = this.target[0] - dirX * dist + (Math.random() - 0.5) * shake;
+      this.pos[1] = this.target[1] - dirY * dist + (Math.random() - 0.5) * shake;
+      this.pos[2] = this.target[2] - dirZ * dist + (Math.random() - 0.5) * shake;
+      this.look[0] = this.target[0];
+      this.look[1] = this.target[1] + 0.35;
+      this.look[2] = this.target[2];
+    };
+
+    cam.buildMatrices = function (aspect) {
+      m4.perspective(this.proj, this.fov, aspect, 0.15, 900);
+      m4.lookAt(this.view, this.pos, this.look, [0, 1, 0]);
+      m4.multiply(this.viewProj, this.proj, this.view);
+      m4.invert(this.invViewProj, this.viewProj);
+      return this.viewProj;
+    };
+
+    /* Bewegungsrichtung aus Kamerawinkel und Eingabe. */
+    cam.wish = function (ax, ay, out) {
+      var fx = Math.sin(this.yaw), fz = Math.cos(this.yaw);
+      out[0] = -Math.cos(this.yaw) * ax + fx * ay;
+      out[1] = Math.sin(this.yaw) * ax + fz * ay;
+      return out;
+    };
+
+    return cam;
+  }
+
+  root.MR = root.MR || {};
+  root.MR.player = { create: create, createCamera: createCamera, TUNING: P };
+})(window);
