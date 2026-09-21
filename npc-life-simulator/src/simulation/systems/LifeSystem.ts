@@ -52,6 +52,7 @@ export function runDailyLife(engine: SimulationEngine, day: number): void {
     if (rng.chance(illnessRisk)) {
       npc.a.health = clamp100(npc.a.health - rng.float(8, 26));
       applyEmotion(npc, { sadness: 10, anxiety: 14, stress: 14, motivation: -10 });
+      npc.illSinceDay = day;
       remember(npc, day, 'illness', 'Ernsthaft erkrankt', -50, -1);
       engine.emit({
         type: 'illness',
@@ -84,6 +85,20 @@ export function runDailyLife(engine: SimulationEngine, day: number): void {
 
     // --- pregnancy and birth ----------------------------------------------
     if (npc.pregnantUntilDay >= 0 && day >= npc.pregnantUntilDay) giveBirth(engine, npc, day);
+
+    // Getting better is news too - a story that only ever worsens reads false.
+    if (npc.illSinceDay >= 0 && npc.a.health > 62) {
+      const weeks = Math.max(1, Math.round((day - npc.illSinceDay) / 7));
+      npc.illSinceDay = -1;
+      applyEmotion(npc, { happiness: 14, calm: 12, anxiety: -14, motivation: 10 });
+      engine.emit({
+        type: 'recovery',
+        subjects: [npc.id],
+        text: `${fullName(npc)} ist nach ${weeks} Woche${weeks === 1 ? '' : 'n'} wieder gesund.`,
+        narrative: `erholte sich ${fullName(npc)} wieder`,
+        importance: 28,
+      });
+    }
 
     // --- secrets and satisfaction -----------------------------------------
     checkSecretsExposed(engine, npc, day);
@@ -126,14 +141,16 @@ function onBirthday(engine: SimulationEngine, npc: NPC, day: number, age: number
     remember(npc, day, 'graduation', 'Studium abgeschlossen', 60, -1);
   }
 
-  if (age === 18 || age === 30 || age === 50 || age === RETIREMENT_AGE || age === 80) {
-    engine.emit({
-      type: 'milestone',
-      subjects: [npc.id],
-      text: `${fullName(npc)} wird heute ${age} Jahre alt.`,
-      importance: age >= 50 ? 34 : 26,
-    });
-  }
+  const round = age === 18 || age === 30 || age === 50 || age === RETIREMENT_AGE || age === 80;
+  engine.emit({
+    type: round ? 'milestone' : 'birthday',
+    subjects: [npc.id],
+    text: round
+      ? `${fullName(npc)} feiert heute den ${age}. Geburtstag.`
+      : `${fullName(npc)} wird heute ${age}.`,
+    narrative: `wurde ${fullName(npc)} ${age} Jahre alt`,
+    importance: round ? (age >= 50 ? 34 : 26) : 12,
+  });
   applyEmotion(npc, { happiness: 6, pride: 3 });
 }
 

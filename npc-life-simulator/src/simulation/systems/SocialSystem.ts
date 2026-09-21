@@ -114,6 +114,23 @@ export function finishSocialAction(
     }
   }
 
+  // Shared evenings are the background hum of the news feed. Reported
+  // sparingly, so they colour the city without burying the big events.
+  if (quality > 0.72 && rng.chance(type === 'date' ? 0.06 : 0.035)) {
+    const where = engine.world.buildings[npc.action.locationId];
+    engine.emit({
+      type: 'outing',
+      subjects: [npc.id, other.id],
+      buildingId: npc.action.locationId,
+      text:
+        type === 'date'
+          ? `${fullName(npc)} und ${fullName(other)} waren zusammen aus${where ? ` – ${where.name}` : ''}.`
+          : `${fullName(npc)} hat sich mit ${fullName(other)}${where ? ` im ${where.name}` : ''} getroffen.`,
+      narrative: `verbrachten ${fullName(npc)} und ${fullName(other)} Zeit miteinander`,
+      importance: 14,
+    });
+  }
+
   // Gossip travels during every real conversation.
   engine.rumors.gossip(npc, other, rel, engine.rels, engine.day, rng, (id) => engine.npcs[id]);
   engine.rumors.gossip(other, npc, rel, engine.rels, engine.day, rng, (id) => engine.npcs[id]);
@@ -169,8 +186,14 @@ export function meetSomeoneNew(engine: SimulationEngine, npc: NPC, romantic: boo
   const building = engine.world.buildings[npc.locId];
   if (!building || building.present.length < 2) return;
   const rng = engine.rng;
-  const openness = 0.12 + npc.p.extraversion / 260 + npc.a.confidence / 320;
-  if (!romantic && !rng.chance(openness)) return;
+  // Meeting people saturates. Somebody who already knows half the district
+  // rarely adds another name; a newcomer meets people constantly. Without this
+  // curve everyone accumulates new acquaintances every other day, for life.
+  const saturation = 1 / (1 + (npc.links.length / 12) ** 2);
+  const sociability = 0.004 + npc.p.extraversion / 4000 + npc.a.confidence / 5000;
+  // Going out looking for someone helps, but it is not a guarantee.
+  const chance = romantic ? 0.08 + 0.3 * saturation : sociability * saturation;
+  if (!rng.chance(chance)) return;
 
   for (let attempt = 0; attempt < 4; attempt++) {
     const otherId = building.present[rng.int(0, building.present.length - 1)];
@@ -195,6 +218,19 @@ export function meetSomeoneNew(engine: SimulationEngine, npc: NPC, romantic: boo
     engine.rels.refreshType(rel);
     remember(npc, engine.day, 'first_meeting', `${fullName(other)} kennengelernt`, 10, otherId, 30);
     applyEmotion(npc, { loneliness: -6, happiness: 2 });
+    // Only encounters that actually clicked are worth reporting.
+    const spark = romantic ? engine.rels.attractionFrom(rel, npc.id) : 0;
+    if (spark > 58 || compat > 0.74) {
+      const where = engine.world.buildings[npc.locId];
+      engine.emit({
+        type: 'acquaintance',
+        subjects: [npc.id, otherId],
+        buildingId: npc.locId,
+        text: `${fullName(npc)} hat ${fullName(other)}${where ? ` im ${where.name}` : ''} kennengelernt.`,
+        narrative: `lernte ${fullName(npc)} ${fullName(other)} kennen`,
+        importance: romantic ? 22 : 18,
+      });
+    }
     return;
   }
 }
@@ -204,16 +240,19 @@ export function meetSomeoneNew(engine: SimulationEngine, npc: NPC, romantic: boo
 export function runSocialDay(engine: SimulationEngine, day: number): void {
   const rng = engine.rng;
 
-  // Relationships fade when nobody maintains them.
-  if (day % 5 === 0) {
+  // Relationships fade when nobody maintains them. Sweeping every edge is the
+  // single most expensive daily pass, so a time jump does it less often and
+  // decays proportionally more each time.
+  const decayEvery = engine.turbo ? 15 : 5;
+  if (day % decayEvery === 0) {
     for (const rel of engine.rels.all()) {
       const days = day - rel.lastInteractionDay;
-      if (days > 10) engine.rels.decay(rel, 5);
+      if (days > 10) engine.rels.decay(rel, decayEvery);
       if (days > 12) engine.rels.refreshType(rel);
     }
   }
   // People cannot maintain unlimited contacts - faded ones are forgotten.
-  if (day % 11 === 0) {
+  if (day % (engine.turbo ? 23 : 11) === 0) {
     for (const id of engine.aliveIds) pruneContacts(engine, engine.npcs[id], day);
   }
 
@@ -221,6 +260,8 @@ export function runSocialDay(engine: SimulationEngine, day: number): void {
     const npc = engine.npcs[id];
     if (npc.ageYears < 14) continue;
     const partnerId = npc.family.partner;
+
+    if (rng.chance(0.02)) maybeReconcile(engine, npc, day);
 
     if (partnerId < 0) {
       if (rng.chance(0.035)) tryStartRelationship(engine, npc, day);
@@ -267,6 +308,38 @@ function pruneContacts(engine: SimulationEngine, npc: NPC, day: number): void {
     engine.rels.drop(npc.id, otherId);
   }
   npc.links = keep;
+}
+
+/** A quarrel that cools off again is as much a story beat as the quarrel. */
+function maybeReconcile(engine: SimulationEngine, npc: NPC, day: number): void {
+  if (!npc.links.length) return;
+  const rng = engine.rng;
+  const otherId = npc.links[rng.int(0, npc.links.length - 1)];
+  const rel = engine.rels.get(npc.id, otherId);
+  const other = engine.npcs[otherId];
+  if (!rel || !other?.alive || rel.conflict < 35) return;
+  // Agreeable people extend the olive branch sooner.
+  const willingness = (npc.p.agreeableness + other.p.agreeableness) / 200 + rel.closeness / 300;
+  if (!rng.chance(willingness * 0.25)) return;
+
+  engine.rels.modify(rel, npc.id, {
+    conflict: -rel.conflict * 0.7,
+    trust: 8,
+    sympathy: 10,
+    closeness: 5,
+    opinion: 14,
+  });
+  engine.rels.refreshType(rel);
+  applyEmotion(npc, { anger: -22, happiness: 10, calm: 12, stress: -10 });
+  applyEmotion(other, { anger: -22, happiness: 10, calm: 12, stress: -10 });
+  remember(npc, day, 'help', `Versöhnung mit ${fullName(other)}`, 35, otherId, 40);
+  engine.emit({
+    type: 'reconcile',
+    subjects: [npc.id, otherId],
+    text: `${fullName(npc)} und ${fullName(other)} haben sich versöhnt.`,
+    narrative: `versöhnten sich ${fullName(npc)} und ${fullName(other)}`,
+    importance: 36,
+  });
 }
 
 function tryStartRelationship(engine: SimulationEngine, npc: NPC, day: number): void {

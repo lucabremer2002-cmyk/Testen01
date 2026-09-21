@@ -15,12 +15,11 @@ export const MODE_LABEL: Record<TravelMode, string> = {
 /** Fixed overhead per trip (waiting, parking). */
 const OVERHEAD = [0, 6, 3] as const;
 
-/** Wealth and distance decide how someone gets around. */
-export function pickMode(distance: number, netWorth: number, age: number): TravelMode {
+/** A car, the distance and the person's age decide how they get around. */
+export function pickMode(distance: number, ownsCar: boolean, age: number): TravelMode {
   if (distance < 650) return 0;
-  if (age < 17) return distance < 2200 ? 1 : 1;
-  if (netWorth > 9000) return 2;
-  return 1;
+  if (age < 17) return 1;
+  return ownsCar ? 2 : 1;
 }
 
 export function travelMinutes(distance: number, mode: TravelMode): number {

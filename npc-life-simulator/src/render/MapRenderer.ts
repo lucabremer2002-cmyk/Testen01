@@ -245,6 +245,49 @@ export class MapRenderer {
       }
     }
 
+    // --- traffic ---------------------------------------------------------
+    // Everybody in transit gets a short trail along their route, so the city
+    // reads as moving rather than as a field of static dots.
+    const trails: number[] = [];
+    const carTrails: number[] = [];
+    for (const id of e.aliveIds) {
+      const npc = e.npcs[id];
+      if (!npc.travel) continue;
+      const from = w.buildings[npc.travel.fromId];
+      const to = w.buildings[npc.travel.toId];
+      if (!from || !to) continue;
+      const p = e.positionOf(npc);
+      if (p.x < view.x0 - 40 || p.x > view.x1 + 40 || p.y < view.y0 - 40 || p.y > view.y1 + 40) continue;
+      const dx = w.centerX(to) - w.centerX(from);
+      const dy = w.centerY(to) - w.centerY(from);
+      const len = Math.hypot(dx, dy) || 1;
+      const trailLength = Math.min(46, len * 0.12);
+      const a = this.worldToScreen(p.x - (dx / len) * trailLength, p.y - (dy / len) * trailLength);
+      const b = this.worldToScreen(p.x, p.y);
+      (npc.travel.mode === 2 ? carTrails : trails).push(a.x, a.y, b.x, b.y);
+    }
+    ctx.lineCap = 'round';
+    if (trails.length) {
+      ctx.strokeStyle = 'rgba(160, 180, 210, 0.3)';
+      ctx.lineWidth = Math.max(1, 1.6 * z);
+      ctx.beginPath();
+      for (let i = 0; i < trails.length; i += 4) {
+        ctx.moveTo(trails[i], trails[i + 1]);
+        ctx.lineTo(trails[i + 2], trails[i + 3]);
+      }
+      ctx.stroke();
+    }
+    if (carTrails.length) {
+      ctx.strokeStyle = 'rgba(255, 206, 120, 0.5)';
+      ctx.lineWidth = Math.max(1.4, 2.4 * z);
+      ctx.beginPath();
+      for (let i = 0; i < carTrails.length; i += 4) {
+        ctx.moveTo(carTrails[i], carTrails[i + 1]);
+        ctx.lineTo(carTrails[i + 2], carTrails[i + 3]);
+      }
+      ctx.stroke();
+    }
+
     // --- people ----------------------------------------------------------
     for (const list of this.buckets.values()) list.length = 0;
     this.hitIds.length = 0;
@@ -364,7 +407,8 @@ export class MapRenderer {
       case 'wealth':
         return ramp(clamp(this.engine.netWorth(npc) / 200000, 0, 1), RAMP_WEALTH[0], RAMP_WEALTH[1]);
       default:
-        return npc.travel ? '#c9d4e6' : ACTION_COLORS[npc.action.type];
+        if (npc.travel) return npc.travel.mode === 2 ? '#ffce78' : '#c9d4e6';
+        return ACTION_COLORS[npc.action.type];
     }
   }
 }

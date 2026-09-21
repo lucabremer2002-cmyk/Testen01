@@ -32,7 +32,13 @@ export type EventType =
   | 'weather'
   | 'divine'
   | 'newcomer'
-  | 'milestone';
+  | 'milestone'
+  | 'acquaintance'
+  | 'outing'
+  | 'birthday'
+  | 'application'
+  | 'hiring'
+  | 'purchase';
 
 export interface GameEvent {
   id: number;
@@ -109,4 +115,10 @@ export const EVENT_CATEGORY: Record<EventType, 'life' | 'work' | 'love' | 'socia
   divine: 'city',
   newcomer: 'city',
   milestone: 'city',
+  acquaintance: 'social',
+  outing: 'social',
+  birthday: 'life',
+  application: 'work',
+  hiring: 'work',
+  purchase: 'money',
 };

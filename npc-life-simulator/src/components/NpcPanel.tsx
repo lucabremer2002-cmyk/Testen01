@@ -9,8 +9,11 @@ import { lifeEvents } from '../npc/Memory';
 import { GOAL_LABEL } from '../npc/Goals';
 import { SKILL_IDS, SKILL_LABEL, type NPC } from '../npc/types';
 import { RELATION_LABEL, FAMILY_TIE_LABEL } from '../relationships/types';
+import { archetypeById } from '../npc/archetypes';
 import { levelTitle, MAX_CAREER_LEVEL } from '../economy/professions';
 import {
+  activityIcon,
+  activityTimeline,
   currentActivity,
   educationLabel,
   employerName,
@@ -79,7 +82,8 @@ export function NpcPanel() {
           </div>
         </div>
 
-        <div className="detail-sub" style={{ marginTop: 8 }}>
+        <div className="detail-sub current-line" style={{ marginTop: 8 }}>
+          <span className="act-icon">{activityIcon(npc)}</span>
           {npc.alive ? currentActivity(engine, npc) : `verstorben (${npc.deathCause})`}
         </div>
 
@@ -163,6 +167,10 @@ function Overview({ npc }: { npc: NPC }) {
   return (
     <>
       <Section title="Person">
+        {(() => {
+          const a = archetypeById(npc.archetype);
+          return a ? <KV k="Charakter" v={`${a.label} – ${a.blurb}`} /> : null;
+        })()}
         <KV k="Geschlecht" v={npc.gender === 'm' ? 'männlich' : 'weiblich'} />
         <KV k="Geburtstag" v={formatDate(npc.birthDay)} />
         <KV k="Lebensphase" v={stageLabel(npc)} />
@@ -249,7 +257,11 @@ function NeedsTab({ npc }: { npc: NPC }) {
         ))}
       </Section>
 
-      <Section title="Aktueller Tagesablauf">
+      <Section title="Tagesablauf">
+        <DayTimeline npc={npc} />
+      </Section>
+
+      <Section title="Gerade">
         <KV k="Tätigkeit" v={currentActivity(engine, npc)} />
         <KV
           k="noch"
@@ -266,6 +278,24 @@ function NeedsTab({ npc }: { npc: NPC }) {
         />
       </Section>
     </>
+  );
+}
+
+/** The person's own recent day, newest first. */
+function DayTimeline({ npc }: { npc: NPC }) {
+  const engine = useEngine();
+  const steps = activityTimeline(engine, npc);
+  if (!steps.length) return <Empty>Noch kein Tagesablauf aufgezeichnet.</Empty>;
+  return (
+    <div className="day-timeline">
+      {steps.map((step, i) => (
+        <div className={`day-step${i === 0 ? ' now' : ''}`} key={`${step.min}-${i}`}>
+          <span className="day-time">{step.time}</span>
+          <span className="day-icon">{step.icon}</span>
+          <span className="day-text">{step.text}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 

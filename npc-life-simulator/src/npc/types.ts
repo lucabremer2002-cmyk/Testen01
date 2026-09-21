@@ -203,6 +203,16 @@ export type ActionType =
   | 'childcare'
   | 'funeral';
 
+/** One completed step of a person's day, kept for the tracking timeline. */
+export interface ActivityRecord {
+  /** Absolute simulated minute the activity started. */
+  min: number;
+  type: ActionType;
+  /** Building it happened in, -1 if unknown. */
+  locationId: number;
+  partner: NPCId;
+}
+
 export interface CurrentAction {
   type: ActionType;
   locationId: number;
@@ -289,6 +299,10 @@ export interface NPC {
   homeId: number;
   /** Guards against repeated evictions in quick succession. */
   lastEvictionDay: number;
+  /** Owning a car changes how this NPC gets around the city. */
+  ownsCar: boolean;
+  /** Day the current illness started, or -1 when healthy. */
+  illSinceDay: number;
   ownedBuildings: number[];
   locId: number;
   travel: TravelState | null;
@@ -307,6 +321,8 @@ export interface NPC {
   known: Set<number>;
 
   hobbies: string[];
+  /** Character archetype id - shapes traits and reads as a personality. */
+  archetype: string;
   /** 0..100 - how the city as a whole sees this NPC. */
   reputation: number;
   /** 0..100 - slow-moving average of emotional state. */
@@ -318,6 +334,8 @@ export interface NPC {
   nextDecisionMin: number;
   /** Absolute sim minute of the last lazy needs/emotion update. */
   lastUpdateMin: number;
+  /** Recent activities, newest last - the visible day of this person. */
+  activityLog: ActivityRecord[];
   /** Detailed simulation flag (tracked/selected/on-screen NPCs). */
   detailed: boolean;
   /** Cached for cheap UI/stat access, refreshed daily. */

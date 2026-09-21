@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Speed } from '../time/SimulationClock';
+import { DEFAULT_SPEED, type Speed } from '../time/SimulationClock';
 import { PHONE_QUERY } from '../core/useMediaQuery';
 
 /** On a phone the panels are overlays, so only one may be open at a time. */
@@ -44,6 +44,7 @@ interface UIState {
   rightOpen: boolean;
   bottomOpen: boolean;
   showDebug: boolean;
+  newsImportantOnly: boolean;
   showNames: boolean;
   showRoutes: boolean;
   overlay: MapOverlay;
@@ -63,7 +64,18 @@ interface UIState {
   setSpeed: (s: Speed) => void;
   setOverlay: (o: MapOverlay) => void;
   patchFilter: (p: Partial<PeopleFilter>) => void;
-  toggle: (key: 'leftOpen' | 'rightOpen' | 'bottomOpen' | 'showDebug' | 'showNames' | 'showRoutes' | 'followSelected' | 'godPanelOpen') => void;
+  toggle: (
+    key:
+      | 'leftOpen'
+      | 'rightOpen'
+      | 'bottomOpen'
+      | 'showDebug'
+      | 'showNames'
+      | 'showRoutes'
+      | 'followSelected'
+      | 'godPanelOpen'
+      | 'newsImportantOnly',
+  ) => void;
   toast: (text: string, kind?: Toast['kind']) => void;
   dismissToast: (id: number) => void;
 }
@@ -82,10 +94,11 @@ export const useUI = create<UIState>((set, get) => ({
   rightOpen: true,
   bottomOpen: true,
   showDebug: false,
+  newsImportantOnly: false,
   showNames: false,
   showRoutes: true,
   overlay: 'districts',
-  speed: 1,
+  speed: DEFAULT_SPEED,
   followSelected: false,
   godPanelOpen: false,
   filter: {

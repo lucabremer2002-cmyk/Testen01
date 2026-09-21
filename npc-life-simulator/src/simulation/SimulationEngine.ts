@@ -45,6 +45,8 @@ const DECISION_BUDGET = 900;
  * the scheduler, which keeps the frame rate stable at extreme time factors.
  */
 const TICK_TIME_BUDGET_MS = 22;
+/** How many past activities each NPC remembers for the timeline view. */
+const ACTIVITY_LOG_SIZE = 14;
 /** Ceiling for a whole tick including all its sub-steps. */
 const FRAME_BUDGET_MS = 45;
 
@@ -73,6 +75,13 @@ export class SimulationEngine {
   /** NPCs the player watches - these get full-detail simulation. */
   detailedIds = new Set<number>();
 
+  /**
+   * Turbo runs the aggregated path for everyone but the watched NPCs: a whole
+   * block of hours is resolved in one step instead of action by action. It is
+   * what makes "+1 year" finish in seconds rather than minutes.
+   */
+  turbo = false;
+
   /** Performance counters shown in the debug overlay. */
   perf = {
     decisionsPerTick: 0,
@@ -88,6 +97,9 @@ export class SimulationEngine {
 
   /** How often each action has been started - diagnostics and the debug panel. */
   actionCounts: Record<string, number> = {};
+
+  /** Hires per company on the current simulated day, for the news summary. */
+  hiresToday = new Map<number, number>();
 
   /** Rebuilt once per simulated day so job hunting stays cheap. */
   openingsCache: { companyId: number; prof: Profession }[] | null = null;
@@ -112,6 +124,7 @@ export class SimulationEngine {
       cityName: config.cityName ?? '',
       population: config.population ?? 1200,
       startYearOffset: config.startYearOffset ?? 0,
+      warmUpDays: config.warmUpDays ?? 3,
     };
     const engine = new SimulationEngine(full);
     buildWorld(engine, full);
@@ -242,9 +255,21 @@ export class SimulationEngine {
     return -1;
   }
 
+  /** UI subscribers, e.g. the pop-up for events about a watched person. */
+  private listeners: ((e: GameEvent) => void)[] = [];
+
+  onEvent(fn: (e: GameEvent) => void): () => void {
+    this.listeners.push(fn);
+    return () => {
+      const i = this.listeners.indexOf(fn);
+      if (i >= 0) this.listeners.splice(i, 1);
+    };
+  }
+
   emit(input: EventInput): GameEvent {
     const e = this.events.push(this.now, input);
     this.stories.onEvent(e, (id) => this.nameOf(id), (id) => this.events.byId(id));
+    for (let i = 0; i < this.listeners.length; i++) this.listeners[i](e);
     return e;
   }
 
@@ -274,6 +299,33 @@ export class SimulationEngine {
     this.clock.setSpeed(s);
   }
 
+  /**
+   * Simulates forward by `minutes` in slices, handing control back to the
+   * browser between them so the page keeps painting. Returns when done.
+   */
+  async fastForward(minutes: number, onProgress?: (fraction: number) => void): Promise<void> {
+    const target = this.now + minutes;
+    const speedBefore = this.clock.speed;
+    const pausedBefore = this.clock.paused;
+    this.turbo = true;
+    this.clock.setSpeed(2000);
+    try {
+      while (this.now < target) {
+        // Longer slices mean fewer frame yields; at 26 ms the yield itself cost
+        // more than the work. Progress still updates about twenty times a second.
+        const sliceEnd = performance.now() + 110;
+        while (this.now < target && performance.now() < sliceEnd) this.tick();
+        onProgress?.(1 - (target - this.now) / minutes);
+        // One frame for the browser, so the progress bar actually moves.
+        await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      }
+    } finally {
+      this.turbo = false;
+      this.clock.setSpeed(pausedBefore ? 0 : speedBefore);
+      onProgress?.(1);
+    }
+  }
+
   /** One engine tick. Returns the number of simulated minutes advanced. */
   tick(): number {
     if (this.clock.paused) return 0;
@@ -281,9 +333,9 @@ export class SimulationEngine {
     const minutes = this.clock.minutesForTick();
     this.perf.decisionsPerTick = 0;
 
-    // Large speed multipliers are split into bounded sub-steps so that no NPC
-    // can sleep through an entire day's worth of decisions.
-    const maxStep = this.clock.speed >= 100 ? 120 : this.clock.speed >= 20 ? 60 : 30;
+    // Large multipliers are split into bounded sub-steps so that no NPC can
+    // sleep through an entire day's worth of decisions in one go.
+    const maxStep = this.turbo ? 240 : this.clock.speed >= 500 ? 120 : this.clock.speed >= 100 ? 60 : 30;
     let remaining = minutes;
     let substeps = 0;
     const hardDeadline = t0 + FRAME_BUDGET_MS;
@@ -345,8 +397,8 @@ export class SimulationEngine {
     }
     this.advanceNpc(npc, now);
     this.finishAction(npc, now);
-    const coarse = !npc.detailed && this.clock.speed >= 100;
-    const choice = this.decision.decide(npc, now, coarse);
+    const coarse = !npc.detailed && (this.turbo || this.clock.speed >= 100);
+    const choice = this.decision.decide(npc, now, coarse, this.turbo && !npc.detailed);
     this.startAction(npc, choice, now);
     this.perf.decisionsPerTick++;
     this.perf.decisionsTotal++;
@@ -421,7 +473,7 @@ export class SimulationEngine {
     const duration = Math.max(10, Math.round(c.duration));
     if (c.locationId !== npc.locId && c.locationId >= 0) {
       const distance = this.world.distance(npc.locId, c.locationId);
-      const mode = pickMode(distance, this.netWorth(npc), npc.ageYears);
+      const mode = pickMode(distance, npc.ownsCar, npc.ageYears);
       const minutes = Math.max(1, Math.round(travelMinutes(distance, mode)));
       npc.travel = {
         fromId: npc.locId,
@@ -455,6 +507,20 @@ export class SimulationEngine {
     }
     this.scheduler.schedule(npc.id, npc.nextDecisionMin);
     this.actionCounts[c.type] = (this.actionCounts[c.type] ?? 0) + 1;
+
+    // Keep a short history so the player can read a person's day as a sequence
+    // rather than a single "right now".
+    const log = npc.activityLog;
+    const last = log[log.length - 1];
+    if (!last || last.type !== c.type || last.locationId !== npc.action.locationId) {
+      log.push({
+        min: npc.action.startMin,
+        type: c.type,
+        locationId: npc.action.locationId,
+        partner: c.partner,
+      });
+      if (log.length > ACTIVITY_LOG_SIZE) log.shift();
+    }
   }
 
   /** End-of-action effects: payments, skill gains, social outcomes. */
@@ -559,22 +625,27 @@ export class SimulationEngine {
   private runDay(day: number): void {
     const now = this.now;
     // Everyone gets a consistent update before the daily systems read them.
-    for (const id of this.aliveIds) {
-      const npc = this.npcs[id];
-      if (npc.alive) this.advanceNpc(npc, now);
+    // While fast-forwarding this is skipped: actions are long blocks there and
+    // every NPC is brought up to date at its own boundary anyway.
+    if (!this.turbo) {
+      for (const id of this.aliveIds) {
+        const npc = this.npcs[id];
+        if (npc.alive) this.advanceNpc(npc, now);
+      }
     }
 
     this.market.tickDay(this.rng);
     runDailyLife(this, day);
     runSocialDay(this, day);
     runWorkDay(this, day);
-    runHousingDay(this);
+    if (!this.turbo || day % 4 === 0) runHousingDay(this);
     runEconomyDay(this, day);
 
     this.rebuildAlive();
     this.rumors.sweep(day);
     this.stories.sweep(day, (id) => this.nameOf(id), (id) => this.events.byId(id));
-    this.stats.recompute(this);
+    // Statistics are presentation only, so they can lag during a time jump.
+    if (!this.turbo || day % 7 === 0) this.stats.recompute(this);
     this.version++;
   }
 

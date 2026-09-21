@@ -70,6 +70,30 @@ export function runEconomyDay(engine: SimulationEngine, day: number): void {
     c.costs += building.rent * 0.05 + c.employees.length * 6;
   }
 
+  // Buying a first car: a real purchase, a visible change on the map, and a
+  // small status event in the feed.
+  for (const id of engine.aliveIds) {
+    const npc = engine.npcs[id];
+    if (npc.ownsCar || npc.ageYears < 18 || npc.ageYears > 80) continue;
+    if (!rng.chance(0.004)) continue;
+    const price = 4200 * market.index.transport * rng.float(0.7, 2.6);
+    const liquid = npc.money + npc.bank;
+    // Only when it is genuinely affordable next to the monthly outgoings.
+    if (liquid < price + engine.monthlyCost(npc) * 2) continue;
+    engine.bank.pay(npc, price);
+    engine.ledger.addSpend('transport', price);
+    npc.ownsCar = true;
+    applyEmotion(npc, { happiness: 16, pride: 14 });
+    remember(npc, day, 'gift', 'Erstes eigenes Auto gekauft', 40, -1, 45);
+    engine.emit({
+      type: 'purchase',
+      subjects: [npc.id],
+      text: `${fullName(npc)} hat sich ein Auto gekauft (${Math.round(price).toLocaleString('de-DE')} €).`,
+      narrative: `kaufte sich ${fullName(npc)} ein Auto`,
+      importance: 26,
+    });
+  }
+
   // Entrepreneurs occasionally take the leap.
   if (day % 3 === 0) {
     for (const id of engine.aliveIds) {

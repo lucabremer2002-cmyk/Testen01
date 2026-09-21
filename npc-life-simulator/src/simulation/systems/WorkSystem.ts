@@ -65,6 +65,7 @@ export function hire(
   npc.applicationDay = -1;
   npc.retired = false;
   setGoalProgress(npc, 'career', Math.min(100, level * 18 + 10));
+  engine.hiresToday.set(company.id, (engine.hiresToday.get(company.id) ?? 0) + 1);
 
   if (!announce) return;
   applyEmotion(npc, { happiness: 16, pride: 10, motivation: 14, anxiety: -8, stress: -14 });
@@ -247,6 +248,17 @@ export function tryApplications(engine: SimulationEngine, npc: NPC): void {
   scored.sort((a, b) => b.s - a.s);
   for (const e of scored.slice(0, 3)) npc.applications.push(e.o.companyId * 1000 + engine.professionIndex(e.o.prof.id));
   applyEmotion(npc, { anxiety: 4, motivation: 5 });
+  if (scored.length) {
+    const target = engine.companies[scored[0].o.companyId];
+    engine.emit({
+      type: 'application',
+      subjects: [npc.id],
+      companyId: target?.id ?? -1,
+      text: `${fullName(npc)} hat sich bei ${target?.name ?? 'einem Unternehmen'} als ${scored[0].o.prof.label} beworben.`,
+      narrative: `bewarb sich ${fullName(npc)} bei ${target?.name ?? 'einem Unternehmen'}`,
+      importance: 16,
+    });
+  }
 }
 
 /** Resolves pending applications after a realistic waiting period. */
@@ -287,6 +299,23 @@ function resolveApplications(engine: SimulationEngine, npc: NPC): void {
 
 /** Daily work-related routine for the whole city. */
 export function runWorkDay(engine: SimulationEngine, day: number): void {
+  // Companies that took on several people at once are city news in themselves.
+  for (const [companyId, count] of engine.hiresToday) {
+    if (count < 2) continue;
+    const company = engine.companies[companyId];
+    if (!company) continue;
+    engine.emit({
+      type: 'hiring',
+      subjects: [],
+      companyId,
+      buildingId: company.buildingId,
+      text: `${company.name} stellt ${count} neue Mitarbeiter ein.`,
+      narrative: `stellte ${company.name} ${count} neue Mitarbeiter ein`,
+      importance: 30,
+    });
+  }
+  engine.hiresToday.clear();
+
   engine.openingsCache = collectOpenings(engine);
   const rng = engine.rng;
 

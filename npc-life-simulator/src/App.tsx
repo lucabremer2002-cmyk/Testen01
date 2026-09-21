@@ -11,6 +11,7 @@ import { NpcPanel } from './components/NpcPanel';
 import { NewsFeed } from './components/NewsFeed';
 import { DebugOverlay } from './components/DebugOverlay';
 import { Toasts } from './components/Toasts';
+import { EventPopups } from './components/EventPopups';
 import { HelpOverlay } from './components/HelpOverlay';
 import { MobileBar } from './components/MobileBar';
 import { PHONE_QUERY, useMediaQuery } from './core/useMediaQuery';
@@ -175,6 +176,7 @@ function Game({ onBackToMenu }: { onBackToMenu: () => void }) {
           <MapView />
           <NewsFeed />
           {ui.showDebug && <DebugOverlay />}
+          <EventPopups />
           <Toasts />
           <HelpOverlay force={helpOpen} onClose={() => setHelpOpen(false)} />
         </div>

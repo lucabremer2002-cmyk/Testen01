@@ -44,9 +44,10 @@ export class DecisionEngine {
   /** Debug hook: scores of the last decision, only filled for detailed NPCs. */
   lastCandidates: Candidate[] = [];
   lastNpcId = -1;
+  /** Set while fast-forwarding: fewer candidates, much longer blocks. */
+  private turbo = false;
   /** Financial pressure of the NPC being scored; computed once per decision. */
   private pressure = 0;
-  private netWorthCache = 0;
   /** Euros this NPC can spend freely per day; the yardstick for every price. */
   private dailyBudget = 20;
   /** Preallocated softmax weights - `decide` runs millions of times. */
@@ -70,18 +71,23 @@ export class DecisionEngine {
     return c;
   }
 
-  /** Chooses the next action for an NPC. */
-  decide(npc: NPC, now: number, coarse: boolean): Candidate {
+  /**
+   * Chooses the next action for an NPC. `turbo` collapses the day into a few
+   * long blocks - used while fast-forwarding, where per-action fidelity for
+   * unwatched people would cost far more than it is worth.
+   */
+  decide(npc: NPC, now: number, coarse: boolean, turbo = false): Candidate {
     const e = this.engine;
     const rng = e.rng;
     const hour = (now % MINUTES_PER_DAY) / 60;
     const day = Math.floor(now / MINUTES_PER_DAY);
     const weekend = e.isWeekend(day);
+    if (turbo) return this.decideTurbo(npc, hour, weekend);
     this.used = 0;
     this.pressure = e.financialPressure(npc);
-    this.netWorthCache = e.netWorth(npc);
     this.dailyBudget = e.discretionaryDaily(npc);
 
+    this.turbo = turbo;
     this.generate(npc, hour, weekend, coarse);
 
     if (this.used === 0) {
@@ -128,6 +134,90 @@ export class DecisionEngine {
   }
 
   /**
+   * The aggregated path used while fast-forwarding. It picks the one activity
+   * that plainly dominates for this hour and role, without generating or
+   * scoring alternatives. A year of unwatched life does not need utility
+   * theory; it needs people to sleep, work, eat and see each other.
+   */
+  private decideTurbo(npc: NPC, hour: number, weekend: boolean): Candidate {
+    const e = this.engine;
+    const rng = e.rng;
+    const c = this.pool[0];
+    c.partner = -1;
+    c.travel = 0;
+    c.score = 1;
+    const home = npc.homeId >= 0 ? npc.homeId : npc.locId;
+    const n = npc.needs;
+    const age = npc.ageYears;
+
+    const set = (type: ActionType, locationId: number, duration: number, partner = -1) => {
+      c.type = type;
+      c.locationId = locationId >= 0 ? locationId : npc.locId;
+      c.duration = Math.max(45, Math.round(duration));
+      c.partner = partner;
+      return c;
+    };
+
+    // Night, or simply exhausted: sleep through to the personal wake time.
+    if (this.inSleepWindow(npc, hour) || n.energy < 32) {
+      let untilWake = ((npc.wakeHour - hour + 24) % 24) * 60;
+      if (untilWake < 120 || untilWake > 700) untilWake = rng.float(380, 540);
+      return set('sleep', home, untilWake);
+    }
+
+    // The working day, in one block per shift.
+    if (npc.jobId >= 0 && npc.employerId >= 0) {
+      const company = e.companies[npc.employerId];
+      const prof = e.professionOf(npc);
+      if (company && !company.bankrupt && prof && (prof.weekend || !weekend)) {
+        const [startH, endH] = prof.hours;
+        if (hour >= startH - 1 && hour < endH - 0.5) {
+          return set('work', company.buildingId, (endH - Math.max(hour, startH)) * 60);
+        }
+      }
+    } else if (age >= 18 && age < 67 && !npc.retired && !weekend && hour > 8 && hour < 16) {
+      const spot = e.world.nearestOfTypes(npc.locId, PLACES.jobCentre);
+      if (spot >= 0 && rng.chance(0.5)) return set('job_hunt', spot, 150);
+    }
+
+    if (age >= 6 && age <= 17 && !weekend && hour >= 7.5 && hour < 14) {
+      const school = e.world.nearestOfTypes(npc.locId, PLACES.school);
+      if (school >= 0) return set('school', school, (14.2 - hour) * 60);
+    }
+
+    // Meals keep hunger and the food economy moving.
+    if (n.hunger < 62) {
+      if (npc.pantry > 0) return set(npc.locId === home ? 'eat_home' : 'eat_packed', npc.locId, 60);
+      const shop = e.world.nearestOfTypes(npc.locId, PLACES.supermarket);
+      if (shop >= 0 && npc.pantry < 4) return set('groceries', shop, 60);
+      const rest = e.world.nearestOfTypes(npc.locId, PLACES.restaurant);
+      if (rest >= 0) return set('eat_out', rest, 75);
+    }
+    if (npc.pantry < 3 && age >= 14 && hour > 9 && hour < 20) {
+      const shop = e.world.nearestOfTypes(npc.locId, PLACES.supermarket);
+      if (shop >= 0) return set('groceries', shop, 60);
+    }
+
+    // One social outlet keeps the relationship graph alive across the jump.
+    if (age >= 14 && (n.social < 58 || npc.emo.loneliness > 45) && npc.links.length) {
+      const partnerId = npc.family.partner;
+      const otherId =
+        partnerId >= 0 && rng.chance(0.55)
+          ? partnerId
+          : npc.links[rng.int(0, npc.links.length - 1)];
+      const other = e.npcs[otherId];
+      if (other?.alive) {
+        const spot =
+          hour > 17 ? this.socialSpot(npc, otherId, hour) : otherId === partnerId ? home : npc.locId;
+        return set(otherId === partnerId ? 'date' : 'socialize', spot, rng.float(120, 220), otherId);
+      }
+    }
+
+    if (n.hygiene < 55) return set('hygiene', home, 45);
+    return set('relax', home, rng.float(150, 280));
+  }
+
+  /**
    * Shortens a leisure activity so it cannot run past the NPC's own bedtime.
    * Without this, a long evening with the family silently swallows the night.
    */
@@ -149,7 +239,7 @@ export class DecisionEngine {
     const home = npc.homeId;
     const age = npc.ageYears;
     const n = npc.needs;
-    const durScale = coarse ? 1.3 : 1;
+    const durScale = this.turbo ? 3.4 : coarse ? 1.3 : 1;
     const dur = (type: ActionType, mul = 1) => {
       const [a, b] = ACTIONS[type].duration;
       return Math.round(rng.float(a, b) * mul * durScale);
@@ -277,6 +367,10 @@ export class DecisionEngine {
     }
 
     // --- leisure -----------------------------------------------------------
+    // Fast-forward keeps only the load-bearing options: rest, food, work,
+    // school and one social outlet. The rest is noise at that resolution.
+    if (this.turbo) return;
+
     if (!coarse && age >= 12 && (npc.skills.fitness < 85 || n.stress > 45)) {
       const gym = e.world.nearestOfTypes(npc.locId, PLACES.gym);
       if (gym >= 0) this.add('gym', gym, -1, dur('gym'));
@@ -368,7 +462,7 @@ export class DecisionEngine {
 
     // 4) Travel cost - impulsive people discount distance.
     const distance = e.world.distance(npc.locId, c.locationId);
-    const mode = pickMode(distance, this.netWorthCache, npc.ageYears);
+    const mode = pickMode(distance, npc.ownsCar, npc.ageYears);
     c.travel = distance < 1 ? 0 : travelMinutes(distance, mode);
     // Travel is already implicit in the density term below, so the explicit
     // penalty only captures the dislike of commuting itself.

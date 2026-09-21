@@ -1,13 +1,27 @@
 import { MINUTES_PER_DAY, dayToDate, type CalendarDate } from './calendar';
 
 /** Selectable time multipliers, "0" meaning paused. */
-export const SPEEDS = [0, 1, 2, 5, 10, 50, 100, 500] as const;
+export const SPEEDS = [0, 1, 2, 5, 10, 50, 100, 500, 2000] as const;
 export type Speed = (typeof SPEEDS)[number];
+
+/** The speed a new world starts at - fast enough that things visibly happen. */
+export const DEFAULT_SPEED: Speed = 10;
 
 /** Real-time tick rate of the engine loop. */
 export const TICKS_PER_SECOND = 10;
-/** Simulated minutes advanced per tick at speed 1x. */
-export const MINUTES_PER_TICK_BASE = 1;
+/**
+ * Simulated minutes per tick at 1x. With ten ticks a second this makes
+ * 1x exactly one simulated minute per real second, so a full day takes
+ * 24 real minutes and a person can be watched walking across town.
+ */
+export const MINUTES_PER_TICK_BASE = 1 / TICKS_PER_SECOND;
+
+/** Simulated minutes per real second at a given multiplier. */
+export const minutesPerRealSecond = (speed: number): number => speed;
+
+/** How long one simulated day takes in real seconds at a given multiplier. */
+export const realSecondsPerSimDay = (speed: number): number =>
+  speed <= 0 ? Infinity : 1440 / speed;
 
 /**
  * Owns simulated time. Everything in the simulation is expressed in absolute
@@ -16,7 +30,7 @@ export const MINUTES_PER_TICK_BASE = 1;
 export class SimulationClock {
   /** Absolute simulated minutes since epoch. */
   totalMinutes = 0;
-  speed: Speed = 1;
+  speed: Speed = DEFAULT_SPEED;
 
   private lastDay = -1;
   private lastHour = -1;

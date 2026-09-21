@@ -13,8 +13,13 @@ export interface EventInput {
   cause?: number;
 }
 
-const MAX_EVENTS = 3000;
+const MAX_EVENTS = 6000;
 const MAX_PER_NPC = 40;
+/**
+ * Small talk still reaches the city feed, but a person's own history only
+ * keeps what actually mattered to them.
+ */
+const PERSONAL_IMPORTANCE = 30;
 
 /**
  * Ring buffer of everything that happened, plus a per-NPC index so a single
@@ -53,14 +58,16 @@ export class EventLog {
         }
       }
     }
-    for (const s of e.subjects) {
-      let list = this.byNpc.get(s);
-      if (!list) {
-        list = [];
-        this.byNpc.set(s, list);
+    if (e.importance >= PERSONAL_IMPORTANCE) {
+      for (const s of e.subjects) {
+        let list = this.byNpc.get(s);
+        if (!list) {
+          list = [];
+          this.byNpc.set(s, list);
+        }
+        list.push(e.id);
+        if (list.length > MAX_PER_NPC) list.shift();
       }
-      list.push(e.id);
-      if (list.length > MAX_PER_NPC) list.shift();
     }
     this.version++;
     return e;

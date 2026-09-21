@@ -4,7 +4,7 @@ import { useUI, type LeftTab } from '../state/store';
 import { formatMoney, formatMoneyShort } from '../core/math';
 import { formatDate } from '../time/calendar';
 import { mood } from '../npc/Emotions';
-import { activityShort, fullName, initials, jobTitle, tintOf } from '../npc/describe';
+import { activityIcon, activityShort, activityTimeline, fullName, initials, jobTitle, tintOf } from '../npc/describe';
 import { storyPeriod } from '../events/Narrator';
 import { PRICE_LABEL, PRICE_CATEGORIES } from '../economy/types';
 import { INCOME_LABEL, SPEND_LABEL } from '../economy/Ledger';
@@ -71,6 +71,7 @@ function PersonRow({ npc, right }: { npc: NPC; right?: string }) {
           {fullName(npc)}
         </div>
         <div className="sub">
+          <span className="act-icon">{activityIcon(npc)}</span>
           {npc.ageYears} J · {activityShort(npc)}
         </div>
       </span>
@@ -197,9 +198,31 @@ function TrackedList() {
       {tracked.map((id) => {
         const npc = engine.npcs[id];
         if (!npc) return null;
-        return <PersonRow key={id} npc={npc} right={npc.alive ? activityShort(npc) : 'verstorben'} />;
+        return <TrackedCard key={id} npc={npc} />;
       })}
     </>
+  );
+}
+
+/** A watched person with the last few steps of their day underneath. */
+function TrackedCard({ npc }: { npc: NPC }) {
+  const engine = useEngine();
+  const steps = activityTimeline(engine, npc).slice(0, 4);
+  return (
+    <div className="tracked-card">
+      <PersonRow npc={npc} right={npc.alive ? activityShort(npc) : 'verstorben'} />
+      {steps.length > 0 && (
+        <div className="day-timeline compact">
+          {steps.map((step, i) => (
+            <div className={`day-step${i === 0 ? ' now' : ''}`} key={`${step.min}-${i}`}>
+              <span className="day-time">{step.time}</span>
+              <span className="day-icon">{step.icon}</span>
+              <span className="day-text">{step.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -5,6 +5,7 @@ import type { SimulationEngine } from '../simulation/SimulationEngine';
 import { EDUCATION_LABEL, LIFE_STAGE_LABEL, type NPC } from './types';
 import { dominantEmotion, EMOTION_LABEL, mood } from './Emotions';
 import { MODE_LABEL } from '../world/Travel';
+import { ACTIVITY_ICON, TRAVEL_ICON } from './activityIcons';
 
 export const fullName = (npc: NPC): string => `${npc.firstName} ${npc.lastName}`;
 export const initials = (npc: NPC): string => `${npc.firstName[0]}${npc.lastName[0]}`;
@@ -40,6 +41,39 @@ export function currentActivity(engine: SimulationEngine, npc: NPC): string {
       : '';
   const where = place && npc.action.type !== 'sleep' ? ` · ${place.name}` : '';
   return `${def.label}${withWhom}${where}`;
+}
+
+/** Icon for what somebody is doing right now, travel included. */
+export function activityIcon(npc: NPC): string {
+  if (!npc.alive) return '🕯️';
+  if (npc.travel) return TRAVEL_ICON[npc.travel.mode];
+  return ACTIVITY_ICON[npc.action.type];
+}
+
+export interface TimelineStep {
+  time: string;
+  icon: string;
+  text: string;
+  min: number;
+}
+
+/** A person's recent day as a readable sequence of steps. */
+export function activityTimeline(engine: SimulationEngine, npc: NPC): TimelineStep[] {
+  const out: TimelineStep[] = [];
+  for (const entry of npc.activityLog) {
+    const place = engine.world.buildings[entry.locationId];
+    const other = entry.partner >= 0 ? engine.npcs[entry.partner] : undefined;
+    const label = ACTIONS[entry.type].label;
+    const withWhom = other ? ` mit ${fullName(other)}` : '';
+    const where = place && entry.type !== 'sleep' ? ` · ${place.name}` : '';
+    out.push({
+      min: entry.min,
+      time: formatClock(entry.min),
+      icon: ACTIVITY_ICON[entry.type],
+      text: `${label}${withWhom}${where}`,
+    });
+  }
+  return out.reverse();
 }
 
 export function activityShort(npc: NPC): string {

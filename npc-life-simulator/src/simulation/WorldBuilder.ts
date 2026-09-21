@@ -1,6 +1,7 @@
 import { RNG } from '../core/rng';
 import { clamp } from '../core/math';
-import { DAYS_PER_YEAR, MINUTES_PER_DAY } from '../time/calendar';
+import { DAYS_PER_YEAR, MINUTES_PER_DAY, isWeekend } from '../time/calendar';
+import { DEFAULT_SPEED } from '../time/SimulationClock';
 import { World } from '../world/World';
 import { CITY_NAMES } from '../world/worldNames';
 import { RESIDENTIAL_TYPES, type Building, type BuildingType } from '../world/types';
@@ -18,6 +19,8 @@ export interface WorldConfig {
   population: number;
   /** Shifts the starting year; 0 means the world begins in 2025. */
   startYearOffset: number;
+  /** Simulated days to run before handing the city to the player. */
+  warmUpDays?: number;
 }
 
 /** Buildings that host a business. */
@@ -64,7 +67,115 @@ export function buildWorld(engine: SimulationEngine, config: WorldConfig): void 
   calibrateJobMarket(engine);
   assignJobs(engine, day);
   seedRelationships(engine, day);
+  seedHistory(engine, day);
   scheduleEveryone(engine);
+  warmUp(engine, config.warmUpDays ?? 3);
+}
+
+/**
+ * Runs the first days of the city before the player ever sees it. Without this
+ * everybody starts idle at home at the same minute, and the opening screen
+ * looks like a standing start rather than a Tuesday morning.
+ */
+function warmUp(engine: SimulationEngine, days: number): void {
+  if (days <= 0) return;
+  engine.clock.setSpeed(2000);
+
+  // Bulk of the warm-up runs aggregated - it only has to build up history.
+  const coarseTarget = engine.clock.totalMinutes + days * MINUTES_PER_DAY;
+  engine.turbo = true;
+  while (engine.clock.totalMinutes < coarseTarget) engine.tick();
+
+  // Hand the city over on a working morning: on a Saturday most people are at
+  // home and the first impression would be a sleepy town, not a living one.
+  const handoverHour = 10.5;
+  let handoverDay = engine.clock.day;
+  const atOrAfterHandover = (engine.clock.totalMinutes % MINUTES_PER_DAY) / 60 >= handoverHour;
+  if (atOrAfterHandover) handoverDay++;
+  while (isWeekend(handoverDay)) handoverDay++;
+  const handover = handoverDay * MINUTES_PER_DAY + handoverHour * 60;
+
+  // Everything but the final ninety minutes stays aggregated.
+  while (engine.clock.totalMinutes < handover - 90) engine.tick();
+  engine.turbo = false;
+
+  // The last stretch runs at full fidelity, so every person is in a properly
+  // chosen activity rather than mid-way through an aggregated block.
+  engine.clock.setSpeed(100);
+  while (engine.clock.totalMinutes < handover) engine.tick();
+
+  engine.clock.setSpeed(DEFAULT_SPEED);
+  engine.rebuildAlive();
+  engine.stats.recompute(engine);
+}
+
+/**
+ * Gives the city a past: broken-off relationships, old grudges and shared
+ * memories, so day one already has history behind it.
+ */
+function seedHistory(engine: SimulationEngine, day: number): void {
+  const rng = engine.rng;
+  const living = engine.aliveIds;
+
+  // Former couples who have since moved on. Sorting by age before pairing
+  // keeps the matches plausible instead of discarding most of them.
+  const singles = living
+    .map((id) => engine.npcs[id])
+    .filter((n) => n.ageYears >= 22 && n.ageYears <= 72 && n.family.partner < 0)
+    .sort((a, b) => a.ageYears - b.ageYears);
+  const exCount = Math.floor(singles.length * 0.62);
+  for (let i = 0; i + 1 < exCount; i += 2) {
+    const a = singles[i];
+    const b = singles[i + 1];
+    if (Math.abs(a.ageYears - b.ageYears) > 14) continue;
+    if (a.gender === b.gender && !rng.chance(0.08)) continue;
+    const rel = engine.rels.ensure(a, b, day);
+    const endedDaysAgo = rng.int(400, 4000);
+    rel.type = 'ex';
+    rel.romantic = false;
+    rel.sinceDay = day - endedDaysAgo;
+    rel.closeness = rng.int(5, 30);
+    rel.sympathy = rng.int(10, 55);
+    rel.trust = rng.int(10, 45);
+    rel.conflict = rng.int(5, 60);
+    rel.lastInteractionDay = day - rng.int(30, 600);
+    a.family.exPartners.push(b.id);
+    b.family.exPartners.push(a.id);
+    remember(a, rel.sinceDay, 'breakup', `Trennung von ${fullName(b)}`, -70, b.id);
+    remember(b, rel.sinceDay, 'breakup', `Trennung von ${fullName(a)}`, -70, a.id);
+  }
+
+  // Old grudges between people who already know each other.
+  for (const id of living) {
+    const npc = engine.npcs[id];
+    if (npc.ageYears < 16 || !npc.links.length) continue;
+    if (!rng.chance(0.12)) continue;
+    const otherId = npc.links[rng.int(0, npc.links.length - 1)];
+    const rel = engine.rels.get(npc.id, otherId);
+    const other = engine.npcs[otherId];
+    if (!rel || !other || rel.familyTie !== 'none' || rel.romantic) continue;
+    rel.conflict = rng.int(45, 88);
+    rel.sympathy = Math.min(rel.sympathy, rng.int(5, 35));
+    rel.trust = Math.min(rel.trust, rng.int(5, 30));
+    engine.rels.refreshType(rel);
+    if (rng.chance(0.5)) {
+      const when = day - rng.int(20, 1500);
+      remember(npc, when, 'fight', `Streit mit ${fullName(other)}`, -50, otherId);
+      remember(other, when, 'fight', `Streit mit ${fullName(npc)}`, -50, npc.id);
+    }
+  }
+
+  // Shared history for the closest friendships.
+  for (const rel of engine.rels.all()) {
+    if (rel.closeness < 60 || rel.familyTie !== 'none') continue;
+    if (!rng.chance(0.35)) continue;
+    const a = engine.npcs[rel.a];
+    const b = engine.npcs[rel.b];
+    if (!a?.alive || !b?.alive) continue;
+    const when = day - rng.int(200, 5000);
+    remember(a, when, 'first_meeting', `${fullName(b)} kennengelernt`, 30, b.id, 48);
+    remember(b, when, 'first_meeting', `${fullName(a)} kennengelernt`, 30, a.id, 48);
+  }
 }
 
 // ------------------------------------------------------------------ companies
@@ -389,6 +500,17 @@ function assignJobs(engine: SimulationEngine, day: number): void {
     npc.jobSinceDay = day - rng.int(30, Math.max(60, experience * 200));
     npc.unemployedSinceDay = -1;
     remember(npc, npc.jobSinceDay, 'hired', `Stelle als ${prof.label} bei ${company.name}`, 40, -1, 45);
+  }
+
+  // Car ownership, seeded from means and age so the streets are not empty.
+  for (const id of engine.aliveIds) {
+    const npc = engine.npcs[id];
+    if (npc.ageYears < 18 || npc.ageYears > 84) continue;
+    const wealth = npc.bank + npc.money;
+    const likelihood =
+      0.12 + Math.min(0.5, wealth / 60000) + Math.min(0.2, npc.salary / 20000) +
+      (npc.family.children.length ? 0.12 : 0);
+    if (rng.chance(likelihood)) npc.ownsCar = true;
   }
 
   // Retirees.

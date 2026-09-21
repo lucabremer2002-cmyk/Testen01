@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import { SPEEDS, type Speed } from '../time/SimulationClock';
 import { formatClock, WEEKDAY_SHORT, formatDate } from '../time/calendar';
+import { realSecondsPerSimDay } from '../time/SimulationClock';
 import { useEngine, useSimPulse } from '../state/EngineContext';
 import { useUI } from '../state/store';
 import { fullName, jobTitle, tintOf } from '../npc/describe';
 import { formatMoneyShort } from '../core/math';
 import { Avatar } from './ui';
+import { TimeJump } from './TimeJump';
 
 const WEATHER_ICON: Record<string, string> = {
   klar: '☀️',
@@ -26,7 +28,16 @@ const SPEED_LABEL: Record<number, string> = {
   50: '50×',
   100: '100×',
   500: '500×',
+  2000: '2000×',
 };
+
+/** How long a simulated day takes in the real world, in plain words. */
+function dayLength(speed: number): string {
+  if (speed <= 0) return 'angehalten';
+  const seconds = realSecondsPerSimDay(speed);
+  if (seconds >= 90) return `1 Tag ≈ ${Math.round(seconds / 60)} Min.`;
+  return `1 Tag ≈ ${Math.round(seconds)} Sek.`;
+}
 
 export function TopBar({
   onSave,
@@ -54,9 +65,12 @@ export function TopBar({
       </div>
 
       <div className="clock">
-        <span className="time">{formatClock(engine.clock.totalMinutes)}</span>
+        <span className={`time${engine.clock.paused ? '' : ' ticking'}`}>
+          {formatClock(engine.clock.totalMinutes)}
+        </span>
         <span className="date">
           {WEEKDAY_SHORT[date.weekday]}, {formatDate(engine.day, true)}
+          <span className="pace">{dayLength(engine.clock.speed)}</span>
         </span>
       </div>
 
@@ -70,7 +84,11 @@ export function TopBar({
               engine.setSpeed(s as Speed);
               ui.setSpeed(s as Speed);
             }}
-            title={s === 0 ? 'Pause (Leertaste)' : `${s}-fache Geschwindigkeit`}
+            title={
+              s === 0
+                ? 'Pause (Leertaste)'
+                : `${s} Simulationsminuten pro Sekunde · ${dayLength(s)}`
+            }
           >
             {SPEED_LABEL[s]}
           </button>
@@ -91,6 +109,7 @@ export function TopBar({
 
       <GlobalSearch />
 
+      <TimeJump />
       <button
         type="button"
         className={`icon-btn${ui.showDebug ? ' active' : ''}`}

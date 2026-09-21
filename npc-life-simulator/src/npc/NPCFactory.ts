@@ -2,6 +2,7 @@ import { RNG } from '../core/rng';
 import { clamp, clamp100 } from '../core/math';
 import { DAYS_PER_YEAR } from '../time/calendar';
 import { FEMALE_NAMES, HOBBIES, LAST_NAMES, MALE_NAMES } from './names';
+import { pickArchetype, pullToward, type Archetype } from './archetypes';
 import { createNeeds } from './Needs';
 import { createEmotions } from './Emotions';
 import { generateGoals } from './Goals';
@@ -28,12 +29,24 @@ export interface SpawnOptions {
   inheritFrom?: [Personality, Personality] | [Personality];
 }
 
-function rollPersonality(rng: RNG, inherit?: Personality[]): Personality {
+function rollPersonality(rng: RNG, archetype: Archetype, inherit?: Personality[]): Personality {
+  // Archetype first, heredity second, individual variation on top. Without the
+  // archetype pull, ten independent rolls average everyone into the same
+  // middling person and nobody reads as a character.
+  const pull = inherit && inherit.length ? 0.42 : 0.55;
   const roll = (key: keyof Personality): number => {
-    if (!inherit || inherit.length === 0) return rng.trait(50, 19);
-    // 45% heredity, 55% individual variation - siblings differ but resemble.
-    const avg = inherit.reduce((a, p) => a + p[key], 0) / inherit.length;
-    return clamp(Math.round(avg * 0.45 + rng.trait(50, 19) * 0.55), 1, 99);
+    const base =
+      !inherit || inherit.length === 0
+        ? rng.trait(50, 19)
+        : clamp(
+            Math.round(
+              (inherit.reduce((a, p) => a + p[key], 0) / inherit.length) * 0.45 +
+                rng.trait(50, 19) * 0.55,
+            ),
+            1,
+            99,
+          );
+    return pullToward(base, archetype.traits[key], pull);
   };
   return {
     openness: roll('openness'),
@@ -49,9 +62,9 @@ function rollPersonality(rng: RNG, inherit?: Personality[]): Personality {
   };
 }
 
-function rollAttributes(rng: RNG, p: Personality): Attributes {
+function rollAttributes(rng: RNG, p: Personality, archetype: Archetype): Attributes {
   // Attributes correlate with personality so characters read as coherent.
-  return {
+  const base: Attributes = {
     intelligence: rng.trait(50, 17),
     confidence: clamp100(Math.round(rng.trait(50, 16) * 0.6 + p.extraversion * 0.25 + p.stability * 0.15)),
     discipline: clamp100(Math.round(rng.trait(50, 15) * 0.45 + p.conscientiousness * 0.55)),
@@ -61,6 +74,10 @@ function rollAttributes(rng: RNG, p: Personality): Attributes {
     attractiveness: rng.trait(50, 16),
     health: rng.trait(72, 12),
   };
+  for (const key of Object.keys(base) as (keyof Attributes)[]) {
+    base[key] = pullToward(base[key], archetype.attrs[key], 0.45);
+  }
+  return base;
 }
 
 function rollSkills(rng: RNG, p: Personality, a: Attributes, age: number, education: number): Skills {
@@ -108,8 +125,9 @@ function rollRhythm(rng: RNG, p: Personality, age: number): { wake: number; slee
 export function createNPC(rng: RNG, o: SpawnOptions): NPC {
   const age = o.age ?? rng.int(0, 88);
   const gender: Gender = o.gender ?? (rng.chance(0.5) ? 'm' : 'w');
-  const p = rollPersonality(rng, o.inheritFrom as Personality[] | undefined);
-  const a = rollAttributes(rng, p);
+  const archetype = pickArchetype(rng);
+  const p = rollPersonality(rng, archetype, o.inheritFrom as Personality[] | undefined);
+  const a = rollAttributes(rng, p, archetype);
   const education = rollEducation(rng, a.intelligence, a.discipline, age);
   const skills = rollSkills(rng, p, a, age, education);
   const rhythm = rollRhythm(rng, p, age);
@@ -120,7 +138,9 @@ export function createNPC(rng: RNG, o: SpawnOptions): NPC {
 
   const hobbyCount = clamp(1 + Math.round(p.openness / 35 + rng.float(0, 1.6)), 1, 4);
   const hobbies: string[] = [];
-  for (let i = 0; i < hobbyCount; i++) {
+  // The archetype supplies the first interest, so a craftsman usually tinkers.
+  if (archetype.hobbies.length) hobbies.push(rng.pick(archetype.hobbies));
+  for (let i = hobbies.length; i < hobbyCount; i++) {
     const h = rng.pick(HOBBIES);
     if (!hobbies.includes(h)) hobbies.push(h);
   }
@@ -166,6 +186,8 @@ export function createNPC(rng: RNG, o: SpawnOptions): NPC {
     retired: false,
     homeId: -1,
     lastEvictionDay: -9999,
+    ownsCar: false,
+    illSinceDay: -1,
     ownedBuildings: [],
     locId: -1,
     travel: null,
@@ -187,12 +209,14 @@ export function createNPC(rng: RNG, o: SpawnOptions): NPC {
     secrets: [],
     known: new Set<number>(),
     hobbies,
+    archetype: archetype.id,
     reputation: clamp100(Math.round(45 + a.social * 0.15 + rng.gauss(0, 10))),
     lifeSatisfaction: clamp100(Math.round(rng.gauss(58, 14))),
     wakeHour: rhythm.wake,
     sleepHour: rhythm.sleep,
     nextDecisionMin: 0,
     lastUpdateMin: 0,
+    activityLog: [],
     detailed: false,
     ageYears: age,
     lifeStage: stageForAge(age),

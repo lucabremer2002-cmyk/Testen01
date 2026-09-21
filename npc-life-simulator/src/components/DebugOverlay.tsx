@@ -14,14 +14,7 @@ export function DebugOverlay() {
   const npc = selectedId >= 0 ? engine.npcs[selectedId] : undefined;
 
   const skip = (minutes: number, label: string) => {
-    const speedBefore = engine.clock.speed;
-    engine.setSpeed(500);
-    const target = engine.now + minutes;
-    const started = performance.now();
-    // Run the engine directly, bounded so the tab can never freeze.
-    while (engine.now < target && performance.now() - started < 8000) engine.tick();
-    engine.setSpeed(speedBefore);
-    toast(`${label} übersprungen.`, 'info');
+    void engine.fastForward(minutes).then(() => toast(`${label} übersprungen.`, 'info'));
   };
 
   const candidates = engine.decision.lastCandidates.slice(0, 8);

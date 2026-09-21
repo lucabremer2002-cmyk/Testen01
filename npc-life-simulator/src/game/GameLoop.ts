@@ -48,6 +48,13 @@ export class GameLoop {
         this.fpsFrames = 0;
       }
 
+      // During a time jump the engine drives itself in tight slices. Ticking
+      // and drawing here as well would double the work and halve the speed.
+      if (this.engine.turbo) {
+        this.raf = requestAnimationFrame(step);
+        return;
+      }
+
       if (!this.engine.clock.paused) {
         this.accumulator += dt;
         let ticks = 0;

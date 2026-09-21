@@ -44,11 +44,32 @@ npm run e2e
 | Klick auf eine Person | Details öffnen |
 | Doppelklick | Person dauerhaft verfolgen (★) |
 | `Leertaste` | Pause / Weiter |
-| `1` – `7` | Geschwindigkeit 1× bis 500× |
+| `1` – `8` | Geschwindigkeit 1× bis 2000× |
 | `D` | Debug-Modus |
 | `S` | Welt speichern |
 | `F` | Kamera folgt der ausgewählten Person |
 | `Esc` | Auswahl aufheben |
+
+## Zeit
+
+Ein Multiplikator ist wörtlich zu nehmen: **1× = eine simulierte Minute pro realer Sekunde.**
+
+| Stufe | Sim-Minuten/Sek. | ein simulierter Tag |
+| --- | --- | --- |
+| 1× | 1 | 24 Minuten |
+| 10× (Standard) | 10 | 2,4 Minuten |
+| 50× | 50 | 29 Sekunden |
+| 100× | 100 | 14 Sekunden |
+| 500× | 500 | 3 Sekunden |
+| 2000× | 2000 | 0,7 Sekunden |
+
+Jede Stufe liefert ihre Rate tatsächlich – gemessen bei 1.200 Einwohnern im Browser, Abweichung
+unter einem Prozent. Die Uhr läuft nie schneller als die Welt.
+
+**Zeitsprünge** (⏩ in der Kopfzeile) simulieren jeden Tag dazwischen wirklich; sie überspringen
+ihn nicht. Für alle, die gerade nicht beobachtet werden, schaltet die Engine dabei auf einen
+aggregierten Pfad: ein Block von Stunden wird in einem Schritt aufgelöst, ohne Kandidaten zu
+bewerten. Ein volles Jahr für 1.200 Einwohner dauert so rund zehn Sekunden statt anderthalb Minuten.
 
 ## Architektur
 
@@ -145,9 +166,13 @@ der Zahl der NPCs:
 * **Zeitbudget pro Tick** – überschreitet ein Tick sein Budget, verschiebt der Scheduler den Rest.
   Die Bildrate bleibt stabil, die simulierte Zeit läuft kurzzeitig etwas langsamer.
 
-Messwerte auf dem Entwicklungsrechner (1.200 Einwohner, Seed 847291, 500×, Node): rund 86.000
-Entscheidungen pro Sekunde bei etwa 28 ms je Tick. Im Browser bei 100× liegt die Tickzeit bei
-3–5 ms und die Bildrate bei 60 fps.
+Messwerte im Browser mit 1.200 Einwohnern: bei 50× rund 0,5 ms je Tick, bei 500× knapp 3 ms –
+die Zeitskala lässt reichlich Luft. Im aggregierten Turbo-Pfad erreicht die Engine etwa 240.000
+Entscheidungen pro Sekunde, gegenüber 80.000 im vollständig bewerteten Normalbetrieb.
+
+Die Stadt erzeugt rund **34 meldenswerte Ereignisse pro Simulationstag** bei 1.200 Einwohnern.
+Bei 50× ist das etwa eine Meldung pro Sekunde; der News-Feed fasst gleichartige Ereignisse
+innerhalb von zwei Simulationsstunden zusammen, damit er lesbar bleibt.
 
 Langzeitprüfung: `npm run simtest -- 20 800 555123` simuliert zwanzig Jahre am Stück und prüft
 anschließend Bevölkerung, Altersstruktur, Arbeitslosigkeit, Obdachlosigkeit, Unternehmenszahl und
