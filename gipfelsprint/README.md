@@ -211,6 +211,10 @@ src/game.js     Zustaende, feste 120-Hz-Simulation, Flow, HUD, Bestzeiten
   Mauszeiger oft nicht eingefangen werden. Schlaegt es fehl, wird es nicht
   erneut versucht - stattdessen dreht Ziehen mit gedrueckter Maustaste die
   Kamera, und die Pfeiltasten tun es weiterhin auch.
+* **Klassennamen am body**: auf Beruehrungsgeraeten bekommt `body` die
+  Klasse `touch`. Regeln fuer das Steuerungs-Overlay muessen deshalb
+  `#touchUI` ansprechen - ein blosses `.touch` traefe auch den body, und
+  `pointer-events: none` wuerde sich auf die gesamte Oberflaeche vererben.
 * **Beruehrung**: die linke Bildhaelfte liefert ueber einen nachziehenden
   Schiebeknopf dieselben Achsen wie Tastatur oder Stick, die rechte
   dieselben Kamerawinkel wie die Maus im Pointer-Lock. Die Knoepfe liegen

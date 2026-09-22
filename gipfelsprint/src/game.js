@@ -224,7 +224,7 @@
     var self = this;
     $('btnStart').addEventListener('click', function () {
       Audio.unlock();
-      if (self.input.isTouch && !document.fullscreenElement) self.toggleFullscreen();
+      if (self.input.isTouch && !document.fullscreenElement && self.fullscreenAllowed()) self.toggleFullscreen();
       self.startRun(false);
     });
     $('btnRetry').addEventListener('click', function () { self.startRun(true); });
@@ -292,7 +292,7 @@
     this.input.wantPointerLock = false;
     document.body.classList.add('touch');
     $('touchUI').hidden = false;
-    $('btnFullscreen').hidden = false;
+    $('btnFullscreen').hidden = !this.fullscreenAllowed();
 
     function press(el, onDown, onUp) {
       var start = function (e) {
@@ -336,12 +336,22 @@
     $('btnFullscreen').addEventListener('click', function () { self.toggleFullscreen(); });
   };
 
+  /* In einem eingebetteten Rahmen ist Vollbild meist untersagt. Das ist kein
+     Fehler, den der Spieler sehen soll: der abgelehnte Aufruf wird
+     abgefangen, und der Knopf erscheint erst gar nicht. */
+  Game.prototype.fullscreenAllowed = function () {
+    return !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  };
+
   Game.prototype.toggleFullscreen = function () {
     var el = document.documentElement;
+    if (!this.fullscreenAllowed()) return;
     try {
-      if (document.fullscreenElement) document.exitFullscreen();
-      else if (el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' });
-      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      var pr = document.fullscreenElement
+        ? document.exitFullscreen()
+        : (el.requestFullscreen ? el.requestFullscreen({ navigationUI: 'hide' })
+          : (el.webkitRequestFullscreen ? el.webkitRequestFullscreen() : null));
+      if (pr && pr.catch) pr.catch(function () { /* nicht erlaubt - dann eben ohne */ });
     } catch (e) { /* iOS kann das nicht - dann eben ohne */ }
   };
 

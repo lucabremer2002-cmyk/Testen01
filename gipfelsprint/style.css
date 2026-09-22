@@ -648,8 +648,11 @@ body.touch .controls { display: none; }
 
 /* Bildschirmsteuerung */
 
-.touch { position: absolute; inset: 0; pointer-events: none; }
-.touch[hidden] { display: none; }
+/* Nur das Steuerungs-Overlay, NICHT body.touch: ein blosses .touch wuerde
+   auch den body treffen und per Vererbung die ganze Oberflaeche fuer
+   Beruehrungen sperren. */
+#touchUI { position: absolute; inset: 0; pointer-events: none; }
+#touchUI[hidden] { display: none; }
 
 .stick {
   position: absolute;
@@ -821,7 +824,10 @@ body.touch .flow { width: clamp(92px, 20vw, 150px); }
   body.touch .flow, body.touch .speedo { width: clamp(90px, 42vw, 170px); }
   .tbtn--jump { width: 86px; height: 86px; }
   .tbtn--dash { width: 68px; height: 68px; }
-  body.touch .hud__top { padding-right: 126px; }
+  /* Neben Uhr und Kristallen ist kein Platz mehr fuer die beiden Knoepfe
+     oben rechts: die Kristallanzeige rutscht unter die Uhr. */
+  body.touch .hud__top { display: block; padding-right: 118px; }
+  body.touch .hud__side { flex-direction: row; align-items: center; gap: 8px; margin-top: 7px; }
   .timer__value { font-size: clamp(22px, 8vw, 40px); }
 }
 
