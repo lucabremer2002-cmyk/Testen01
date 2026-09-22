@@ -134,6 +134,36 @@
     return { pos: p, nor: n, uv: u, idx: idx };
   }
 
+  function geoPrism() {
+    /* Dreiecksprisma: Dachform, First laeuft entlang X. */
+    var p = [], n = [], u = [], idx = [];
+    function quad(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, nx, ny, nz) {
+      var base = p.length / 3;
+      p.push(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz);
+      for (var i = 0; i < 4; i++) n.push(nx, ny, nz);
+      u.push(0, 0, 1, 0, 1, 1, 0, 1);
+      idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+    var s = 0.5, r = Math.SQRT1_2;
+    /* zwei Dachflaechen */
+    quad(-s, -s, s, s, -s, s, s, s, 0, -s, s, 0, 0, r, r);
+    quad(s, -s, -s, -s, -s, -s, -s, s, 0, s, s, 0, 0, r, -r);
+    /* Giebel links und rechts */
+    var b1 = p.length / 3;
+    p.push(-s, -s, -s, -s, -s, s, -s, s, 0);
+    n.push(-1, 0, 0, -1, 0, 0, -1, 0, 0);
+    u.push(0, 0, 1, 0, 0.5, 1);
+    idx.push(b1, b1 + 1, b1 + 2);
+    var b2 = p.length / 3;
+    p.push(s, -s, s, s, -s, -s, s, s, 0);
+    n.push(1, 0, 0, 1, 0, 0, 1, 0, 0);
+    u.push(0, 0, 1, 0, 0.5, 1);
+    idx.push(b2, b2 + 1, b2 + 2);
+    /* Boden */
+    quad(-s, -s, -s, s, -s, -s, s, -s, s, -s, -s, s, 0, -1, 0);
+    return { pos: p, nor: n, uv: u, idx: idx };
+  }
+
   function geoQuad() {
     return {
       pos: [-0.5, 0, -0.5, 0.5, 0, -0.5, 0.5, 0, 0.5, -0.5, 0, 0.5],
@@ -502,6 +532,7 @@
     gfx.meshes.cone = makeMesh(geoTube(10, 0.02, 1, true));
     gfx.meshes.crystal = makeMesh(geoTube(6, 0.05, 1, true));
     gfx.meshes.pillar = makeMesh(geoTube(7, 0.74, 1.0, true));
+    gfx.meshes.prism = makeMesh(geoPrism());
     gfx.meshes.torus = makeMesh(geoTorus(20, 8, 0.14));
     gfx.meshes.quad = makeMesh(geoQuad());
 

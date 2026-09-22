@@ -18,25 +18,46 @@
   var P = {
     RADIUS: 0.42,
     HEIGHT: 1.7,
-    RUN: 13.5,
-    SPRINT: 18.0,
-    ACCEL_GROUND: 105,
-    ACCEL_AIR: 62,
-    FRICTION: 16,
-    OVER_DECAY_GROUND: 20,
-    OVER_DECAY_AIR: 7,
-    GRAV_HOLD: 30,
-    GRAV_UP: 48,
-    GRAV_DOWN: 58,
-    MAX_FALL: 52,
-    JUMP_V: 15.2,
-    DJUMP_V: 13.4,
-    DASH_SPEED: 31,
-    DASH_TIME: 0.19,
-    DASH_COOLDOWN: 0.5,
-    COYOTE: 0.11,
-    BUFFER: 0.13,
-    TURN_RATE: 16
+    RUN: 15.0,
+    SPRINT: 21.0,
+
+    /* Boden: praktisch sofortige Reaktion. 240 heisst: aus dem Stand auf
+       Sprinttempo in knapp 0,09 s. Luft: 105, also rund 44 Prozent davon -
+       steuerbar, aber nicht schwebend. */
+    ACCEL_GROUND: 240,
+    ACCEL_AIR: 105,
+
+    /* Seitwaertsanteil beim Richtungswechsel. Am Boden fast sofort weg
+       (kein Eislaufen), in der Luft bleibt Schwung erhalten. */
+    TURN_DAMP_GROUND: 26,
+    TURN_DAMP_AIR: 5,
+
+    /* Loslassen: aus vollem Sprint in gut einer Zehntelsekunde zum Stand. */
+    FRICTION_GROUND: 190,
+    FRICTION_AIR: 1.5,
+
+    /* Tempo oberhalb der Hoechstgeschwindigkeit (Dash, Tempofeld) baut sich
+       am Boden zuegig ab, in der Luft langsam - das belohnt Dash-Spruenge. */
+    OVER_DECAY_GROUND: 46,
+    OVER_DECAY_AIR: 16,
+
+    /* Straffer Sprung: 3,05 m hoch, 0,69 s Flugzeit. Wird die Taste sofort
+       losgelassen, greift die viel staerkere Steigfluggravitation. */
+    GRAV_HOLD: 42,
+    GRAV_UP: 78,
+    GRAV_DOWN: 62,
+    MAX_FALL: 62,
+    JUMP_V: 16.0,
+    DJUMP_V: 14.0,
+
+    /* Dash: kurzer, harter Schub statt langsamer Beschleunigung. */
+    DASH_SPEED: 40,
+    DASH_TIME: 0.15,
+    DASH_COOLDOWN: 0.4,
+
+    COYOTE: 0.10,
+    BUFFER: 0.12,
+    TURN_RATE: 26
   };
 
   var MAT_BODY = root.MR.level.mat([0.11, 0.42, 0.72], [0.30, 0.68, 0.98], { emissive: 0.05 });
@@ -157,14 +178,14 @@
         this.dashTimer -= dt;
         this.vx = this.dashDirX * P.DASH_SPEED;
         this.vz = this.dashDirZ * P.DASH_SPEED;
-        this.vy *= 0.5;
+        this.vy = 0;                 /* waagerechter Schub, kein Absacken */
       } else {
         /* ------------------------------------------------- Laufen / Lenken */
         var accel = this.grounded ? P.ACCEL_GROUND : P.ACCEL_AIR;
         if (wishLen > 0.01) {
-          /* Beschleunigen nur bis zur Wunschgeschwindigkeit in Blickrichtung:
-             so bleibt Schwung aus Dash oder Tempofeld erhalten, statt sich
-             aufzuschaukeln. */
+          /* Beschleunigt wird nur bis zur Wunschgeschwindigkeit in
+             Laufrichtung: so bleibt Schwung aus Dash oder Tempofeld erhalten,
+             statt sich aufzuschaukeln. */
           var dirX = wishX / wishLen, dirZ = wishZ / wishLen;
           var cur = this.vx * dirX + this.vz * dirZ;
           var add = targetSpeed - cur;
@@ -173,16 +194,17 @@
             this.vx += dirX * acc;
             this.vz += dirZ * acc;
           }
-          if (this.grounded) {
-            /* Seitwaertsanteil daempfen - macht Richtungswechsel direkt. */
-            var k = Math.min(1, 10 * dt);
-            this.vx -= (this.vx - dirX * cur) * k;
-            this.vz -= (this.vz - dirZ * cur) * k;
-          }
-        } else if (this.grounded) {
+          /* Quer zur Laufrichtung wird abgebaut - am Boden hart (der Wechsel
+             sitzt sofort), in der Luft sanft (Schwung bleibt). */
+          var damp = this.grounded ? P.TURN_DAMP_GROUND : P.TURN_DAMP_AIR;
+          var k = 1 - Math.exp(-damp * dt);
+          this.vx -= (this.vx - dirX * cur) * k;
+          this.vz -= (this.vz - dirZ * cur) * k;
+        } else {
+          /* Nichts gedrueckt: am Boden zackig stehenbleiben. */
           var sp0 = Math.hypot(this.vx, this.vz);
           if (sp0 > 0.001) {
-            var drop = Math.min(sp0, P.FRICTION * dt * (1 + sp0 * 0.08));
+            var drop = Math.min(sp0, (this.grounded ? P.FRICTION_GROUND : P.FRICTION_AIR) * dt);
             this.vx -= this.vx / sp0 * drop;
             this.vz -= this.vz / sp0 * drop;
           }
@@ -390,6 +412,10 @@
       dist: 8.2,
       distNow: 8.2,
       fov: 1.12,
+      fovBase: 1.12,
+      fovNow: 1.12,
+      fovPunch: 0,          /* kurzer Stoss beim Dash */
+      landPunch: 0,         /* kurzes Einfedern bei harter Landung */
       pos: new Float32Array(3),
       look: new Float32Array(3),
       target: new Float32Array(3),
@@ -429,21 +455,32 @@
       var speed = Math.hypot(player.vx, player.vz);
       if (this.manualTimer <= 0 && speed > 5.5) {
         var want = Math.atan2(player.vx, player.vz);
-        var rate = Math.min(3.4, 0.7 + speed * 0.14);
+        var rate = Math.min(4.2, 0.9 + speed * 0.16);
         this.yaw = this.yaw + M.wrapAngle(want - this.yaw) * Math.min(1, rate * dt);
       }
 
       /* Bei Tempo etwas weiter weg, beim Fallen hoeher und mit Blick nach unten. */
       var fall = M.clamp(-player.vy / 26, 0, 1);
-      var wantDist = this.dist + M.clamp(speed - 10, 0, 22) * 0.16 + fall * 1.4;
+      var fast = M.clamp((speed - P.RUN * 0.9) / (P.DASH_SPEED - P.RUN), 0, 1);
+      var wantDist = this.dist + fast * 2.6 + fall * 1.4;
       this.distNow = instant ? wantDist : M.damp(this.distNow, wantDist, 5, dt);
 
-      var tx = player.x + M.clamp(player.vx * 0.10, -2.4, 2.4);
-      var ty = player.y + 0.75 + fall * 1.1;
-      var tz = player.z + M.clamp(player.vz * 0.10, -2.4, 2.4);
-      var k = instant ? 1 : 1 - Math.exp(-14 * dt);
+      /* Blickfeld: leicht weiter beim Sprint, deutlich beim Dash. */
+      var wantFov = this.fovBase + fast * 0.085;
+      this.fovNow = instant ? wantFov : M.damp(this.fovNow, wantFov, 7, dt);
+      this.fovPunch = M.damp(this.fovPunch, 0, 7, dt);
+      this.fov = this.fovNow + this.fovPunch;
+      this.landPunch = M.damp(this.landPunch, 0, 11, dt);
+
+      /* Die Kamera bleibt beim Springen auf Kopfhoehe statt mitzuhuepfen:
+         vertikal wird traeger gefolgt, solange die Figur in der Luft ist. */
+      var tx = player.x + M.clamp(player.vx * 0.09, -2.2, 2.2);
+      var ty = player.y + 0.75 + fall * 1.15 - this.landPunch * 0.7;
+      var tz = player.z + M.clamp(player.vz * 0.09, -2.2, 2.2);
+      var k = instant ? 1 : 1 - Math.exp(-18 * dt);
+      var ky = instant ? 1 : 1 - Math.exp(-(player.grounded ? 12 : 6) * dt);
       this.target[0] += (tx - this.target[0]) * k;
-      this.target[1] += (ty - this.target[1]) * (instant ? 1 : 1 - Math.exp(-9 * dt));
+      this.target[1] += (ty - this.target[1]) * ky;
       this.target[2] += (tz - this.target[2]) * k;
 
       var pitch = this.pitch + fall * 0.12;
@@ -470,7 +507,7 @@
     };
 
     cam.buildMatrices = function (aspect) {
-      m4.perspective(this.proj, this.fov, aspect, 0.15, 900);
+      m4.perspective(this.proj, this.fov, aspect, 0.15, 900);   /* fov wird pro Frame gesetzt */
       m4.lookAt(this.view, this.pos, this.look, [0, 1, 0]);
       m4.multiply(this.viewProj, this.proj, this.view);
       m4.invert(this.invViewProj, this.viewProj);

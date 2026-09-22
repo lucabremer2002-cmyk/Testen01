@@ -129,6 +129,11 @@
 
   var _res = { nx: 0, ny: 0, nz: 0, depth: 0 };
 
+  /* Bis zu dieser Hoehe wird ein Hindernis als Stufe behandelt und
+     ueberstiegen statt zu blockieren. Ohne das bleibt die Figur schon an
+     einer 40 cm hohen Kante haengen, weil der Kapselradius nur 42 cm ist. */
+  var STEP_HEIGHT = 0.62;
+
   /*
    * Schiebt die Kapsel aus allen Koerpern heraus und meldet Kontakte.
    * body: {x,y,z, vx,vy,vz, radius, height}
@@ -159,6 +164,18 @@
 
           if (contact.hits.indexOf(c) < 0) contact.hits.push(c);
           if (c.trigger) continue;
+
+          /* Stufe statt Wand: flache Kanten hebt die Figur einfach hoch. */
+          if (s === 0 && Math.abs(_res.ny) < 0.5 && body.vy <= 0.5) {
+            var rise = (c.y + c.hy) - (body.y - half);
+            if (rise > 0.02 && rise <= STEP_HEIGHT) {
+              body.y += rise + 0.02;
+              contact.grounded = true;
+              if (c.y + c.hy > contact.groundY) { contact.groundY = c.y + c.hy; contact.ground = c; }
+              moved = true;
+              continue;
+            }
+          }
 
           body.x += _res.nx * _res.depth;
           body.y += _res.ny * _res.depth;

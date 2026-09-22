@@ -117,7 +117,7 @@
     this.level = LevelMod.build();
     this.player = root.MR.player.create(this.level);
     this.cam = root.MR.player.createCamera();
-    this.particles = new Particles(420);
+    this.particles = new Particles(640);
 
     this.staticBatch = this.gfx.createBatch(false);
     this.staticGlass = this.gfx.createBatch(false);
@@ -426,20 +426,24 @@
         }
       } else if (ev === 'dash') {
         Audio.sfx.dash();
-        this.cam.shake = 0.22;
+        this.cam.shake = 0.16;
+        this.cam.fovPunch = 0.20;
         this.particles.burst(p.x, p.y, p.z, 12, { speed: 2.5, up: 0.5, life: 0.35, size: 0.3, color: [0.7, 0.95, 1.0], grav: -2, spread: 0.7 });
       } else if (ev === 'land' || ev === 'land_hard') {
         Audio.sfx.land(ev === 'land_hard');
-        if (ev === 'land_hard') this.cam.shake = 0.28;
+        this.cam.landPunch = ev === 'land_hard' ? 0.55 : 0.22;
+        if (ev === 'land_hard') this.cam.shake = 0.22;
         this.particles.burst(p.x, p.y - 0.85, p.z, ev === 'land_hard' ? 16 : 8, {
           speed: 5, up: 1.2, life: 0.4, size: 0.26, color: [0.9, 0.88, 0.78], grav: -20, spread: 0.7
         });
       } else if (ev === 'bounce') {
         Audio.sfx.bounce();
+        this.cam.fovPunch = 0.10;
         this.particles.burst(p.x, p.y - 0.9, p.z, 18, { speed: 7, up: 3, life: 0.5, size: 0.3, color: [1, 0.5, 0.45], grav: -16, spread: 0.9 });
       } else if (ev === 'boost') {
         Audio.sfx.boost();
-        this.cam.shake = 0.18;
+        this.cam.shake = 0.14;
+        this.cam.fovPunch = 0.16;
         this.toast('TEMPO!', 'gold');
       } else if (ev === 'hazard') {
         this.kill();
@@ -557,7 +561,7 @@
     var p = this.player;
     var kmh = Math.round(p.speed * 3.1);
     $('speedValue').textContent = kmh;
-    $('speedFill').style.width = Math.min(100, p.speed / 34 * 100) + '%';
+    $('speedFill').style.width = Math.min(100, p.speed / 40 * 100) + '%';
     $('abJump').className = 'ability' + (p.jumps > 0 && !p.grounded ? ' ready' : (p.grounded ? ' ready' : ' used'));
     $('abDash').className = 'ability' + (p.dashCharge > 0 && p.dashCooldown <= 0 ? ' ready' : ' used');
   };
@@ -639,7 +643,9 @@
     }
 
     if (this.state === 'run' || this.state === 'countdown') this.updateHud();
-    Audio.setMusicIntensity(Math.min(1, this.player.speed / 22));
+    this.updateEnvironment(dtReal);
+    if (playing) this.updateAmbient(dtReal);
+    Audio.setMusicIntensity(Math.min(1, this.player.speed / 26));
 
     this.render(dtReal);
     input.endFrame();
@@ -656,6 +662,77 @@
         }
       } else {
         this.qualityChecked = Math.max(0, this.qualityChecked - dtReal * 0.5);
+      }
+    }
+  };
+
+  /* Nebel, Himmel und Licht wandern weich von Zone zu Zone mit. */
+  Game.prototype.updateEnvironment = function (dt) {
+    var p = this.player;
+    var want = this.level.envAt(p.x, p.z);
+    var env = this.gfx.env;
+    var k = 1 - Math.exp(-2.2 * dt);
+    var keys = ['fogCol', 'zenith', 'horizon', 'skyCol', 'groundCol', 'sunCol'];
+    for (var i = 0; i < keys.length; i++) {
+      var a = env[keys[i]], bb = want[keys[i]];
+      a[0] += (bb[0] - a[0]) * k;
+      a[1] += (bb[1] - a[1]) * k;
+      a[2] += (bb[2] - a[2]) * k;
+    }
+    env.fogDensity += (want.fogDensity - env.fogDensity) * k;
+    this.ambient = want.ambient;
+    this.zoneName = want.zone;
+  };
+
+  var AMBIENT = {
+    pollen: { color: [1.0, 0.95, 0.6], size: 0.18, life: 2.6, rate: 0.16, rise: 0.5, spread: 26, grav: 0.4 },
+    leaves: { color: [0.45, 0.72, 0.30], size: 0.30, life: 3.4, rate: 0.13, rise: -0.6, spread: 24, grav: -1.6 },
+    spray: { color: [0.85, 0.96, 1.0], size: 0.22, life: 1.4, rate: 0.08, rise: 1.2, spread: 20, grav: -6 },
+    dust: { color: [0.86, 0.78, 0.58], size: 0.20, life: 2.4, rate: 0.14, rise: 0.4, spread: 24, grav: 0.3 },
+    snow: { color: [1.0, 1.0, 1.0], size: 0.24, life: 3.6, rate: 0.07, rise: -0.4, spread: 30, grav: -1.1 }
+  };
+
+  /* Staub beim Rennen, Blaetter im Wald, Schnee am Gipfel, Gischt am Wasser. */
+  Game.prototype.updateAmbient = function (dt) {
+    var p = this.player;
+    var ps = this.particles;
+
+    this._dustTimer = (this._dustTimer || 0) - dt;
+    if (p.grounded && p.speed > 11 && this._dustTimer <= 0) {
+      this._dustTimer = 0.07;
+      var back = -1 / Math.max(p.speed, 0.01);
+      ps.spawn(p.x + p.vx * back * 0.7, p.y - 0.82, p.z + p.vz * back * 0.7,
+        (Math.random() - 0.5) * 2 - p.vx * 0.06, 1.4 + Math.random(), (Math.random() - 0.5) * 2 - p.vz * 0.06,
+        0.38, 0.26, [0.88, 0.84, 0.74], -7, 'box');
+    }
+
+    var cfg = AMBIENT[this.ambient];
+    if (cfg) {
+      this._ambTimer = (this._ambTimer || 0) - dt;
+      if (this._ambTimer <= 0) {
+        this._ambTimer = cfg.rate;
+        var a = Math.random() * Math.PI * 2;
+        var d = 6 + Math.random() * cfg.spread;
+        ps.spawn(p.x + Math.cos(a) * d, p.y + 3 + Math.random() * 14, p.z + Math.sin(a) * d,
+          (Math.random() - 0.5) * 1.6, cfg.rise, (Math.random() - 0.5) * 1.6,
+          cfg.life, cfg.size, cfg.color, cfg.grav, 'box');
+      }
+    }
+
+    /* Gischt an Wasserfaellen in der Naehe */
+    var sp = this.level.sprayPoints;
+    if (sp && sp.length) {
+      this._sprayTimer = (this._sprayTimer || 0) - dt;
+      if (this._sprayTimer <= 0) {
+        this._sprayTimer = 0.05;
+        for (var i = 0; i < sp.length; i++) {
+          var s = sp[i];
+          var dx = s.x - p.x, dz = s.z - p.z;
+          if (dx * dx + dz * dz > 3600) continue;
+          ps.spawn(s.x + (Math.random() - 0.5) * s.w * 1.6, s.y + Math.random() * 2, s.z + (Math.random() - 0.5) * s.w,
+            (Math.random() - 0.5) * 4, 2 + Math.random() * 4, (Math.random() - 0.5) * 4,
+            1.0 + Math.random(), 0.3, [0.9, 0.97, 1.0], -9, 'box');
+        }
       }
     }
   };
