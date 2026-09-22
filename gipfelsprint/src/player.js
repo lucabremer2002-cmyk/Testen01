@@ -393,16 +393,22 @@
       put('box', 0, 1.26 * sq, 0.04, 0.72, 0.22, 0.52, MAT_SCARF);
       put('box', 0, 1.12 * sq, -0.34 - flap * 0.4, 0.26, 0.18, 0.5 + flap * 1.1, MAT_SCARF, -0.7 - flap * 0.5);
 
-      /* Schattenfleck als Landehilfe */
+      /* Landering: seit es echten Sonnenschatten gibt, ist der Fleck unter
+         der Figur kein Schatten mehr, sondern nur noch die Anzeige, wo man
+         aufkommt - der Sonnenschatten liegt schraeg und beantwortet das
+         nicht. Deshalb klein, blass und nur in der Luft deutlich. */
       if (opts && opts.shadow === false) return;
       if (Physics.raycast(level.world, this.x, this.y - this.height * 0.5 + 0.1, this.z, 0, -1, 0, 26, hit)) {
         var d = hit.t;
-        var sc = 2.6 * (1 - Math.min(0.72, d / 26));
-        m4.composeYaw(m, this.x, this.y - this.height * 0.5 + 0.1 - d + 0.06, this.z, 0, sc, 1, sc);
-        glass.add('quad', m, {
-          color: MAT.shadow.color, accent: MAT.shadow.color, emissive: 0,
-          pattern: 7, patternScale: 1, alpha: 0.42 * (1 - Math.min(0.75, d / 26)) * alpha
-        });
+        var air = Math.min(1, Math.max(0, d - 0.6) / 3.0);
+        if (air > 0.02) {
+          var sc = 1.9 * (1 - Math.min(0.6, d / 26));
+          m4.composeYaw(m, this.x, this.y - this.height * 0.5 + 0.1 - d + 0.06, this.z, 0, sc, 1, sc);
+          glass.add('quad', m, {
+            color: MAT.shadow.color, accent: MAT.shadow.color, emissive: 0,
+            pattern: 7, patternScale: 1, alpha: 0.30 * air * (1 - Math.min(0.75, d / 26)) * alpha
+          });
+        }
       }
     };
 

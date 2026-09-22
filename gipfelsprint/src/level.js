@@ -148,6 +148,12 @@
   function Builder() {
     this.world = new Physics.World();
     this.visuals = [];        /* {mesh, m, mat} - einmalig hochgeladen */
+    /* Kulisse: Wolken und Fernberge. Sie werden gezeichnet, werfen aber
+       keinen Schatten - eine Wolke als harter dunkler Fleck auf der Wiese
+       sieht falsch aus, und ein Fernberg wuerde die Schattenkarte
+       vollstaendig ausfuellen. */
+    this.far = [];
+    this.farMode = false;
     this.glass = [];          /* transparente Deko */
     this.ents = [];           /* bewegliche Objekte mit update/render */
     this.gems = [];
@@ -221,7 +227,9 @@
       m4.composeYaw(m, x, y, z, this.cursor.yaw + (rot ? rot[1] : 0), sx, sy, sz);
     }
     var entry = { mesh: mesh, m: m, mat: material };
-    if (material.alpha < 1) this.glass.push(entry); else this.visuals.push(entry);
+    if (material.alpha < 1) this.glass.push(entry);
+    else if (this.farMode) this.far.push(entry);
+    else this.visuals.push(entry);
     return entry;
   };
 
@@ -1065,10 +1073,13 @@
 
   B.cloudPuff = function (lx, ly, lz, s) {
     var r = this.rand;
+    var was = this.farMode;
+    this.farMode = true;
     for (var i = 0; i < 4; i++) {
       this.deco('blob', lx + (r() - 0.5) * s * 2.4, ly + (r() - 0.5) * s * 0.4, lz + (r() - 0.5) * s * 1.6,
         s * (0.9 + r() * 0.8), s * (0.45 + r() * 0.25), s * (0.8 + r() * 0.6), MAT.cloud);
     }
+    this.farMode = was;
   };
 
   /* Lichtbalken: billige Volumenoptik, additiv und sehr durchsichtig. */
@@ -1718,6 +1729,7 @@
   }
 
   function backdrop(b, bounds) {
+    b.farMode = true;
     var cx = (bounds.minX + bounds.maxX) / 2;
     var cz = (bounds.minZ + bounds.maxZ) / 2;
     var span = Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ);
@@ -1785,6 +1797,7 @@
     }
     terrain(b, b.spine, b.zones, bounds);
     backdrop(b, bounds);
+    b.farMode = false;
 
     /* Richtwert aus Streckenlaenge und Hoehenmetern. Ein Testlauf ohne
        Optimierung braucht rund 52 s, ein sauberer Lauf deutlich weniger -
@@ -1801,6 +1814,7 @@
       name: 'Gipfelsprint',
       world: b.world,
       visuals: b.visuals,
+      far: b.far,
       glass: b.glass,
       ents: b.ents,
       gems: b.gems,

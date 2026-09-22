@@ -126,12 +126,16 @@
     this.gfx = root.MR.render.create(canvas);
     if (!this.gfx) throw new Error('WebGL2 ist nicht verfuegbar.');
     this.input = root.MR.input.create(canvas);
+    /* Auf Beruehrungsgeraeten eine kleinere Schattenkarte: 2048 kostet dort
+       spuerbar mehr, als der feinere Rand bringt. */
+    if (this.gfx.shadowQuality) this.gfx.shadowQuality(this.input.isTouch ? 1024 : 2048);
     this.level = LevelMod.build();
     this.player = root.MR.player.create(this.level);
     this.cam = root.MR.player.createCamera();
     this.particles = new Particles(760);
 
     this.staticBatch = this.gfx.createBatch(false);
+    this.staticFar = this.gfx.createBatch(false);
     this.staticGlass = this.gfx.createBatch(false);
     this.dynBatch = this.gfx.createBatch(true);
     this.dynGlass = this.gfx.createBatch(true);
@@ -167,6 +171,9 @@
     var v = this.level.visuals, i;
     for (i = 0; i < v.length; i++) this.staticBatch.add(v[i].mesh, v[i].m, v[i].mat);
     this.staticBatch.upload();
+    var f = this.level.far || [];
+    for (i = 0; i < f.length; i++) this.staticFar.add(f[i].mesh, f[i].m, f[i].mat);
+    this.staticFar.upload();
     var g = this.level.glass;
     for (i = 0; i < g.length; i++) this.staticGlass.add(g[i].mesh, g[i].m, g[i].mat);
     this.staticGlass.upload();
@@ -1063,6 +1070,7 @@
         if (this.qualityChecked > 2.5) {
           this.lowQuality = true;
           this.gfx.bloom = false;
+          if (this.gfx.shadowQuality) this.gfx.shadowQuality(1024);
           this.resize();
           this.toast('Effekte reduziert');
         }
@@ -1104,8 +1112,17 @@
 
     var aspect = Math.max(0.2, this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight));
     this.cam.buildMatrices(aspect);
+    /* Der Schattenkasten laeuft dem Spieler ein Stueck voraus, damit die
+       Karte dort liegt, wo hingeschaut wird - nicht hinter der Figur. */
+    var p = this.player;
+    if (gfx.setShadowFocus) {
+      gfx.setShadowFocus(p.x + Math.sin(this.cam.yaw) * 9,
+                         p.y + 1,
+                         p.z + Math.cos(this.cam.yaw) * 9);
+    }
     gfx.render(this.cam.viewProj, this.cam.invViewProj, this.cam.pos, t,
-      [this.staticBatch, dyn], [this.staticGlass, glass]);
+      [this.staticBatch, this.staticFar, dyn], [this.staticGlass, glass],
+      [this.staticBatch, dyn]);
   };
 
   /* -------------------------------------------------------------- Start */

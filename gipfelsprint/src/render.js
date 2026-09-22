@@ -14,6 +14,7 @@
 (function (root) {
   'use strict';
 
+  var m4 = root.MR.math.m4;
   var STRIDE = 26;
 
   /* ------------------------------------------------------------ Geometrie */
@@ -206,7 +207,37 @@
     'in vec3 vN; in vec3 vW; in vec3 vC; in vec3 vA; in vec4 vP; in vec2 vUv;',
     'uniform vec3 uSunDir, uSunCol, uSkyCol, uGroundCol, uFogCol, uCamPos;',
     'uniform float uTime, uFogDensity;',
+    'uniform mat4 uLightVP;',
+    'uniform highp sampler2DShadow uShadow;',
+    'uniform float uShadowTexel, uShadowOn, uShadowWorld;',
     'out vec4 outColor;',
+
+    /* Weicher Schatten: neun Proben ueber die Schattenkarte. Die Karte
+       vergleicht selbst (COMPARE_REF_TO_TEXTURE), jede Probe ist dadurch
+       bereits bilinear gefiltert - neun davon ergeben einen ruhigen Rand.
+       Am Kartenrand wird ausgeblendet, sonst gaebe es dort eine Kante. */
+    'float sunShadow(vec3 w, vec3 n, float ndl){',
+    '  if (uShadowOn < 0.5) return 1.0;',
+    /* Versatz entlang der Normalen statt einer grossen Tiefenverschiebung:
+       eine reine Tiefenverschiebung loest den Schatten sichtbar vom Fuss
+       des Objekts. Der Versatz betraegt knapp zwei Texel der Karte in
+       Weltmass und faellt damit nie auf. */
+    '  w += n * uShadowWorld * (2.4 - 1.4 * ndl);',
+    '  vec4 lp = uLightVP * vec4(w, 1.0);',
+    '  vec3 q = lp.xyz / lp.w * 0.5 + 0.5;',
+    '  if (q.z > 1.0) return 1.0;',
+    '  vec2 d = abs(q.xy - 0.5);',
+    '  float edge = 1.0 - smoothstep(0.40, 0.50, max(d.x, d.y));',
+    '  if (edge <= 0.001) return 1.0;',
+    '  q.z -= mix(0.0009, 0.0003, ndl);',
+    '  float sum = 0.0;',
+    '  for (int y = -1; y <= 1; y++) {',
+    '    for (int x = -1; x <= 1; x++) {',
+    '      sum += texture(uShadow, vec3(q.xy + vec2(float(x), float(y)) * uShadowTexel, q.z));',
+    '    }',
+    '  }',
+    '  return mix(1.0, sum / 9.0, edge);',
+    '}',
 
     'float hash21(vec2 p){',
     '  vec3 p3 = fract(vec3(p.xyx) * 0.1031);',
@@ -286,7 +317,12 @@
     '  amb = mix(vec3(dot(amb, vec3(0.299, 0.587, 0.114))), amb, 0.52);',
     /* Gegenlicht haelt abgewandte Flaechen lesbar statt schwarz. */
     '  float fill = max(dot(N, normalize(vec3(-L.x, 0.25, -L.z))), 0.0);',
-    '  vec3 col = base * (amb * 0.44 + uSunCol * ndl * 1.22 + uSunCol * fill * 0.16);',
+    '  float sh = sunShadow(vW, N, ndl);',
+    /* Im Schatten faellt nur das Sonnenlicht weg, das Umgebungslicht
+       bekommt einen kuehlen Einschlag - das trennt Licht und Schatten
+       farblich, statt nur dunkler zu werden. */
+    '  vec3 shadeTint = mix(uSkyCol * 1.10, vec3(1.0), sh);',
+    '  vec3 col = base * (amb * 0.44 * shadeTint + uSunCol * ndl * 1.34 * sh + uSunCol * fill * 0.16);',
 
     /* Glanz fuer Wasser und Kristall */
     '  if (pat == 4 || pat == 6) {',
@@ -306,6 +342,27 @@
 
     '  outColor = vec4(col, alpha);',
     '}'
+  ].join('\n');
+
+  /* Schattenkarte: dieselben Instanzattribute, aber nur Tiefe aus Sicht der
+     Sonne. Der Fragment-Shader schreibt nichts - gl_FragDepth genuegt. */
+  var VS_SHADOW = [
+    '#version 300 es',
+    'layout(location=0) in vec3 aPos;',
+    'layout(location=3) in vec4 iM0;',
+    'layout(location=4) in vec4 iM1;',
+    'layout(location=5) in vec4 iM2;',
+    'layout(location=6) in vec4 iM3;',
+    'uniform mat4 uLightVP;',
+    'void main(){',
+    '  gl_Position = uLightVP * (mat4(iM0,iM1,iM2,iM3) * vec4(aPos,1.0));',
+    '}'
+  ].join('\n');
+
+  var FS_SHADOW = [
+    '#version 300 es',
+    'precision mediump float;',
+    'void main(){}'
   ].join('\n');
 
   var VS_FULL = [
@@ -398,7 +455,16 @@
     'out vec4 outColor;',
     'void main(){',
     '  vec3 c = texture(uScene, vUv).rgb + texture(uBloom, vUv).rgb * uBloomStrength;',
-    '  c = c / (c + vec3(1.6)) * 2.1;',            /* nur Spitzlichter komprimieren */
+    /* Filmische Kennlinie (ACES-Naeherung), aber nur auf die Helligkeit
+       angewandt und der Farbton unveraendert daruebergelegt. Kanalweise
+       angewandt zieht dieselbe Kurve kraeftigen Farben die Saettigung weg,
+       weil sie den hellsten Kanal staerker staucht als die anderen. */
+    '  float y = max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 1e-4);',
+    '  float ye = y * 1.06;',
+    '  float yt = (ye * (2.51 * ye + 0.03)) / (ye * (2.43 * ye + 0.59) + 0.14);',
+    '  c *= yt / y;',
+    /* Ueberlaufende Kanaele gemeinsam zurueckholen - das haelt den Farbton. */
+    '  c /= max(1.0, max(max(c.r, c.g), c.b));',
     /* Farbkraft: blasse Stellen werden deutlich angehoben, ohnehin kraeftige
        nur wenig - sonst laufen die Neonfarben ins Weisse. */
     '  float lum = dot(c, vec3(0.299, 0.587, 0.114));',
@@ -515,6 +581,7 @@
     var thresh = program(gl, VS_FULL, FS_THRESH);
     var blur = program(gl, VS_FULL, FS_BLUR);
     var comp = program(gl, VS_FULL, FS_COMPOSITE);
+    var shadow = program(gl, VS_SHADOW, FS_SHADOW);
 
     function makeMesh(g) {
       var inter = new Float32Array(g.pos.length / 3 * 8);
@@ -616,6 +683,70 @@
 
     gfx.bloom = true;
 
+    /* ------------------------------------------------- Schattenkarte */
+
+    var shadowMap = null;
+    var lightView = m4.make(), lightProj = m4.make(), lightVP = m4.make();
+    var focus = { x: 0, y: 0, z: 0, r: 46 };
+
+    function makeShadowMap(size) {
+      var tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, size, size, 0,
+        gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      /* Die Karte vergleicht beim Lesen selbst - damit filtert die Hardware
+         den Schattenrand, statt rohe Tiefen zu liefern. */
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
+      var fb = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, tex, 0);
+      gl.drawBuffers([gl.NONE]);
+      gl.readBuffer(gl.NONE);
+      var ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      if (!ok) { gl.deleteFramebuffer(fb); gl.deleteTexture(tex); return null; }
+      return { fb: fb, tex: tex, size: size };
+    }
+
+    /* Der Schattenkasten folgt dem Spieler. Ohne Rasterung auf Texelschritte
+       wandert die Karte bei jeder Kamerabewegung um Bruchteile eines Texels
+       weiter und die Schattenraender flimmern. */
+    gfx.setShadowFocus = function (x, y, z, radius) {
+      focus.x = x; focus.y = y; focus.z = z;
+      if (radius) focus.r = radius;
+    };
+
+    gfx.shadowQuality = function (size) {
+      if (shadowMap && shadowMap.size === size) return;
+      if (shadowMap) { gl.deleteFramebuffer(shadowMap.fb); gl.deleteTexture(shadowMap.tex); }
+      shadowMap = size > 0 ? makeShadowMap(size) : null;
+    };
+    gfx.shadowQuality(2048);
+
+    function buildLightMatrix() {
+      var d = env.sunDir;
+      var len = Math.hypot(d[0], d[1], d[2]) || 1;
+      var lx = d[0] / len, ly = d[1] / len, lz = d[2] / len;
+      var r = focus.r;
+      var texel = 2 * r / shadowMap.size;
+      var cx = Math.round(focus.x / texel) * texel;
+      var cy = Math.round(focus.y / texel) * texel;
+      var cz = Math.round(focus.z / texel) * texel;
+      /* Der Kasten reicht nur so weit nach hinten, wie noetig - ein zu
+         tiefer Bereich frisst die Genauigkeit der Tiefenwerte auf. */
+      var back = r * 1.7;
+      m4.lookAt(lightView, [cx + lx * back, cy + ly * back, cz + lz * back], [cx, cy, cz],
+        Math.abs(ly) > 0.95 ? [0, 0, 1] : [0, 1, 0]);
+      m4.ortho(lightProj, -r, r, -r, r, 1.0, back + r * 1.9);
+      m4.multiply(lightVP, lightProj, lightView);
+      return lightVP;
+    }
+
     gfx.resize = function (dpr) {
       var w = Math.max(1, Math.round(canvas.clientWidth * dpr));
       var h = Math.max(1, Math.round(canvas.clientHeight * dpr));
@@ -665,7 +796,30 @@
      *   viewProj / invViewProj : Kameramatrizen
      *   opaque / transparent   : Listen von Batches
      */
-    gfx.render = function (viewProj, invViewProj, camPos, time, opaque, transparent) {
+    /* casters: die Liste fuer die Schattenkarte. Fehlt sie, wirft alles
+       Undurchsichtige Schatten. */
+    gfx.render = function (viewProj, invViewProj, camPos, time, opaque, transparent, casters) {
+      /* ---- Durchgang 1: Tiefe aus Sicht der Sonne ---- */
+      var useShadow = !!shadowMap;
+      if (useShadow) {
+        buildLightMatrix();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, shadowMap.fb);
+        gl.viewport(0, 0, shadowMap.size, shadowMap.size);
+        gl.clear(gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthMask(true);
+        gl.disable(gl.BLEND);
+        /* Rueckseiten werfen den Schatten: das schiebt den Selbstschatten
+           hinter die sichtbare Flaeche und spart den groessten Teil der
+           sonst noetigen Tiefenverschiebung. */
+        gl.enable(gl.CULL_FACE);
+        gl.cullFace(gl.FRONT);
+        gl.useProgram(shadow.prog);
+        gl.uniformMatrix4fv(shadow.u.uLightVP, false, lightVP);
+        drawBatches(casters || opaque);
+        gl.cullFace(gl.BACK);
+      }
+
       var useBloom = gfx.bloom && fbo.scene;
       gl.bindFramebuffer(gl.FRAMEBUFFER, useBloom ? fbo.scene.fb : null);
       gl.viewport(0, 0, gfx.width, gfx.height);
@@ -701,6 +855,16 @@
       gl.uniform3fv(main.u.uCamPos, camPos);
       gl.uniform1f(main.u.uTime, time);
       gl.uniform1f(main.u.uFogDensity, env.fogDensity);
+      gl.uniform1f(main.u.uShadowOn, useShadow ? 1 : 0);
+      if (useShadow) {
+        gl.uniformMatrix4fv(main.u.uLightVP, false, lightVP);
+        gl.uniform1f(main.u.uShadowTexel, 1 / shadowMap.size);
+        gl.uniform1f(main.u.uShadowWorld, 2 * focus.r / shadowMap.size);
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, shadowMap.tex);
+        gl.uniform1i(main.u.uShadow, 2);
+        gl.activeTexture(gl.TEXTURE0);
+      }
       drawBatches(opaque);
 
       if (transparent && transparent.length) {
