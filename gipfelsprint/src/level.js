@@ -1557,11 +1557,26 @@
     /* ---- IRRE: Hochplateaus, Luecken nur mit Doppelsprung oder Dash ---- */
     b.routeZone(0, 2, 17, 12, 12, 10, 8, 14);
     for (i = 0; i < 7; i++) {
-      var iz = 12 + i * 24;
+      /* Abstand von 24 auf 19 verkleinert. Bei 24 blieb nach der Landung
+         kaum Anlauf fuer den naechsten Satz - die Kette entschied sich
+         daran, wieviel Tempo die vorige Landung uebriggelassen hat, nicht
+         am Timing. */
+      var iz = 12 + i * 19;
       var iy = 11 + i * 0.5;
-      b.plat(17, iy, iz, 7, 9, MAT.canyonDeck, { thickness: 1.4 });
+      /* Die erste Flaeche ist eine breite Terrasse. Der Einstieg kommt vom
+         Sprungfeld schraeg von unten und verlangt eine Korrektur quer zur
+         Flugrichtung - auf einer 7 Einheiten schmalen Saeule zu landen war
+         nicht schwer, sondern beliebig. Die Kette danach bleibt schmal,
+         dort liegt die eigentliche Schwierigkeit. */
+      /* Abstand 24 bei 9 Tiefe ergab eine Luecke von 15 m - ein
+         Sprintsprung schafft 14,5. Damit entschied nicht Koennen, sondern
+         ob man den Dash gerade frei hatte. Mit 12 Tiefe bleiben 12 m:
+         sicher im Sprung, aber nur mit Anlauf und sauberer Landung auf
+         einer 7 Einheiten schmalen Flaeche. */
+      var iw = i === 0 ? 16 : 7, idp = i === 0 ? 14 : 12;
+      b.plat(17, iy, iz, iw, idp, MAT.canyonDeck, { thickness: 1.4 });
       b.routeMark(0, 2, 17, iy, iz);
-      b.deco('cylinder', 17, iy - 20, iz, 6, 40, 6, MAT.canyonDark);
+      b.deco('cylinder', 17, iy - 20, iz, iw * 0.86, 40, idp * 0.66, MAT.canyonDark);
       if (i < 4) b.gem(17, iy + 2.6, iz + 12, { hint: 'im Sprungbogen' });
       if (i === 1) b.gem(17, iy + 1.6, iz, { hint: 'Hochplateau' });
     }

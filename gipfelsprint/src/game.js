@@ -451,6 +451,10 @@
   };
 
   Game.prototype.resetRunState = function () {
+    /* Gemerkte Tastendruecke gehoeren nicht ueber einen Neustart hinweg
+       uebernommen - sonst springt die Figur beim Start von selbst. */
+    this.pendJump = false;
+    this.pendDash = false;
     this.runTime = 0;
     this.gems = 0;
     this.splits = [];
@@ -1016,8 +1020,17 @@
       /* Am Handy gibt es keine Sprinttaste: wer den Knopf ganz durchdrueckt,
          sprintet. */
       cmd.sprint = input.down('sprint') || (ax.fromTouch && ax.len > 0.78);
-      cmd.dash = input.hit('dash');
-      cmd.jumpPressed = input.hit('jump');
+      /* Tastendruecke werden gemerkt, bis ein Simulationsschritt sie
+         wirklich verbraucht hat. Die Simulation laeuft mit festen 120
+         Schritten je Sekunde; auf einem schnelleren Bildschirm gibt es
+         Bilder, in denen kein Schritt faellt. Wurde der Druck dort direkt
+         in den Befehl geschrieben, war er weg, bevor ihn jemand gelesen
+         hat - gemessen jeder sechste Sprung bei 144 Hz und jeder vierte
+         bei 165 Hz. */
+      if (input.hit('dash')) this.pendDash = true;
+      if (input.hit('jump')) this.pendJump = true;
+      cmd.dash = !!this.pendDash;
+      cmd.jumpPressed = !!this.pendJump;
       cmd.jumpHeld = input.down('jump');
     }
 
@@ -1052,6 +1065,9 @@
         steps++;
         if (this.state === 'run') this.runTime += FIXED;
         this.fixedStep(FIXED, cmd);
+        /* Erst hier gilt der Druck als verbraucht. */
+        if (cmd.jumpPressed) this.pendJump = false;
+        if (cmd.dash) this.pendDash = false;
         cmd.jumpPressed = false;
         cmd.dash = false;
       }

@@ -25,12 +25,22 @@
        Sprinttempo in knapp 0,09 s. Luft: 105, also rund 44 Prozent davon -
        steuerbar, aber nicht schwebend. */
     ACCEL_GROUND: 240,
-    ACCEL_AIR: 105,
+    /* Rund 38 Prozent des Bodenwerts. Gemessen erreicht ein voll
+       gehaltener Querimpuls in der Luft weiterhin die volle Quergeschwindigkeit
+       - nur langsamer. Wer die Spitze wirklich deckeln will, muss auch die
+       irren Aeste neu bauen; mit 68 faellt der Tempel-Ast aus und die
+       Messwerte aendern sich kaum (94 statt 100 Prozent). */
+    ACCEL_AIR: 90,
 
     /* Seitwaertsanteil beim Richtungswechsel. Am Boden fast sofort weg
        (kein Eislaufen), in der Luft bleibt Schwung erhalten. */
     TURN_DAMP_GROUND: 26,
-    TURN_DAMP_AIR: 5,
+    /* Der Wert frisst den Anteil quer zur Eingaberichtung. Bei 5 blieben
+       von 21 Einheiten Vorwaertstempo nach 0,3 s Querhalten nur 4,3 uebrig:
+       eine Kehrtwende in der Luft kostete nichts. Bei 1,9 bleiben rund 11.
+       Kleine Korrekturen sind dadurch fast gratis, eine ganze Drehung
+       kostet Tempo - genau die Abstufung, die Schwung belohnt. */
+    TURN_DAMP_AIR: 3.0,
 
     /* Loslassen: aus vollem Sprint in gut einer Zehntelsekunde zum Stand. */
     FRICTION_GROUND: 190,
@@ -53,7 +63,10 @@
     /* Dash: kurzer, harter Schub statt langsamer Beschleunigung. */
     DASH_SPEED: 40,
     DASH_TIME: 0.15,
-    DASH_COOLDOWN: 0.4,
+    /* 0,4 liess am Boden acht Dashes in drei Sekunden zu - damit war Dashen
+       schneller als Sprinten und die Hoechstgeschwindigkeit bedeutungslos.
+       0,7 entspricht etwa einem Sprung-Dash-Lande-Zyklus. */
+    DASH_COOLDOWN: 0.7,
 
     /* Umschauen: senkrecht ruhiger als waagerecht, und die Eingabe wird
        ueber ein paar Bilder ausgegeben statt sofort - das nimmt dem

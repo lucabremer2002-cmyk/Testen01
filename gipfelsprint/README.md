@@ -288,6 +288,39 @@ src/game.js     Zustaende, feste 120-Hz-Simulation, Flow, HUD, Bestzeiten
   als eigene Elemente darueber und stoppen ihre Ereignisse, damit die
   Flaeche darunter nichts davon mitbekommt.
 
+### Bewegung: gemessen, nicht geschaetzt
+
+Fuer das Bewegungsgefuehl gibt es einen eigenen Messstand. Er treibt
+`game.frame()` mit kuenstlichen Zeitstempeln und gescripteter Eingabe und
+misst damit die ganze Kette Eingabe -> fester Schritt, nicht nur die
+Physik fuer sich. Aktuelle Werte:
+
+| Groesse | Wert |
+| --- | --- |
+| Verschluckte Sprungbefehle (60/120/144/165 Hz) | 0 von 40 je Bildrate |
+| Reaktion Tastendruck bis Steigen | 1 Schritt, 8,3 ms |
+| Beschleunigen auf Sprinttempo | 0,12 s |
+| Stehenbleiben aus Sprint | 0,09 s |
+| Wenden um 90 / 135 / 180 Grad | 0,10 / 0,18 / 0,21 s |
+| Coyote-Zeit | rund 100 ms |
+| Sprungpuffer | rund 120 ms |
+| Sprung: Hoehe / Scheitel / Flugzeit | 2,98 m / 0,38 s / 0,68 s |
+| Luft, 0,3 s voll quer: Quertempo / Schwung erhalten | 100 % / 38 % |
+| Dash am Boden je 3 s | 5 |
+
+* **Eingaben werden gemerkt, bis ein Schritt sie verbraucht.** Die
+  Simulation laeuft mit festen 120 Schritten je Sekunde. Auf einem
+  schnelleren Bildschirm gibt es Bilder, in denen kein Schritt faellt -
+  wurde der Tastendruck dort direkt in den Befehl geschrieben, war er weg,
+  bevor ihn jemand gelesen hat. Gemessen: jeder sechste Sprung bei 144 Hz,
+  jeder vierte bei 165 Hz.
+* **Luftwerte und Leveldesign haengen zusammen.** Die schweren Aeste waren
+  gegen sehr hohe Luftkontrolle gebaut. Wer die Kontrolle senkt, muss sie
+  mitziehen - sonst sind sie nicht mehr befahrbar.
+* **Der Testpilot haelt Drift vor**, zieht also die Querkomponente seiner
+  Geschwindigkeit vom Zielpunkt ab. Ohne das schiesst er ueber jede
+  Plattform hinaus und der Test misst den Piloten statt das Level.
+
 ### Messfallen, in die ich gelaufen bin
 
 Zwei Tests haben mir gruenes Licht gegeben, das nichts wert war - beide
