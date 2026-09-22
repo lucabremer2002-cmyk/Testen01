@@ -1,17 +1,17 @@
 # Gipfelsprint
 
-Ein 3D-Jump-'n'-Run als Time-Trial: ein kompakter Hindernisparcours den Berg
-hinauf, Bestzeit im Browser gespeichert, Medaillen fuer schnelle Laeufe.
+Ein Time-Trial-Platformer: **ein Lauf vom Start ins Ziel, keine
+Checkpoints**. Wer stuerzt, faengt sofort wieder vorne an - ohne Menue,
+ohne Ladezeit. An drei Stellen teilt sich die Strecke in drei Wege, und der
+schnellste ist immer der schwerste.
 
-Alles eigenentwickelt und ohne Abhaengigkeiten - eigener WebGL2-Renderer,
+Alles eigenentwickelt und ohne Abhaengigkeiten: eigener WebGL2-Renderer,
 eigene Kollisionsabfrage, prozeduraler Klang. Kein Framework, kein
 Build-Schritt, keine Fremd-Assets.
 
 ## Spielen
 
-Wegen der ES-Modul-freien, aber dateiuebergreifenden Struktur laeuft das
-Spiel direkt per Doppelklick auf `index.html`. Wer lieber einen Server
-nutzt:
+`index.html` im Browser oeffnen. Wer lieber einen Server nutzt:
 
 ```bash
 python3 -m http.server 8000
@@ -27,117 +27,130 @@ Voraussetzung ist ein Browser mit **WebGL2** (Chrome, Edge, Firefox, Safari 15+)
 | `W` `A` `S` `D` | Laufen (relativ zur Kamera) |
 | `Leertaste` | Sprung, in der Luft nochmal fuer den Doppelsprung |
 | `Shift` (halten) | Sprint |
-| `Strg` / `E` / linke Maustaste | Dash - kurzer Schub, in der Luft einmal pro Sprung |
-| Maus (nach Klick) | Kamera drehen |
-| `←` `→` | Kamera drehen ohne Maus |
-| `R` | Level sofort neu starten |
-| `K` | Zurueck zum letzten Checkpoint |
-| `P` / `Esc` | Pause |
-| `M` | Ton an/aus |
+| `Strg` / `E` / linke Maustaste | Dash - kurzer harter Schub |
+| Maus (nach Klick) / `←` `→` | Kamera drehen |
+| `R` | Sofort neu starten |
+| `G` | Geist ein/aus &nbsp; `M` Ton &nbsp; `P` / `Esc` Pause |
 
-Ein Gamepad wird ebenfalls erkannt (linker Stick laufen, rechter Stick
-Kamera, A springen, X/RT Dash).
+Ein Gamepad wird erkannt (linker Stick laufen, rechter Stick Kamera,
+A springen, X/RT Dash).
+
+## Der Kreislauf
+
+Ein Lauf endet nur auf zwei Arten: im Ziel oder mit einem Sturz. Es gibt
+keine Zwischenstaende. Nach einem Sturz blitzt das Bild kurz auf, und
+keine drei Zehntelsekunden spaeter steht die Figur wieder am Start - der
+Timer bei null, alle Kristalle zurueck, sofort steuerbar. Genau dieser
+kurze Weg zurueck soll den Gedanken *nochmal* erzeugen.
+
+Die **Zeittore** an den Abschnittsgrenzen sind keine Checkpoints: sie
+nehmen nur die Zwischenzeit und zeigen sofort, ob man vor oder hinter dem
+eigenen Rekord liegt.
+
+## Drei Wege pro Abzweig
+
+An jedem Abzweig stehen drei Wegweiser nebeneinander, farblich sortiert
+und schon aus der Ferne zu sehen:
+
+| | Farbe | Charakter |
+| --- | --- | --- |
+| **Sicher** | gruen | Breiter Umweg. Kaum Absturzgefahr, aber Sperrbalken und Pendel kosten Takt. |
+| **Schnell** | gold | Kette aus Felspfeilern bzw. Saeulenkoepfen. Jeder Sprung muss sitzen, dafuer die direkte Linie. |
+| **Irre** | rot | Luecken jenseits des Sprintsprungs. Nur mit Doppelsprung oder Dash-Sprung, dafuer traegt der Dash mit 40 Einheiten pro Sekunde. |
+
+Die Abzweige liegen im **Canyon**, am **Wasserfall** und im **Tempel**.
+Nach jedem Abzweig laufen alle drei Wege wieder zusammen, sodass man pro
+Lauf drei unabhaengige Entscheidungen trifft - `Sicher / Irre / Schnell`
+ist eine andere Route als `Schnell / Schnell / Irre`, und das Ergebnis
+zeigt, welche man genommen hat.
+
+Auf den riskanten Wegen liegen mehr Kristalle, einige davon frei in der
+Luft mitten im Sprungbogen.
+
+## Belohnung und Flow
+
+Jede saubere Aktion gibt sofort Rueckmeldung - Ton, Partikel, kurze
+Einblendung und ein Ausschlag im Flow-Balken:
+
+| Meldung | wofuer |
+| --- | --- |
+| **Perfekter Absprung** | innerhalb von 0,14 s nach der Landung wieder abgesprungen |
+| **Luftkombo** | Sprung, Doppelsprung und Dash in einem Flug |
+| **Knapp** | an einer Kante gelandet, unter der nichts mehr ist |
+| **Kette xN** | Kristalle im Abstand von hoechstens 2,6 s |
+| **Vollgas** | ueber 3,2 s durchgehend schneller als 24 |
+| **Irre Route** | den roten Weg genommen |
+
+Der **Flow-Balken** steigt mit jeder Aktion und mit hohem Tempo, faellt
+beim Stehenbleiben. Vier Stufen (Flow, Flow II, Flow III, Im Rausch)
+erhoehen den Punktefaktor bis x2,5, faerben den Laufstaub und schalten ab
+Stufe 3 Tempolinien frei. Der Timer bleibt trotzdem das Mass der Dinge -
+Flow ist die Kuer.
+
+## Zeitnahme, Geist und Fortschritt
+
+Oben laufen die aktuelle Zeit und die Bestzeit mit. Sobald ein Rekordlauf
+existiert, zeigt der **Geist** ihn als durchscheinende Figur, und die
+Anzeige nennt laufend den Rueckstand bzw. Vorsprung (`-01,42`) - berechnet
+aus der Position, nicht aus der Zeit, sodass man genau sieht, an welcher
+Stelle man verliert. Der Bestlauf wird mit 20 Bildern pro Sekunde
+aufgezeichnet.
+
+Nach dem Ziel: Zeit, Differenz zur Bestzeit, Kristalle, gewaehlte Route,
+Flow-Punkte und die Zwischenzeiten je Abschnitt mit ihrer Abweichung.
+
+Dauerhaft gespeichert werden (`localStorage`, Schluessel
+`gipfelsprint.record.v3`): Bestzeit samt Geist und Route, beste
+Zwischenzeiten, meiste Kristalle, laengste Kristallkette, laengster Lauf,
+Flow-Rekord, Anzahl der Laeufe und der Zieleinlaeufe.
+
+### Medaillen
+
+| Medaille | Zeit |
+| --- | --- |
+| Platin | 0:56.7 |
+| Gold | 1:07.4 |
+| Silber | 1:22.2 |
+| Bronze | 1:47.6 |
+
+Die Zeiten leiten sich aus der Streckenlaenge ab (`build()` in
+`src/level.js`). Ein automatisierter Testlauf ohne Optimierung braucht
+rund 50 s auf der schnellen Route.
 
 ## Bewegung
 
-Das Movement ist auf Direktheit ausgelegt - erst danach auf Tempo:
+Unveraendert direkt - das war die Grundlage fuer alles andere:
 
-* **Sofortige Reaktion.** Aus dem Stand auf Sprinttempo in knapp 0,09 s
-  (Beschleunigung 240/s). Loslassen bremst mit 190/s, aus vollem Sprint
-  steht die Figur in gut einer Zehntelsekunde. Kein Nachrutschen.
-* **Boden 100 %, Luft 44 %.** Am Boden wird der Seitwaertsanteil der
-  Geschwindigkeit mit 26/s weggedaempft - ein Richtungswechsel sitzt
-  sofort. In der Luft nur mit 5/s, dort bleibt Schwung erhalten. Die
-  Luftbeschleunigung liegt bei 105 gegen 240 am Boden.
-* **Straffer Sprung.** 3,0 m hoch, 0,68 s Flugzeit. Wird die Taste sofort
-  losgelassen, greift eine fast doppelt so starke Steigfluggravitation
-  (78 statt 42) - der Sprung bleibt dann bei 1,6 m. Fallen mit 62,
-  Endgeschwindigkeit 62.
-* **Doppelsprung** setzt die Richtung neu und traegt 2,3 m weiter hoch.
-* **Dash** ist ein harter Schub auf 40 fuer 0,15 s, nicht bloss mehr Tempo.
-  Waagerecht, ohne Absacken, mit Blickfeldstoss und Wischspur. 0,4 s
-  Abklingzeit, in der Luft eine Ladung pro Sprung. Ein Sprung bricht den
-  Dash ab und nimmt den Schwung mit - der Dash-Sprung traegt 24 m.
-* **Coyote-Zeit** (0,10 s) und **gepufferter Sprung** (0,12 s) verzeihen
-  ein paar Frames zu frueh oder zu spaet.
-* **Stufenhilfe:** Kanten bis 0,62 m werden ueberstiegen statt zu
-  blockieren. Ohne das bleibt die Figur schon an einer 40-cm-Stufe
-  haengen, weil die Kollisionskapsel nur 42 cm Radius hat.
-* Bewegliche Plattformen nehmen die Figur mit, ihr Schwung wird beim
-  Absprung uebernommen.
+* Aus dem Stand auf Sprinttempo (21) in knapp 0,09 s, Vollstopp in 0,11 s.
+* Boden 100 %, Luft 44 % - Richtungswechsel sitzen am Boden sofort, in der
+  Luft bleibt Schwung erhalten.
+* Sprung 3,0 m hoch, 0,68 s Flugzeit; kurz angetippt nur 1,6 m.
+* Dash: 0,15 s auf 40, waagerecht, mit Blickfeldstoss. Ein Sprung bricht
+  den Dash ab und nimmt den Schwung mit.
+* Coyote-Zeit 0,10 s, Sprungpuffer 0,12 s, Stufenhilfe bis 0,62 m.
 
-Die Physik laeuft mit festen 120 Schritten pro Sekunde, unabhaengig von der
-Bildrate - sonst waeren Zeiten nicht vergleichbar.
+Reichweiten (gemessen): Laufsprung 10,4 m | Sprintsprung 14,5 m | kurz
+getippt 9,1 m | Doppelsprung 23,6 m | Dash-Sprung 23,9 m | Dash +
+Doppelsprung 35 m.
 
-## Kamera
+Daraus folgt das Abstandsfenster im Level: Landeflaechen sind 7 bis 9
+Einheiten tief, Luecken auf der schnellen Route 8 bis 10 (bei Tempo 15 bis
+21 erreichbar, ohne bei Vollgas darueber hinauszuschiessen), auf der irren
+Route 15 bis 16 (Sprintsprung reicht nicht mehr).
 
-Third-Person, folgt automatisch hinter die Figur, sobald man laeuft, und
-laesst sich jederzeit mit Maus oder Pfeiltasten uebersteuern (danach
-uebernimmt sie nach kurzer Pause wieder).
+## Die Strecke
 
-* Bei Tempo geht sie bis zu 2,6 Einheiten weiter zurueck.
-* Das Blickfeld oeffnet sich beim Sprint leicht (+0,085 rad) und beim Dash
-  deutlich (+0,20 als kurzer Stoss).
-* Beim Springen folgt sie vertikal traeger (6/s statt 12/s), damit das Bild
-  nicht mithuepft; beim Fallen hebt sie sich an und kippt nach unten.
-* Harte Landungen federn die Kamera kurz ein.
-* Felswaende schieben sie naeher heran statt die Sicht zu blockieren.
-* Der **Schattenfleck** unter der Figur zeigt beim Sprung, wo man aufkommt.
+Sieben Bereiche mit eigener Farbwelt, eigenem Nebel und eigenen
+Umgebungspartikeln, die beim Uebergang weich ineinander geblendet werden:
 
-## Das Level
+**Startwiese** &rarr; **Roter Canyon** (Abzweig 1) &rarr; **Tempo-Abfahrt**
+&rarr; **Wasserfall und Fluss** (Abzweig 2) &rarr; **Kristallhoehle**
+&rarr; **Tempelruinen** (Abzweig 3) &rarr; **Gipfel mit Schlusssprung**
 
-Fuenf Abschnitte mit eigener Farbwelt, eigenem Material und eigenem
-Spielgefuehl. Nebel, Himmelsfarbe und Umgebungslicht werden beim
-Uebergang weich ineinander geblendet, jeder Bereich hat eigene
-Umgebungspartikel.
-
-| # | Bereich | Was ihn ausmacht |
-| --- | --- | --- |
-| 1 | **Almwiese** | Sattes Gruen, Blumen, Zaeune, zwei Huetten, Bach mit Holzbruecke. Pollen in der Luft. Das Huettendach ist eine Abkuerzung, die Trittsteine neben der Bruecke die schnellere Linie. |
-| 2 | **Wald** | Dichter, kuehler Nadelwald, starker Nebel, Lichtbalken zwischen den Staemmen, Pilze und ein querliegender Stamm als Huerde. Fallende Blaetter. Setpiece: der **Riesenbaum** mit neun Astplattformen als Spirale und einem Baumhaus obendrauf. |
-| 3 | **Bergschlucht** | Grauer Fels, schmaler Sims unter Steinschlag, Fluss tief unten. Setpieces: die **Haengebruecke** (44 m, mit drehendem Balken) und der **Wasserfall** mit Durchgang dahinter in eine Kristallhoehle. Wassergischt in der Luft. |
-| 4 | **Ruinen** | Warmer Sandstein, grosse Freitreppe, Saeulenhallen, Dornenrinne, Pendel, broeckelnde Bodenplatten, kreisende Plattform, eingestuerzter Turm. Staub in der Luft. |
-| 5 | **Gipfel** | Schnee und Eis, Tempofeld auf dem Grat, Sprungfolge ueber Wolken, Schneepilz als Absprung auf das Gipfelplateau mit dem Ziel. Schneefall. |
-
-Die Umgebung ist nicht nur Deko: der Stamm ist Huerde und Plattform, das
-Huettendach eine Abkuerzung, der Wasserfall ein Durchgang, die Saeulen sind
-Trittsteine, die Pilze ein Aufstieg, die Hoehle ein zweiter Weg.
-
-Zwoelf Checkpoints liegen jeweils direkt vor den groesseren Passagen. Nach
-einem Sturz geht es in gut einer Drittelsekunde weiter - **die Uhr laeuft
-weiter**.
-
-## Time Trial
-
-Der Timer startet nach `BEREIT? 3 2 1 LOS!` und laeuft bis ins Ziel. An
-jedem Checkpoint wird die Zwischenzeit mit dem eigenen Rekordlauf
-verglichen und als `+0,42` bzw. `-1,13` eingeblendet.
-
-Die Medaillenzeiten leiten sich aus der tatsaechlichen Streckenlaenge ab
-(siehe `build()` in `src/level.js`), aktuell etwa:
-
-| Medaille | Zeit | gedacht fuer |
-| --- | --- | --- |
-| Platin | 0:56.3 | nahezu perfekte Linie, Dash und Tempofeld voll genutzt |
-| Gold | 1:07.0 | sicherer Lauf ohne Sturz |
-| Silber | 1:21.6 | ein paar Stuerze |
-| Bronze | 1:47.0 | erstes Durchkommen |
-
-Die Strecke ist rund 960 Einheiten lang; die Figur laeuft 15 und sprintet 21
-Einheiten pro Sekunde. Ein automatisierter Testlauf ohne jede Optimierung
-braucht 48 s bei drei Stuerzen - ein sauberer Lauf liegt also gut im
-Platinbereich, ein normaler Lauf bei anderthalb bis zwei Minuten.
-
-Bestzeit, Zwischenzeiten, Kristalle und Stuerze liegen im `localStorage`
-(`gipfelsprint.record.v1`).
-
-## Kristalle
-
-19 Stueck sind verteilt: ein Teil liegt auf der Strecke, der Rest auf einem
-Huettendach, auf Trittsteinen neben der Bruecke, am versteckten Waldpfad, in
-der Astspirale, auf Flussfelsen unter der Haengebruecke, hinter dem
-Wasserfall, in der Kristallhoehle, auf der Tempelgalerie und frei in der
-Luft ueber den Wolken. Sie sind optional - wer alle mitnimmt, verliert Zeit.
+Setpieces: die Pfeilerkette ueber dem Canyon, der Sprung durch den
+Wasserfall in den Kristalltunnel, die enge S-Kurve durch die Hoehle, das
+Aquaedukt hoch ueber dem Tempelhof und der Schlusssprung durch drei Ringe
+auf das Gipfelplateau.
 
 ## Aufbau
 
@@ -148,55 +161,37 @@ src/math.js     Vektoren, 4x4-Matrizen, Zufall mit festem Startwert
 src/render.js   WebGL2: Instanz-Shader, Himmel, Bloom
 src/audio.js    Klangsynthese (Effekte und Begleitung)
 src/input.js    Tastatur, Maus mit Pointer-Lock, Gamepad
-src/physics.js  Kollisionswelt: Kapsel gegen gedrehte Quader, Strahlen
-src/level.js    Levelbaukasten, Abschnitte, Gegner, Deko
+src/physics.js  Kollisionswelt: Kapsel gegen gedrehte Quader, Stufenhilfe
+src/ghost.js    Aufzeichnung und Wiedergabe des Bestlaufs
+src/level.js    Streckenbaukasten, Abzweige, Requisiten, Zonen
 src/player.js   Figur, Bewegungsmodell, Verfolgerkamera
-src/game.js     Zustaende, fester Zeitschritt, HUD, Bestzeiten
+src/game.js     Zustaende, feste 120-Hz-Simulation, Flow, HUD, Bestzeiten
 ```
 
 ### Technische Notizen
 
-* **Rendering**: alle Objekte sind Instanzen von zehn Grundkoerpern
-  (Quader, Kugel, grobe Kugel, Zylinder, Kegel, Saeule, Prisma, Kristall,
-  Torus, Flaeche). Ein Draw-Call pro Koerperform und Stapel - die rund
-  3000 statischen Objekte der Welt kosten also etwa zehn Aufrufe.
-  Statische Geometrie wird einmal hochgeladen, bewegliche pro Frame.
-* **Zonen**: jeder Abschnitt meldet Nebelfarbe, Nebeldichte, Himmels- und
-  Umgebungslicht an. Die Werte werden nach Abstand gewichtet gemischt und
-  pro Frame weich nachgezogen, dazu passende Umgebungspartikel.
-* **Kollision**: die Figur ist eine stehende Kapsel, geprueft als drei
-  Kugeln gegen achsparallele, um Y gedrehte Quader. Ein Gitter ueber der
-  XZ-Ebene haelt die Breitphase billig. Schnelle Bewegung wird in
-  Teilschritte von maximal 0,3 Einheiten zerlegt, damit nichts durch
-  duenne Plattformen rutscht.
-* **Levelbau**: ein Cursor mit Position und Drehung; jeder Abschnitt wird
-  in lokalen Koordinaten beschrieben und danach an der Cursorposition
-  eingesetzt. Dadurch laesst sich die Strecke um den Berg legen, ohne beim
-  Entwerfen mit Weltkoordinaten zu rechnen.
-* **Leistung**: faellt die Bildrate laenger unter 40, schaltet sich Bloom
-  ab und die Aufloesung wird auf 1x gesetzt.
+* **Rendering**: alle Objekte sind Instanzen von zehn Grundkoerpern. Ein
+  Draw-Call pro Koerperform und Stapel - die rund 3000 statischen Objekte
+  kosten etwa zehn Aufrufe.
+* **Kollision**: stehende Kapsel, geprueft als drei Kugeln gegen
+  achsparallele, um Y gedrehte Quader; Gitter-Breitphase; Bewegung in
+  Teilschritten von hoechstens 0,3 Einheiten.
+* **Routenerkennung**: unsichtbare Melder am Anfang jedes Astes; sie
+  setzen die Routenanzeige und landen im Ergebnis.
+* **Absturzgrenze**: 24 Einheiten unter dem naechstgelegenen Streckenpunkt,
+  nicht eine feste Hoehe - so bleibt die Grenze ueberall passend.
+* **Zeitnahme**: feste 120 Schritte pro Sekunde, unabhaengig von der
+  Bildrate, sonst waeren Zeiten nicht vergleichbar.
 
-### Wie die Sprungweiten festgelegt wurden
+### Was automatisiert geprueft wird
 
-Die Reichweite der Figur wurde in der laufenden Simulation gemessen und die
-Strecke danach ausgelegt:
+Ein Testpilot simuliert die Physik ohne Rendering und faehrt die Strecke
+ab. Damit laesst sich pruefen, ob jeder Uebergang machbar ist, ob alle drei
+Aeste jedes Abzweigs durchlaufbar sind und ob Sturz, Sofortneustart, Ziel,
+Bestzeit und Geist funktionieren.
 
-| Manoever | Weite | Hoehe | Flugzeit |
-| --- | --- | --- | --- |
-| Laufsprung | 10,4 m | 3,0 m | 0,68 s |
-| Sprintsprung | 14,5 m | 3,0 m | 0,68 s |
-| kurz angetippt | 9,1 m | 1,6 m | 0,42 s |
-| Sprint + Doppelsprung | 23,6 m | 5,3 m | 1,12 s |
-| Dash + Sprung | 23,9 m | 3,0 m | 0,68 s |
-| Dash + Sprung + Doppelsprung | 35,0 m | 5,3 m | 1,12 s |
-
-Daraus folgt die Faustregel im Level: Landeflaechen sind mindestens 10
-Einheiten tief, Luecken bis 8 sind Tempo-Huepfer, 9 bis 13 verlangen Sprint,
-ab 16 braucht es den Doppelsprung. Waeren die Luecken kleiner, wuerde man bei
-vollem Tempo ueber die Plattformen hinwegfliegen.
-
-Geprueft wird das automatisiert: ein Testpilot simuliert die Physik ohne
-Rendering und faehrt jeden Streckenabschnitt einzeln ab (`segments.js`-Muster
-im Entwicklungsverlauf). Aktuell schafft er 47 von 48 Uebergaengen allein -
-der eine Ausnahmefall ist der querliegende Baumstamm, ueber den er nicht
-springt, weil er nur an Luecken springt.
+Was der Testpilot **nicht** kann: optimal fahren. Er bremst vor jedem
+Zielpunkt ab, nimmt keine Abkuerzungen und setzt den Dash nur als
+Notbremse ein. Seine Rundenzeiten sind deshalb eine Untergrenze fuer
+Machbarkeit, kein Massstab dafuer, welche Route wirklich die schnellste
+ist.

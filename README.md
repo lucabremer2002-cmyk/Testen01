@@ -5,7 +5,7 @@ Abhaengigkeiten:
 
 | Spiel | Start | Kurz |
 | --- | --- | --- |
-| **Gipfelsprint** | [`gipfelsprint/index.html`](gipfelsprint/) | 3D-Jump-'n'-Run als Time-Trial mit eigenem WebGL2-Renderer, Doppelsprung, Dash, Checkpoints, Bestzeit und Medaillen. Details in [`gipfelsprint/README.md`](gipfelsprint/README.md). |
+| **Gipfelsprint** | [`gipfelsprint/index.html`](gipfelsprint/) | 3D-Time-Trial-Platformer mit eigenem WebGL2-Renderer: ein Lauf ohne Checkpoints, drei Wege pro Abzweig, Geist des Bestlaufs, Flow-System. Details in [`gipfelsprint/README.md`](gipfelsprint/README.md). |
 | **Tetris** | [`index.html`](index.html) | Vollstaendiges Tetris mit SRS, Hold, Lock-Delay, T-Spins und Wertung (unten dokumentiert). |
 
 ---
@@ -85,5 +85,5 @@ index.html   Aufbau der Seite
 style.css    Darstellung, Layout und Responsive-Verhalten
 game.js      Spiellogik und Rendering auf dem Canvas
 
-gipfelsprint/   3D-Jump-'n'-Run (eigene README im Ordner)
+gipfelsprint/   3D-Time-Trial-Platformer (eigene README im Ordner)
 ```

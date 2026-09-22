@@ -76,6 +76,7 @@
     sandstone: mat([0.64, 0.56, 0.40], [0.84, 0.76, 0.58], { pattern: 1, patternScale: 0.4 }),
     sandstoneWorn: mat([0.56, 0.48, 0.35], [0.74, 0.66, 0.50], { pattern: 3, patternScale: 0.55 }),
     marble: mat([0.74, 0.72, 0.68], [0.94, 0.93, 0.90], { pattern: 1, patternScale: 0.5 }),
+    stone: mat([0.52, 0.55, 0.60], [0.72, 0.76, 0.81], { pattern: 1, patternScale: 0.45 }),
     templeTrim: mat([0.30, 0.42, 0.40], [0.48, 0.70, 0.64], { pattern: 1, patternScale: 0.9 }),
     gold: mat([0.86, 0.66, 0.16], [1.0, 0.92, 0.55], { emissive: 0.55 }),
     vine: mat([0.17, 0.38, 0.18], [0.32, 0.60, 0.27], { pattern: 5, patternScale: 1.4 }),
@@ -85,6 +86,22 @@
     snowDeep: mat([0.66, 0.73, 0.84], [0.93, 0.96, 1.0], { pattern: 3, patternScale: 0.5 }),
     ice: mat([0.38, 0.68, 0.84], [0.76, 0.94, 1.0], { emissive: 0.18, pattern: 6, patternScale: 1.6, alpha: 0.9 }),
     iceSolid: mat([0.46, 0.72, 0.86], [0.82, 0.96, 1.0], { emissive: 0.12, pattern: 6, patternScale: 1.2 }),
+
+    /* --- Canyon: warmer roter Fels --- */
+    canyon: mat([0.58, 0.26, 0.18], [0.82, 0.45, 0.27], { pattern: 3, patternScale: 0.30 }),
+    canyonDark: mat([0.38, 0.18, 0.14], [0.54, 0.28, 0.20], { pattern: 3, patternScale: 0.40 }),
+    canyonLight: mat([0.72, 0.42, 0.26], [0.92, 0.66, 0.40], { pattern: 3, patternScale: 0.55 }),
+    mesa: mat([0.64, 0.33, 0.22], [0.88, 0.58, 0.34], { pattern: 1, patternScale: 0.22 }),
+
+    /* --- Kristallhoehle --- */
+    crystalRock: mat([0.17, 0.14, 0.26], [0.26, 0.22, 0.38], { pattern: 3, patternScale: 0.5 }),
+    crystalGlow: mat([0.62, 0.28, 0.95], [1.0, 0.76, 1.0], { emissive: 1.0, pattern: 6, patternScale: 2.6 }),
+    crystalGlow2: mat([0.20, 0.78, 0.95], [0.72, 1.0, 1.0], { emissive: 1.0, pattern: 6, patternScale: 2.6 }),
+
+    /* --- Routenfarben: gruen sicher, gold schnell, rot irre --- */
+    routeSafe: mat([0.16, 0.72, 0.44], [0.62, 1.0, 0.80], { emissive: 0.95 }),
+    routeFast: mat([0.95, 0.72, 0.14], [1.0, 0.95, 0.60], { emissive: 0.95 }),
+    routeInsane: mat([0.92, 0.20, 0.36], [1.0, 0.58, 0.68], { emissive: 0.95 }),
 
     /* --- Gemeinsam --- */
     gem: mat([0.95, 0.72, 0.10], [1.0, 0.96, 0.62], { emissive: 0.85, pattern: 6, patternScale: 2.4 }),
@@ -161,6 +178,15 @@
   Builder.prototype.lift = function (dy) { this.cursor.y += dy; return this; };
   Builder.prototype.mark = function (lx, ly, lz) {
     this.spine.push(this.toWorld(lx, ly, lz, [0, 0, 0]));
+    return this;
+  };
+
+  /* Wegpunkt eines einzelnen Astes - dient der Auswertung und den Testlaeufen,
+     nicht der Streckenlaenge. */
+  Builder.prototype.routeMark = function (fork, branch, lx, ly, lz) {
+    this.routePaths = this.routePaths || {};
+    var key = fork + ':' + branch;
+    (this.routePaths[key] = this.routePaths[key] || []).push(this.toWorld(lx, ly, lz, [0, 0, 0]));
     return this;
   };
 
@@ -530,22 +556,57 @@
     return g;
   };
 
-  /* ----------------------------------------------------------- Checkpoint */
-
-  B.checkpoint = function (lx, ly, lz, o) {
+  /* ------------------------------------------------------------- Zeittor */
+  /*
+   * Kein Checkpoint: hier wird nur die Zwischenzeit genommen. Wer stuerzt,
+   * faengt trotzdem am Start wieder an.
+   */
+  B.gate = function (lx, ly, lz, o) {
     o = o || {};
     var p = this.toWorld(lx, ly, lz, [0, 0, 0]);
-    var cp = {
+    var g = {
       x: p[0], y: p[1], z: p[2],
       yaw: this.cursor.yaw,
-      name: o.name || ('Checkpoint ' + (this.checkpoints.length + 1)),
+      name: o.name || ('Tor ' + (this.checkpoints.length + 1)),
       index: this.checkpoints.length,
-      active: false,
-      floorY: p[1] - (o.floor || 28),
-      w: o.w || 9
+      passed: false,
+      w: o.w || 11
     };
-    this.checkpoints.push(cp);
-    return cp;
+    this.checkpoints.push(g);
+    return g;
+  };
+
+  /* Unsichtbarer Melder: erkennt, welchen Weg der Spieler genommen hat. */
+  B.routeZone = function (fork, branch, lx, ly, lz, w, h, d) {
+    var c = this.block(lx, ly, lz, w, h, d, null, { trigger: true, tag: 'route' });
+    c.fork = fork;
+    c.branch = branch;
+    return c;
+  };
+
+  /* Wegweiser in der Routenfarbe - die Abzweige sollen sichtbar sein. */
+  var ROUTE_MAT = ['routeSafe', 'routeFast', 'routeInsane'];
+  var ROUTE_NAME = ['SICHER', 'SCHNELL', 'IRRE'];
+  B.routeSign = function (lx, ly, lz, branch, o) {
+    o = o || {};
+    var m = MAT[ROUTE_MAT[branch]];
+    var yaw = o.yaw || 0;
+    this.deco('box', lx, ly + 2.4, lz, 0.3, 4.8, 0.3, MAT.beam, [0, yaw, 0]);
+    this.deco('box', lx, ly + 4.6, lz, 3.2, 0.9, 0.3, m, [0, yaw, 0]);
+    /* Pfeilspitze nach vorne */
+    this.deco('crystal', lx, ly + 4.6, lz + 1.1, 1.4, 1.6, 1.4, m, [Math.PI / 2, yaw, 0]);
+    for (var i = 0; i < branch + 1; i++) {
+      this.deco('sphere', lx - 0.9 + i * 0.9, ly + 5.7, lz, 0.5, 0.5, 0.5, m, [0, yaw, 0]);
+    }
+  };
+  B.ROUTE_NAME = ROUTE_NAME;
+
+  /* Schwebendes Tor als Wegmarke an Routeneingaengen. */
+  B.routeArch = function (lx, ly, lz, w, h, branch) {
+    var m = MAT[ROUTE_MAT[branch]];
+    this.deco('box', lx - w / 2, ly + h / 2, lz, 0.6, h, 0.6, m);
+    this.deco('box', lx + w / 2, ly + h / 2, lz, 0.6, h, 0.6, m);
+    this.deco('box', lx, ly + h, lz, w + 1.2, 0.6, 0.6, m);
   };
 
   /* -------------------------------------------------------------- Gegner */
@@ -1040,12 +1101,17 @@
 /*
  * Die Strecke.
  *
- * Abstaende sind auf die gemessene Reichweite der Figur abgestimmt:
- *   Laufsprung 10,4 m | Sprintsprung 14,5 m | kurz getippt 9,1 m
- *   Doppelsprung 23,6 m | Dash-Sprung 23,9 m | Dash + Doppel 35 m
- * Luecken bis 8 m sind Tempo-Huepfer, 9-13 m verlangen Sprint,
- * ab 16 m braucht es den Doppelsprung. Landeflaechen sind mindestens
- * 10 Einheiten tief, damit ein frueher wie ein spaeter Absprung traegt.
+ * Aufbau als Parcours mit drei Abzweigen. An jedem Abzweig stehen drei
+ * Wege nebeneinander und sind von der Kante aus zu sehen:
+ *   gruen  SICHER   breit, wenig Risiko, laengster Weg
+ *   gold   SCHNELL  schmale Pfeiler, Sprintspruenge am Limit
+ *   rot    IRRE     Luecken jenseits des einfachen Sprungs, braucht
+ *                   Doppelsprung oder Dash - spart mehrere Sekunden
+ * Danach laufen alle drei wieder zusammen.
+ *
+ * Reichweiten der Figur (gemessen): Laufsprung 10,4 m | Sprintsprung
+ * 14,5 m | kurz getippt 9,1 m | Doppelsprung 23,6 m | Dash-Sprung 23,9 m
+ * | Dash + Doppelsprung 35 m.
  */
 (function (root) {
   'use strict';
@@ -1054,469 +1120,446 @@
   var L = root.MR.level;
   var MAT = L.MAT;
 
-  /* --------------------------------------------- 1 - Almwiese */
+  /* ------------------------------------------------------ 0 - Start */
 
-  function sectionMeadow(b) {
+  function areaStart(b) {
     var r = b.rand, i;
-    b.zone('Almwiese', 60, 200, {
-      fogCol: [0.72, 0.84, 0.94], fogDensity: 0.0013,
-      zenith: [0.16, 0.46, 0.86], horizon: [0.78, 0.90, 0.99],
-      skyCol: [0.52, 0.70, 0.94], groundCol: [0.34, 0.40, 0.24],
-      sunCol: [1.08, 1.0, 0.84], ambient: 'pollen'
+    b.zone('Start', 46, 150, {
+      fogCol: [0.74, 0.86, 0.96], fogDensity: 0.0014,
+      zenith: [0.15, 0.45, 0.88], horizon: [0.80, 0.91, 0.99],
+      skyCol: [0.54, 0.72, 0.96], groundCol: [0.34, 0.40, 0.24],
+      sunCol: [1.10, 1.02, 0.86], ambient: 'pollen'
     });
 
-    b.start = { x: b.toWorldX(0, 8), y: b.cursor.y + 0.1, z: b.toWorldZ(0, 8), yaw: b.cursor.yaw };
-
-    /* Startwiese mit Huette, Zaun und Tor */
-    b.plat(0, 0, 10, 24, 32, MAT.meadow, { thickness: 2.4 });
-    b.mass(0, -2.4, 10, 22, 40, 30, MAT.dirt);
-    b.arch(0, 0, 18, 11, 6.5, MAT.beam);
-    b.deco('box', 0, 7.5, 18, 14, 1.5, 0.5, MAT.flagAlt);
-    b.deco('box', 0, 7.5, 18, 9, 1.0, 0.56, MAT.flag);
-    b.hut(-13, 0, 16, 1.0, { yaw: 0.9, roof: MAT.roofRed });
-    b.fence(-6, 0, -5, 14, { yaw: Math.PI / 2 });
-    b.fence(9, 0, 4, 18, { yaw: 0 });
-    b.sign(5, 0, 12, { yaw: -0.3, second: true });
-    b.lantern(-6, 0, 14, 1.0);
-    b.flowers(-4, 0, 8, 7, 14);
-    b.flowers(6, 0, 20, 6, 10);
-    b.grassTufts(0, 0, 14, 10, 16);
-    b.tree(-10, 0, 20, 1.1, { kind: 'broad' });
-    b.tree(10, 0, -2, 0.9, { kind: 'fir' });
-    b.crate(8, 0, 16, 1.6);
-    b.crate(8, 1.6, 16, 1.3);
-    b.mark(0, 0, 8);
-
-    /* Sanft ansteigende Wiese */
-    b.plat(0, 0.4, 36, 20, 20, MAT.meadowLush, { thickness: 2.0 });
-    b.mass(0, -1.6, 36, 18, 30, 18, MAT.dirt);
-    b.plat(-1, 0.8, 55, 18, 18, MAT.meadowLush, { thickness: 2.0 });
-    b.mass(-1, -1.2, 55, 16, 30, 16, MAT.dirt);
-    b.flowers(-5, 0.4, 32, 7, 16);
-    b.flowers(4, 0.8, 52, 6, 12);
-    b.grassTufts(2, 0.4, 40, 8, 14);
-    b.tree(-8, 0.4, 30, 0.85, { kind: 'birch' });
-    b.tree(7, 0.8, 50, 1.0, { kind: 'broad' });
-    b.rock(6, 0.4, 34, 0.8, { kind: 'flat' });
-    b.stump(-6, 0.8, 58, 1.0, { platform: true });
-    b.mark(0, 0.6, 46);
-
-    /* Bach mit Bruecke - daneben die schnellere Trittsteinlinie */
-    b.waterBody(0, -1.4, 75, 44, 24, { foam: 5, bedMat: MAT.dirt });
-    b.plat(0, 1.4, 75, 6, 24, MAT.plankPale, { thickness: 0.7 });
-    for (i = 0; i < 7; i++) {
-      var bz = 64.5 + i * 3.5;
-      b.deco('box', -3.1, 2.2, bz, 0.3, 1.6, 0.3, MAT.beam);
-      b.deco('box', 3.1, 2.2, bz, 0.3, 1.6, 0.3, MAT.beam);
-    }
-    b.deco('box', -3.1, 3.0, 75, 0.2, 0.2, 24, MAT.rope);
-    b.deco('box', 3.1, 3.0, 75, 0.2, 0.2, 24, MAT.rope);
-    b.plat(9.5, 1.0, 68, 4.5, 4.5, MAT.rock);
-    b.plat(9.5, 1.3, 78, 4.5, 4.5, MAT.rock);
-    b.gem(9.5, 2.8, 73, { hint: 'Trittsteine' });
-    b.enemy(1.7, 2.4, 75, { axis: 'z', range: 8, speed: 0.34, mat: MAT.enemy });
-    b.checkpoint(0, 1.4, 64, { name: 'Bachbruecke' });
-    b.mark(0, 1.4, 75);
-
-    /* Weide mit zweiter Huette - das Dach ist eine Abkuerzung */
-    b.plat(0, 1.2, 94, 18, 20, MAT.meadow, { thickness: 2.0 });
-    b.mass(0, -0.8, 94, 16, 30, 18, MAT.dirt);
-    b.hut(11, 1.2, 96, 1.1, { yaw: -0.4, roof: MAT.roofBlue });
-    b.gem(11, 7.4, 96, { hint: 'Huettendach' });
-    b.fence(-2, 1.2, 86, 16, { yaw: 0, gap: 5 });
-    b.deco('blob', -7, 2.4, 98, 4.5, 3.4, 4.5, MAT.hay, [0, 0.4, 0]);
-    b.deco('blob', -7, 4.2, 98, 3.0, 2.2, 3.0, MAT.hay, [0, 1.2, 0]);
-    b.flowers(3, 1.2, 100, 6, 12);
-    b.grassTufts(-3, 1.2, 92, 8, 12);
-    b.tree(-9, 1.2, 102, 1.0, { kind: 'fir' });
-    b.mark(0, 1.2, 94);
-
-    /* Sprung ueber den Teich auf das hoehere Ufer */
-    b.waterBody(0, -0.6, 112, 30, 18, { foam: 3, bedMat: MAT.dirt });
-    b.plat(0, 2.6, 122, 16, 18, MAT.meadowLush, { thickness: 2.2 });
-    b.mass(0, 0.4, 122, 14, 30, 16, MAT.dirt);
-    b.rockField(-6, 2.6, 126, 4, 3, { mat: MAT.rock });
-    b.tree(7, 2.6, 126, 1.2, { kind: 'broad' });
-    b.mark(0, 2.6, 122);
-
-    /* Treppe zum Waldrand */
-    b.stairs(0, 2.6, 133, 8, { w: 12, rise: 0.36, run: 1.4, mat: MAT.dirt });
-    b.plat(0, 5.5, 148, 14, 14, MAT.meadow, { thickness: 2.0 });
-    b.mass(0, 3.5, 148, 12, 30, 12, MAT.dirt);
-    b.arch(0, 5.5, 152, 12, 7, MAT.beam);
-    b.tree(-8, 5.5, 150, 1.3, { kind: 'fir' });
-    b.tree(8, 5.5, 152, 1.2, { kind: 'fir' });
-    b.lantern(-5.5, 5.5, 146, 1.0);
-    b.checkpoint(0, 5.5, 146, { name: 'Waldrand' });
-    b.mark(0, 5.5, 148);
-    return { len: 154, rise: 5.5, turn: -26 };
-  }
-
-  /* --------------------------------------------- 2 - Wald */
-
-  function sectionForest(b) {
-    var r = b.rand, i;
-    b.zone('Wald', 80, 170, {
-      fogCol: [0.42, 0.56, 0.50], fogDensity: 0.0052,
-      zenith: [0.20, 0.42, 0.62], horizon: [0.56, 0.68, 0.62],
-      skyCol: [0.38, 0.54, 0.50], groundCol: [0.18, 0.24, 0.14],
-      sunCol: [1.0, 0.96, 0.78], ambient: 'leaves'
-    });
-
-    b.plat(0, 0, 5, 16, 24, MAT.forestFloor, { thickness: 2.2 });
-    b.mass(0, -2.2, 5, 14, 30, 22, MAT.dirt);
-    /* Dichter Waldsaum - viele Varianten, damit nichts kopiert wirkt */
-    for (i = 0; i < 26; i++) {
-      var side = i % 2 ? 1 : -1;
-      var tz = -8 + i * 3.4;
-      b.tree(side * (9 + r() * 7), 0, tz, 0.8 + r() * 0.9, {});
-    }
-    b.lightShaft(-5, 2, 10, 4, 22, { tilt: 0.24 });
-    b.lightShaft(6, 2, 24, 5, 24, { tilt: 0.18 });
-    b.mushroom(-5, 0, 2, 0.7);
-    b.mushroom(5.5, 0, 12, 0.9);
-    b.bush(-6, 0, 14, 1.1, { mat: MAT.leafDark });
+    b.start = { x: b.toWorldX(0, 6), y: b.cursor.y + 0.1, z: b.toWorldZ(0, 6), yaw: b.cursor.yaw };
+    b.plat(0, 0, 12, 26, 42, MAT.meadowLush, { thickness: 2.4 });   /* -9 .. 33 */
+    b.mass(0, -2.4, 12, 24, 44, 40, MAT.dirt);
+    b.arch(0, 0, 16, 12, 6.5, MAT.beam);
+    b.deco('box', 0, 7.5, 16, 15, 1.5, 0.5, MAT.flagAlt);
+    b.deco('box', 0, 7.5, 16, 10, 1.0, 0.56, MAT.flag);
+    b.hut(-14, 0, 8, 1.0, { yaw: 0.8, roof: MAT.roofRed });
+    b.fence(10, 0, 4, 20, { yaw: 0 });
+    b.fence(-9, 0, 26, 14, { yaw: 0, gap: 4 });
+    b.flowers(-5, 0, 22, 8, 18);
+    b.flowers(7, 0, 26, 6, 12);
+    b.grassTufts(0, 0, 18, 11, 18);
+    b.tree(-11, 0, 28, 1.2, { kind: 'broad' });
+    b.tree(12, 0, 20, 1.0, { kind: 'fir' });
+    b.lantern(-7, 0, 14, 1.0);
+    b.lantern(7, 0, 14, 1.0);
+    b.sign(9, 0, 30, { yaw: -0.4, second: true });
     b.mark(0, 0, 6);
 
-    b.plat(0, 0.4, 26, 14, 20, MAT.forestFloor, { thickness: 2.0 });
-    b.mass(0, -1.6, 26, 12, 30, 18, MAT.dirt);
-    b.log(-1, 0.4, 28, 10, { yaw: Math.PI / 2, r: 0.95 });
-    b.mushroom(-4, 0.4, 20, 1.0);
-    b.mushroom(4, 0.4, 33, 0.8);
-    b.grassTufts(0, 0.4, 24, 6, 10, { mat: MAT.moss });
-    b.enemy(3, 1.6, 31, { range: 4, speed: 0.5, mat: MAT.enemyForest });
-    b.mark(0, 0.4, 26);
+    /* Sofort Bewegung: zwei versetzte Spruenge und ein Tempofeld */
+    b.plat(-5, 1.2, 46, 11, 13, MAT.meadow);      /* 39,5 .. 52,5 */
+    b.mass(-5, -0.2, 46, 9, 30, 11, MAT.dirt);
+    b.plat(5, 2.4, 62, 11, 13, MAT.meadow);       /* 55,5 .. 68,5 */
+    b.mass(5, 1.0, 62, 9, 30, 11, MAT.dirt);
+    b.boostPad(5, 2.4, 64, 6, 8, { speed: 34 });
+    b.gem(0, 4.2, 54, { hint: 'zwischen den Stufen' });
+    b.rock(-9, 1.2, 44, 0.9, { kind: 'flat' });
+    b.mark(-5, 1.2, 46);
+    b.mark(5, 2.4, 62);
 
-    /* Lichtung - links zweigt ein versteckter Pfad ab */
-    b.plat(0, 1.0, 53, 16, 18, MAT.moss, { thickness: 2.0 });
-    b.mass(0, -1.0, 53, 14, 30, 16, MAT.dirt);
-    b.lightShaft(0, 3, 53, 7, 26, { tilt: 0.1 });
-    b.flowers(-3, 1.0, 50, 5, 8);
-    b.mushroom(6, 1.0, 58, 1.2);
-    b.stump(-6, 1.0, 48, 1.2, { platform: true });
-    b.plat(-12, 1.4, 56, 5, 22, MAT.moss, { thickness: 1.2 });
-    b.gem(-12, 2.9, 49, { hint: 'versteckter Pfad' });
-    b.gem(-12, 2.9, 63, { hint: 'versteckter Pfad' });
-    for (i = 0; i < 6; i++) b.tree(-17 - r() * 4, 1.0, 46 + i * 5, 0.7 + r() * 0.5, { kind: 'pine' });
-    b.mushroom(-12, 1.4, 68, 1.5, { platform: true });
-    b.mark(0, 1.0, 53);
-
-    b.plat(1, 2.0, 79, 12, 16, MAT.forestFloor, { thickness: 2.0 });
-    b.mass(1, 0, 79, 10, 30, 14, MAT.dirt);
-    b.enemy(-2, 3.2, 77, { range: 3.5, speed: 0.55, mat: MAT.enemyForest, phase: 0.3 });
-    b.checkpoint(1, 2.0, 79, { name: 'Lichtung' });
-    b.rock(5, 2.0, 84, 1.0, { kind: 'round', mat: MAT.rock });
-    b.tree(-5, 2.0, 84, 1.0, { kind: 'dead' });
-    b.mark(1, 2.0, 79);
-
-    /* ------------------- Setpiece: der Riesenbaum ------------------- */
-    b.giantTree(0, -1, 112, { trunkR: 6, height: 46 });
-    /* Aufstieg ueber zwei Riesenpilze */
-    b.mushroom(-5, 2.4, 92, 1.2, { platform: true });
-    b.mushroom(2, 4.0, 99, 1.3, { platform: true });
-    b.mark(-5, 4.5, 92);
-    b.mark(2, 6.3, 99);
-    /* Astspirale: startet auf der Anlaufseite und steigt in 2,4er Schritten */
-    for (i = 0; i < 9; i++) {
-      var a = -Math.PI / 2 + i * 0.8;
-      var px = Math.cos(a) * 10.5, pz = 112 + Math.sin(a) * 10.5;
-      var py = 5.5 + i * 2.4;
-      b.plat(px, py, pz, 5.6, 5.6, MAT.bark, { thickness: 1.0, yaw: -a });
-      b.deco('cylinder', px * 0.62, py - 0.8, 112 + (pz - 112) * 0.62, 1.5, 1.4, 9, MAT.bark, [Math.PI / 2, -a + Math.PI / 2, 0]);
-      if (i === 3) b.gem(px, py + 1.6, pz, { hint: 'Astspirale' });
-      if (i === 6) b.enemy(px, py + 1.2, pz, { range: 1.8, speed: 0.7, mat: MAT.enemyForest });
-      if (i === 4) b.checkpoint(px, py, pz, { name: 'Astspirale', w: 5 });
-      if (i % 3 === 0) b.mushroom(px, py, pz + 1.8, 0.5);
-      b.mark(px, py, pz);
-    }
-    /* Baumhaus */
-    b.plat(0, 26.2, 112, 17, 17, MAT.plank, { thickness: 1.2 });
-    b.fence(0, 26.2, 104, 16, { yaw: 0 });
-    b.deco('box', 8, 28.2, 112, 0.4, 4, 17, MAT.beam);
-    b.lantern(-7, 26.2, 108, 1.0);
-    b.lantern(7, 26.2, 116, 1.0);
-    b.gem(0, 27.8, 112, { hint: 'Baumhaus' });
-    b.checkpoint(0, 26.2, 110, { name: 'Riesenbaum' });
-    b.mark(0, 26.2, 112);
-
-    /* Aststeg hinaus */
-    b.plat(0, 25.6, 134, 4.2, 26, MAT.bark, { thickness: 1.0 });
-    b.deco('cylinder', 0, 24.6, 134, 2.6, 28, 2.6, MAT.bark, [Math.PI / 2, 0, 0]);
-    b.gem(0, 27.2, 134, { hint: 'Aststeg' });
-    for (i = 0; i < 5; i++) b.tree(-13 + (i % 2) * 26, 4, 120 + i * 9, 1.4 + r() * 0.5, { kind: 'pine' });
-
-    b.plat(0, 25.0, 156, 15, 16, MAT.forestFloor, { thickness: 2.0 });
-    b.mass(0, 23.0, 156, 13, 34, 14, MAT.cliffWarm);
-    b.rockField(-5, 25.0, 158, 4, 3, { mat: MAT.rock });
-    b.mark(0, 25.0, 156);
-    return { len: 164, rise: 25.0, turn: 30 };
+    /* Abzweigplatz: von hier sieht man alle drei Wege in den Canyon */
+    b.plat(0, 3.2, 84, 26, 20, MAT.meadow, { thickness: 2.4 });     /* 74 .. 94 */
+    b.mass(0, 0.8, 84, 24, 40, 18, MAT.dirt);
+    b.routeSign(-12, 3.2, 88, 0);
+    b.routeSign(0, 3.2, 90, 1);
+    b.routeSign(11, 3.2, 88, 2);
+    b.bouncePad(11, 3.2, 92, { power: 33, mat: MAT.routeInsane });
+    b.routeMark(0, 2, 11, 3.2, 92);
+    b.flowers(-8, 3.2, 78, 4, 8);
+    b.mark(0, 3.2, 84);
+    return { len: 94, rise: 3.2, turn: 0 };
   }
 
-  /* --------------------------------------------- 3 - Bergschlucht */
+  /* --------------------------------------- 1 - Abzweig A: Roter Canyon */
 
-  function sectionGorge(b) {
+  function forkCanyon(b) {
     var r = b.rand, i;
-    b.zone('Bergschlucht', 90, 190, {
-      fogCol: [0.64, 0.72, 0.80], fogDensity: 0.0026,
-      zenith: [0.18, 0.44, 0.78], horizon: [0.74, 0.82, 0.90],
-      skyCol: [0.48, 0.62, 0.80], groundCol: [0.26, 0.28, 0.30],
-      sunCol: [1.0, 0.95, 0.86], ambient: 'spray'
+    b.zone('Canyon', 60, 150, {
+      fogCol: [0.86, 0.68, 0.56], fogDensity: 0.0022,
+      zenith: [0.22, 0.44, 0.80], horizon: [0.96, 0.78, 0.60],
+      skyCol: [0.70, 0.58, 0.48], groundCol: [0.42, 0.24, 0.16],
+      sunCol: [1.15, 0.94, 0.70], ambient: 'dust'
     });
 
-    b.plat(0, 0, 4, 14, 20, MAT.scree, { thickness: 2.2 });
-    b.mass(0, -2.2, 4, 12, 40, 18, MAT.cliff);
-    b.rockField(4, 0, 2, 5, 4, { mat: MAT.rock });
-    b.sign(-5, 0, 8, { yaw: 0.4 });
-    b.mark(0, 0, 4);
-
-    /* Schmaler Sims an der Felswand */
-    b.plat(-2.5, 0, 26, 4.2, 24, MAT.scree, { thickness: 1.4 });
-    b.mass(-2.5, -1.4, 26, 3.6, 40, 22, MAT.cliff);
-    b.block(3.2, 8, 26, 5, 34, 30, MAT.cliff);
-    b.fallingRock(-2.5, 14, 20, { groundY: 0, period: 2.5, size: 2.0 });
-    b.fallingRock(-2.5, 15, 32, { groundY: 0, period: 2.5, phase: 0.45, size: 2.2 });
-    b.gem(-2.5, 1.6, 26, { hint: 'Sims' });
-    b.mark(-2.5, 0, 26);
-
-    b.plat(-1, -1, 56, 12, 18, MAT.scree, { thickness: 2.0 });
-    b.mass(-1, -3, 56, 10, 40, 16, MAT.cliff);
-    b.checkpoint(-1, -1, 54, { name: 'Schlucht' });
-    b.mark(-1, -1, 56);
-
-    /* ---------------- Setpiece: Haengebruecke ueber den Fluss ---------------- */
-    b.waterBody(0, -17, 88, 34, 100, { bed: false, foam: 8 });
-    b.plat(0, -1, 88, 5.4, 44, MAT.plank, { thickness: 0.7 });
-    for (i = 0; i < 13; i++) {
-      var bz = 67 + i * 3.6;
-      b.deco('box', -2.9, -0.2, bz, 0.3, 1.7, 0.3, MAT.beam);
-      b.deco('box', 2.9, -0.2, bz, 0.3, 1.7, 0.3, MAT.beam);
+    /* Canyonwaende */
+    for (i = 0; i < 10; i++) {
+      var wz = -6 + i * 22;
+      b.deco('box', -40 - r() * 6, 4 + r() * 10, wz, 26, 60 + r() * 30, 22, MAT.canyon, [0, (r() - 0.5) * 0.2, 0]);
+      b.deco('box', 40 + r() * 6, 4 + r() * 10, wz, 26, 60 + r() * 30, 22, MAT.canyonDark, [0, (r() - 0.5) * 0.2, 0]);
+      b.deco('box', -34, 14 + r() * 8, wz + 8, 10, 26, 12, MAT.mesa, [0, (r() - 0.5) * 0.3, 0]);
+      b.deco('box', 34, 12 + r() * 8, wz - 8, 10, 26, 12, MAT.canyonLight, [0, (r() - 0.5) * 0.3, 0]);
     }
-    b.deco('box', -2.9, 0.7, 88, 0.22, 0.22, 44, MAT.rope);
-    b.deco('box', 2.9, 0.7, 88, 0.22, 0.22, 44, MAT.rope);
-    b.deco('box', 0, 4.5, 66, 9, 1.2, 1.2, MAT.beam);
-    b.deco('box', 0, 4.5, 110, 9, 1.2, 1.2, MAT.beam);
-    b.deco('box', -4, 2.2, 66, 1.0, 7, 1.0, MAT.beam);
-    b.deco('box', 4, 2.2, 66, 1.0, 7, 1.0, MAT.beam);
-    b.deco('box', -4, 2.2, 110, 1.0, 7, 1.0, MAT.beam);
-    b.deco('box', 4, 2.2, 110, 1.0, 7, 1.0, MAT.beam);
-    b.spinner(0, 0.6, 88, { len: 8, period: 3.6, h: 0.8, mat: MAT.beam, pillar: false });
-
-    /* Risikolinie: Felsbrocken unten im Fluss, zwei Kristalle, dann Aufzug */
-    for (i = 0; i < 5; i++) {
-      b.plat(-6 + (i % 2) * 12, -13 + i * 0.4, 70 + i * 9, 5.5, 6, MAT.rockDark);
-      if (i === 1 || i === 3) b.gem(-6 + (i % 2) * 12, -11.4 + i * 0.4, 70 + i * 9, { hint: 'Flussfelsen' });
+    for (i = 0; i < 10; i++) {
+      b.rock(-28 + r() * 8, -2, r() * 180, 1.2 + r() * 1.4, { mat: MAT.canyon, kind: 'shard' });
+      b.rock(26 + r() * 8, -2, r() * 180, 1.2 + r() * 1.4, { mat: MAT.canyonLight, kind: 'stack' });
     }
-    b.mover(0, -12, 112, 6, 6, { dy: 11.5, period: 5.5, mat: MAT.plank, rail: false });
-    b.deco('cylinder', 0, -6, 112, 1.0, 24, 1.0, MAT.beam);
-    b.mark(0, -1, 88);
 
-    b.plat(0, -1, 122, 14, 20, MAT.scree, { thickness: 2.0 });
-    b.mass(0, -3, 122, 12, 40, 18, MAT.cliff);
-    b.rockField(5, -1, 124, 4, 3, { mat: MAT.rock });
-    b.mark(0, -1, 122);
-
-    /* ---------------- Setpiece: Wasserfall mit Durchgang ---------------- */
-    b.deco('box', -19, 6, 146, 12, 48, 44, MAT.cliff);
-    b.waterfall(-14.5, 6, 146, 7, 30);
-    b.waterBody(-14, -1.6, 146, 16, 20, { foam: 6, bedMat: MAT.rockDark });
-    /* Hinter dem Wasserfall entlang - Abkuerzung durch die Hoehle */
-    b.plat(-13, 0, 146, 4.5, 26, MAT.rockDark, { thickness: 1.4 });
-    b.gem(-13, 1.6, 140, { hint: 'hinter dem Wasserfall' });
-    b.caveShell(-13, 0, 162, 11, 8, 22, { mat: MAT.caveRock });
-    b.plat(-13, 0.6, 165, 6.5, 24, MAT.caveRock, { thickness: 1.4 });
-    b.crystalCluster(-16, 0.6, 162, 1.2);
-    b.crystalCluster(-10, 0.6, 170, 1.0);
-    b.gem(-13, 2.2, 166, { hint: 'Hoehle' });
-
-    /* Normalweg: bewegliche Platten ueber dem Becken */
-    b.mover(-6, 0.4, 140, 6, 6, { dx: 12, period: 4.2, mat: MAT.plank });
-    b.mover(6, 1.6, 154, 6, 6, { dx: -12, period: 4.6, phase: 0.3, mat: MAT.plank });
-    b.plat(2, 3.0, 170, 11, 14, MAT.scree, { thickness: 1.8 });
-    b.mass(2, 1.2, 170, 9, 40, 12, MAT.cliff);
-    b.mark(0, 1.5, 155);
-
-    b.plat(0, 4.0, 186, 16, 16, MAT.scree, { thickness: 2.2 });
-    b.mass(0, 1.8, 186, 14, 40, 14, MAT.cliff);
-    b.checkpoint(0, 4.0, 185, { name: 'Wasserfall' });
-    b.rockField(-6, 4.0, 188, 4, 3, { mat: MAT.rock, kind: 'sharp' });
-    b.mark(0, 4.0, 186);
-    return { len: 194, rise: 4.0, turn: -24 };
-  }
-
-  /* --------------------------------------------- 4 - Ruinen */
-
-  function sectionRuins(b) {
-    var r = b.rand, i;
-    b.zone('Ruinen', 80, 180, {
-      fogCol: [0.80, 0.74, 0.62], fogDensity: 0.0022,
-      zenith: [0.24, 0.46, 0.78], horizon: [0.92, 0.84, 0.68],
-      skyCol: [0.62, 0.62, 0.66], groundCol: [0.40, 0.34, 0.24],
-      sunCol: [1.12, 1.0, 0.78], ambient: 'dust'
-    });
-
-    b.plat(0, 0, 4, 18, 20, MAT.sandstoneWorn, { thickness: 2.2 });
-    b.mass(0, -2.2, 4, 16, 40, 18, MAT.cliffWarm);
-    b.column(-7, 0, -2, 5, { r: 1.3 });
-    b.column(7, 0, -2, 3.2, { r: 1.3, capital: false });
-    b.log(5, 0, 8, 9, { yaw: 0.5, r: 1.2, mat: MAT.sandstoneWorn, moss: false });
-    b.ruinWall(-10, 0, 8, 16, 3.4, { yaw: Math.PI / 2, d: 1.6 });
-    b.ruinWall(10, 0, 8, 12, 2.6, { yaw: Math.PI / 2, d: 1.6 });
-    b.deco('blob', -8, 0.6, 10, 4, 1.4, 4, MAT.vine, [0, 0.7, 0]);
-    b.mark(0, 0, 4);
-
-    /* Grosse Freitreppe */
-    b.stairs(0, 0, 14.2, 18, { w: 15, rise: 0.4, run: 1.3, mat: MAT.sandstone, rail: true, railMat: MAT.sandstoneWorn });
-    for (i = 0; i < 5; i++) {
-      b.column(-9.5, 0.4 + i * 1.4, 18 + i * 4.4, 4 + r() * 2, { r: 1.2, mat: MAT.sandstone });
-      b.column(9.5, 0.4 + i * 1.4, 18 + i * 4.4, 4 + r() * 2, { r: 1.2, mat: MAT.sandstone });
-    }
-    b.mark(0, 4, 28);
-
-    /* Tempelhof mit Fallen */
-    b.plat(0, 7.2, 51, 20, 24, MAT.marble, { thickness: 2.2 });
-    b.mass(0, 5.0, 51, 18, 40, 22, MAT.cliffWarm);
+    /* ---- SICHER: breiter Bogen links, zwei bewegliche Hindernisse ---- */
+    b.routeZone(0, 0, -14, 3, 8, 16, 10, 16);
+    b.routeArch(-14, 0, 6, 10, 6, 0);
+    b.plat(-14, 0, 12, 12, 26, MAT.plank, { thickness: 1.2 });       /* -1 .. 25 */
+    b.routeMark(0, 0, -14, 0, 12);
+    b.plat(-26, 0.6, 40, 11, 22, MAT.plank, { thickness: 1.2 });     /* 29 .. 51 */
+    b.routeMark(0, 0, -26, 0.6, 40);
+    b.pendulum(-26, 2.2, 40, { swing: 7, period: 2.5, rope: 8, d: 8, w: 2.2, h: 2.2 });
+    b.plat(-29, 1.2, 68, 11, 24, MAT.plank, { thickness: 1.2 });     /* 56 .. 80 */
+    b.spinner(-29, 2.0, 68, { len: 14, period: 3.4, h: 1.5, pillar: false });
+    b.plat(-28, 1.8, 96, 11, 24, MAT.plank, { thickness: 1.2 });     /* 84 .. 108 */
+    b.routeMark(0, 0, -29, 1.2, 68);
+    b.routeMark(0, 0, -28, 1.8, 96);
+    b.pendulum(-28, 3.4, 96, { swing: 7, period: 2.2, phase: 0.4, rope: 8, d: 8, w: 2.2, h: 2.2 });
+    b.plat(-22, 2.4, 124, 11, 24, MAT.plank, { thickness: 1.2 });    /* 112 .. 136 */
+    b.pendulum(-22, 4.0, 124, { swing: 7, period: 2.0, phase: 0.2, rope: 8, d: 8, w: 2.2, h: 2.2 });
+    b.plat(-11, 3.0, 152, 12, 24, MAT.plank, { thickness: 1.2 });    /* 140 .. 164 */
+    b.spinner(-11, 3.8, 152, { len: 14, period: 2.8, h: 1.5, pillar: false });
+    b.routeMark(0, 0, -22, 2.4, 124);
+    b.routeMark(0, 0, -11, 3.0, 152);
+    b.gem(-17, 2.4, 40, { hint: 'sichere Route' });
+    /* keine Wegpunkte auf den Nebenaesten - die Kette folgt der schnellen Route */
     for (i = 0; i < 4; i++) {
-      b.column(-8, 7.2, 42 + i * 6, 6.5, { r: 1.4, mat: MAT.sandstone });
-      b.column(8, 7.2, 42 + i * 6, 6.5, { r: 1.4, mat: MAT.sandstone });
+      b.deco('cylinder', -16 + i * 1.5, -14, 14 + i * 36, 2.4, 30, 2.4, MAT.canyonDark);
     }
-    b.deco('box', 0, 16.4, 48, 20, 1.6, 26, MAT.sandstoneWorn);
-    b.pendulum(0, 10.0, 46, { swing: 6.5, period: 2.3, rope: 6, d: 7, mat: MAT.metal });
-    b.block(0, 6.0, 57, 12, 1.4, 3.4, MAT.hazard, { tag: 'hazard', trigger: true });
+
+    /* ---- SCHNELL: sieben Felspfeiler, Sprintsprung am Limit ---- */
+    b.routeZone(0, 1, 2, 3, 6, 12, 10, 12);
+    b.routeArch(2, 3, 2, 9, 6, 1);
+    for (i = 0; i < 10; i++) {
+      var pz = 6 + i * 16;
+      var py = 1.0 + i * 0.4;
+      var px = 2 + Math.sin(i * 1.1) * 1.6;
+      b.plat(px, py, pz, 7, 8, MAT.canyonLight, { thickness: 1.2 });
+      b.deco('cylinder', px, py - 16, pz, 6.4, 32, 6.4, MAT.canyon);
+      if (i === 1 || i === 3 || i === 5) b.gem(px, py + 1.6, pz, { hint: 'Pfeiler' });
+      b.mark(px, py, pz);
+      b.routeMark(0, 1, px, py, pz);
+    }
+
+    /* ---- IRRE: Hochplateaus, Luecken nur mit Doppelsprung oder Dash ---- */
+    b.routeZone(0, 2, 17, 12, 12, 10, 8, 14);
     for (i = 0; i < 7; i++) {
-      b.deco('crystal', -5 + i * 1.7, 6.6, 57, 0.7, 1.8, 0.7, MAT.spike, [0, i, 0]);
+      var iz = 12 + i * 24;
+      var iy = 11 + i * 0.5;
+      b.plat(17, iy, iz, 7, 9, MAT.mesa, { thickness: 1.4 });
+      b.routeMark(0, 2, 17, iy, iz);
+      b.deco('cylinder', 17, iy - 20, iz, 6, 40, 6, MAT.canyonDark);
+      if (i < 4) b.gem(17, iy + 2.6, iz + 12, { hint: 'im Sprungbogen' });
+      if (i === 1) b.gem(17, iy + 1.6, iz, { hint: 'Hochplateau' });
     }
-    b.gem(0, 12.0, 51, { hint: 'Tempelhof' });
-    b.checkpoint(0, 7.2, 43, { name: 'Tempelhof' });
-    b.enemy(-4, 8.4, 61, { range: 4, speed: 0.6, mat: MAT.enemyAlt });
-    b.mark(0, 7.2, 51);
+    b.routeArch(17, 11, 6, 8, 5, 2);
 
-    /* Saeulenstuempfe als Plattformen */
-    var cz = [72, 80, 88, 96, 104];
-    for (i = 0; i < cz.length; i++) {
-      var cx = (i % 2 ? 4.5 : -4.5);
-      b.column(cx, 3.0 + i * 1.1, cz[i], 4.4, { r: 2.0, platform: true, mat: MAT.sandstone, capMat: MAT.templeTrim });
-      if (i === 2) b.gem(cx, 10.6, cz[i], { hint: 'Saeulen' });
-    }
-    b.mark(-4.5, 9.8, 72);
-    b.mark(4.5, 12.0, 96);
-
-    /* Innenhof mit Karussell */
-    b.plat(0, 12.2, 120, 18, 18, MAT.marble, { thickness: 2.0 });
-    b.mass(0, 10.2, 120, 16, 40, 16, MAT.cliffWarm);
-    b.crumble(-4, 12.2, 113, 5, 5, { mat: MAT.sandstoneWorn });
-    b.crumble(4, 12.2, 120, 5, 5, { mat: MAT.sandstoneWorn });
-    b.checkpoint(0, 12.2, 119, { name: 'Innenhof' });
-    b.rotator(0, 13.4, 136, { radius: 8.5, count: 3, period: 8.5, w: 6, d: 6, mat: MAT.sandstone, pillarMat: MAT.sandstoneWorn });
-    b.ruinWall(-11, 12.2, 126, 14, 5, { yaw: Math.PI / 2 });
-    b.ruinWall(11, 12.2, 126, 14, 5, { yaw: Math.PI / 2 });
-    b.mark(0, 12.2, 120);
-
-    /* Galerie: unten sicher, oben riskant */
-    b.plat(0, 14.0, 154, 13, 18, MAT.marble, { thickness: 2.0 });
-    b.mass(0, 12.0, 154, 11, 40, 16, MAT.cliffWarm);
-    b.plat(-10, 19.0, 154, 5.5, 18, MAT.sandstone, { thickness: 1.2 });
-    b.gem(-10, 20.6, 148, { hint: 'Galerie' });
-    b.gem(-10, 20.6, 160, { hint: 'Galerie' });
-    b.column(-10, 14.0, 145, 4, { r: 1.4, platform: true, mat: MAT.sandstone });
-    b.spinner(0, 15.4, 154, { len: 10, period: 3.2, h: 0.8, mat: MAT.metal, pillarMat: MAT.sandstoneWorn });
-    b.mark(0, 14.0, 154);
-
-    /* Eingestuerzter Turm */
-    b.plat(-3, 15.4, 170, 6, 8, MAT.sandstoneWorn);
-    b.plat(4, 17.0, 180, 6, 8, MAT.sandstoneWorn);
-    b.plat(-3, 18.6, 190, 6, 8, MAT.sandstoneWorn);
-    b.deco('cylinder', 10, 12, 182, 9, 26, 9, MAT.sandstoneWorn, [0.06, 0.3, 0.04]);
-    b.ruinWall(8, 18.6, 192, 12, 6, { yaw: 0.3 });
-    b.mark(-3, 15.4, 170);
-    b.mark(4, 17.0, 180);
-    b.mark(-3, 18.6, 190);
-
-    b.plat(0, 20.0, 204, 16, 18, MAT.marble, { thickness: 2.2 });
-    b.mass(0, 17.8, 204, 14, 40, 16, MAT.cliffWarm);
-    b.arch(0, 20.0, 210, 11, 7, MAT.sandstone);
-    b.checkpoint(0, 20.0, 202, { name: 'Tempel' });
-    b.mark(0, 20.0, 204);
-    return { len: 212, rise: 20.0, turn: 28 };
+    /* ---- Zusammenfuehrung ---- */
+    b.plat(0, 4, 180, 28, 22, MAT.mesa, { thickness: 2.4 });         /* 169 .. 191 */
+    b.mass(0, 1.6, 180, 26, 44, 20, MAT.canyon);
+    b.gate(0, 4, 180, { name: 'Canyon' });
+    b.rock(-11, 4, 186, 1.4, { mat: MAT.canyonLight, kind: 'stack' });
+    b.mark(0, 4, 180);
+    return { len: 191, rise: 4, turn: -18 };
   }
 
-  /* --------------------------------------------- 5 - Gipfel */
+  /* ------------------------------------------- 2 - Tempo-Abfahrt */
 
-  function sectionSummit(b) {
+  function speedRun(b) {
     var r = b.rand, i;
-    b.zone('Gipfel', 80, 200, {
-      fogCol: [0.86, 0.92, 0.99], fogDensity: 0.0030,
-      zenith: [0.10, 0.36, 0.82], horizon: [0.88, 0.94, 1.0],
-      skyCol: [0.60, 0.76, 0.98], groundCol: [0.50, 0.56, 0.64],
-      sunCol: [1.12, 1.06, 0.98], ambient: 'snow'
+    b.zone('Abfahrt', 50, 130, {
+      fogCol: [0.80, 0.84, 0.92], fogDensity: 0.0018,
+      zenith: [0.18, 0.46, 0.86], horizon: [0.86, 0.90, 0.98],
+      skyCol: [0.58, 0.72, 0.94], groundCol: [0.36, 0.36, 0.28],
+      sunCol: [1.10, 1.02, 0.88], ambient: 'dust'
     });
 
-    b.plat(0, 0, 4, 16, 20, MAT.snow, { thickness: 2.4 });
-    b.mass(0, -2.4, 4, 14, 40, 18, MAT.cliff);
-    b.snowDrift(-6, 0, 2, 1.2);
-    b.snowDrift(6, 0, 8, 1.0);
-    b.iceSpike(-7, 0, 10, 1.0);
-    b.mark(0, 0, 4);
+    b.plat(0, 0, 10, 18, 24, MAT.scree, { thickness: 2.0 });         /* -2 .. 22 */
+    b.mass(0, -2, 10, 16, 40, 22, MAT.canyon);
+    b.boostPad(0, 0, 8, 8, 10, { speed: 36 });
+    b.spinner(0, 1.5, 18, { len: 12, period: 2.8, h: 0.9 });
+    b.gem(0, 1.6, 14);
+    b.mark(0, 0, 10);
 
-    /* Schmaler Grat */
-    b.plat(0, 0.6, 23, 5.5, 18, MAT.snow, { thickness: 1.6 });
-    b.mass(0, -1.0, 23, 4.6, 40, 17, MAT.cliff);
-    b.iceSpike(3.5, 0.6, 18, 0.8);
-    b.iceSpike(-3.5, 0.6, 28, 0.9);
-    b.boostPad(0, 0.6, 26, 4.6, 7, { speed: 34 });
-    b.mark(0, 0.6, 23);
+    b.plat(0, -2, 38, 18, 22, MAT.scree, { thickness: 2.0 });        /* 27 .. 49 */
+    b.mass(0, -4, 38, 16, 40, 20, MAT.canyon);
+    b.boostPad(0, -2, 36, 8, 10, { speed: 36 });
+    b.spinner(0, -0.6, 44, { len: 12, period: 2.4, h: 0.9, dir: -1 });
+    b.gem(0, -0.4, 40);
+    b.mark(0, -2, 38);
 
-    b.plat(0, 1.4, 49, 12, 16, MAT.iceSolid, { thickness: 1.8 });
-    b.mass(0, -0.4, 49, 10, 40, 14, MAT.cliff);
-    b.snowDrift(4, 1.4, 52, 1.0);
-    b.mark(0, 1.4, 49);
+    b.plat(0, -4, 62, 18, 22, MAT.scree, { thickness: 2.0 });        /* 51 .. 73 */
+    b.mass(0, -6, 62, 16, 40, 20, MAT.canyon);
+    b.spinner(0, -2.6, 62, { len: 12, period: 2.2, h: 0.9 });
+    b.mark(0, -4, 62);
+    b.plat(0, -6, 88, 18, 22, MAT.scree, { thickness: 2.0 });        /* 77 .. 99 */
+    b.mass(0, -8, 88, 16, 40, 20, MAT.canyon);
+    b.boostPad(0, -6, 94, 10, 10, { speed: 38 });
+    b.gem(0, -4.4, 84);
+    b.mark(0, -6, 88);
 
-    b.plat(2, 2.2, 74, 10, 16, MAT.snow, { thickness: 1.8 });
-    b.mass(2, 0.4, 74, 8, 40, 14, MAT.cliff);
-    b.gem(2, 3.8, 74, { hint: 'Grat' });
-    b.checkpoint(2, 2.2, 73, { name: 'Eisgrat' });
-    b.mark(2, 2.2, 74);
-
-    /* Grosse Sprungsequenz ueber den Wolken */
-    b.plat(-3, 3.2, 93, 8, 11, MAT.iceSolid, { thickness: 1.4 });
-    b.checkpoint(-3, 3.2, 93, { name: 'Wolkensprung' });
-    b.plat(4, 4.0, 110, 8, 11, MAT.iceSolid, { thickness: 1.4 });
-    b.gem(0.5, 7.4, 102, { hint: 'ueber den Wolken' });
-    b.plat(-2, 4.8, 127, 8, 11, MAT.iceSolid, { thickness: 1.4 });
-    b.cloudPuff(-10, -2, 100, 7);
-    b.cloudPuff(9, -4, 118, 8);
-    b.cloudPuff(0, -6, 136, 9);
-    b.mark(-3, 3.2, 93);
-    b.mark(4, 4.0, 110);
-    b.mark(-2, 4.8, 127);
-
-    /* Schneepilz als Absprung auf den Gipfel */
-    b.plat(0, 4.8, 142, 9, 12, MAT.snow, { thickness: 1.6 });
-    b.mass(0, 3.2, 142, 7, 40, 10, MAT.cliff);
-    b.bouncePad(0, 4.8, 142, { power: 30, mat: MAT.iceSolid });
-    b.gem(0, 12.0, 150, { hint: 'im Sprungbogen' });
-
-    /* Gipfelplateau mit Ziel */
-    b.plat(0, 14.0, 165, 24, 28, MAT.snow, { thickness: 3.0 });
-    b.mass(0, 11.0, 165, 22, 50, 26, MAT.cliff);
-    b.deco('cone', -9, 14.0, 174, 9, 7, 9, MAT.snow);
-    b.deco('cone', 9.5, 14.0, 170, 7, 6, 7, MAT.snow);
-    b.iceSpike(-7, 14.0, 158, 1.4);
-    b.iceSpike(7, 14.0, 160, 1.2);
-    b.snowDrift(0, 14.0, 176, 1.6);
-    b.mark(0, 14.0, 165);
-
-    var p = b.toWorld(0, 14.0, 165, [0, 0, 0]);
-    b.finish = { x: p[0], y: p[1], z: p[2], yaw: b.cursor.yaw, r: 7.0 };
-    b.arch(0, 14.0, 165, 13, 8, MAT.gold);
-    b.deco('box', 0, 22.9, 165, 15.4, 1.6, 0.6, MAT.flag);
-    for (i = 0; i < 7; i++) {
-      b.deco('box', -6.6 + i * 2.2, 21.8, 165, 1.7, 1.2, 0.3, i % 2 ? MAT.flagAlt : MAT.flag);
-    }
-    b.deco('box', 0, 17.5, 165, 4.5, 0.6, 0.3, MAT.gold);
-    return { len: 181, rise: 14.0, turn: 0 };
+    /* Grosser Sprung ueber die Schlucht - mit Tempofeld locker zu schaffen */
+    b.plat(0, -5, 124, 22, 24, MAT.scree, { thickness: 2.4 });       /* 112 .. 136 */
+    b.mass(0, -7.4, 124, 20, 44, 22, MAT.canyon);
+    b.gem(0, 0.2, 106, { hint: 'im Sprungbogen' });
+    b.gate(0, -5, 126, { name: 'Abfahrt' });
+    b.mark(0, -5, 124);
+    return { len: 136, rise: -5, turn: 22 };
   }
 
-  root.MR.level.SECTIONS = [sectionMeadow, sectionForest, sectionGorge, sectionRuins, sectionSummit];
+  /* --------------------------------------- 3 - Abzweig B: Wasserfall */
+
+  function forkFalls(b) {
+    var r = b.rand, i;
+    b.zone('Wasserfall', 60, 150, {
+      fogCol: [0.66, 0.80, 0.86], fogDensity: 0.0030,
+      zenith: [0.14, 0.42, 0.78], horizon: [0.74, 0.88, 0.94],
+      skyCol: [0.46, 0.68, 0.82], groundCol: [0.24, 0.32, 0.34],
+      sunCol: [1.02, 0.98, 0.90], ambient: 'spray'
+    });
+
+    /* Fluss und Wasserfall */
+    b.waterBody(0, -11, 80, 60, 180, { bed: false, foam: 14, mat: MAT.water });
+    b.deco('box', -30, 6, 60, 20, 60, 140, MAT.cliff);
+    b.waterfall(-22, 6, 34, 9, 34);
+    b.deco('box', 30, 6, 60, 20, 60, 140, MAT.cliffWarm);
+    b.routeSign(-7, 0, -6, 0);
+    b.routeSign(8, 0, -6, 1);
+    b.routeSign(-17, 0, -6, 2);
+
+    /* ---- SICHER: Steinbruecke und breite Absaetze ---- */
+    b.routeZone(1, 0, -6, 3, 8, 12, 8, 14);
+    b.plat(-6, 0, 22, 10, 46, MAT.stone, { thickness: 1.4 });        /* -1 .. 45 */
+    b.routeMark(1, 0, -6, 0, 10);
+    b.routeMark(1, 0, -6, 0, 36);
+    for (i = 0; i < 6; i++) {
+      b.deco('cylinder', -6, -6, 2 + i * 9, 2.2, 14, 2.2, MAT.stone);
+      b.deco('box', -10.6, 0.9, 2 + i * 9, 0.5, 1.6, 0.5, MAT.stone);
+      b.deco('box', -1.4, 0.9, 2 + i * 9, 0.5, 1.6, 0.5, MAT.stone);
+    }
+    b.plat(-12, 0.6, 58, 10, 20, MAT.stone, { thickness: 1.4 });     /* 48 .. 68 */
+    b.spinner(-12, 2.0, 58, { len: 13, period: 3.0, h: 1.5, pillar: false });
+    b.plat(-15, 1.2, 84, 11, 22, MAT.stone, { thickness: 1.4 });     /* 73 .. 95 */
+    b.plat(-12, 1.8, 112, 11, 22, MAT.stone, { thickness: 1.4 });    /* 101 .. 123 */
+    b.spinner(-12, 3.2, 112, { len: 14, period: 2.6, h: 1.5, pillar: false });
+    b.plat(-6, 2.4, 140, 11, 22, MAT.stone, { thickness: 1.4 });     /* 129 .. 151 */
+    b.routeMark(1, 0, -12, 0.6, 58);
+    b.routeMark(1, 0, -15, 1.2, 84);
+    b.routeMark(1, 0, -12, 1.8, 112);
+    b.routeMark(1, 0, -6, 2.4, 140);
+    b.gem(-12, 2.2, 58, { hint: 'sichere Route' });
+
+    /* ---- SCHNELL: Flusssteine, jeder Sprung sitzt ---- */
+    b.routeZone(1, 1, 8, 3, 8, 12, 8, 14);
+    for (i = 0; i < 9; i++) {
+      var sz = 8 + i * 17;
+      var sx = 8 + Math.sin(i * 1.3) * 2.2;
+      b.plat(sx, 0.5 + i * 0.3, sz, 8, 9, MAT.rockDark, { thickness: 1.2 });
+      b.deco('blob', sx, -1.6, sz, 9, 5, 9, MAT.rockDark, [0, r() * 6.28, 0]);
+      b.deco('blob', sx + 3, 0.4, sz + 3, 3, 1.2, 3, MAT.foam, [0, r() * 6.28, 0]);
+      if (i === 1 || i === 3 || i === 5) b.gem(sx, 2.1 + i * 0.3, sz, { hint: 'Flussstein' });
+      b.mark(sx, 0.5 + i * 0.3, sz);
+      b.routeMark(1, 1, sx, 0.5 + i * 0.3, sz);
+    }
+
+    /* ---- IRRE: Dash durch den Wasserfall in den Tunnel ---- */
+    b.routeZone(1, 2, -20, 4, 30, 9, 10, 16);
+    b.plat(-20, 1.5, 30, 8, 14, MAT.rockDark, { thickness: 1.4 });   /* 23 .. 37 */
+    b.routeMark(1, 2, -20, 1.5, 30);
+    b.caveShell(-20, 1.5, 58, 12, 8, 46, { mat: MAT.crystalRock });
+    b.plat(-20, 2.5, 76, 8, 76, MAT.crystalRock, { thickness: 1.4 });/* 38 .. 114 */
+    for (i = 0; i < 6; i++) {
+      b.gem(-20, 4.0, 44 + i * 13, { hint: 'Wasserfalltunnel' });
+      b.crystalCluster(-24 + (i % 2) * 8, 2.5, 46 + i * 13, 1.0);
+    }
+    b.plat(-16, 4, 130, 9, 22, MAT.crystalRock, { thickness: 1.4 }); /* 119 .. 141 */
+    b.routeMark(1, 2, -20, 2.5, 60);
+    b.routeMark(1, 2, -20, 2.5, 100);
+    b.routeMark(1, 2, -16, 4, 130);
+    b.routeArch(-20, 1.5, 24, 8, 6, 2);
+
+    /* ---- Zusammenfuehrung ---- */
+    b.plat(0, 5, 168, 26, 22, MAT.stone, { thickness: 2.4 });        /* 157 .. 179 */
+    b.mass(0, 2.6, 168, 24, 44, 20, MAT.cliff);
+    b.gate(0, 5, 168, { name: 'Wasserfall' });
+    b.mark(0, 5, 168);
+    return { len: 179, rise: 5, turn: -20 };
+  }
+
+  /* --------------------------------------- 4 - Kristallhoehle */
+
+  function caveRush(b) {
+    var r = b.rand, i;
+    b.zone('Kristallhoehle', 40, 110, {
+      fogCol: [0.24, 0.18, 0.36], fogDensity: 0.0090,
+      zenith: [0.08, 0.06, 0.18], horizon: [0.30, 0.20, 0.44],
+      skyCol: [0.30, 0.22, 0.48], groundCol: [0.14, 0.10, 0.22],
+      sunCol: [0.80, 0.70, 1.00], ambient: 'sparks'
+    });
+
+    b.deco('blob', -9, 6, -2, 16, 18, 14, MAT.crystalRock, [0.2, 0.4, 0]);
+    b.deco('blob', 9, 6, -2, 16, 18, 14, MAT.crystalRock, [0.1, 2.2, 0]);
+    b.deco('blob', 0, 13, 2, 26, 10, 14, MAT.crystalRock);
+
+    /* Enge S-Kurve: bei Tempo muss gelenkt werden */
+    b.plat(0, 0, 12, 11, 28, MAT.crystalRock, { thickness: 1.6 });   /* -2 .. 26 */
+    b.caveShell(0, 0, 12, 15, 9, 30, { mat: MAT.crystalRock });
+    b.plat(-8, 0.5, 40, 10, 24, MAT.crystalRock, { thickness: 1.6 });/* 28 .. 52 */
+    b.caveShell(-8, 0.5, 40, 14, 9, 26, { mat: MAT.crystalRock });
+    b.plat(5, 1.0, 66, 10, 24, MAT.crystalRock, { thickness: 1.6 }); /* 54 .. 78 */
+    b.caveShell(5, 1.0, 66, 14, 9, 26, { mat: MAT.crystalRock });
+    b.plat(-6, 1.5, 92, 10, 24, MAT.crystalRock, { thickness: 1.6 });/* 80 .. 104 */
+    b.caveShell(-6, 1.5, 92, 14, 9, 26, { mat: MAT.crystalRock });
+    b.boostPad(-6, 1.5, 96, 7, 9, { speed: 36 });
+
+    for (i = 0; i < 12; i++) {
+      var cx = (i % 3 - 1) * 7, cz = i * 9;
+      b.crystalCluster(cx + (r() - 0.5) * 4, 0.4, cz, 0.8 + r() * 0.9);
+      b.deco('crystal', cx, 7.5, cz + 3, 1.2, 3.4, 1.2,
+        i % 2 ? MAT.crystalGlow : MAT.crystalGlow2, [Math.PI, r() * 6.28, 0]);
+    }
+    b.gem(-8, 2.0, 40, { hint: 'Hoehle' });
+    b.gem(5, 2.5, 66, { hint: 'Hoehle' });
+    b.gate(-6, 1.5, 100, { name: 'Hoehle' });
+    b.mark(0, 0, 12);
+    b.mark(-8, 0.5, 40);
+    b.mark(5, 1.0, 70);
+    b.mark(-6, 1.5, 92);
+    return { len: 104, rise: 1.5, turn: 24 };
+  }
+
+  /* --------------------------------------- 5 - Abzweig C: Tempel */
+
+  function forkTemple(b) {
+    var r = b.rand, i;
+    b.zone('Tempel', 60, 150, {
+      fogCol: [0.86, 0.78, 0.62], fogDensity: 0.0022,
+      zenith: [0.26, 0.48, 0.80], horizon: [0.96, 0.86, 0.66],
+      skyCol: [0.66, 0.64, 0.62], groundCol: [0.42, 0.36, 0.24],
+      sunCol: [1.16, 1.02, 0.78], ambient: 'dust'
+    });
+
+    b.plat(0, 0, 2, 30, 18, MAT.sandstoneWorn, { thickness: 2.0 });  /* -7 .. 11 */
+    b.mass(0, -2, 2, 28, 40, 16, MAT.cliffWarm);
+    b.routeSign(-10, 0, 8, 0);
+    b.routeSign(4, 0, 8, 1);
+    b.routeSign(12, 0, 9, 2);
+    b.bouncePad(12, 0, 4, { power: 34, mat: MAT.routeInsane });
+    b.routeMark(2, 2, 12, 0, 4);
+
+    /* ---- SICHER: Freitreppe und breite Hoefe ---- */
+    b.routeZone(2, 0, -10, 3, 16, 12, 10, 14);
+    b.stairs(-10, 0, 12, 14, { w: 11, rise: 0.4, run: 1.3, mat: MAT.sandstone, rail: true });
+    b.plat(-10, 5.6, 40, 13, 26, MAT.marble, { thickness: 2.0 });    /* 27 .. 53 */
+    b.routeMark(2, 0, -10, 2.8, 18);
+    b.routeMark(2, 0, -10, 5.6, 40);
+    b.plat(-22, 6.2, 70, 13, 26, MAT.marble, { thickness: 2.0 });    /* 57 .. 83 */
+    b.plat(-24, 6.8, 98, 13, 24, MAT.marble, { thickness: 2.0 });    /* 86 .. 110 */
+    b.spinner(-24, 8.2, 98, { len: 16, period: 3.2, h: 1.5, pillar: false, mat: MAT.metal });
+    b.plat(-20, 7.4, 128, 13, 26, MAT.marble, { thickness: 2.0 });   /* 115 .. 141 */
+    b.plat(-9, 8.0, 158, 13, 24, MAT.marble, { thickness: 2.0 });    /* 146 .. 170 */
+    b.routeMark(2, 0, -22, 6.2, 70);
+    b.routeMark(2, 0, -24, 6.8, 98);
+    b.routeMark(2, 0, -20, 7.4, 128);
+    b.routeMark(2, 0, -9, 8.0, 158);
+    for (i = 0; i < 5; i++) {
+      b.column(-17, 5.6, 30 + i * 14, 5 + r() * 2, { r: 1.2, mat: MAT.sandstone });
+      b.column(-4, 5.6, 34 + i * 14, 4 + r() * 2, { r: 1.2, mat: MAT.sandstone });
+    }
+    b.pendulum(-22, 8.0, 70, { swing: 7, period: 2.4, rope: 7, d: 8, w: 2.2, h: 2.2, mat: MAT.metal });
+    b.gem(-10, 7.0, 40, { hint: 'sichere Route' });
+
+    /* ---- SCHNELL: Saeulenkoepfe ---- */
+    b.routeZone(2, 1, 4, 3, 16, 10, 10, 14);
+    for (i = 0; i < 10; i++) {
+      var cz = 16 + i * 16;
+      var cx = 4 + Math.sin(i * 1.2) * 1.8;
+      var cy = 2.2 + i * 0.7;
+      b.column(cx, cy - 5.7, cz, 4.4, { r: 2.8, platform: true, mat: MAT.sandstone, capMat: MAT.templeTrim });
+      if (i === 1 || i === 3 || i === 5) b.gem(cx, cy + 1.8, cz, { hint: 'Saeulenkopf' });
+      b.mark(cx, cy, cz);
+      b.routeMark(2, 1, cx, cy, cz);
+    }
+
+    /* ---- IRRE: Aquaedukt in der Hoehe ---- */
+    b.routeZone(2, 2, 18, 13, 12, 10, 8, 16);
+    for (i = 0; i < 6; i++) {
+      var az = 10 + i * 34;
+      b.plat(18, 12 + i * 0.5, az, 5.5, 18, MAT.sandstone, { thickness: 1.2 });
+      b.routeMark(2, 2, 18, 12 + i * 0.5, az);
+      for (var q = 0; q < 3; q++) {
+        b.deco('box', 18, 4 + i * 0.5, az - 6 + q * 6, 4.6, 16, 1.6, MAT.sandstoneWorn);
+      }
+      b.gem(18, 14.6 + i * 0.5, az, { hint: 'Aquaedukt' });
+      if (i < 5) b.gem(18, 16.5, az + 17, { hint: 'im Sprungbogen' });
+    }
+    b.routeArch(18, 12, 4, 7, 5, 2);
+
+    /* ---- Zusammenfuehrung auf dem Turm ---- */
+    b.plat(0, 8, 186, 26, 22, MAT.marble, { thickness: 2.4 });       /* 175 .. 197 */
+    b.mass(0, 5.6, 186, 24, 44, 20, MAT.cliffWarm);
+    b.ruinWall(-12, 8, 190, 14, 5, { yaw: Math.PI / 2 });
+    b.ruinWall(12, 8, 190, 14, 5, { yaw: Math.PI / 2 });
+    b.gate(0, 8, 186, { name: 'Tempel' });
+    b.mark(0, 8, 186);
+    return { len: 197, rise: 8, turn: 26 };
+  }
+
+  /* --------------------------------------- 6 - Schlussabfahrt */
+
+  function finale(b) {
+    var r = b.rand, i;
+    b.zone('Gipfel', 60, 160, {
+      fogCol: [0.88, 0.93, 1.0], fogDensity: 0.0026,
+      zenith: [0.10, 0.36, 0.84], horizon: [0.90, 0.95, 1.0],
+      skyCol: [0.62, 0.78, 0.99], groundCol: [0.50, 0.56, 0.64],
+      sunCol: [1.14, 1.08, 0.98], ambient: 'snow'
+    });
+
+    b.plat(0, 0, 10, 20, 24, MAT.snow, { thickness: 2.2 });          /* -2 .. 22 */
+    b.mass(0, -2.2, 10, 18, 44, 22, MAT.cliff);
+    b.boostPad(0, 0, 12, 9, 10, { speed: 38 });
+    b.mark(0, 0, 10);
+    b.snowDrift(-8, 0, 4, 1.2);
+    b.iceSpike(9, 0, 6, 1.0);
+
+    b.plat(0, -2, 38, 18, 22, MAT.iceSolid, { thickness: 2.0 });     /* 27 .. 49 */
+    b.mass(0, -4, 38, 16, 44, 20, MAT.cliff);
+    b.spinner(0, -0.6, 38, { len: 13, period: 2.5, h: 0.9 });
+    b.gem(0, -0.4, 44);
+    b.mark(0, -2, 38);
+
+    b.plat(0, -4, 64, 18, 22, MAT.snow, { thickness: 2.0 });         /* 53 .. 75 */
+    b.mass(0, -6, 64, 16, 44, 20, MAT.cliff);
+    b.iceSpike(-8, -4, 58, 1.2);
+    b.mark(0, -4, 64);
+
+    b.plat(0, -6, 92, 18, 22, MAT.iceSolid, { thickness: 2.0 });     /* 81 .. 103 */
+    b.mass(0, -8, 92, 16, 44, 20, MAT.cliff);
+    b.spinner(0, -4.6, 92, { len: 13, period: 2.2, h: 0.9, dir: -1 });
+    b.boostPad(0, -6, 98, 14, 10, { speed: 40 });
+
+    /* Schlusssprung durch drei Ringe auf das Zielplateau */
+    for (i = 0; i < 3; i++) {
+      b.deco('torus', 0, -1.5 + i * 0.8, 112 + i * 6, 9, 9, 9, MAT.gold, [Math.PI / 2, 0, 0]);
+    }
+    b.gem(0, 1.0, 118, { hint: 'Schlusssprung' });
+    b.mark(0, -6, 96);
+    b.plat(0, -4, 134, 30, 28, MAT.snow, { thickness: 3.0 });        /* 120 .. 148 */
+    b.mass(0, -7, 134, 28, 54, 26, MAT.cliff);
+    b.deco('cone', -11, -4, 142, 10, 8, 10, MAT.snow);
+    b.deco('cone', 11.5, -4, 139, 8, 7, 8, MAT.snow);
+    b.snowDrift(0, -4, 146, 1.8);
+
+    var p = b.toWorld(0, -4, 132, [0, 0, 0]);
+    b.finish = { x: p[0], y: p[1], z: p[2], yaw: b.cursor.yaw, r: 8.0 };
+    b.arch(0, -4, 132, 14, 8, MAT.gold);
+    b.deco('box', 0, 4.9, 132, 16.4, 1.6, 0.6, MAT.flag);
+    for (i = 0; i < 7; i++) {
+      b.deco('box', -7 + i * 2.3, 3.8, 132, 1.8, 1.2, 0.3, i % 2 ? MAT.flagAlt : MAT.flag);
+    }
+    b.mark(0, -4, 134);
+    return { len: 148, rise: -4, turn: 0 };
+  }
+
+  root.MR.level.SECTIONS = [areaStart, forkCanyon, speedRun, forkFalls, caveRush, forkTemple, finale];
 })(window);
 
 /*
@@ -1534,7 +1577,20 @@
   function scatter(b, zoneName, x, y, z, r) {
     b.cursor.x = x; b.cursor.z = z; b.cursor.y = y; b.cursor.yaw = 0;
     var k = r();
-    if (zoneName === 'Wald') {
+    if (zoneName === 'Canyon' || zoneName === 'Abfahrt') {
+      if (k < 0.5) b.rock(0, 0, 0, 0.9 + r() * 1.8, { kind: r() > 0.5 ? 'shard' : 'stack', mat: MAT.canyon });
+      else if (k < 0.72) b.rock(0, 0, 0, 1.0 + r() * 1.6, { kind: 'slab', mat: MAT.canyonLight });
+      else if (k < 0.86) b.tree(0, 0, 0, 0.4 + r() * 0.4, { kind: 'dead' });
+      else b.rock(0, 0, 0, 0.8 + r() * 1.2, { kind: 'sharp', mat: MAT.mesa });
+    } else if (zoneName === 'Kristallhoehle') {
+      if (k < 0.55) b.crystalCluster(0, 0, 0, 0.8 + r() * 1.3);
+      else b.rock(0, 0, 0, 0.9 + r() * 1.6, { kind: 'shard', mat: MAT.crystalRock });
+    } else if (zoneName === 'Wasserfall') {
+      if (k < 0.45) b.rock(0, 0, 0, 0.9 + r() * 1.5, { kind: 'round', mat: MAT.rockDark });
+      else if (k < 0.7) b.tree(0, 0, 0, 0.6 + r() * 0.7, { kind: 'pine' });
+      else if (k < 0.86) b.bush(0, 0, 0, 0.8 + r() * 0.8, { mat: MAT.moss });
+      else b.rock(0, 0, 0, 1.0 + r() * 1.4, { kind: 'slab', mat: MAT.scree });
+    } else if (zoneName === 'Wald') {
       if (k < 0.72) b.tree(0, 0, 0, 0.7 + r() * 1.0, { kind: r() > 0.3 ? 'pine' : 'fir' });
       else if (k < 0.85) b.rock(0, 0, 0, 0.6 + r() * 1.0, { kind: 'round', mat: MAT.rockDark });
       else if (k < 0.94) b.bush(0, 0, 0, 0.9 + r() * 0.8, { mat: MAT.leafDark });
@@ -1575,13 +1631,10 @@
     return best;
   }
 
-  var GROUND_MAT = {
-    'Almwiese': MAT.meadow, 'Wald': MAT.forestFloor, 'Bergschlucht': MAT.scree,
-    'Ruinen': MAT.sandstoneWorn, 'Gipfel': MAT.snowDeep
-  };
   var HILL_MAT = {
-    'Almwiese': MAT.meadowLush, 'Wald': MAT.moss, 'Bergschlucht': MAT.cliff,
-    'Ruinen': MAT.cliffWarm, 'Gipfel': MAT.snow
+    'Start': MAT.meadowLush, 'Canyon': MAT.canyon, 'Abfahrt': MAT.canyonDark,
+    'Wasserfall': MAT.cliff, 'Kristallhoehle': MAT.crystalRock,
+    'Tempel': MAT.cliffWarm, 'Gipfel': MAT.snow
   };
 
   /* Gelaende neben der Strecke: Haenge, Kuppen und Streudeko je Zone. */
@@ -1742,23 +1795,37 @@
       ents: b.ents,
       gems: b.gems,
       enemies: b.enemies,
-      checkpoints: b.checkpoints,
+      gates: b.checkpoints,
       zones: b.zones,
       sprayPoints: b.sprayPoints || [],
       finish: b.finish,
       start: b.start,
       bounds: bounds,
       spine: b.spine,
+      routePaths: b.routePaths || {},
       pathLength: pathLen,
       medals: medals,
       time: 0
     };
 
     level.spawn = {
-      x: b.start.x, y: b.start.y, z: b.start.z, yaw: b.start.yaw,
-      floorY: b.start.y - 16, index: -1, name: 'Start'
+      x: b.start.x, y: b.start.y, z: b.start.z, yaw: b.start.yaw, name: 'Start'
     };
-    for (var c2 = 0; c2 < level.checkpoints.length; c2++) level.checkpoints[c2].index = c2;
+    for (var c2 = 0; c2 < level.gates.length; c2++) level.gates[c2].index = c2;
+
+    /* Absturzgrenze: 24 Einheiten unter dem naechstgelegenen Streckenpunkt.
+       Es gibt keine Checkpoints - wer darunter faellt, hat den Lauf beendet. */
+    level._floorHint = 0;
+    level.floorAt = function (x, z) {
+      var sp = this.spine, best = this._floorHint, bd = 1e18;
+      for (var i = 0; i < sp.length; i++) {
+        var dx = sp[i][0] - x, dz = sp[i][2] - z;
+        var d = dx * dx + dz * dz;
+        if (d < bd) { bd = d; best = i; }
+      }
+      this._floorHint = best;
+      return sp[best][1] - 24;
+    };
 
     level.reset = function () {
       for (var i2 = 0; i2 < this.ents.length; i2++) if (this.ents[i2].reset) this.ents[i2].reset();
@@ -1767,7 +1834,10 @@
         this.enemies[e].alive = true;
         this.enemies[e].squash = 0;
       }
-      for (var k = 0; k < this.checkpoints.length; k++) this.checkpoints[k].active = false;
+      for (var k = 0; k < this.gates.length; k++) {
+        this.gates[k].passed = false;
+        this.gates[k].flash = 0;
+      }
       this.time = 0;
     };
 
@@ -1886,22 +1956,27 @@
         batch.add('crystal', TMP, MAT.leafMid);
       }
 
-      for (i6 = 0; i6 < this.checkpoints.length; i6++) {
-        var cp = this.checkpoints[i6];
-        var mt = cp.active ? MAT.ringOn : MAT.ringOff;
-        var pulse = cp.active ? 1 : 0.9 + Math.sin(t * 3 + i6) * 0.06;
-        m4.compose(TMP, cp.x, cp.y + 3.4, cp.z, Math.PI / 2, cp.yaw, 0, 7.6 * pulse, 7.6 * pulse, 7.6 * pulse);
-        batch.add('torus', TMP, mt);
+      /* Zeittore: reine Zwischenzeit, kein Wiedereinstieg. */
+      for (i6 = 0; i6 < this.gates.length; i6++) {
+        var gt = this.gates[i6];
+        if (gt.flash > 0) gt.flash = Math.max(0, gt.flash - 0.016);
+        var lit = gt.passed ? 1 : 0;
+        var pulse = 1 + (gt.flash > 0 ? gt.flash * 0.25 : Math.sin(t * 3 + i6) * 0.03);
+        var gmat = gt.passed ? MAT.ringOn : MAT.ringOff;
         for (var sgn2 = -1; sgn2 <= 1; sgn2 += 2) {
-          var px2 = cp.x + Math.cos(cp.yaw) * sgn2 * 3.6;
-          var pz2 = cp.z - Math.sin(cp.yaw) * sgn2 * 3.6;
-          m4.composeYaw(TMP, px2, cp.y + 1.6, pz2, cp.yaw, 0.6, 3.2, 0.6);
-          batch.add('box', TMP, MAT.beam);
+          var px2 = gt.x + Math.cos(gt.yaw) * sgn2 * 5.2;
+          var pz2 = gt.z - Math.sin(gt.yaw) * sgn2 * 5.2;
+          m4.composeYaw(TMP, px2, gt.y + 4.2 * pulse, pz2, gt.yaw, 0.55, 8.4 * pulse, 0.55);
+          batch.add('box', TMP, gmat);
         }
-        if (cp.active) {
-          m4.composeYaw(TMP, cp.x, cp.y + 5.6, cp.z, cp.yaw + Math.sin(t * 3) * 0.12, 3.4, 2.0, 0.2);
-          batch.add('box', TMP, MAT.flag);
-        }
+        m4.composeYaw(TMP, gt.x, gt.y + 8.4 * pulse, gt.z, gt.yaw, 11.4, 0.55, 0.55);
+        batch.add('box', TMP, gmat);
+        /* Lichtvorhang im Tor */
+        m4.composeYaw(TMP, gt.x, gt.y + 4.2, gt.z, gt.yaw, 10.4, 8.4, 0.12);
+        glass.add('box', TMP, {
+          color: gmat.color, accent: gmat.accent, emissive: 1,
+          pattern: 0, patternScale: 1, alpha: (gt.passed ? 0.08 : 0.16) + gt.flash * 0.4
+        });
       }
 
       var f = this.finish;

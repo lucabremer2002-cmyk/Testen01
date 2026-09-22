@@ -153,7 +153,40 @@
         tone({ type: 'sine', freq: f * 2, dur: 0.5, vol: 0.14, delay: i * 0.1 });
       });
     },
-    ui: function () { tone({ type: 'square', freq: 660, dur: 0.07, vol: 0.18 }); }
+    ui: function () { tone({ type: 'square', freq: 660, dur: 0.07, vol: 0.18 }); },
+
+    /* Trick-Bestaetigung: steigt mit der Flow-Stufe an. */
+    trick: function (level) {
+      var base = 660 * Math.pow(1.122, (level || 0) * 3);
+      tone({ type: 'triangle', freq: base, dur: 0.12, vol: 0.24 });
+      tone({ type: 'triangle', freq: base * 1.5, dur: 0.18, vol: 0.16, delay: 0.05 });
+    },
+    /* Kristallkette: jede Stufe einen Ton hoeher. */
+    chain: function (n) {
+      var f = 740 * Math.pow(1.0595, Math.min(14, n * 2));
+      tone({ type: 'sine', freq: f, dur: 0.12, vol: 0.28 });
+      tone({ type: 'sine', freq: f * 2, dur: 0.2, vol: 0.14, delay: 0.03 });
+    },
+    flowUp: function (level) {
+      [0, 0.06, 0.12].forEach(function (d, i) {
+        tone({ type: 'triangle', freq: 440 * Math.pow(1.26, level + i), dur: 0.3, vol: 0.2, delay: d });
+      });
+    },
+    gate: function (ahead) {
+      tone({ type: 'triangle', freq: ahead ? 880 : 620, dur: 0.16, vol: 0.26 });
+      tone({ type: 'triangle', freq: ahead ? 1320 : 780, dur: 0.26, vol: 0.16, delay: 0.05 });
+      noise({ freq: 2600, to: 900, dur: 0.2, vol: 0.1, q: 0.8 });
+    },
+    restart: function () {
+      noise({ freq: 400, to: 3000, dur: 0.22, vol: 0.18, q: 0.7 });
+      tone({ type: 'square', freq: 520, to: 1040, dur: 0.16, vol: 0.2, glide: 'exp' });
+    },
+    newBest: function () {
+      [523, 659, 784, 1047, 1319, 1568].forEach(function (f, i) {
+        tone({ type: 'triangle', freq: f, dur: 0.6, vol: 0.28, delay: i * 0.075 });
+        tone({ type: 'sine', freq: f * 2, dur: 0.5, vol: 0.12, delay: i * 0.075 });
+      });
+    }
   };
 
   /* -------------------------------------------------------------- Musik */

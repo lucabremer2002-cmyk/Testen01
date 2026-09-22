@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Gipfelsprint - 3D Time Trial</title>
+<title>Gipfelsprint - Time Trial</title>
 <link rel="stylesheet" href="style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2358c7f0'/><path d='M1 13 L6 4 L9 9 L11 6 L15 13 Z' fill='%23ffffff'/><path d='M1 13 L6 4 L9 9 L11 6 L15 13 Z' fill='%234a8f3c' opacity='.55'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230d1b2e'/><path d='M1 13 L6 4 L9 9 L11 6 L15 13 Z' fill='%23ffd257'/></svg>">
 </head>
 <body>
 <canvas id="view"></canvas>
@@ -15,43 +15,53 @@
   <div class="hud__top">
     <div class="timer">
       <div id="timer" class="timer__value">00:00.000</div>
-      <div id="timerDelta" class="timer__delta"></div>
+      <div class="timer__row">
+        <span id="timerDelta" class="timer__delta"></span>
+        <span id="pbLine" class="timer__pb">PB --:--.---</span>
+      </div>
     </div>
     <div class="hud__side">
-      <div class="pill" id="pillBest">Bestzeit <b id="bestTime">--:--.---</b></div>
-      <div class="pill" id="pillGems">Kristalle <b><span id="gemCount">0</span>/<span id="gemTotal">0</span></b></div>
-      <div class="pill" id="pillMedal">Ziel <b id="nextMedal">Bronze</b></div>
+      <div id="crystalBox" class="crystals">
+        <svg viewBox="0 0 24 24" class="crystals__icon"><path d="M12 2 L19 9 L12 22 L5 9 Z"/></svg>
+        <b id="gemCount">0</b><small>/<span id="gemTotal">0</span></small>
+      </div>
+      <div id="routeBadge" class="route-badge"></div>
     </div>
   </div>
 
-  <div class="hud__center">
-    <div id="bigMessage" class="bigmsg"></div>
-  </div>
+  <div class="hud__center"><div id="bigMessage" class="bigmsg"></div></div>
 
   <div class="hud__bottom">
+    <div class="flow">
+      <div class="flow__bar"><i id="flowFill"></i></div>
+      <div class="flow__label"><b id="flowLabel">FLOW</b><span id="flowMult">x1.0</span></div>
+    </div>
     <div class="speedo">
       <div class="speedo__bar"><i id="speedFill"></i></div>
       <div class="speedo__label"><span id="speedValue">0</span> km/h</div>
     </div>
     <div class="abilities">
-      <div class="ability" id="abJump"><span>Doppel&shy;sprung</span></div>
-      <div class="ability" id="abDash"><span>Dash</span></div>
+      <div class="ability" id="abJump"><span>2×</span></div>
+      <div class="ability" id="abDash"><span>DASH</span></div>
     </div>
   </div>
 
-  <div id="toasts" class="toasts"></div>
+  <div id="tricks" class="tricks"></div>
   <div id="vignette" class="vignette"></div>
+  <div id="flash" class="flash"></div>
+  <div id="speedlines" class="speedlines"></div>
 </div>
 
 <!-- ----------------------------------------------------------- Menue -->
 <div id="menu" class="screen screen--menu">
   <div class="screen__inner">
     <h1 class="logo"><span>GIPFEL</span><em>SPRINT</em></h1>
-    <p class="tagline">Ein kurzes, schnelles 3D-Time-Trial. Renn den Berg hoch, so schnell du kannst.</p>
+    <p class="tagline">Ein Lauf. Keine Checkpoints. Drei Wege pro Abzweig &ndash; der schnellste ist der schwerste.</p>
 
     <div class="medals" id="menuMedals"></div>
+    <button id="btnStart" class="btn btn--big">Lauf starten</button>
 
-    <button id="btnStart" class="btn btn--big">Level starten</button>
+    <div class="statgrid" id="menuStats"></div>
 
     <div class="controls">
       <div class="controls__col">
@@ -64,16 +74,16 @@
         </ul>
       </div>
       <div class="controls__col">
-        <h3>Kamera &amp; Runde</h3>
+        <h3>Lauf</h3>
         <ul>
-          <li>Maus (klicken) oder <kbd>&larr;</kbd><kbd>&rarr;</kbd> Kamera drehen</li>
-          <li><kbd>R</kbd> Level sofort neu starten</li>
-          <li><kbd>K</kbd> Zum Checkpoint zurueck</li>
-          <li><kbd>P</kbd> / <kbd>Esc</kbd> Pause &nbsp; <kbd>M</kbd> Ton</li>
+          <li><kbd>R</kbd> Sofort neu starten</li>
+          <li>Maus (klicken) oder <kbd>&larr;</kbd><kbd>&rarr;</kbd> Kamera</li>
+          <li><kbd>G</kbd> Geist an/aus &nbsp; <kbd>M</kbd> Ton</li>
+          <li><kbd>P</kbd> / <kbd>Esc</kbd> Pause</li>
         </ul>
       </div>
     </div>
-    <p class="hint" id="menuBest"></p>
+    <p class="hint">Ein Sturz beendet den Lauf &ndash; du bist sofort wieder am Start.</p>
   </div>
 </div>
 
@@ -81,14 +91,20 @@
 <div id="result" class="screen screen--result" hidden>
   <div class="screen__inner">
     <div id="resultMedalBig" class="medal-big"></div>
-    <h2 id="resultTitle" class="result__title">FINISH!</h2>
+    <h2 id="resultTitle" class="result__title">ZIEL</h2>
+    <div id="resultNew" class="result__new" hidden>NEUE BESTZEIT</div>
+
+    <div class="result__time" id="resultTime">00:00.000</div>
+    <div class="result__diff" id="resultDiff"></div>
+
     <div class="result__grid">
-      <div class="result__row"><span>Zeit</span><b id="resultTime">00:00.000</b></div>
-      <div class="result__row"><span>Bestzeit</span><b id="resultBest">00:00.000</b></div>
+      <div class="result__row"><span>Bestzeit</span><b id="resultBest">--:--.---</b></div>
       <div class="result__row"><span>Kristalle</span><b id="resultGems">0/0</b></div>
-      <div class="result__row"><span>Stuerze</span><b id="resultDeaths">0</b></div>
+      <div class="result__row"><span>Route</span><b id="resultRoute">&ndash;</b></div>
+      <div class="result__row"><span>Flow-Punkte</span><b id="resultFlow">0</b></div>
     </div>
-    <div id="resultNew" class="result__new" hidden>NEUE BESTZEIT!</div>
+
+    <div class="splits" id="resultSplits"></div>
     <div class="medals" id="resultMedals"></div>
     <div class="result__buttons">
       <button id="btnRetry" class="btn btn--big">Nochmal <small>R</small></button>
@@ -103,14 +119,13 @@
     <h2 class="result__title">Pause</h2>
     <div class="result__buttons">
       <button id="btnResume" class="btn btn--big">Weiter</button>
-      <button id="btnRestart" class="btn btn--ghost">Neustart <small>R</small></button>
+      <button id="btnRestart" class="btn btn--ghost">Neu starten <small>R</small></button>
       <button id="btnQuit" class="btn btn--ghost">Menue</button>
     </div>
-    <p class="hint">Maus klicken, um die Kamera wieder mit der Maus zu steuern.</p>
   </div>
 </div>
 
-<div id="loading" class="screen screen--load"><div class="screen__inner"><div class="spinner"></div><p>Berg wird aufgebaut ...</p></div></div>
+<div id="loading" class="screen screen--load"><div class="screen__inner"><div class="spinner"></div><p>Strecke wird gebaut ...</p></div></div>
 <div id="fatal" class="screen screen--fatal" hidden><div class="screen__inner"><h2>WebGL2 wird benoetigt</h2><p id="fatalMsg"></p></div></div>
 
 <script src="src/math.js"></script>
@@ -118,6 +133,7 @@
 <script src="src/audio.js"></script>
 <script src="src/input.js"></script>
 <script src="src/physics.js"></script>
+<script src="src/ghost.js"></script>
 <script src="src/level.js"></script>
 <script src="src/player.js"></script>
 <script src="src/game.js"></script>
