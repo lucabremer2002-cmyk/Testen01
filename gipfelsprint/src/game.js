@@ -129,14 +129,17 @@
     /* Auf Beruehrungsgeraeten eine kleinere Schattenkarte: 2048 kostet dort
        spuerbar mehr, als der feinere Rand bringt. */
     if (this.gfx.shadowQuality) this.gfx.shadowQuality(this.input.isTouch ? 1024 : 2048);
-    this.level = LevelMod.build();
+    /* Auf Beruehrungsgeraeten weniger Halme: Gras ist der mit Abstand
+       groesste Posten an Instanzen und wird zweimal gezeichnet (Bild und
+       Schattenkarte). */
+    this.level = LevelMod.build({ grassScale: this.input.isTouch ? 0.5 : 1 });
     this.player = root.MR.player.create(this.level);
     this.cam = root.MR.player.createCamera();
     this.particles = new Particles(760);
 
-    this.staticBatch = this.gfx.createBatch(false);
     this.staticFar = this.gfx.createBatch(false);
-    this.staticGlass = this.gfx.createBatch(false);
+    this.staticChunks = [];
+    this.glassChunks = [];
     this.dynBatch = this.gfx.createBatch(true);
     this.dynGlass = this.gfx.createBatch(true);
 
@@ -167,16 +170,36 @@
     this.updateMenu();
   }
 
+  /* Die Strecke ist ein langes Band. Als ein einziger Stapel muss sie jedes
+     Bild komplett gezeichnet werden - auch die Teile hinter dem Ruecken und
+     die, die gar nicht in die Schattenkarte fallen. Deshalb wird sie in
+     Felder von 110 Einheiten zerlegt: jedes Feld hat eine Huellkugel und
+     faellt einzeln weg, wenn es weder im Bild noch im Schattenkasten liegt.
+     Groessere Felder sparen Zeichenaufrufe, kleinere verwerfen genauer;
+     110 ist etwa die Sichtweite im Nebel. */
+  var CHUNK = 300;
+
+  Game.prototype.chunkBatches = function (list) {
+    var map = Object.create(null), out = [], i;
+    for (i = 0; i < list.length; i++) {
+      var e = list[i], m = e.m;
+      var key = Math.floor(m[12] / CHUNK) + ':' + Math.floor(m[14] / CHUNK);
+      var bt = map[key];
+      if (!bt) { bt = map[key] = this.gfx.createBatch(false); out.push(bt); }
+      bt.add(e.mesh, m, e.mat);
+    }
+    for (i = 0; i < out.length; i++) out[i].upload().measure();
+    return out;
+  };
+
   Game.prototype.buildStatics = function () {
-    var v = this.level.visuals, i;
-    for (i = 0; i < v.length; i++) this.staticBatch.add(v[i].mesh, v[i].m, v[i].mat);
-    this.staticBatch.upload();
-    var f = this.level.far || [];
+    this.staticChunks = this.chunkBatches(this.level.visuals);
+    this.glassChunks = this.chunkBatches(this.level.glass);
+    var f = this.level.far || [], i;
     for (i = 0; i < f.length; i++) this.staticFar.add(f[i].mesh, f[i].m, f[i].mat);
     this.staticFar.upload();
-    var g = this.level.glass;
-    for (i = 0; i < g.length; i++) this.staticGlass.add(g[i].mesh, g[i].m, g[i].mat);
-    this.staticGlass.upload();
+    /* Die Kulisse steht rundum und wird nie verworfen. */
+    this.staticFar.cr = Infinity;
   };
 
   /* ----------------------------------------------------- Dauerhafte Daten */
@@ -1120,9 +1143,19 @@
                          p.y + 1,
                          p.z + Math.cos(this.cam.yaw) * 9);
     }
-    gfx.render(this.cam.viewProj, this.cam.invViewProj, this.cam.pos, t,
-      [this.staticBatch, this.staticFar, dyn], [this.staticGlass, glass],
-      [this.staticBatch, dyn]);
+    var op = this.opaqueList || (this.opaqueList = []);
+    op.length = 0;
+    op.push.apply(op, this.staticChunks);
+    op.push(this.staticFar, dyn);
+    var tr = this.glassList || (this.glassList = []);
+    tr.length = 0;
+    tr.push.apply(tr, this.glassChunks);
+    tr.push(glass);
+    var cast = this.castList || (this.castList = []);
+    cast.length = 0;
+    cast.push.apply(cast, this.staticChunks);
+    cast.push(dyn);
+    gfx.render(this.cam.viewProj, this.cam.invViewProj, this.cam.pos, t, op, tr, cast);
   };
 
   /* -------------------------------------------------------------- Start */

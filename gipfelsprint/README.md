@@ -211,6 +211,17 @@ src/game.js     Zustaende, feste 120-Hz-Simulation, Flow, HUD, Bestzeiten
   Mauszeiger oft nicht eingefangen werden. Schlaegt es fehl, wird es nicht
   erneut versucht - stattdessen dreht Ziehen mit gedrueckter Maustaste die
   Kamera, und die Pfeiltasten tun es weiterhin auch.
+* **Felder und Verwerfen**: die Strecke ist ein langes Band und wurde als
+  ein Stapel jedes Bild komplett gezeichnet, auch hinter dem Ruecken. Sie
+  ist jetzt in Felder von 300 Einheiten zerlegt, jedes mit Huellkugel.
+  Ein Feld faellt weg, wenn es weder in der Kamerapyramide noch im
+  Schattenkasten liegt. Die Feldgroesse ist ein Kompromiss: kleinere
+  Felder verwerfen genauer, kosten aber mehr Zeichenaufrufe - mit 110
+  waren es 106 Felder und bis zu 850 Aufrufe, schlechter als vorher.
+  Die Kugelpruefung fuer den Schattenkasten muss dessen Raumdiagonale
+  abdecken, nicht nur die Breite: der Kasten reicht laengs der
+  Sonnenrichtung weit hinter die Szene, sonst fehlen die Schatten hoher
+  Koerper.
 * **Schattenkarte**: ein eigener Zeichendurchgang schreibt die Tiefe aus
   Sicht der Sonne (2048, auf Beruehrungsgeraeten 1024). Der Kasten folgt
   dem Spieler, gerastert auf Texelschritte - sonst flimmern die Raender.
@@ -245,6 +256,22 @@ src/game.js     Zustaende, feste 120-Hz-Simulation, Flow, HUD, Bestzeiten
   dieselben Kamerawinkel wie die Maus im Pointer-Lock. Die Knoepfe liegen
   als eigene Elemente darueber und stoppen ihre Ereignisse, damit die
   Flaeche darunter nichts davon mitbekommt.
+
+### Messfallen, in die ich gelaufen bin
+
+Zwei Tests haben mir gruenes Licht gegeben, das nichts wert war - beide
+Male, weil die Messung am eigentlichen Vorgang vorbeiging:
+
+* **Knopfdruck per JavaScript**: `element.click()` umgeht die
+  Trefferpruefung des Browsers. Ein Knopf "funktioniert" damit auch dann,
+  wenn ein Finger ihn nie erreichen koennte. Tests tippen deshalb wirklich
+  (`page.tap`).
+* **Bildvergleich ohne stehendes Bild**: zwei aufeinanderfolgende Bilder
+  unterscheiden sich schon durch Wind, Kristalle, Tore und die
+  nachlaufende Kamera - gemessen wurden bis zu 99 Prozent abweichende
+  Pixel voellig ohne Aenderung. Ein Vergleich muss die Zeit einfrieren und
+  warten, bis zwei Bilder hintereinander gleich sind; erst dann sagt die
+  Abweichung etwas ueber die Aenderung aus.
 
 ### Was automatisiert geprueft wird
 

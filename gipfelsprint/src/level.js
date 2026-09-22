@@ -1899,8 +1899,11 @@
 
   /* --------------------------------------------------------------- Aufbau */
 
-  function build() {
+  function build(opts) {
+    opts = opts || {};
     var b = new L.Builder();
+    /* Dichte der Halme laesst sich fuer schwaechere Geraete herunterziehen. */
+    b.grassScale = opts.grassScale === undefined ? 1 : opts.grassScale;
     var SECTIONS = L.SECTIONS;
     var totalRise = 0;
 

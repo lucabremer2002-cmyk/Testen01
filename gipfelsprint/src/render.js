@@ -629,7 +629,38 @@
     this.gfx = gfx;
     this.dynamic = !!dynamic;
     this.groups = Object.create(null);
+    /* Huellkugel ueber alle Instanzen - damit laesst sich ein ganzer Stapel
+       verwerfen, ohne ihn zu zeichnen. Bei beweglichen Stapeln unbenutzt,
+       die sind klein und immer beim Spieler. */
+    this.cx = 0; this.cy = 0; this.cz = 0; this.cr = Infinity;
   }
+
+  /* Aus den hochgeladenen Instanzen die Huellkugel bestimmen. */
+  Batch.prototype.measure = function () {
+    var minX = Infinity, minY = Infinity, minZ = Infinity;
+    var maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    var maxScale = 0, any = false;
+    for (var k in this.groups) {
+      var g = this.groups[k], d = g.data;
+      for (var i = 0; i < g.count; i++) {
+        var o = i * STRIDE;
+        var x = d[o + 12], y = d[o + 13], z = d[o + 14];
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+        if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+        var s0 = Math.hypot(d[o], d[o + 1], d[o + 2]);
+        var s1 = Math.hypot(d[o + 4], d[o + 5], d[o + 6]);
+        var s2 = Math.hypot(d[o + 8], d[o + 9], d[o + 10]);
+        var sm = Math.max(s0, Math.max(s1, s2));
+        if (sm > maxScale) maxScale = sm;
+        any = true;
+      }
+    }
+    if (!any) { this.cr = -1; return this; }
+    this.cx = (minX + maxX) / 2; this.cy = (minY + maxY) / 2; this.cz = (minZ + maxZ) / 2;
+    this.cr = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2 + maxScale;
+    return this;
+  };
 
   Batch.prototype.clear = function () {
     for (var k in this.groups) this.groups[k].count = 0;
@@ -886,8 +917,53 @@
 
     gfx.createBatch = function (dynamic) { return new Batch(gfx, dynamic); };
 
-    function drawBatches(list) {
+    /* Sechs Ebenen der Kamerapyramide aus der Matrix. */
+    var planes = new Float32Array(24);
+    function extractPlanes(vp) {
+      var rows = [[3, 0, 1], [3, 0, -1], [3, 1, 1], [3, 1, -1], [3, 2, 1], [3, 2, -1]];
+      for (var i = 0; i < 6; i++) {
+        var a = rows[i][0], b2 = rows[i][1], sg = rows[i][2];
+        var px = vp[a] + sg * vp[b2];
+        var py = vp[4 + a] + sg * vp[4 + b2];
+        var pz = vp[8 + a] + sg * vp[8 + b2];
+        var pw = vp[12 + a] + sg * vp[12 + b2];
+        var l = Math.hypot(px, py, pz) || 1;
+        planes[i * 4] = px / l; planes[i * 4 + 1] = py / l;
+        planes[i * 4 + 2] = pz / l; planes[i * 4 + 3] = pw / l;
+      }
+    }
+
+    function inFrustum(b) {
+      if (!(b.cr < Infinity)) return b.cr !== -1;
+      for (var i = 0; i < 6; i++) {
+        var d = planes[i * 4] * b.cx + planes[i * 4 + 1] * b.cy + planes[i * 4 + 2] * b.cz + planes[i * 4 + 3];
+        if (d < -b.cr) return false;
+      }
+      return true;
+    }
+
+    /* Kugelpruefung um den Schattenkasten. Der Kasten ist laengs der
+       Sonnenrichtung deutlich tiefer als breit (er reicht hinter die
+       Szene, damit hohe Koerper noch hineinwerfen), deshalb muss der
+       Radius die Raumdiagonale abdecken - eine Pruefung nur ueber die
+       Breite laesst Schatten entfernter, hoher Koerper wegfallen. */
+    function nearLight(b) {
+      if (!(b.cr < Infinity)) return b.cr !== -1;
+      var reach = focus.r * 3.0 + b.cr;
+      var dx = b.cx - focus.x, dy = b.cy - focus.y, dz = b.cz - focus.z;
+      return dx * dx + dy * dy + dz * dz < reach * reach;
+    }
+
+    gfx.drawn = 0;
+
+    gfx.cull = true;
+    gfx.cullView = true;
+    gfx.cullShadow = true;
+
+    function drawBatches(list, test) {
       for (var i = 0; i < list.length; i++) {
+        if (gfx.cull && test && !test(list[i])) continue;
+        gfx.drawn++;
         var groups = list[i].groups;
         for (var k in groups) {
           var g = groups[k];
@@ -937,7 +1013,7 @@
         gl.useProgram(shadow.prog);
         gl.uniformMatrix4fv(shadow.u.uLightVP, false, lightVP);
         gl.uniform1f(shadow.u.uTime, time);
-        drawBatches(casters || opaque);
+        drawBatches(casters || opaque, gfx.cullShadow ? nearLight : null);
         gl.cullFace(gl.BACK);
       }
 
@@ -986,14 +1062,16 @@
         gl.uniform1i(main.u.uShadow, 2);
         gl.activeTexture(gl.TEXTURE0);
       }
-      drawBatches(opaque);
+      gfx.drawn = 0;
+      extractPlanes(viewProj);
+      drawBatches(opaque, gfx.cullView ? inFrustum : null);
 
       if (transparent && transparent.length) {
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.depthMask(false);
         gl.disable(gl.CULL_FACE);
-        drawBatches(transparent);
+        drawBatches(transparent, gfx.cullView ? inFrustum : null);
         gl.enable(gl.CULL_FACE);
         gl.depthMask(true);
         gl.disable(gl.BLEND);
