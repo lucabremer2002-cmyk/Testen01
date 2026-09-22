@@ -441,13 +441,12 @@
       /* Manuelle Steuerung hat Vorrang, danach richtet sich die Kamera
          langsam wieder hinter die Figur aus. */
       if (input) {
-        var mdx = input.mouse.locked ? input.mouse.dx * input.mouse.sensitivity : 0;
-        var mdy = input.mouse.locked ? input.mouse.dy * input.mouse.sensitivity : 0;
+        var look = input.lookDelta();
         var ca = input.camAxis();
         var kx = ca.x * 2.6 * dt, ky = ca.y * 1.4 * dt;
-        if (mdx || mdy || kx || ky) this.manualTimer = 0.9;
-        this.yaw += mdx + kx;
-        this.pitch += mdy + ky;
+        if (look.x || look.y || kx || ky) this.manualTimer = 0.9;
+        this.yaw += look.x + kx;
+        this.pitch += look.y + ky;
       }
       this.pitch = M.clamp(this.pitch, -0.55, 0.95);
       if (this.manualTimer > 0) this.manualTimer -= dt;

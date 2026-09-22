@@ -35,6 +35,30 @@ Voraussetzung ist ein Browser mit **WebGL2** (Chrome, Edge, Firefox, Safari 15+)
 Ein Gamepad wird erkannt (linker Stick laufen, rechter Stick Kamera,
 A springen, X/RT Dash).
 
+### Am Handy
+
+Beruehrung wird automatisch erkannt; dann erscheint die Bildschirm-
+steuerung und die Tastenhilfe verschwindet.
+
+| Geste | Wirkung |
+| --- | --- |
+| Linke Bildhaelfte ziehen | Schiebeknopf. Er erscheint unter dem Daumen und wandert mit, wenn man weit zieht. |
+| Ganz durchgedrueckt | Sprint - eine eigene Taste gibt es nicht |
+| Rechte Bildhaelfte wischen | Kamera drehen |
+| Knopf unten rechts | Sprung; halten macht den Sprung hoeher, nochmal tippen ist der Doppelsprung |
+| Knopf daneben | Dash |
+| Knoepfe oben rechts | Neu starten, Pause |
+
+Die Knoepfe leuchten, solange Sprung bzw. Dash bereit sind. Quer halten
+ist noetig - im Hochformat erscheint ein Hinweis. Ueber **Vollbild** im
+Menue verschwindet die Browserleiste (klappt nicht in jedem
+eingebetteten Rahmen und nicht auf iPhones).
+
+Auf Beruehrungsgeraeten wird die Renderaufloesung auf das 1,2-fache der
+CSS-Pixel gedeckelt - dreifache Pixeldichte kostet dort mehr Leistung als
+sie bringt. Faellt die Bildrate laenger unter 40, schaltet sich zusaetzlich
+Bloom ab.
+
 ## Der Kreislauf
 
 Ein Lauf endet nur auf zwei Arten: im Ziel oder mit einem Sturz. Es gibt
@@ -182,6 +206,11 @@ src/game.js     Zustaende, feste 120-Hz-Simulation, Flow, HUD, Bestzeiten
   nicht eine feste Hoehe - so bleibt die Grenze ueberall passend.
 * **Zeitnahme**: feste 120 Schritte pro Sekunde, unabhaengig von der
   Bildrate, sonst waeren Zeiten nicht vergleichbar.
+* **Beruehrung**: die linke Bildhaelfte liefert ueber einen nachziehenden
+  Schiebeknopf dieselben Achsen wie Tastatur oder Stick, die rechte
+  dieselben Kamerawinkel wie die Maus im Pointer-Lock. Die Knoepfe liegen
+  als eigene Elemente darueber und stoppen ihre Ereignisse, damit die
+  Flaeche darunter nichts davon mitbekommt.
 
 ### Was automatisiert geprueft wird
 

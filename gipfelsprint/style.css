@@ -633,3 +633,167 @@ kbd {
 }
 .stat-card span { display: block; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; opacity: .6; }
 .stat-card b { font-family: var(--mono); font-size: 17px; }
+
+/* ==========================================================================
+   Bedienung am Handy
+   ========================================================================== */
+
+html, body { overscroll-behavior: none; -webkit-touch-callout: none; }
+
+.btn--small { padding: 9px 20px; font-size: 13px; margin-top: 10px; }
+
+.hint--touch { display: none; }
+body.touch .hint--touch { display: block; }
+body.touch .controls { display: none; }
+
+/* Bildschirmsteuerung */
+
+.touch { position: absolute; inset: 0; pointer-events: none; }
+.touch[hidden] { display: none; }
+
+.stick {
+  position: absolute;
+  width: 116px;
+  height: 116px;
+  margin: -58px 0 0 -58px;
+  border-radius: 50%;
+  background: rgba(10, 26, 44, .28);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22);
+  opacity: 0;
+  transition: opacity .12s;
+  left: -200px;
+  top: -200px;
+}
+.stick.on { opacity: 1; }
+.stick i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 54px;
+  height: 54px;
+  margin: -27px 0 0 -27px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .34);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .5), 0 4px 14px rgba(0, 0, 0, .35);
+}
+
+.touch__right {
+  position: absolute;
+  right: calc(env(safe-area-inset-right, 0px) + 18px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.tbtn {
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  border: 0;
+  font-family: inherit;
+  font-weight: 900;
+  letter-spacing: .06em;
+  color: var(--paper);
+  background: rgba(10, 26, 44, .42);
+  box-shadow: inset 0 0 0 2.5px rgba(255, 255, 255, .34);
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-items: center;
+  transition: transform .07s, background .12s, box-shadow .12s;
+}
+.tbtn:active, .tbtn.held { transform: scale(.92); background: rgba(255, 255, 255, .26); }
+
+.tbtn--jump {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+}
+.tbtn--jump svg { width: 42px; height: 42px; fill: currentColor; }
+.tbtn--dash {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.tbtn.ready { box-shadow: inset 0 0 0 2.5px var(--plat), 0 0 20px rgba(158, 245, 255, .3); }
+.tbtn.used { opacity: .4; box-shadow: inset 0 0 0 2.5px rgba(255, 255, 255, .2); }
+
+.tbtn--small {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  font-size: 17px;
+  line-height: 1;
+}
+#tBtnRestart { right: calc(env(safe-area-inset-right, 0px) + 68px); }
+#tBtnPause { right: calc(env(safe-area-inset-right, 0px) + 14px); }
+
+body.touch .abilities { display: none; }
+body.touch .hud__top { padding-right: 118px; }
+/* Unten rechts liegen die Knoepfe - Anzeigen wandern nach links. */
+body.touch .hud__bottom {
+  justify-content: flex-start;
+  gap: 14px;
+  padding-bottom: 6px;
+  padding-right: 210px;
+}
+body.touch .tricks { top: 24%; right: auto; left: 50%; transform: translateX(-50%); align-items: center; }
+body.touch .speedo { width: clamp(92px, 20vw, 150px); }
+body.touch .flow { width: clamp(92px, 20vw, 150px); }
+
+/* Hochformat: einmal kurz drehen bitte */
+
+.rotate { display: none; }
+
+@media (orientation: portrait) and (pointer: coarse) {
+  .rotate {
+    display: grid;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    place-items: center;
+    background: linear-gradient(180deg, #13304e, #060d18);
+    text-align: center;
+  }
+  .rotate__icon { font-size: 64px; animation: rotateHint 2s ease-in-out infinite; }
+  .rotate p { font-size: 19px; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+}
+
+@keyframes rotateHint {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-90deg); }
+}
+
+/* Enge Bildschirme: HUD kompakter */
+
+@media (max-height: 460px) {
+  .hud { padding: 8px 12px; }
+  .timer__value { font-size: clamp(24px, 6vh, 40px); padding: .08em .22em; }
+  .timer__row { margin-top: 2px; }
+  .bigmsg { font-size: clamp(34px, 14vh, 90px); }
+  .screen__inner { max-height: 100%; }
+  .logo { font-size: clamp(30px, 10vh, 56px); }
+  .tagline { margin-bottom: 10px; font-size: 12px; }
+  .medals { margin: 8px 0 12px; }
+  .medal { min-width: 84px; padding: 7px 10px; }
+  .medal__dot { width: 15px; height: 15px; margin-bottom: 4px; }
+  .medal__time { font-size: 12px; }
+  .statgrid { gap: 5px; margin-bottom: 12px; }
+  .stat-card { padding: 5px 9px; }
+  .stat-card b { font-size: 14px; }
+  .result__time { font-size: clamp(30px, 11vh, 60px); }
+  .result__row { padding: 5px 12px; }
+  .btn { padding: 11px 24px; }
+}
+
+@media (max-width: 720px) {
+  .crystals b { font-size: 19px; }
+  .trick { font-size: 14px; padding: 4px 11px; }
+  .result__grid { max-width: 340px; }
+  .splits { gap: 4px; }
+  .split { font-size: 11px; padding: 4px 8px; }
+}

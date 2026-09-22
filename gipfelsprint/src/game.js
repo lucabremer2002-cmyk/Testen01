@@ -222,7 +222,11 @@
 
   Game.prototype.bindUi = function () {
     var self = this;
-    $('btnStart').addEventListener('click', function () { Audio.unlock(); self.startRun(false); });
+    $('btnStart').addEventListener('click', function () {
+      Audio.unlock();
+      if (self.input.isTouch && !document.fullscreenElement) self.toggleFullscreen();
+      self.startRun(false);
+    });
     $('btnRetry').addEventListener('click', function () { self.startRun(true); });
     $('btnMenu').addEventListener('click', function () { self.toMenu(); });
     $('btnResume').addEventListener('click', function () { self.setPaused(false); });
@@ -263,6 +267,69 @@
       if (document.hidden && self.state === 'run') self.setPaused(true);
     });
     root.addEventListener('resize', function () { self.resize(); });
+    root.addEventListener('orientationchange', function () {
+      root.setTimeout(function () { self.resize(); }, 250);
+    });
+
+    if (this.input.isTouch) this.bindTouch();
+  };
+
+  /* Bildschirmsteuerung: Schiebeknopf links, Knoepfe rechts. */
+  Game.prototype.bindTouch = function () {
+    var self = this;
+    document.body.classList.add('touch');
+    $('touchUI').hidden = false;
+    $('btnFullscreen').hidden = false;
+
+    function press(el, onDown, onUp) {
+      var start = function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        el.classList.add('held');
+        onDown();
+      };
+      var end = function (e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        el.classList.remove('held');
+        if (onUp) onUp();
+      };
+      el.addEventListener('touchstart', start, { passive: false });
+      el.addEventListener('touchend', end, { passive: false });
+      el.addEventListener('touchcancel', end, { passive: false });
+      el.addEventListener('mousedown', start);
+      el.addEventListener('mouseup', end);
+      el.addEventListener('mouseleave', end);
+    }
+
+    press($('tBtnJump'),
+      function () { Audio.unlock(); self.input.setVirtual('jump', true); },
+      function () { self.input.setVirtual('jump', false); });
+    press($('tBtnDash'),
+      function () { Audio.unlock(); self.input.setVirtual('dash', true); },
+      function () { self.input.setVirtual('dash', false); });
+    press($('tBtnRestart'), function () { self.startRun(true); });
+    press($('tBtnPause'), function () { self.setPaused(self.state !== 'pause'); });
+
+    /* Der Schiebeknopf erscheint dort, wo der Daumen aufsetzt. */
+    var stick = $('stick'), knob = $('stickKnob');
+    this.input.onStick = function (active, ox, oy, dx, dy) {
+      if (!active) { stick.classList.remove('on'); return; }
+      stick.classList.add('on');
+      stick.style.left = ox + 'px';
+      stick.style.top = oy + 'px';
+      knob.style.transform = 'translate(' + dx.toFixed(0) + 'px,' + dy.toFixed(0) + 'px)';
+    };
+
+    $('btnFullscreen').addEventListener('click', function () { self.toggleFullscreen(); });
+  };
+
+  Game.prototype.toggleFullscreen = function () {
+    var el = document.documentElement;
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' });
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    } catch (e) { /* iOS kann das nicht - dann eben ohne */ }
   };
 
   Game.prototype.updateMenu = function () {
@@ -775,8 +842,17 @@
     $('flowLabel').textContent = this.flow > 0.02 ? FLOW_NAMES[this.flowLevel] : 'Flow';
     $('flowMult').textContent = 'x' + (1 + this.flowLevel * 0.5).toFixed(1);
     $('hud').className = 'hud flow--l' + this.flowLevel;
-    $('abJump').className = 'ability' + (p.jumps > 0 || p.grounded ? ' ready' : ' used');
-    $('abDash').className = 'ability' + (p.dashCharge > 0 && p.dashCooldown <= 0 ? ' ready' : ' used');
+    var jumpReady = p.jumps > 0 || p.grounded;
+    var dashReady = p.dashCharge > 0 && p.dashCooldown <= 0;
+    $('abJump').className = 'ability' + (jumpReady ? ' ready' : ' used');
+    $('abDash').className = 'ability' + (dashReady ? ' ready' : ' used');
+    if (this.input.isTouch) {
+      var bj = $('tBtnJump'), bd = $('tBtnDash');
+      bj.classList.toggle('ready', jumpReady);
+      bj.classList.toggle('used', !jumpReady);
+      bd.classList.toggle('ready', dashReady);
+      bd.classList.toggle('used', !dashReady);
+    }
     $('speedlines').className = 'speedlines' + (p.speed > 26 ? ' on' : '');
   };
 
@@ -865,7 +941,10 @@
   /* ------------------------------------------------------------- Frame */
 
   Game.prototype.resize = function () {
-    var dpr = Math.min(root.devicePixelRatio || 1, this.lowQuality ? 1 : 2);
+    /* Handys haben oft dreifache Pixeldichte - das kostet mehr Leistung als
+       es bringt. Deshalb deutlich niedriger deckeln. */
+    var cap = this.lowQuality ? 1 : (this.input.isTouch ? 1.2 : 2);
+    var dpr = Math.min(root.devicePixelRatio || 1, cap);
     this.gfx.resize(dpr);
   };
 
@@ -883,7 +962,9 @@
       this.cam.wish(ax.x, ax.y, this.wish || (this.wish = [0, 0]));
       cmd.wishX = this.wish[0];
       cmd.wishZ = this.wish[1];
-      cmd.sprint = input.down('sprint');
+      /* Am Handy gibt es keine Sprinttaste: wer den Knopf ganz durchdrueckt,
+         sprintet. */
+      cmd.sprint = input.down('sprint') || (ax.fromTouch && ax.len > 0.78);
       cmd.dash = input.hit('dash');
       cmd.jumpPressed = input.hit('jump');
       cmd.jumpHeld = input.down('jump');
