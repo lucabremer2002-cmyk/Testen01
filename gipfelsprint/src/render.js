@@ -425,8 +425,11 @@
     /* Im Schatten faellt nur das Sonnenlicht weg, das Umgebungslicht
        bekommt einen kuehlen Einschlag - das trennt Licht und Schatten
        farblich, statt nur dunkler zu werden. */
-    '  vec3 shadeTint = mix(uSkyCol * 1.10, vec3(1.0), sh);',
-    '  vec3 col = base * (amb * 0.44 * shadeTint + uSunCol * ndl * 1.34 * sh + uSunCol * fill * 0.16);',
+    /* Der Einschlag im Schatten war zu blau und zu dunkel: enge Schluchten,
+       die ganz im Schatten liegen, wurden unlesbar. Etwas mehr
+       Umgebungslicht und ein schwaecherer Farbstich. */
+    '  vec3 shadeTint = mix(uSkyCol * 1.02 + 0.10, vec3(1.0), sh);',
+    '  vec3 col = base * (amb * 0.54 * shadeTint + uSunCol * ndl * 1.30 * sh + uSunCol * fill * 0.19);',
 
     /* Glanz fuer Wasser und Kristall */
     '  if (pat == 4 || pat == 6) {',

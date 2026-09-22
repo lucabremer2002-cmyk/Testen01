@@ -211,6 +211,19 @@ src/game.js     Zustaende, feste 120-Hz-Simulation, Flow, HUD, Bestzeiten
   Mauszeiger oft nicht eingefangen werden. Schlaegt es fehl, wird es nicht
   erneut versucht - stattdessen dreht Ziehen mit gedrueckter Maustaste die
   Kamera, und die Pfeiltasten tun es weiterhin auch.
+* **Lesbare Lauflaechen**: im Canyon waren Wand und Weg beide warmrot -
+  bei Tempo sah man nicht, worauf man treten kann. Begehbare Flaechen
+  haben dort jetzt eine helle, sandfarbene Oberseite bei gleichbleibend
+  roter Seite.
+* **Fuelllicht gegen die Eigenfarbe**: roter Fels unter rotem Licht ergibt
+  ein einfarbiges Bild. Im Canyon kommt das Licht von oben deshalb vom
+  kuehlen Himmel, waehrend die Ruecklichtfarbe von unten warm bleibt -
+  Schatten gehen ins Blaue, beleuchtete Flaechen ins Warme.
+* **Bildschirmgroessen**: die Schriftgroessen im Ergebnis hingen nur an
+  der Fensterbreite. Auf einem breiten, niedrigen Fenster liefen sie ins
+  Maximum und die untere Haelfte lag unter dem Rand. Sie sind jetzt an
+  beide Achsen gekoppelt (`min(vw, vh)`), dazu ein eigener Satz Werte
+  unter 760 px Hoehe.
 * **Figur**: gebaut aus wenigen, klar getrennten Farbflaechen - heller
   Helm mit dunklem Visier, blauer Koerper, Gold als Akzent, roter Schal.
   Viele kleine Farbflecken zerfallen bei Tempo. Statt einer Laufschleife

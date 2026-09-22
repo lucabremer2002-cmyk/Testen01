@@ -64,6 +64,9 @@
     /* Grasnarbe, die ueber die Felskante haengt: oben Gras, an der
        Unterkante erdig - genau die Kante, an der eine Plattform sonst als
        sauberer Quader endet. */
+    /* Abgelaufene Erde im Gras: dieselbe Farbe wie die Plattformseite,
+       damit die Flecken wie durchscheinender Untergrund wirken. */
+    dirtPatch: mat([0.50, 0.30, 0.16], [0.56, 0.36, 0.19], { pattern: 3, patternScale: 0.7 }),
     turf: mat([0.30, 0.52, 0.16], [0.19, 0.62, 0.20], { pattern: 5, patternScale: 0.9 }),
     turfLush: mat([0.26, 0.54, 0.20], [0.15, 0.66, 0.28], { pattern: 5, patternScale: 1.1 }),
     turfDry: mat([0.46, 0.44, 0.14], [0.66, 0.62, 0.18], { pattern: 5, patternScale: 0.8 }),
@@ -109,10 +112,14 @@
     iceSolid: mat([0.17, 0.63, 1.0], [0.84, 1.0, 1.0], { emissive: 0.18, pattern: 6, patternScale: 1.2 }),
 
     /* --- Canyon: Korallenrot statt Ziegelbraun --- */
-    canyon: mat([0.66, 0.15, 0.09], [1.0, 0.52, 0.25], { pattern: 3, patternScale: 0.30 }),
+    canyon: mat([0.58, 0.18, 0.13], [0.92, 0.52, 0.31], { pattern: 3, patternScale: 0.30 }),
     canyonDark: mat([0.40, 0.09, 0.08], [0.74, 0.27, 0.19], { pattern: 3, patternScale: 0.40 }),
-    canyonLight: mat([0.86, 0.31, 0.16], [1.0, 0.77, 0.45], { pattern: 3, patternScale: 0.55 }),
-    mesa: mat([0.74, 0.20, 0.11], [1.0, 0.62, 0.35], { pattern: 1, patternScale: 0.22 }),
+    canyonLight: mat([0.78, 0.34, 0.20], [0.98, 0.76, 0.50], { pattern: 3, patternScale: 0.55 }),
+    /* Begehbare Flaechen im Canyon: Seiten im Wandton, Oberseite hell und
+       sandfarben. Waren Wand und Weg beide warmrot, sah man im Lauf nicht,
+       worauf man treten kann. */
+    canyonDeck: mat([0.66, 0.19, 0.11], [0.97, 0.84, 0.60], { pattern: 3, patternScale: 0.5 }),
+    mesa: mat([0.66, 0.23, 0.15], [0.94, 0.62, 0.40], { pattern: 1, patternScale: 0.22 }),
 
     /* --- Kristallhoehle: Magenta und Cyan --- */
     crystalRock: mat([0.11, 0.05, 0.31], [0.31, 0.17, 0.62], { pattern: 3, patternScale: 0.5 }),
@@ -269,6 +276,33 @@
         var es = 0.8 + r() * 1.1;
         this.deco(rockMesh(), lx + ex, ly - 0.2, lz + ez,
           es * 1.5, es * 0.55, es * 1.4, turf, [(r() - 0.5) * 0.3, r() * 6.28, (r() - 0.5) * 0.3]);
+      }
+    }
+
+    if (turf) {
+      /* Abgelaufene Erdstellen: flache Flecken knapp ueber der Oberflaeche.
+         Sie muessen flach bleiben - eine Erhebung mitten auf der Lauflinie
+         haette keinen Koerper und man liefe sichtbar hindurch. */
+      var patches = 2 + Math.floor(r() * 3);
+      for (var pI = 0; pI < patches; pI++) {
+        var px2 = (r() - 0.5) * w * 0.8, pz2 = (r() - 0.5) * d * 0.8;
+        var ps2 = 1.6 + r() * 3.4;
+        this.deco('blob', lx + px2, ly + 0.03, lz + pz2, ps2 * 1.6, 0.10, ps2 * 1.3,
+          MAT.dirtPatch, [0, r() * 6.28, 0]);
+      }
+      /* Gelaendewellen ausserhalb der Lauflaeche: Relief, ohne dass jemand
+         darauf treten koennte. */
+      var mounds = 2 + Math.floor(r() * 2);
+      for (var mI2 = 0; mI2 < mounds; mI2++) {
+        var ms = 0;
+        var mx = 0, mz = 0;
+        if (mI2 % 2) { mx = (r() > 0.5 ? 1 : -1) * (w / 2 + 2.5 + r() * 2); mz = (r() - 0.5) * d; }
+        else { mz = (r() > 0.5 ? 1 : -1) * (d / 2 + 2.5 + r() * 2); mx = (r() - 0.5) * w; }
+        ms = 3 + r() * 4;
+        this.deco('blob', lx + mx, ly - 0.7 + r() * 0.5, lz + mz, ms * 2.0, ms * 0.7, ms * 1.7,
+          turf, [0, r() * 6.28, 0]);
+        this.grassTufts(lx + mx, ly + ms * 0.2, lz + mz, ms * 0.7, 4,
+          { mat: MAT.grassBlade, size: 0.9 });
       }
     }
 
@@ -1457,10 +1491,14 @@
   function forkCanyon(b) {
     var r = b.rand, i;
     b.zone('Canyon', 60, 150, {
-      fogCol: [1.0, 0.70, 0.62], fogDensity: 0.0022,
-      zenith: [0.20, 0.34, 0.92], horizon: [1.0, 0.66, 0.56],
-      skyCol: [0.82, 0.54, 0.58], groundCol: [0.54, 0.20, 0.18],
-      sunCol: [1.24, 0.94, 0.68], ambient: 'dust'
+      /* Roter Fels unter rotem Licht ergibt ein einfarbiges Bild. Das
+         Fuelllicht von oben ist deshalb der kuehle Himmel, die Ruecklicht-
+         farbe von unten bleibt warm (der Fels strahlt zurueck) - so gehen
+         Schatten ins Blaue und beleuchtete Flaechen ins Warme. */
+      fogCol: [0.94, 0.78, 0.74], fogDensity: 0.0022,
+      zenith: [0.12, 0.36, 0.94], horizon: [1.0, 0.74, 0.60],
+      skyCol: [0.56, 0.70, 0.98], groundCol: [0.52, 0.22, 0.16],
+      sunCol: [1.20, 1.02, 0.82], ambient: 'dust'
     });
 
     /* Canyonwaende */
@@ -1509,7 +1547,7 @@
       var pz = 6 + i * 16;
       var py = 1.0 + i * 0.4;
       var px = 2 + Math.sin(i * 1.1) * 1.6;
-      b.plat(px, py, pz, 7, 8, MAT.canyonLight, { thickness: 1.2 });
+      b.plat(px, py, pz, 7, 8, MAT.canyonDeck, { thickness: 1.2 });
       b.deco('cylinder', px, py - 16, pz, 6.4, 32, 6.4, MAT.canyon);
       if (i === 1 || i === 3 || i === 5) b.gem(px, py + 1.6, pz, { hint: 'Pfeiler' });
       b.mark(px, py, pz);
@@ -1521,7 +1559,7 @@
     for (i = 0; i < 7; i++) {
       var iz = 12 + i * 24;
       var iy = 11 + i * 0.5;
-      b.plat(17, iy, iz, 7, 9, MAT.mesa, { thickness: 1.4 });
+      b.plat(17, iy, iz, 7, 9, MAT.canyonDeck, { thickness: 1.4 });
       b.routeMark(0, 2, 17, iy, iz);
       b.deco('cylinder', 17, iy - 20, iz, 6, 40, 6, MAT.canyonDark);
       if (i < 4) b.gem(17, iy + 2.6, iz + 12, { hint: 'im Sprungbogen' });
@@ -1530,7 +1568,7 @@
     b.routeArch(17, 11, 6, 8, 5, 2);
 
     /* ---- Zusammenfuehrung ---- */
-    b.plat(0, 4, 180, 28, 22, MAT.mesa, { thickness: 2.4 });         /* 169 .. 191 */
+    b.plat(0, 4, 180, 28, 22, MAT.canyonDeck, { thickness: 2.4 });         /* 169 .. 191 */
     b.mass(0, 1.6, 180, 26, 44, 20, MAT.canyon);
     b.gate(0, 4, 180, { name: 'Canyon' });
     b.rock(-11, 4, 186, 1.4, { mat: MAT.canyonLight, kind: 'stack' });
