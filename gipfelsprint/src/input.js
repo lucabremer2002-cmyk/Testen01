@@ -46,7 +46,9 @@
 
     on(canvas, 'mousedown', function (e) {
       if (e.button === 0 && !mouse.locked && api.wantPointerLock) {
-        if (canvas.requestPointerLock) canvas.requestPointerLock();
+        /* In eingebetteten Seiten kann das verboten sein - dann bleibt die
+           Kamerasteuerung ueber die Pfeiltasten. */
+        try { if (canvas.requestPointerLock) canvas.requestPointerLock(); } catch (err) { /* egal */ }
       }
       if (e.button === 0) { keys.Mouse0 = true; pressed.Mouse0 = true; }
       if (e.button === 2) { keys.Mouse2 = true; pressed.Mouse2 = true; }
