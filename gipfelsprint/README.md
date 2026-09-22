@@ -211,6 +211,12 @@ src/game.js     Zustaende, feste 120-Hz-Simulation, Flow, HUD, Bestzeiten
   Mauszeiger oft nicht eingefangen werden. Schlaegt es fehl, wird es nicht
   erneut versucht - stattdessen dreht Ziehen mit gedrueckter Maustaste die
   Kamera, und die Pfeiltasten tun es weiterhin auch.
+* **Plattformkanten**: eine Plattform endete als sauberer Quader - die
+  auffaelligste Prototyp-Spur. Feste Plattformen ab 5 Einheiten
+  Kantenlaenge bekommen jetzt eine ueberstehende Grasnarbe und einen Saum
+  aus Brocken. Das ist reine Deko: der Koerper fuer die Physik bleibt der
+  Quader darunter, sonst gingen Spruenge anders aus als vermessen.
+  Bewegliche Plattformen bekommen nichts, ihre Deko bliebe stehen.
 * **Felder und Verwerfen**: die Strecke ist ein langes Band und wurde als
   ein Stapel jedes Bild komplett gezeichnet, auch hinter dem Ruecken. Sie
   ist jetzt in Felder von 300 Einheiten zerlegt, jedes mit Huellkugel.

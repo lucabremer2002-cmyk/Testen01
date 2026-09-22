@@ -61,6 +61,14 @@
     leafAutumn: mat([0.72, 0.21, 0.03], [1.0, 0.68, 0.14], { pattern: 5, patternScale: 1.0 }),
     /* Bonbonfarbene Kronen zwischen den gruenen: ohne sie ist eine Wiese
        voller Baeume eine einzige gruene Flaeche. */
+    /* Grasnarbe, die ueber die Felskante haengt: oben Gras, an der
+       Unterkante erdig - genau die Kante, an der eine Plattform sonst als
+       sauberer Quader endet. */
+    turf: mat([0.30, 0.52, 0.16], [0.19, 0.62, 0.20], { pattern: 5, patternScale: 0.9 }),
+    turfLush: mat([0.26, 0.54, 0.20], [0.15, 0.66, 0.28], { pattern: 5, patternScale: 1.1 }),
+    turfDry: mat([0.46, 0.44, 0.14], [0.66, 0.62, 0.18], { pattern: 5, patternScale: 0.8 }),
+    turfCool: mat([0.20, 0.38, 0.14], [0.15, 0.44, 0.16], { pattern: 5, patternScale: 0.9 }),
+
     /* Muster 10 heisst: dieser Koerper schwingt im Wind und wird vom Grund
        zur Spitze heller. Nur fuer Halme und Buesche, nicht fuer den Boden. */
     grassBlade: mat([0.07, 0.40, 0.14], [0.36, 0.92, 0.26], { pattern: 10 }),
@@ -223,6 +231,68 @@
   };
 
   /* Sichtbares Objekt ohne Kollision. */
+  /* Kantenbehandlung einer Plattform: ueberstehende Grasnarbe und ein Saum
+     aus Brocken. Rein dekorativ - der Koerper fuer die Physik bleibt der
+     Quader darunter, sonst wuerden Spruenge anders ausgehen als gemessen.
+     Nur fuer feste Plattformen ab 5 Einheiten Kantenlaenge; bewegliche
+     bekommen nichts, ihre Deko wuerde stehenbleiben. */
+  var TURF_FOR = null;
+  var ROCK_MESHES = ['rock', 'rock2', 'rock3'];
+
+  Builder.prototype.platTrim = function (lx, ly, lz, w, d, m) {
+    var r = this.rand;
+    /* `pick` liegt im zweiten Modul - hier eine eigene kleine Auswahl. */
+    function rockMesh() { return ROCK_MESHES[Math.floor(r() * 3) % 3]; }
+    if (!TURF_FOR) {
+      TURF_FOR = [
+        [MAT.meadow, MAT.turf], [MAT.meadowLush, MAT.turfLush],
+        [MAT.meadowDry, MAT.turfDry], [MAT.forestFloor, MAT.turfCool],
+        [MAT.moss, MAT.turfCool]
+      ];
+    }
+    var turf = null;
+    for (var i = 0; i < TURF_FOR.length; i++) if (TURF_FOR[i][0] === m) { turf = TURF_FOR[i][1]; break; }
+
+    if (turf) {
+      /* Narbe leicht ueberstehend und minimal ueber der Oberflaeche. */
+      this.deco('box', lx, ly - 0.15, lz, w + 0.8, 0.34, d + 0.8, turf);
+      /* Unruhige Kante: kleine Grasbrocken entlang des Randes. */
+      var per = Math.round((w + d) * 0.16);
+      for (var e = 0; e < per; e++) {
+        var side = e % 4, f = r();
+        var ex = 0, ez = 0;
+        if (side === 0) { ex = (f - 0.5) * w; ez = d / 2 + 0.3; }
+        else if (side === 1) { ex = (f - 0.5) * w; ez = -d / 2 - 0.3; }
+        else if (side === 2) { ex = w / 2 + 0.3; ez = (f - 0.5) * d; }
+        else { ex = -w / 2 - 0.3; ez = (f - 0.5) * d; }
+        var es = 0.8 + r() * 1.1;
+        this.deco(rockMesh(), lx + ex, ly - 0.2, lz + ez,
+          es * 1.5, es * 0.55, es * 1.4, turf, [(r() - 0.5) * 0.3, r() * 6.28, (r() - 0.5) * 0.3]);
+      }
+    }
+
+    /* Saum aus Brocken am Fuss der Kante - bricht die gerade Quaderlinie. */
+    var rockMat = turf ? MAT.rockDark : null;
+    if (!rockMat) {
+      if (m === MAT.snow || m === MAT.snowDeep || m === MAT.iceSolid) rockMat = MAT.rock;
+      else if (m === MAT.sandstone || m === MAT.sandstoneWorn || m === MAT.marble) rockMat = MAT.sandstoneWorn;
+      else if (m === MAT.canyon || m === MAT.canyonLight || m === MAT.mesa) rockMat = MAT.canyonDark;
+    }
+    if (!rockMat) return;
+    var n = Math.round((w + d) * 0.10);
+    for (var k = 0; k < n; k++) {
+      var sd = k % 4, g = r();
+      var gx = 0, gz = 0;
+      if (sd === 0) { gx = (g - 0.5) * w * 0.9; gz = d / 2; }
+      else if (sd === 1) { gx = (g - 0.5) * w * 0.9; gz = -d / 2; }
+      else if (sd === 2) { gx = w / 2; gz = (g - 0.5) * d * 0.9; }
+      else { gx = -w / 2; gz = (g - 0.5) * d * 0.9; }
+      var gs = 0.9 + r() * 1.3;
+      this.deco(rockMesh(), lx + gx, ly - 0.9 - r() * 0.7, lz + gz,
+        gs * 1.7, gs * 1.5, gs * 1.6, rockMat, [(r() - 0.5) * 0.5, r() * 6.28, (r() - 0.5) * 0.5]);
+    }
+  };
+
   Builder.prototype.deco = function (mesh, lx, ly, lz, sx, sy, sz, material, rot) {
     var m = new Float32Array(16);
     var x = this.toWorldX(lx, lz), z = this.toWorldZ(lx, lz), y = this.cursor.y + ly;
@@ -283,6 +353,7 @@
     var t = opts.thickness || 1.4;
     var m = material || MAT.meadow;
     var c = this.block(lx, ly - t / 2, lz, w, t, d, m, opts);
+    if (!opts.dynamic && opts.trim !== false && w >= 5 && d >= 5) this.platTrim(lx, ly, lz, w, d, m);
     if (opts.grass !== false) {
       if (!GRASS_FOR) {
         GRASS_FOR = [
