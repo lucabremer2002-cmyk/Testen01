@@ -5,7 +5,12 @@
 (function (root) {
   'use strict';
 
-  var isTouch = ('ontouchstart' in root) || (root.navigator && root.navigator.maxTouchPoints > 0);
+  /* Ein Notebook mit Touchscreen soll nicht die Handy-Bedienung bekommen:
+     es zaehlt der grobe Zeiger, nicht die blosse Faehigkeit. */
+  var hasTouchEvents = ('ontouchstart' in root) || (root.navigator && root.navigator.maxTouchPoints > 0);
+  var coarse = !!(root.matchMedia && (root.matchMedia('(pointer: coarse)').matches ||
+                                      root.matchMedia('(hover: none)').matches));
+  var isTouch = hasTouchEvents && coarse;
 
   function create(canvas) {
     var keys = Object.create(null);
@@ -57,11 +62,16 @@
     on(root, 'keyup', function (e) { keys[e.code] = false; });
     on(root, 'blur', function () { for (var k in keys) keys[k] = false; });
 
+    /* Ziehen mit gedrueckter Maustaste als Ersatz, wenn der Mauszeiger nicht
+       eingefangen werden darf - etwa in einer eingebetteten Seite. */
+    var drag = { on: false, x: 0, y: 0 };
+
     on(canvas, 'mousedown', function (e) {
-      if (e.button === 0 && !mouse.locked && api.wantPointerLock) {
-        /* In eingebetteten Seiten kann das verboten sein - dann bleibt die
-           Kamerasteuerung ueber die Pfeiltasten. */
-        try { if (canvas.requestPointerLock) canvas.requestPointerLock(); } catch (err) { /* egal */ }
+      if (e.button === 0 && !mouse.locked && api.wantPointerLock) api.grabPointer();
+      if (e.button === 0 || e.button === 2) {
+        drag.on = true;
+        drag.x = e.clientX;
+        drag.y = e.clientY;
       }
       if (e.button === 0) { keys.Mouse0 = true; pressed.Mouse0 = true; }
       if (e.button === 2) { keys.Mouse2 = true; pressed.Mouse2 = true; }
@@ -69,13 +79,21 @@
     on(root, 'mouseup', function (e) {
       if (e.button === 0) keys.Mouse0 = false;
       if (e.button === 2) keys.Mouse2 = false;
+      drag.on = false;
     });
     on(canvas, 'contextmenu', function (e) { e.preventDefault(); });
 
     on(root, 'mousemove', function (e) {
-      if (!mouse.locked) return;
-      mouse.dx += e.movementX || 0;
-      mouse.dy += e.movementY || 0;
+      if (mouse.locked) {
+        mouse.dx += e.movementX || 0;
+        mouse.dy += e.movementY || 0;
+        return;
+      }
+      if (!drag.on) return;
+      mouse.dx += (typeof e.movementX === 'number' ? e.movementX : e.clientX - drag.x);
+      mouse.dy += (typeof e.movementY === 'number' ? e.movementY : e.clientY - drag.y);
+      drag.x = e.clientX;
+      drag.y = e.clientY;
     });
 
     on(document, 'pointerlockchange', function () {
@@ -84,8 +102,9 @@
       if (typeof api.onPointerLock === 'function') api.onPointerLock(mouse.locked);
     });
 
-    if (isTouch) {
+    if (hasTouchEvents) {
       on(canvas, 'touchstart', function (e) {
+        if (!api.isTouch && api.onFirstTouch) { api.isTouch = true; api.onFirstTouch(); }
         e.preventDefault();
         var half = root.innerWidth * 0.46;
         for (var i = 0; i < e.changedTouches.length; i++) {
@@ -164,6 +183,7 @@
     var api = {
       wantPointerLock: !isTouch,
       onStick: null,
+      onFirstTouch: null,
       onKey: null,
       onPointerLock: null,
       mouse: mouse,
@@ -197,10 +217,10 @@
          Bildhaelfte, bereits in Bogenmass. */
       lookDelta: function () {
         var x = 0, y = 0;
-        if (mouse.locked) {
-          x += mouse.dx * mouse.sensitivity;
-          y += mouse.dy * mouse.sensitivity;
-        }
+        /* mouse.dx wird nur gefuellt, wenn der Zeiger eingefangen ist oder
+           gerade gezogen wird - beides darf die Kamera drehen. */
+        x += mouse.dx * mouse.sensitivity;
+        y += mouse.dy * mouse.sensitivity;
         x += stick.dx * TOUCH_LOOK;
         y += stick.dy * TOUCH_LOOK;
         return { x: x, y: y };
@@ -266,6 +286,18 @@
         var gp = pollPad();
         padPrev = [];
         if (gp) for (var i = 0; i < gp.buttons.length; i++) padPrev[i] = gp.buttons[i].pressed;
+      },
+
+      /* Wird der Zeiger nicht eingefangen (eingebettete Seite), bleibt es beim
+         Ziehen mit der Maus - dann wird es auch nicht erneut versucht. */
+      grabPointer: function () {
+        if (!api.wantPointerLock || mouse.locked || !canvas.requestPointerLock) return;
+        try {
+          var pr = canvas.requestPointerLock();
+          if (pr && pr.catch) pr.catch(function () { api.wantPointerLock = false; });
+        } catch (err) {
+          api.wantPointerLock = false;
+        }
       },
 
       releasePointer: function () {

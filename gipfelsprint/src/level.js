@@ -1406,7 +1406,9 @@
     b.plat(5, 1.0, 66, 10, 24, MAT.crystalRock, { thickness: 1.6 }); /* 54 .. 78 */
     b.caveShell(5, 1.0, 66, 14, 9, 26, { mat: MAT.crystalRock });
     b.plat(-6, 1.5, 92, 10, 24, MAT.crystalRock, { thickness: 1.6 });/* 80 .. 104 */
-    b.caveShell(-6, 1.5, 92, 14, 9, 26, { mat: MAT.crystalRock });
+    /* Endet am Tor: sonst ragen die Tunnelwaende in den Tempelvorplatz
+       und versperren die Anlaufbahn zum Sprungfeld der irren Route. */
+    b.caveShell(-6, 1.5, 89, 14, 9, 20, { mat: MAT.crystalRock });
     b.boostPad(-6, 1.5, 96, 7, 9, { speed: 36 });
 
     for (i = 0; i < 12; i++) {

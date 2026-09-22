@@ -271,12 +271,25 @@
       root.setTimeout(function () { self.resize(); }, 250);
     });
 
+    var rc = $('rotateClose');
+    if (rc) rc.addEventListener('click', function () { $('rotate').hidden = true; });
+
     if (this.input.isTouch) this.bindTouch();
+    else {
+      /* Falls doch ein Finger kommt (Tablet, Hybridgeraet), wird die
+         Bedienoberflaeche nachgereicht. */
+      this.input.onFirstTouch = function () {
+        if (!self.touchBound) self.bindTouch();
+      };
+    }
   };
 
   /* Bildschirmsteuerung: Schiebeknopf links, Knoepfe rechts. */
   Game.prototype.bindTouch = function () {
     var self = this;
+    if (this.touchBound) return;
+    this.touchBound = true;
+    this.input.wantPointerLock = false;
     document.body.classList.add('touch');
     $('touchUI').hidden = false;
     $('btnFullscreen').hidden = false;
@@ -457,9 +470,7 @@
     }
     this.updateHud();
     Audio.startMusic();
-    if (this.input.wantPointerLock && !this.input.mouse.locked && this.canvas.requestPointerLock) {
-      try { this.canvas.requestPointerLock(); } catch (e) { /* egal */ }
-    }
+    this.input.grabPointer();
   };
 
   Game.prototype.setPaused = function (on) {

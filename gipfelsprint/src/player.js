@@ -506,7 +506,14 @@
     };
 
     cam.buildMatrices = function (aspect) {
-      m4.perspective(this.proj, this.fov, aspect, 0.15, 900);   /* fov wird pro Frame gesetzt */
+      /* Im Hochformat bleibt sonst nur ein schmaler Streifen Welt uebrig:
+         dort wird das senkrechte Sichtfeld so geweitet, dass waagerecht
+         genug zu sehen bleibt. */
+      var fovy = this.fov;
+      if (aspect < 1.4) {
+        fovy = Math.max(fovy, Math.min(1.55, 2 * Math.atan(Math.tan(0.52) / Math.max(aspect, 0.42))));
+      }
+      m4.perspective(this.proj, fovy, aspect, 0.15, 900);
       m4.lookAt(this.view, this.pos, this.look, [0, 1, 0]);
       m4.multiply(this.viewProj, this.proj, this.view);
       m4.invert(this.invViewProj, this.viewProj);

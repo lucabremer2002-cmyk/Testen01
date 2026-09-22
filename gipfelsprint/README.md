@@ -28,7 +28,7 @@ Voraussetzung ist ein Browser mit **WebGL2** (Chrome, Edge, Firefox, Safari 15+)
 | `Leertaste` | Sprung, in der Luft nochmal fuer den Doppelsprung |
 | `Shift` (halten) | Sprint |
 | `Strg` / `E` / linke Maustaste | Dash - kurzer harter Schub |
-| Maus (nach Klick) / `←` `→` | Kamera drehen |
+| Maus (ziehen oder nach Klick) / `←` `→` | Kamera drehen |
 | `R` | Sofort neu starten |
 | `G` | Geist ein/aus &nbsp; `M` Ton &nbsp; `P` / `Esc` Pause |
 
@@ -49,10 +49,11 @@ steuerung und die Tastenhilfe verschwindet.
 | Knopf daneben | Dash |
 | Knoepfe oben rechts | Neu starten, Pause |
 
-Die Knoepfe leuchten, solange Sprung bzw. Dash bereit sind. Quer halten
-ist noetig - im Hochformat erscheint ein Hinweis. Ueber **Vollbild** im
-Menue verschwindet die Browserleiste (klappt nicht in jedem
-eingebetteten Rahmen und nicht auf iPhones).
+Die Knoepfe leuchten, solange Sprung bzw. Dash bereit sind. Quer ist
+angenehmer, noetig ist es nicht: im Hochformat weitet sich das Sichtfeld,
+das HUD rutscht untereinander und der Hinweis oben laesst sich wegtippen.
+Ueber **Vollbild** im Menue verschwindet die Browserleiste (klappt nicht in
+jedem eingebetteten Rahmen und nicht auf iPhones).
 
 Auf Beruehrungsgeraeten wird die Renderaufloesung auf das 1,2-fache der
 CSS-Pixel gedeckelt - dreifache Pixeldichte kostet dort mehr Leistung als
@@ -184,7 +185,7 @@ style.css       HUD, Menue, Ergebnis
 src/math.js     Vektoren, 4x4-Matrizen, Zufall mit festem Startwert
 src/render.js   WebGL2: Instanz-Shader, Himmel, Bloom
 src/audio.js    Klangsynthese (Effekte und Begleitung)
-src/input.js    Tastatur, Maus mit Pointer-Lock, Gamepad
+src/input.js    Tastatur, Maus (Pointer-Lock oder Ziehen), Gamepad
 src/physics.js  Kollisionswelt: Kapsel gegen gedrehte Quader, Stufenhilfe
 src/ghost.js    Aufzeichnung und Wiedergabe des Bestlaufs
 src/level.js    Streckenbaukasten, Abzweige, Requisiten, Zonen
@@ -206,6 +207,10 @@ src/game.js     Zustaende, feste 120-Hz-Simulation, Flow, HUD, Bestzeiten
   nicht eine feste Hoehe - so bleibt die Grenze ueberall passend.
 * **Zeitnahme**: feste 120 Schritte pro Sekunde, unabhaengig von der
   Bildrate, sonst waeren Zeiten nicht vergleichbar.
+* **Kamera ohne Pointer-Lock**: in einer eingebetteten Seite darf der
+  Mauszeiger oft nicht eingefangen werden. Schlaegt es fehl, wird es nicht
+  erneut versucht - stattdessen dreht Ziehen mit gedrueckter Maustaste die
+  Kamera, und die Pfeiltasten tun es weiterhin auch.
 * **Beruehrung**: die linke Bildhaelfte liefert ueber einen nachziehenden
   Schiebeknopf dieselben Achsen wie Tastatur oder Stick, die rechte
   dieselben Kamerawinkel wie die Maus im Pointer-Lock. Die Knoepfe liegen
