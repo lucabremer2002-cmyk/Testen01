@@ -37,9 +37,9 @@
      Sprungfelder, Tempofelder, Routenmarken) leuchtet zusaetzlich. */
   var MAT = {
     /* --- Almwiese: Limette und Karamell --- */
-    meadow: mat([0.58, 0.30, 0.14], [0.42, 0.95, 0.30], { pattern: 5, patternScale: 0.55 }),
-    meadowLush: mat([0.52, 0.27, 0.13], [0.32, 0.98, 0.42], { pattern: 5, patternScale: 0.8 }),
-    meadowDry: mat([0.62, 0.38, 0.13], [0.96, 0.90, 0.26], { pattern: 5, patternScale: 0.6 }),
+    meadow: mat([0.58, 0.30, 0.14], [0.19, 0.62, 0.20], { pattern: 5, patternScale: 0.55 }),
+    meadowLush: mat([0.52, 0.27, 0.13], [0.15, 0.66, 0.28], { pattern: 5, patternScale: 0.8 }),
+    meadowDry: mat([0.62, 0.38, 0.13], [0.66, 0.62, 0.18], { pattern: 5, patternScale: 0.6 }),
     dirt: mat([0.52, 0.29, 0.15], [0.80, 0.50, 0.22], { pattern: 3, patternScale: 0.6 }),
     plank: mat([0.66, 0.33, 0.13], [1.0, 0.68, 0.28], { pattern: 2, patternScale: 0.6 }),
     plankPale: mat([0.78, 0.51, 0.23], [1.0, 0.87, 0.55], { pattern: 2, patternScale: 0.75 }),
@@ -50,8 +50,8 @@
     hay: mat([0.76, 0.49, 0.09], [1.0, 0.91, 0.32], { pattern: 5, patternScale: 1.6 }),
 
     /* --- Wald: sattes Blattgruen, kein Graubraun --- */
-    forestFloor: mat([0.40, 0.21, 0.11], [0.26, 0.70, 0.24], { pattern: 5, patternScale: 0.7 }),
-    moss: mat([0.20, 0.35, 0.13], [0.36, 0.90, 0.28], { pattern: 5, patternScale: 1.1 }),
+    forestFloor: mat([0.40, 0.21, 0.11], [0.15, 0.44, 0.16], { pattern: 5, patternScale: 0.7 }),
+    moss: mat([0.20, 0.35, 0.13], [0.20, 0.58, 0.20], { pattern: 5, patternScale: 1.1 }),
     bark: mat([0.42, 0.21, 0.12], [0.64, 0.35, 0.18], { pattern: 2, patternScale: 1.4 }),
     barkPale: mat([0.80, 0.71, 0.58], [1.0, 0.99, 0.91], { pattern: 2, patternScale: 1.8 }),
     barkDark: mat([0.26, 0.11, 0.16], [0.41, 0.22, 0.27], { pattern: 2, patternScale: 1.2 }),
@@ -61,6 +61,11 @@
     leafAutumn: mat([0.72, 0.21, 0.03], [1.0, 0.68, 0.14], { pattern: 5, patternScale: 1.0 }),
     /* Bonbonfarbene Kronen zwischen den gruenen: ohne sie ist eine Wiese
        voller Baeume eine einzige gruene Flaeche. */
+    /* Muster 10 heisst: dieser Koerper schwingt im Wind und wird vom Grund
+       zur Spitze heller. Nur fuer Halme und Buesche, nicht fuer den Boden. */
+    grassBlade: mat([0.07, 0.40, 0.14], [0.36, 0.92, 0.26], { pattern: 10 }),
+    grassBladeDry: mat([0.30, 0.34, 0.08], [0.82, 0.80, 0.24], { pattern: 10 }),
+    grassBladeCool: mat([0.04, 0.30, 0.19], [0.24, 0.80, 0.42], { pattern: 10 }),
     leafBlossom: mat([0.62, 0.09, 0.34], [1.0, 0.52, 0.82], { pattern: 5, patternScale: 1.0 }),
     leafTeal: mat([0.03, 0.41, 0.44], [0.22, 0.95, 0.86], { pattern: 5, patternScale: 1.0 }),
     shroomCap: mat([0.90, 0.09, 0.31], [1.0, 0.36, 0.48], { emissive: 0.14 }),
@@ -268,10 +273,35 @@
   };
 
   /* Plattform; ly ist die Oberkante - beim Entwerfen viel praktischer. */
+  /* Wiesen- und Waldboeden bekommen von selbst Halme. Das haendisch je
+     Plattform zu setzen wurde vergessen, sobald eine dazukam - hier kann
+     es nicht mehr auseinanderlaufen. `grass: false` schaltet es ab. */
+  var GRASS_FOR = null;
+
   Builder.prototype.plat = function (lx, ly, lz, w, d, material, opts) {
     opts = opts || {};
     var t = opts.thickness || 1.4;
-    return this.block(lx, ly - t / 2, lz, w, t, d, material || MAT.meadow, opts);
+    var m = material || MAT.meadow;
+    var c = this.block(lx, ly - t / 2, lz, w, t, d, m, opts);
+    if (opts.grass !== false) {
+      if (!GRASS_FOR) {
+        GRASS_FOR = [
+          [MAT.meadow, MAT.grassBlade, 0.62, 1.0],
+          [MAT.meadowLush, MAT.grassBlade, 0.80, 1.1],
+          [MAT.meadowDry, MAT.grassBladeDry, 0.50, 0.95],
+          [MAT.forestFloor, MAT.grassBladeCool, 0.55, 0.9],
+          [MAT.moss, MAT.grassBladeCool, 0.70, 0.85]
+        ];
+      }
+      for (var i = 0; i < GRASS_FOR.length; i++) {
+        if (GRASS_FOR[i][0] === m) {
+          this.grassField(lx, ly, lz, w, d,
+            { mat: GRASS_FOR[i][1], density: opts.grassDensity || GRASS_FOR[i][2], size: GRASS_FOR[i][3] });
+          break;
+        }
+      }
+    }
+    return c;
   };
 
   /* Felssockel unter einer Plattform, damit nichts in der Luft haengt. */
@@ -717,28 +747,76 @@
     var trunkMat = kind === 'birch' ? MAT.barkPale : MAT.bark;
     var th = (kind === 'pine' ? 7.5 : kind === 'birch' ? 6.0 : 4.4) * s;
     var tw = (kind === 'pine' ? 0.72 : kind === 'birch' ? 0.52 : 0.85) * s;
-    this.deco('cylinder', lx, ly + th * 0.5, lz, tw, th, tw, trunkMat, [tilt, spin, tilt * 0.5]);
+    /* Stamm aus drei Abschnitten, nach oben duenner und leicht versetzt:
+       ein durchgehender Zylinder liest sich sofort als Grundkoerper. */
+    var segs = 3, sy = ly, sx = lx, sz = lz, lean = tilt * 2.2;
+    for (var t2 = 0; t2 < segs; t2++) {
+      var f2 = t2 / segs;
+      var sh = th / segs;
+      var wTop = tw * (1 - (t2 + 1) / segs * 0.34);
+      var wBot = tw * (1 - f2 * 0.34);
+      this.deco('pillar', sx, sy + sh * 0.5, sz, wBot * 2, sh, wBot * 2,
+        trunkMat, [lean * (0.4 + f2), spin + t2 * 0.7, lean * 0.3]);
+      sx += lean * sh * 0.5;
+      sz += lean * sh * 0.3;
+      sy += sh * 0.98;
+      tw = wTop;
+    }
+    /* Wurzelanlauf: drei Keile am Fuss, damit der Stamm nicht auf einer
+       sauberen Kreisflaeche endet. */
+    for (var w2 = 0; w2 < 3; w2++) {
+      var wa = spin + w2 * 2.1;
+      this.deco('rock', lx + Math.cos(wa) * tw * 1.1, ly + 0.22 * s, lz + Math.sin(wa) * tw * 1.1,
+        tw * 1.5, 0.7 * s, tw * 1.4, trunkMat, [0, wa, 0]);
+    }
+    /* Moos- und Grasrand am Stammfuss */
+    if (r() > 0.4) this.grassTufts(lx, ly, lz, 1.6 * s, 3, { mat: MAT.grassBladeCool, size: 0.8 * s });
+    var topX = sx, topY = sy, topZ = sz;
+
+    /* Krone aus mehreren versetzten Ballen statt eines Koerpers - das gibt
+       eine unruhige Silhouette. Die Ballen nutzen die Felskoerper, weil
+       deren Hoecker organischer sind als eine glatte Kugel. */
+    function crown(self, cx, cy, cz, w, n, flat) {
+      for (var c2 = 0; c2 < n; c2++) {
+        var ca = r() * 6.28, cd = (c2 === 0 ? 0 : (0.25 + r() * 0.45)) * w;
+        var cs = w * (c2 === 0 ? 1 : 0.42 + r() * 0.4);
+        self.deco(pick(r, ['rock', 'rock2', 'rock3', 'blob']),
+          cx + Math.cos(ca) * cd, cy + (r() - 0.4) * w * 0.28, cz + Math.sin(ca) * cd * 0.8,
+          cs, cs * (flat ? 0.62 : 0.86), cs * 0.95, leaf, [(r() - 0.5) * 0.3, r() * 6.28, (r() - 0.5) * 0.3]);
+      }
+    }
 
     if (kind === 'broad' || kind === 'autumn') {
       var cw = (4.6 + r() * 2.2) * s;
-      this.deco('blob', lx, ly + (th + cw * 0.36), lz, cw, cw * 0.9, cw * 0.95, leaf, [0, spin, 0]);
-      this.deco('blob', lx + cw * 0.28, ly + (th + cw * 0.12), lz - cw * 0.2, cw * 0.62, cw * 0.55, cw * 0.6, leaf, [0, spin + 1, 0]);
-      this.deco('blob', lx - cw * 0.3, ly + (th + cw * 0.2), lz + cw * 0.22, cw * 0.55, cw * 0.5, cw * 0.55, leaf, [0, spin + 2, 0]);
+      crown(this, topX, topY + cw * 0.34, topZ, cw, 5, false);
     } else if (kind === 'birch') {
       for (var b = 0; b < 3; b++) {
-        this.deco('cylinder', lx, ly + (2.4 + b * 1.6) * s, lz, tw * 1.02, 0.12 * s, tw * 1.02, MAT.barkDark, [tilt, spin, 0]);
+        this.deco('cylinder', lx, ly + (2.4 + b * 1.6) * s, lz, tw * 1.3, 0.12 * s, tw * 1.3, MAT.barkDark, [tilt, spin, 0]);
       }
       var bw = (3.0 + r() * 1.2) * s;
-      this.deco('blob', lx, ly + th + bw * 0.4, lz, bw, bw * 1.15, bw, leaf, [0, spin, 0]);
+      crown(this, topX, topY + bw * 0.4, topZ, bw, 4, false);
     } else {
       /* Nadelbaum: gestapelte Kegel, oben schmaler */
-      var levels = kind === 'pine' ? 3 : 3 + Math.floor(r() * 2);
+      /* Nadelbaum: gestapelte Kegel, aber jede Etage gedreht, verschoben und
+         mit zwei kleinen Ballen am Rand - so wird aus dem Stapel eine
+         zerzauste Krone statt eines Christbaums aus der Form. */
+      var levels = kind === 'pine' ? 4 : 4 + Math.floor(r() * 2);
       var base = (4.4 + r() * 1.8) * s;
-      var top = th * (kind === 'pine' ? 0.75 : 0.55);
+      var top = th * (kind === 'pine' ? 0.62 : 0.45);
       for (var i = 0; i < levels; i++) {
         var f = i / levels;
-        this.deco('cone', lx + tilt * (top + i * 2) * 0.4, ly + top + i * 2.1 * s, lz,
-          base * (1 - f * 0.62), (4.2 - f * 1.2) * s, base * (1 - f * 0.62), leaf, [0, spin + i * 0.4, 0]);
+        var lw = base * (1 - f * 0.66) * (0.88 + r() * 0.24);
+        var cxl = lx + lean * (top + i * 2) * 0.35 + (r() - 0.5) * 0.3 * s;
+        var czl = lz + (r() - 0.5) * 0.3 * s;
+        var cyl = ly + top + i * 1.85 * s;
+        this.deco('cone', cxl, cyl, czl, lw, (4.3 - f * 1.3) * s, lw * (0.9 + r() * 0.2),
+          leaf, [(r() - 0.5) * 0.10, spin + i * 1.1 + r(), (r() - 0.5) * 0.10]);
+        if (i < levels - 1 && r() > 0.35) {
+          var ba = r() * 6.28;
+          this.deco(pick(r, ['rock2', 'blob']),
+            cxl + Math.cos(ba) * lw * 0.42, cyl + 0.7 * s, czl + Math.sin(ba) * lw * 0.42,
+            lw * 0.38, lw * 0.3, lw * 0.36, leaf, [0, r() * 6.28, 0]);
+        }
       }
     }
   };
@@ -788,22 +866,44 @@
       /* Flache Felsplatte, leicht gekippt */
       this.deco('box', lx, ly + 0.4 * s, lz, 4.2 * s, 0.9 * s, 3.0 * s, col, [(r() - 0.5) * 0.25, spin, (r() - 0.5) * 0.25]);
     } else if (kind === 'flat') {
-      this.deco('blob', lx, ly + 0.3 * s, lz, 3.8 * s, 0.85 * s, 2.6 * s, col, [(r() - 0.5) * 0.2, spin, (r() - 0.5) * 0.2]);
-      if (r() > 0.5) this.deco('blob', lx + 1.4 * s, ly + 0.2 * s, lz + 0.8 * s, 1.8 * s, 0.6 * s, 1.5 * s, col, [0, r() * 6.28, 0]);
+      var fm = pick(r, ['rock', 'rock2', 'rock3']);
+      this.deco(fm, lx, ly + 0.34 * s, lz, 3.8 * s, 1.0 * s, 2.6 * s, col, [(r() - 0.5) * 0.2, spin, (r() - 0.5) * 0.2]);
+      /* Kleine Brocken am Fuss: so steht kein Fels auf einer sauberen Kante. */
+      for (var g2 = 0; g2 < 3; g2++) {
+        var ga = spin + g2 * 2.1 + r();
+        var gs = s * (0.28 + r() * 0.3);
+        this.deco(pick(r, ['rock', 'rock2', 'rock3']),
+          lx + Math.cos(ga) * 1.9 * s, ly + gs * 0.4, lz + Math.sin(ga) * 1.5 * s,
+          gs * 2.4, gs * 1.5, gs * 2.2, col, [(r() - 0.5) * 0.5, r() * 6.28, (r() - 0.5) * 0.5]);
+      }
     } else if (kind === 'stack') {
       var yy = ly;
       for (var i = 0; i < 3; i++) {
         var sc = (1.9 - i * 0.45) * s;
-        this.deco('blob', lx + (r() - 0.5) * 0.6, yy + sc * 0.4, lz + (r() - 0.5) * 0.6,
-          sc * (1.5 + r() * 0.6), sc * 0.8, sc * (1.4 + r() * 0.5), col, [0, r() * 6.28, 0]);
+        this.deco(pick(r, ['rock', 'rock2', 'rock3']), lx + (r() - 0.5) * 0.6, yy + sc * 0.4, lz + (r() - 0.5) * 0.6,
+          sc * (1.5 + r() * 0.6), sc * 0.9, sc * (1.4 + r() * 0.5), col, [(r() - 0.5) * 0.3, r() * 6.28, (r() - 0.5) * 0.3]);
         yy += sc * 0.75;
       }
     } else {
-      /* "Rund" heisst hier: unregelmaessig, nie eine saubere Kugel. */
-      this.deco('blob', lx, ly + 0.7 * s, lz,
-        2.8 * s * (0.75 + r() * 0.6), 1.5 * s * (0.7 + r() * 0.7), 2.4 * s * (0.75 + r() * 0.6),
+      /* "Rund" heisst hier: unregelmaessig, nie eine saubere Kugel. Die
+         drei Felskoerper haben feste, aber verschiedene Hoecker - die
+         Abwechslung kommt aus Drehung und ungleicher Skalierung. */
+      this.deco(pick(r, ['rock', 'rock2', 'rock3']), lx, ly + 0.7 * s, lz,
+        2.8 * s * (0.75 + r() * 0.6), 1.7 * s * (0.7 + r() * 0.7), 2.4 * s * (0.75 + r() * 0.6),
         col, [(r() - 0.5) * 0.4, spin, (r() - 0.5) * 0.4]);
-      this.deco('blob', lx + s * 0.8, ly + 0.35 * s, lz - s * 0.5, 1.5 * s, 0.9 * s, 1.4 * s, col, [0, r() * 6.28, 0]);
+      this.deco(pick(r, ['rock', 'rock2', 'rock3']), lx + s * 0.8, ly + 0.35 * s, lz - s * 0.5,
+        1.5 * s, 1.0 * s, 1.4 * s, col, [(r() - 0.5) * 0.4, r() * 6.28, (r() - 0.5) * 0.4]);
+      for (var g3 = 0; g3 < 2; g3++) {
+        var ga3 = spin + g3 * 2.7 + r();
+        var gs3 = s * (0.25 + r() * 0.25);
+        this.deco(pick(r, ['rock', 'rock2', 'rock3']),
+          lx + Math.cos(ga3) * 2.0 * s, ly + gs3 * 0.45, lz + Math.sin(ga3) * 1.7 * s,
+          gs3 * 2.3, gs3 * 1.6, gs3 * 2.1, col, [(r() - 0.5) * 0.6, r() * 6.28, (r() - 0.5) * 0.6]);
+      }
+    }
+    /* Moos am Fuss, wo Fels auf Boden trifft. */
+    if (o.moss !== false && r() > 0.45) {
+      this.grassTufts(lx, ly, lz, 2.2 * s, 3, { mat: MAT.grassBladeCool, size: 0.7 * s });
     }
   };
 
@@ -837,14 +937,47 @@
     }
   };
 
+  /* Ein Buechel echter Halme. Groesse, Drehung und Farbton streuen, sonst
+     sieht ein Feld aus wie ein Stempelmuster. */
+  B.tuft = function (lx, ly, lz, s, m) {
+    var r = this.rand;
+    var base = m || MAT.grassBlade;
+    var col = L.mat(vary(r, base.color, 0.10), vary(r, base.accent, 0.12),
+      { pattern: 10, patternScale: 1 });
+    /* 0,5 ist die Grundhoehe eines Buechels in Metern - die Figur ist 1,7
+       hoch, Gras soll ihr etwa bis zum Knie gehen. */
+    var hs = s * 0.5;
+    this.deco('tuft', lx, ly, lz, hs * (0.85 + r() * 0.5), hs * (0.8 + r() * 0.9), hs * (0.85 + r() * 0.5),
+      col, [0, r() * 6.28, 0]);
+  };
+
+  /* Runde Flaeche voller Halme - fuer Raender und Inseln. */
   B.grassTufts = function (lx, ly, lz, spread, n, o) {
     var r = this.rand;
-    var m = (o && o.mat) || MAT.meadowLush;
+    var m = (o && o.mat) || MAT.grassBlade;
+    var s = (o && o.size) || 1;
     for (var i = 0; i < n; i++) {
-      var a = r() * 6.28, d = r() * spread;
-      var s = 0.7 + r() * 0.8;
-      this.deco('crystal', lx + Math.cos(a) * d, ly + 0.3 * s, lz + Math.sin(a) * d,
-        0.9 * s, 0.75 * s, 0.9 * s, m, [(r() - 0.5) * 0.25, r() * 6.28, (r() - 0.5) * 0.25]);
+      var a = r() * 6.28, d = Math.sqrt(r()) * spread;
+      this.tuft(lx + Math.cos(a) * d, ly, lz + Math.sin(a) * d, s * (0.8 + r() * 0.7), m);
+    }
+  };
+
+  /* Rechteckige Flaeche: deckt eine Plattform ab. Die Halme stehen dichter
+     am Rand, dort sieht man sie im Profil gegen den Himmel. */
+  B.grassField = function (lx, ly, lz, w, d, o) {
+    o = o || {};
+    var r = this.rand;
+    var m = o.mat || MAT.grassBlade;
+    var dens = o.density || 0.10;          /* Buechel je Quadrateinheit */
+    var s = o.size || 1;
+    var n = Math.max(6, Math.round(w * d * dens));
+    var hw = w / 2 - 0.4, hd = d / 2 - 0.4;
+    for (var i = 0; i < n; i++) {
+      var x = (r() * 2 - 1) * hw, z = (r() * 2 - 1) * hd;
+      /* Randnaehe: 0 in der Mitte, 1 aussen */
+      var edge = Math.max(Math.abs(x) / Math.max(hw, 0.001), Math.abs(z) / Math.max(hd, 0.001));
+      var sc = s * (0.7 + r() * 0.6) * (1 + edge * 0.55);
+      this.tuft(lx + x, ly, lz + z, sc, m);
     }
   };
 

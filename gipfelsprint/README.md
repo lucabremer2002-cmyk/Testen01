@@ -211,6 +211,20 @@ src/game.js     Zustaende, feste 120-Hz-Simulation, Flow, HUD, Bestzeiten
   Mauszeiger oft nicht eingefangen werden. Schlaegt es fehl, wird es nicht
   erneut versucht - stattdessen dreht Ziehen mit gedrueckter Maustaste die
   Kamera, und die Pfeiltasten tun es weiterhin auch.
+* **Schattenkarte**: ein eigener Zeichendurchgang schreibt die Tiefe aus
+  Sicht der Sonne (2048, auf Beruehrungsgeraeten 1024). Der Kasten folgt
+  dem Spieler, gerastert auf Texelschritte - sonst flimmern die Raender.
+  Der Versatz gegen Selbstschatten laeuft ueber die Normale, nicht ueber
+  die Tiefe; eine Tiefenverschiebung loest den Schatten sichtbar vom Fuss.
+  Wolken und Fernberge werfen bewusst keinen Schatten.
+* **Wind**: Muster 10 kennzeichnet schwingende Koerper (Grasbuechel). Der
+  Ausschlag haengt an der echten Hoehe des Punktes, die Phase an seiner
+  Weltposition - dadurch laufen Boeen ueber die Flaeche, statt dass alles
+  im Gleichtakt wackelt. Der Schattendurchgang rechnet dieselbe Bewegung,
+  sonst steht der Schatten still.
+* **Gras**: Wiesen- und Waldplattformen bekommen ihre Halme automatisch
+  ueber das Material. Haendisch gesetzt wurde es vergessen, sobald eine
+  Plattform dazukam.
 * **Farbaufbau**: jedes Material hat zwei Farben - `color` faerbt die
   Seitenflaechen, `accent` die nach oben zeigenden. Der Kontrast zwischen
   beiden macht Kanten sichtbar; sind sie zu aehnlich, wird eine Plattform

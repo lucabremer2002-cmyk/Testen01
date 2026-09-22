@@ -165,6 +165,87 @@
     return { pos: p, nor: n, uv: u, idx: idx };
   }
 
+  /* Grasbuechel: drei gekreuzte, nach oben spitz zulaufende Baender mit
+     leichter Biegung. Als Instanz gezeichnet, deshalb darf ein Buechel
+     ruhig ein paar Dreiecke kosten. Ursprung steht auf dem Boden. */
+  function geoTuft() {
+    var p = [], n = [], u = [], idx = [];
+    var blades = 3, segs = 3;
+    for (var b = 0; b < blades; b++) {
+      var a = (b / blades) * Math.PI * 2 + 0.4;
+      var dx = Math.cos(a), dz = Math.sin(a);
+      var lean = 0.30 + 0.16 * ((b * 7) % 3);
+      var half = 0.14 - 0.02 * b;
+      var base = p.length / 3;
+      for (var s2 = 0; s2 <= segs; s2++) {
+        var t = s2 / segs;
+        var w = half * (1 - t * 0.92);
+        var bend = t * t * lean;
+        var cx = dx * bend, cz = dz * bend, cy = t;
+        /* Normale zeigt aus der Bandflaeche heraus und leicht nach oben -
+           dadurch faengt der Halm Sonne statt als schwarze Kante zu stehen. */
+        var nx = -dz, nz2 = dx;
+        for (var side = -1; side <= 1; side += 2) {
+          p.push(cx + nx * w * side, cy, cz + nz2 * w * side);
+          n.push(nx * 0.45, 0.86, nz2 * 0.45);
+          u.push(side * 0.5 + 0.5, t);
+        }
+      }
+      for (var s3 = 0; s3 < segs; s3++) {
+        var i0 = base + s3 * 2;
+        idx.push(i0, i0 + 1, i0 + 3, i0, i0 + 3, i0 + 2);
+        idx.push(i0, i0 + 3, i0 + 1, i0, i0 + 2, i0 + 3);   /* Rueckseite */
+      }
+    }
+    return { pos: p, nor: n, uv: u, idx: idx };
+  }
+
+  /* Fels: Kugel mit versetzten Ecken, flach schattiert. Der Versatz haengt
+     nur vom Winkel ab, damit jeder Fels dieselbe Form hat - Abwechslung
+     kommt ueber Drehung und ungleiche Skalierung beim Setzen. */
+  function geoRock(seed) {
+    var seg = 9, ring = 6;
+    var p = [], n = [], u = [], idx = [];
+    function h(i, j) {
+      var v = Math.sin((i * 12.9898 + j * 78.233 + seed) * 1.0) * 43758.5453;
+      return v - Math.floor(v);
+    }
+    var pts = [];
+    for (var y = 0; y <= ring; y++) {
+      var phi = y / ring * Math.PI;
+      pts[y] = [];
+      for (var x = 0; x <= seg; x++) {
+        var th = x / seg * Math.PI * 2;
+        var xi = (x === seg) ? 0 : x;
+        var r = 0.5 * (0.80 + 0.30 * h(xi, y));
+        if (y === 0 || y === ring) r = 0.5 * 0.86;
+        pts[y][x] = [Math.sin(phi) * Math.cos(th) * r, Math.cos(phi) * r * 0.86, Math.sin(phi) * Math.sin(th) * r];
+      }
+    }
+    function tri(a, b, c) {
+      var ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+      var vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+      var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      var l = Math.hypot(nx, ny, nz) || 1;
+      var base = p.length / 3;
+      var v3 = [a, b, c];
+      for (var k = 0; k < 3; k++) {
+        p.push(v3[k][0], v3[k][1], v3[k][2]);
+        n.push(nx / l, ny / l, nz / l);
+        u.push(v3[k][0] + 0.5, v3[k][2] + 0.5);
+      }
+      idx.push(base, base + 1, base + 2);
+    }
+    for (var y2 = 0; y2 < ring; y2++) {
+      for (var x2 = 0; x2 < seg; x2++) {
+        var a2 = pts[y2][x2], b2 = pts[y2][x2 + 1], c2 = pts[y2 + 1][x2 + 1], d2 = pts[y2 + 1][x2];
+        tri(a2, b2, c2);
+        tri(a2, c2, d2);
+      }
+    }
+    return { pos: p, nor: n, uv: u, idx: idx };
+  }
+
   function geoQuad() {
     return {
       pos: [-0.5, 0, -0.5, 0.5, 0, -0.5, 0.5, 0, 0.5, -0.5, 0, 0.5],
@@ -189,10 +270,29 @@
     'layout(location=8) in vec3 iAccent;',
     'layout(location=9) in vec4 iParams;',
     'uniform mat4 uViewProj;',
+    'uniform float uTime;',
     'out vec3 vN; out vec3 vW; out vec3 vC; out vec3 vA; out vec4 vP; out vec2 vUv;',
+
+    /* Wind: nur Muster 10 (Grasbuechel, Blattwerk) bewegt sich, und zwar
+       staerker je weiter oben der Punkt im eigenen Koerper liegt. Die
+       Phase kommt aus der Weltposition, damit nicht alles im Gleichtakt
+       wackelt, sondern Boeen ueber die Wiese laufen. */
+    'vec3 windOffset(vec3 wp, float localY, float pat, float hScale){',
+    '  if (pat < 9.5) return vec3(0.0);',
+    /* localY ist 0..1 im eigenen Koerper - mit der Y-Skalierung der Instanz
+       wird daraus die echte Hoehe, und ein kurzer Halm wackelt nicht wie
+       ein langer. */
+    '  float h = max(localY, 0.0) * hScale;',
+    '  float ph = wp.x * 0.22 + wp.z * 0.17;',
+    '  float gust = 0.55 + 0.45 * sin(uTime * 0.37 + wp.x * 0.035 + wp.z * 0.028);',
+    '  float a = sin(uTime * 1.7 + ph) * 0.6 + sin(uTime * 3.1 + ph * 1.8) * 0.25;',
+    '  return vec3(a * 0.9, -abs(a) * 0.16, a * 0.5) * h * 0.30 * gust;',
+    '}',
+
     'void main(){',
     '  mat4 M = mat4(iM0,iM1,iM2,iM3);',
     '  vec4 w = M * vec4(aPos,1.0);',
+    '  w.xyz += windOffset(w.xyz, aPos.y, iParams.y, length(M[1].xyz));',
     '  vW = w.xyz;',
     '  mat3 rot = mat3(normalize(M[0].xyz), normalize(M[1].xyz), normalize(M[2].xyz));',
     '  vN = normalize(rot * aNor);',
@@ -300,6 +400,10 @@
     '    float streak = smoothstep(0.1, 0.5, f) * smoothstep(1.0, 0.6, f);',
     '    base = mix(base, vA, streak);',
     '    alpha *= 0.55 + 0.45 * streak;',
+    '  } else if (pat == 10) {',   /* Grashalm: dunkel am Grund, hell zur Spitze */
+    '    base = mix(vC, vA, vUv.y * 0.82 + 0.18);',
+    '    float fl = vnoise(vec2(vW.x, vW.z) * 0.6);',
+    '    base *= 0.86 + 0.30 * fl;',
     '  } else if (pat == 9) {',    /* Warnstreifen / Tempo-Pfeile */
     '    float f = fract((puv.x + puv.y) * sc - uTime * 1.8);',
     '    base = mix(base, vA, step(0.5, f));',
@@ -353,9 +457,21 @@
     'layout(location=4) in vec4 iM1;',
     'layout(location=5) in vec4 iM2;',
     'layout(location=6) in vec4 iM3;',
+    'layout(location=9) in vec4 iParams;',
     'uniform mat4 uLightVP;',
+    'uniform float uTime;',
     'void main(){',
-    '  gl_Position = uLightVP * (mat4(iM0,iM1,iM2,iM3) * vec4(aPos,1.0));',
+    '  vec4 w = mat4(iM0,iM1,iM2,iM3) * vec4(aPos,1.0);',
+    /* Dieselbe Bewegung wie im Bild - sonst steht der Schatten still,
+       waehrend das Gras sich bewegt. */
+    '  if (iParams.y > 9.5) {',
+    '    float h = max(aPos.y, 0.0) * length(iM1.xyz);',
+    '    float ph = w.x * 0.22 + w.z * 0.17;',
+    '    float gust = 0.55 + 0.45 * sin(uTime * 0.37 + w.x * 0.035 + w.z * 0.028);',
+    '    float a = sin(uTime * 1.7 + ph) * 0.6 + sin(uTime * 3.1 + ph * 1.8) * 0.25;',
+    '    w.xyz += vec3(a * 0.9, -abs(a) * 0.16, a * 0.5) * h * 0.30 * gust;',
+    '  }',
+    '  gl_Position = uLightVP * w;',
     '}'
   ].join('\n');
 
@@ -614,6 +730,10 @@
     gfx.meshes.prism = makeMesh(geoPrism());
     gfx.meshes.torus = makeMesh(geoTorus(20, 8, 0.14));
     gfx.meshes.quad = makeMesh(geoQuad());
+    gfx.meshes.tuft = makeMesh(geoTuft());
+    gfx.meshes.rock = makeMesh(geoRock(1.0));
+    gfx.meshes.rock2 = makeMesh(geoRock(17.0));
+    gfx.meshes.rock3 = makeMesh(geoRock(53.0));
 
     gfx.makeVao = function (meshName, instBuf) {
       var mesh = gfx.meshes[meshName];
@@ -816,6 +936,7 @@
         gl.cullFace(gl.FRONT);
         gl.useProgram(shadow.prog);
         gl.uniformMatrix4fv(shadow.u.uLightVP, false, lightVP);
+        gl.uniform1f(shadow.u.uTime, time);
         drawBatches(casters || opaque);
         gl.cullFace(gl.BACK);
       }
