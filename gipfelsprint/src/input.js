@@ -15,14 +15,14 @@
   function create(canvas) {
     var keys = Object.create(null);
     var pressed = Object.create(null);   /* seit dem letzten Frame neu gedrueckt */
-    var mouse = { dx: 0, dy: 0, locked: false, sensitivity: 0.0022 };
+    var mouse = { dx: 0, dy: 0, locked: false, sensitivity: 0.0014 };
     var listeners = [];
 
     /* Beruehrung: linke Bildhaelfte ist der Schiebeknopf, rechte dreht die
        Kamera. Die Schaltflaechen liegen als eigene Elemente darueber und
        bekommen ihre Ereignisse direkt. */
     var STICK_RADIUS = 58;
-    var TOUCH_LOOK = 0.0042;
+    var TOUCH_LOOK = 0.0023;   /* Wischen war zu zuckig - deutlich ruhiger */
     var stick = {
       moveId: null, ox: 0, oy: 0, mx: 0, my: 0,
       lookId: null, lx: 0, ly: 0, dx: 0, dy: 0

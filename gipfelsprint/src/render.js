@@ -279,9 +279,14 @@
     '  float ndl = max(dot(N, L), 0.0);',
     '  float sky = N.y * 0.5 + 0.5;',
     '  vec3 amb = mix(uGroundCol, uSkyCol, sky);',
+    /* Das Umgebungslicht wird zur Haelfte entfaerbt und schwaecher gewichtet:
+       kraeftig blaues Fuelllicht zog sonst jeder Flaeche die eigene Farbe
+       weg und alles wurde pastellig. Dafuer traegt die Sonne mehr - das
+       gibt satte Farben und klaren Unterschied zwischen Licht und Schatten. */
+    '  amb = mix(vec3(dot(amb, vec3(0.299, 0.587, 0.114))), amb, 0.52);',
     /* Gegenlicht haelt abgewandte Flaechen lesbar statt schwarz. */
     '  float fill = max(dot(N, normalize(vec3(-L.x, 0.25, -L.z))), 0.0);',
-    '  vec3 col = base * (amb * 0.60 + uSunCol * ndl * 1.05 + uSunCol * fill * 0.18);',
+    '  vec3 col = base * (amb * 0.44 + uSunCol * ndl * 1.22 + uSunCol * fill * 0.16);',
 
     /* Glanz fuer Wasser und Kristall */
     '  if (pat == 4 || pat == 6) {',
@@ -291,7 +296,7 @@
 
     /* Silhouettenlicht haelt Figuren vom Hintergrund getrennt */
     '  float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);',
-    '  col += uSkyCol * rim * 0.28;',
+    '  col += uSkyCol * rim * 0.20;',
 
     '  col = mix(col, base * 1.35 + 0.18, clamp(vP.x, 0.0, 1.0));',
 
@@ -394,10 +399,17 @@
     'void main(){',
     '  vec3 c = texture(uScene, vUv).rgb + texture(uBloom, vUv).rgb * uBloomStrength;',
     '  c = c / (c + vec3(1.6)) * 2.1;',            /* nur Spitzlichter komprimieren */
-    '  c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, 1.22);',
+    /* Farbkraft: blasse Stellen werden deutlich angehoben, ohnehin kraeftige
+       nur wenig - sonst laufen die Neonfarben ins Weisse. */
+    '  float lum = dot(c, vec3(0.299, 0.587, 0.114));',
+    '  float sat = clamp(length(c - vec3(lum)) * 1.7, 0.0, 1.0);',
+    '  c = mix(vec3(lum), c, mix(1.40, 1.12, sat));',
+    /* Leichte S-Kurve: Tiefen satter, Lichter strahlender. */
+    '  vec3 t = clamp(c, 0.0, 1.0);',
+    '  c = mix(c, t * t * (3.0 - 2.0 * t), 0.26);',
     '  vec2 q = vUv - 0.5;',
     '  c *= 1.0 - dot(q, q) * uVignette;',
-    '  c = pow(max(c, 0.0), vec3(0.94));',
+    '  c = pow(max(c, 0.0), vec3(0.92));',
     '  outColor = vec4(c, 1.0);',
     '}'
   ].join('\n');
@@ -738,7 +750,7 @@
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, fbo.bright.tex);
       gl.uniform1i(comp.u.uBloom, 1);
-      gl.uniform1f(comp.u.uBloomStrength, 0.34);
+      gl.uniform1f(comp.u.uBloomStrength, 0.46);
       gl.uniform1f(comp.u.uVignette, 0.42);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.activeTexture(gl.TEXTURE0);

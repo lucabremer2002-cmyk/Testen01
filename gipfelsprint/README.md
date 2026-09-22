@@ -211,6 +211,17 @@ src/game.js     Zustaende, feste 120-Hz-Simulation, Flow, HUD, Bestzeiten
   Mauszeiger oft nicht eingefangen werden. Schlaegt es fehl, wird es nicht
   erneut versucht - stattdessen dreht Ziehen mit gedrueckter Maustaste die
   Kamera, und die Pfeiltasten tun es weiterhin auch.
+* **Farbaufbau**: jedes Material hat zwei Farben - `color` faerbt die
+  Seitenflaechen, `accent` die nach oben zeigenden. Der Kontrast zwischen
+  beiden macht Kanten sichtbar; sind sie zu aehnlich, wird eine Plattform
+  zur flachen Flaeche. Deshalb ist die Seite immer dunkler und oft in
+  anderem Farbton als die Oberseite (Erdkante zu Grasnarbe).
+* **Umgebungslicht**: wird zur Haelfte entfaerbt und nur mit 0,44
+  gewichtet, die Sonne dafuer mit 1,22. Kraeftig eingefaerbtes Fuelllicht
+  zieht sonst jeder Flaeche ihre eigene Farbe weg und alles wird pastellig.
+  Die Farbkraft kommt danach aus dem Nachbearbeitungsschritt: blasse
+  Stellen werden stark angehoben, ohnehin kraeftige nur wenig, damit die
+  Neonfarben nicht ins Weisse laufen.
 * **Klassennamen am body**: auf Beruehrungsgeraeten bekommt `body` die
   Klasse `touch`. Regeln fuer das Steuerungs-Overlay muessen deshalb
   `#touchUI` ansprechen - ein blosses `.touch` traefe auch den body, und

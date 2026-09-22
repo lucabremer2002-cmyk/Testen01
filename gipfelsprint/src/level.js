@@ -31,108 +31,116 @@
     };
   }
 
+  /* Farbwelt: kraeftig und suess statt naturgetreu. Grundton jeder Flaeche
+     ist gesaettigt, die Akzentfarbe deutlich heller - so trennt sich jede
+     Plattform vom Hintergrund, auch bei Tempo. Alles Anfassbare (Kristalle,
+     Sprungfelder, Tempofelder, Routenmarken) leuchtet zusaetzlich. */
   var MAT = {
-    /* --- Almwiese: warmes Gruen, helles Holz --- */
-    meadow: mat([0.46, 0.35, 0.22], [0.46, 0.76, 0.31], { pattern: 5, patternScale: 0.55 }),
-    meadowLush: mat([0.42, 0.33, 0.20], [0.55, 0.83, 0.34], { pattern: 5, patternScale: 0.8 }),
-    meadowDry: mat([0.50, 0.40, 0.24], [0.76, 0.78, 0.36], { pattern: 5, patternScale: 0.6 }),
-    dirt: mat([0.42, 0.31, 0.20], [0.56, 0.42, 0.26], { pattern: 3, patternScale: 0.6 }),
-    plank: mat([0.55, 0.36, 0.20], [0.80, 0.57, 0.31], { pattern: 2, patternScale: 0.6 }),
-    plankPale: mat([0.62, 0.46, 0.28], [0.88, 0.71, 0.45], { pattern: 2, patternScale: 0.75 }),
-    beam: mat([0.38, 0.24, 0.14], [0.52, 0.34, 0.19], { pattern: 2, patternScale: 1.2 }),
-    roofRed: mat([0.52, 0.17, 0.15], [0.80, 0.30, 0.24], { pattern: 2, patternScale: 1.4 }),
-    roofBlue: mat([0.17, 0.26, 0.45], [0.30, 0.44, 0.70], { pattern: 2, patternScale: 1.4 }),
-    wall: mat([0.78, 0.72, 0.60], [0.92, 0.88, 0.78], { pattern: 3, patternScale: 0.8 }),
-    hay: mat([0.66, 0.52, 0.18], [0.90, 0.78, 0.32], { pattern: 5, patternScale: 1.6 }),
+    /* --- Almwiese: Limette und Karamell --- */
+    meadow: mat([0.58, 0.30, 0.14], [0.42, 0.95, 0.30], { pattern: 5, patternScale: 0.55 }),
+    meadowLush: mat([0.52, 0.27, 0.13], [0.32, 0.98, 0.42], { pattern: 5, patternScale: 0.8 }),
+    meadowDry: mat([0.62, 0.38, 0.13], [0.96, 0.90, 0.26], { pattern: 5, patternScale: 0.6 }),
+    dirt: mat([0.52, 0.29, 0.15], [0.80, 0.50, 0.22], { pattern: 3, patternScale: 0.6 }),
+    plank: mat([0.66, 0.33, 0.13], [1.0, 0.68, 0.28], { pattern: 2, patternScale: 0.6 }),
+    plankPale: mat([0.78, 0.51, 0.23], [1.0, 0.87, 0.55], { pattern: 2, patternScale: 0.75 }),
+    beam: mat([0.46, 0.21, 0.09], [0.70, 0.37, 0.16], { pattern: 2, patternScale: 1.2 }),
+    roofRed: mat([0.74, 0.09, 0.22], [1.0, 0.36, 0.31], { pattern: 2, patternScale: 1.4 }),
+    roofBlue: mat([0.09, 0.25, 0.68], [0.30, 0.62, 1.0], { pattern: 2, patternScale: 1.4 }),
+    wall: mat([0.86, 0.77, 0.60], [1.0, 0.99, 0.90], { pattern: 3, patternScale: 0.8 }),
+    hay: mat([0.76, 0.49, 0.09], [1.0, 0.91, 0.32], { pattern: 5, patternScale: 1.6 }),
 
-    /* --- Wald: kuehles, dichtes Gruen --- */
-    forestFloor: mat([0.28, 0.21, 0.14], [0.26, 0.46, 0.22], { pattern: 5, patternScale: 0.7 }),
-    moss: mat([0.20, 0.30, 0.16], [0.34, 0.62, 0.26], { pattern: 5, patternScale: 1.1 }),
-    bark: mat([0.28, 0.19, 0.13], [0.38, 0.27, 0.18], { pattern: 2, patternScale: 1.4 }),
-    barkPale: mat([0.72, 0.70, 0.64], [0.90, 0.89, 0.84], { pattern: 2, patternScale: 1.8 }),
-    barkDark: mat([0.19, 0.14, 0.11], [0.27, 0.20, 0.15], { pattern: 2, patternScale: 1.2 }),
-    leafDark: mat([0.10, 0.31, 0.16], [0.20, 0.50, 0.23], { pattern: 5, patternScale: 1.0 }),
-    leafMid: mat([0.15, 0.41, 0.19], [0.30, 0.65, 0.28], { pattern: 5, patternScale: 1.0 }),
-    leafLight: mat([0.26, 0.52, 0.21], [0.48, 0.78, 0.33], { pattern: 5, patternScale: 1.0 }),
-    leafAutumn: mat([0.55, 0.33, 0.10], [0.88, 0.60, 0.20], { pattern: 5, patternScale: 1.0 }),
-    shroomCap: mat([0.62, 0.16, 0.18], [0.92, 0.32, 0.28], { emissive: 0.05 }),
-    shroomCap2: mat([0.30, 0.42, 0.62], [0.52, 0.70, 0.92], { emissive: 0.05 }),
-    shroomStem: mat([0.86, 0.82, 0.72], [0.98, 0.96, 0.90]),
+    /* --- Wald: sattes Blattgruen, kein Graubraun --- */
+    forestFloor: mat([0.40, 0.21, 0.11], [0.26, 0.70, 0.24], { pattern: 5, patternScale: 0.7 }),
+    moss: mat([0.20, 0.35, 0.13], [0.36, 0.90, 0.28], { pattern: 5, patternScale: 1.1 }),
+    bark: mat([0.42, 0.21, 0.12], [0.64, 0.35, 0.18], { pattern: 2, patternScale: 1.4 }),
+    barkPale: mat([0.80, 0.71, 0.58], [1.0, 0.99, 0.91], { pattern: 2, patternScale: 1.8 }),
+    barkDark: mat([0.26, 0.11, 0.16], [0.41, 0.22, 0.27], { pattern: 2, patternScale: 1.2 }),
+    leafDark: mat([0.03, 0.33, 0.19], [0.13, 0.76, 0.32], { pattern: 5, patternScale: 1.0 }),
+    leafMid: mat([0.06, 0.43, 0.21], [0.23, 0.94, 0.36], { pattern: 5, patternScale: 1.0 }),
+    leafLight: mat([0.17, 0.57, 0.17], [0.56, 1.0, 0.40], { pattern: 5, patternScale: 1.0 }),
+    leafAutumn: mat([0.72, 0.21, 0.03], [1.0, 0.68, 0.14], { pattern: 5, patternScale: 1.0 }),
+    /* Bonbonfarbene Kronen zwischen den gruenen: ohne sie ist eine Wiese
+       voller Baeume eine einzige gruene Flaeche. */
+    leafBlossom: mat([0.62, 0.09, 0.34], [1.0, 0.52, 0.82], { pattern: 5, patternScale: 1.0 }),
+    leafTeal: mat([0.03, 0.41, 0.44], [0.22, 0.95, 0.86], { pattern: 5, patternScale: 1.0 }),
+    shroomCap: mat([0.90, 0.09, 0.31], [1.0, 0.36, 0.48], { emissive: 0.14 }),
+    shroomCap2: mat([0.21, 0.44, 0.96], [0.52, 0.80, 1.0], { emissive: 0.14 }),
+    shroomStem: mat([0.97, 0.93, 0.83], [1.0, 1.0, 0.97]),
 
-    /* --- Schlucht: Fels, Wasser --- */
-    cliff: mat([0.36, 0.37, 0.41], [0.47, 0.49, 0.53], { pattern: 3, patternScale: 0.26 }),
-    cliffWarm: mat([0.46, 0.39, 0.33], [0.58, 0.50, 0.42], { pattern: 3, patternScale: 0.35 }),
-    rock: mat([0.45, 0.46, 0.50], [0.60, 0.62, 0.66], { pattern: 3, patternScale: 0.45 }),
-    rockDark: mat([0.26, 0.27, 0.31], [0.35, 0.36, 0.42], { pattern: 3, patternScale: 0.5 }),
-    scree: mat([0.50, 0.47, 0.44], [0.66, 0.64, 0.60], { pattern: 3, patternScale: 0.9 }),
-    caveRock: mat([0.21, 0.22, 0.29], [0.29, 0.31, 0.40], { pattern: 3, patternScale: 0.5 }),
-    caveGlow: mat([0.22, 0.82, 0.92], [0.72, 1.0, 1.0], { emissive: 0.9, pattern: 6, patternScale: 3 }),
-    water: mat([0.09, 0.42, 0.68], [0.52, 0.86, 1.0], { pattern: 4, patternScale: 0.35, alpha: 0.76 }),
-    waterShallow: mat([0.18, 0.56, 0.72], [0.66, 0.94, 1.0], { pattern: 4, patternScale: 0.6, alpha: 0.62 }),
-    fall: mat([0.58, 0.84, 0.96], [1.0, 1.0, 1.0], { pattern: 8, patternScale: 0.16, alpha: 0.6, emissive: 0.3 }),
-    foam: mat([0.88, 0.95, 1.0], [1.0, 1.0, 1.0], { emissive: 0.25, alpha: 0.8 }),
+    /* --- Schlucht: Fels violett-blau getoent statt neutral grau --- */
+    cliff: mat([0.25, 0.26, 0.46], [0.53, 0.57, 0.84], { pattern: 3, patternScale: 0.26 }),
+    cliffWarm: mat([0.52, 0.26, 0.13], [0.88, 0.57, 0.31], { pattern: 3, patternScale: 0.35 }),
+    rock: mat([0.31, 0.33, 0.55], [0.65, 0.70, 0.94], { pattern: 3, patternScale: 0.45 }),
+    rockDark: mat([0.15, 0.16, 0.32], [0.33, 0.36, 0.58], { pattern: 3, patternScale: 0.5 }),
+    scree: mat([0.43, 0.39, 0.50], [0.81, 0.76, 0.88], { pattern: 3, patternScale: 0.9 }),
+    caveRock: mat([0.12, 0.06, 0.31], [0.30, 0.17, 0.60], { pattern: 3, patternScale: 0.5 }),
+    caveGlow: mat([0.12, 0.94, 1.0], [0.78, 1.0, 1.0], { emissive: 1.1, pattern: 6, patternScale: 3 }),
+    water: mat([0.02, 0.35, 0.76], [0.38, 0.97, 1.0], { pattern: 4, patternScale: 0.35, alpha: 0.76 }),
+    waterShallow: mat([0.05, 0.52, 0.82], [0.62, 1.0, 1.0], { pattern: 4, patternScale: 0.6, alpha: 0.62 }),
+    fall: mat([0.62, 0.93, 1.0], [1.0, 1.0, 1.0], { pattern: 8, patternScale: 0.16, alpha: 0.6, emissive: 0.4 }),
+    foam: mat([0.92, 0.98, 1.0], [1.0, 1.0, 1.0], { emissive: 0.3, alpha: 0.8 }),
 
-    /* --- Ruinen: Sandstein, Gold --- */
-    sandstone: mat([0.64, 0.56, 0.40], [0.84, 0.76, 0.58], { pattern: 1, patternScale: 0.4 }),
-    sandstoneWorn: mat([0.56, 0.48, 0.35], [0.74, 0.66, 0.50], { pattern: 3, patternScale: 0.55 }),
-    marble: mat([0.74, 0.72, 0.68], [0.94, 0.93, 0.90], { pattern: 1, patternScale: 0.5 }),
-    stone: mat([0.52, 0.55, 0.60], [0.72, 0.76, 0.81], { pattern: 1, patternScale: 0.45 }),
-    templeTrim: mat([0.30, 0.42, 0.40], [0.48, 0.70, 0.64], { pattern: 1, patternScale: 0.9 }),
-    gold: mat([0.86, 0.66, 0.16], [1.0, 0.92, 0.55], { emissive: 0.55 }),
-    vine: mat([0.17, 0.38, 0.18], [0.32, 0.60, 0.27], { pattern: 5, patternScale: 1.4 }),
+    /* --- Ruinen: Honiggold und Tuerkis --- */
+    sandstone: mat([0.74, 0.49, 0.18], [1.0, 0.91, 0.58], { pattern: 1, patternScale: 0.4 }),
+    sandstoneWorn: mat([0.63, 0.41, 0.16], [0.99, 0.81, 0.48], { pattern: 3, patternScale: 0.55 }),
+    marble: mat([0.71, 0.71, 0.88], [1.0, 1.0, 1.0], { pattern: 1, patternScale: 0.5 }),
+    stone: mat([0.37, 0.43, 0.65], [0.77, 0.84, 1.0], { pattern: 1, patternScale: 0.45 }),
+    templeTrim: mat([0.05, 0.43, 0.41], [0.34, 0.98, 0.88], { pattern: 1, patternScale: 0.9 }),
+    gold: mat([1.0, 0.74, 0.10], [1.0, 0.97, 0.62], { emissive: 0.7 }),
+    vine: mat([0.08, 0.37, 0.15], [0.28, 0.90, 0.30], { pattern: 5, patternScale: 1.4 }),
 
-    /* --- Gipfel: Schnee, Eis --- */
-    snow: mat([0.74, 0.80, 0.88], [0.99, 1.0, 1.0], { pattern: 3, patternScale: 0.3 }),
-    snowDeep: mat([0.66, 0.73, 0.84], [0.93, 0.96, 1.0], { pattern: 3, patternScale: 0.5 }),
-    ice: mat([0.38, 0.68, 0.84], [0.76, 0.94, 1.0], { emissive: 0.18, pattern: 6, patternScale: 1.6, alpha: 0.9 }),
-    iceSolid: mat([0.46, 0.72, 0.86], [0.82, 0.96, 1.0], { emissive: 0.12, pattern: 6, patternScale: 1.2 }),
+    /* --- Gipfel: Weiss mit kraeftigem Eisblau --- */
+    snow: mat([0.57, 0.73, 1.0], [1.0, 1.0, 1.0], { pattern: 3, patternScale: 0.3 }),
+    snowDeep: mat([0.47, 0.65, 0.99], [0.96, 0.99, 1.0], { pattern: 3, patternScale: 0.5 }),
+    ice: mat([0.09, 0.55, 0.97], [0.76, 1.0, 1.0], { emissive: 0.26, pattern: 6, patternScale: 1.6, alpha: 0.9 }),
+    iceSolid: mat([0.17, 0.63, 1.0], [0.84, 1.0, 1.0], { emissive: 0.18, pattern: 6, patternScale: 1.2 }),
 
-    /* --- Canyon: warmer roter Fels --- */
-    canyon: mat([0.58, 0.26, 0.18], [0.82, 0.45, 0.27], { pattern: 3, patternScale: 0.30 }),
-    canyonDark: mat([0.38, 0.18, 0.14], [0.54, 0.28, 0.20], { pattern: 3, patternScale: 0.40 }),
-    canyonLight: mat([0.72, 0.42, 0.26], [0.92, 0.66, 0.40], { pattern: 3, patternScale: 0.55 }),
-    mesa: mat([0.64, 0.33, 0.22], [0.88, 0.58, 0.34], { pattern: 1, patternScale: 0.22 }),
+    /* --- Canyon: Korallenrot statt Ziegelbraun --- */
+    canyon: mat([0.66, 0.15, 0.09], [1.0, 0.52, 0.25], { pattern: 3, patternScale: 0.30 }),
+    canyonDark: mat([0.40, 0.09, 0.08], [0.74, 0.27, 0.19], { pattern: 3, patternScale: 0.40 }),
+    canyonLight: mat([0.86, 0.31, 0.16], [1.0, 0.77, 0.45], { pattern: 3, patternScale: 0.55 }),
+    mesa: mat([0.74, 0.20, 0.11], [1.0, 0.62, 0.35], { pattern: 1, patternScale: 0.22 }),
 
-    /* --- Kristallhoehle --- */
-    crystalRock: mat([0.17, 0.14, 0.26], [0.26, 0.22, 0.38], { pattern: 3, patternScale: 0.5 }),
-    crystalGlow: mat([0.62, 0.28, 0.95], [1.0, 0.76, 1.0], { emissive: 1.0, pattern: 6, patternScale: 2.6 }),
-    crystalGlow2: mat([0.20, 0.78, 0.95], [0.72, 1.0, 1.0], { emissive: 1.0, pattern: 6, patternScale: 2.6 }),
+    /* --- Kristallhoehle: Magenta und Cyan --- */
+    crystalRock: mat([0.11, 0.05, 0.31], [0.31, 0.17, 0.62], { pattern: 3, patternScale: 0.5 }),
+    crystalGlow: mat([0.92, 0.16, 1.0], [1.0, 0.74, 1.0], { emissive: 1.2, pattern: 6, patternScale: 2.6 }),
+    crystalGlow2: mat([0.08, 0.88, 1.0], [0.72, 1.0, 1.0], { emissive: 1.2, pattern: 6, patternScale: 2.6 }),
 
-    /* --- Routenfarben: gruen sicher, gold schnell, rot irre --- */
-    routeSafe: mat([0.16, 0.72, 0.44], [0.62, 1.0, 0.80], { emissive: 0.95 }),
-    routeFast: mat([0.95, 0.72, 0.14], [1.0, 0.95, 0.60], { emissive: 0.95 }),
-    routeInsane: mat([0.92, 0.20, 0.36], [1.0, 0.58, 0.68], { emissive: 0.95 }),
+    /* --- Routenfarben: gruen sicher, gold schnell, pink irre --- */
+    routeSafe: mat([0.08, 0.97, 0.52], [0.66, 1.0, 0.86], { emissive: 1.1 }),
+    routeFast: mat([1.0, 0.78, 0.06], [1.0, 0.99, 0.64], { emissive: 1.1 }),
+    routeInsane: mat([1.0, 0.11, 0.46], [1.0, 0.60, 0.78], { emissive: 1.1 }),
 
     /* --- Gemeinsam --- */
-    gem: mat([0.95, 0.72, 0.10], [1.0, 0.96, 0.62], { emissive: 0.85, pattern: 6, patternScale: 2.4 }),
-    bounce: mat([0.78, 0.18, 0.24], [1.0, 0.45, 0.42], { emissive: 0.3 }),
-    bounceStem: mat([0.92, 0.90, 0.82], [1.0, 1.0, 0.96]),
-    boost: mat([0.10, 0.14, 0.26], [1.0, 0.82, 0.22], { pattern: 9, patternScale: 0.35, emissive: 0.6 }),
-    hazard: mat([0.40, 0.14, 0.40], [0.92, 0.32, 0.92], { emissive: 0.55, pattern: 6, patternScale: 2 }),
-    spike: mat([0.55, 0.52, 0.48], [0.82, 0.80, 0.76], { emissive: 0.05 }),
-    enemy: mat([0.45, 0.25, 0.65], [0.76, 0.50, 0.98], { emissive: 0.12 }),
-    enemyAlt: mat([0.72, 0.30, 0.20], [0.98, 0.58, 0.34], { emissive: 0.12 }),
-    enemyForest: mat([0.28, 0.50, 0.24], [0.52, 0.82, 0.38], { emissive: 0.1 }),
+    gem: mat([1.0, 0.80, 0.05], [1.0, 1.0, 0.68], { emissive: 1.0, pattern: 6, patternScale: 2.4 }),
+    bounce: mat([1.0, 0.13, 0.42], [1.0, 0.53, 0.71], { emissive: 0.5 }),
+    bounceStem: mat([1.0, 0.97, 0.89], [1.0, 1.0, 1.0]),
+    boost: mat([0.07, 0.09, 0.34], [1.0, 0.87, 0.12], { pattern: 9, patternScale: 0.35, emissive: 0.8 }),
+    hazard: mat([0.63, 0.05, 0.74], [1.0, 0.31, 1.0], { emissive: 0.75, pattern: 6, patternScale: 2 }),
+    spike: mat([0.70, 0.68, 0.80], [0.95, 0.93, 1.0], { emissive: 0.08 }),
+    enemy: mat([0.56, 0.19, 0.94], [0.87, 0.57, 1.0], { emissive: 0.2 }),
+    enemyAlt: mat([0.97, 0.26, 0.13], [1.0, 0.61, 0.31], { emissive: 0.2 }),
+    enemyForest: mat([0.23, 0.72, 0.19], [0.53, 1.0, 0.37], { emissive: 0.18 }),
     eye: mat([1.0, 1.0, 1.0], [1.0, 1.0, 1.0], { emissive: 0.4 }),
     pupil: mat([0.05, 0.05, 0.1], [0.05, 0.05, 0.1]),
-    ringOff: mat([0.25, 0.60, 0.80], [0.60, 0.94, 1.0], { emissive: 0.7 }),
-    ringOn: mat([0.95, 0.70, 0.12], [1.0, 0.95, 0.55], { emissive: 1.0 }),
-    flag: mat([0.90, 0.20, 0.25], [1.0, 0.55, 0.45], { emissive: 0.2 }),
-    flagAlt: mat([0.98, 0.98, 1.0], [1.0, 1.0, 1.0], { emissive: 0.15 }),
-    lantern: mat([1.0, 0.86, 0.45], [1.0, 0.98, 0.80], { emissive: 1.0 }),
-    metal: mat([0.32, 0.34, 0.38], [0.52, 0.55, 0.60]),
-    rope: mat([0.42, 0.33, 0.20], [0.56, 0.45, 0.28]),
-    cloud: mat([0.88, 0.92, 0.98], [1.0, 1.0, 1.0], { emissive: 0.1 }),
+    ringOff: mat([0.14, 0.72, 0.98], [0.62, 0.98, 1.0], { emissive: 0.8 }),
+    ringOn: mat([1.0, 0.76, 0.07], [1.0, 0.99, 0.58], { emissive: 1.15 }),
+    flag: mat([1.0, 0.13, 0.34], [1.0, 0.57, 0.52], { emissive: 0.3 }),
+    flagAlt: mat([1.0, 1.0, 1.0], [1.0, 1.0, 1.0], { emissive: 0.2 }),
+    lantern: mat([1.0, 0.88, 0.40], [1.0, 1.0, 0.86], { emissive: 1.1 }),
+    metal: mat([0.34, 0.36, 0.50], [0.57, 0.61, 0.78]),
+    rope: mat([0.58, 0.40, 0.20], [0.76, 0.57, 0.29]),
+    cloud: mat([0.95, 0.97, 1.0], [1.0, 1.0, 1.0], { emissive: 0.14 }),
     shaft: mat([1.0, 0.96, 0.80], [1.0, 1.0, 0.94], { emissive: 1.0, alpha: 0.055 }),
-    far: mat([0.36, 0.45, 0.60], [0.74, 0.82, 0.93], { pattern: 3, patternScale: 0.04 }),
-    farWarm: mat([0.42, 0.44, 0.50], [0.80, 0.84, 0.90], { pattern: 3, patternScale: 0.05 }),
+    far: mat([0.29, 0.37, 0.67], [0.77, 0.87, 1.0], { pattern: 3, patternScale: 0.04 }),
+    farWarm: mat([0.43, 0.33, 0.61], [0.93, 0.87, 1.0], { pattern: 3, patternScale: 0.05 }),
     shadow: mat([0.02, 0.05, 0.09], null, { pattern: 7, alpha: 0.4 })
   };
 
   /* Blumenfarben fuer die Wiese */
   var FLOWERS = [
-    [0.95, 0.85, 0.25], [0.92, 0.35, 0.45], [0.75, 0.45, 0.92],
-    [0.98, 0.98, 0.98], [0.95, 0.55, 0.20], [0.45, 0.65, 0.98]
+    [1.0, 0.88, 0.12], [1.0, 0.24, 0.48], [0.76, 0.32, 1.0],
+    [1.0, 1.0, 1.0], [1.0, 0.50, 0.10], [0.24, 0.66, 1.0]
   ];
 
   /* ------------------------------------------------------------ Builder */
@@ -667,9 +675,9 @@
   var LEAF_SETS = {
     fir: [MAT.leafDark, MAT.leafMid],
     pine: [MAT.leafMid, MAT.leafDark],
-    broad: [MAT.leafLight, MAT.leafMid],
-    birch: [MAT.leafLight],
-    autumn: [MAT.leafAutumn]
+    broad: [MAT.leafLight, MAT.leafMid, MAT.leafBlossom],
+    birch: [MAT.leafLight, MAT.leafBlossom, MAT.leafTeal],
+    autumn: [MAT.leafAutumn, MAT.leafBlossom]
   };
 
   /*
@@ -1125,10 +1133,10 @@
   function areaStart(b) {
     var r = b.rand, i;
     b.zone('Start', 46, 150, {
-      fogCol: [0.74, 0.86, 0.96], fogDensity: 0.0014,
-      zenith: [0.15, 0.45, 0.88], horizon: [0.80, 0.91, 0.99],
-      skyCol: [0.54, 0.72, 0.96], groundCol: [0.34, 0.40, 0.24],
-      sunCol: [1.10, 1.02, 0.86], ambient: 'pollen'
+      fogCol: [0.76, 0.93, 1.0], fogDensity: 0.0014,
+      zenith: [0.06, 0.48, 1.0], horizon: [0.99, 0.93, 0.78],
+      skyCol: [0.46, 0.80, 1.0], groundCol: [0.30, 0.52, 0.22],
+      sunCol: [1.18, 1.08, 0.86], ambient: 'pollen'
     });
 
     b.start = { x: b.toWorldX(0, 6), y: b.cursor.y + 0.1, z: b.toWorldZ(0, 6), yaw: b.cursor.yaw };
@@ -1179,10 +1187,10 @@
   function forkCanyon(b) {
     var r = b.rand, i;
     b.zone('Canyon', 60, 150, {
-      fogCol: [0.86, 0.68, 0.56], fogDensity: 0.0022,
-      zenith: [0.22, 0.44, 0.80], horizon: [0.96, 0.78, 0.60],
-      skyCol: [0.70, 0.58, 0.48], groundCol: [0.42, 0.24, 0.16],
-      sunCol: [1.15, 0.94, 0.70], ambient: 'dust'
+      fogCol: [1.0, 0.70, 0.62], fogDensity: 0.0022,
+      zenith: [0.20, 0.34, 0.92], horizon: [1.0, 0.66, 0.56],
+      skyCol: [0.82, 0.54, 0.58], groundCol: [0.54, 0.20, 0.18],
+      sunCol: [1.24, 0.94, 0.68], ambient: 'dust'
     });
 
     /* Canyonwaende */
@@ -1265,10 +1273,10 @@
   function speedRun(b) {
     var r = b.rand, i;
     b.zone('Abfahrt', 50, 130, {
-      fogCol: [0.80, 0.84, 0.92], fogDensity: 0.0018,
-      zenith: [0.18, 0.46, 0.86], horizon: [0.86, 0.90, 0.98],
-      skyCol: [0.58, 0.72, 0.94], groundCol: [0.36, 0.36, 0.28],
-      sunCol: [1.10, 1.02, 0.88], ambient: 'dust'
+      fogCol: [0.82, 0.90, 1.0], fogDensity: 0.0018,
+      zenith: [0.10, 0.48, 0.96], horizon: [0.92, 0.94, 1.0],
+      skyCol: [0.50, 0.78, 1.0], groundCol: [0.34, 0.44, 0.30],
+      sunCol: [1.18, 1.06, 0.90], ambient: 'dust'
     });
 
     b.plat(0, 0, 10, 18, 24, MAT.scree, { thickness: 2.0 });         /* -2 .. 22 */
@@ -1309,10 +1317,10 @@
   function forkFalls(b) {
     var r = b.rand, i;
     b.zone('Wasserfall', 60, 150, {
-      fogCol: [0.66, 0.80, 0.86], fogDensity: 0.0030,
-      zenith: [0.14, 0.42, 0.78], horizon: [0.74, 0.88, 0.94],
-      skyCol: [0.46, 0.68, 0.82], groundCol: [0.24, 0.32, 0.34],
-      sunCol: [1.02, 0.98, 0.90], ambient: 'spray'
+      fogCol: [0.60, 0.92, 0.98], fogDensity: 0.0030,
+      zenith: [0.04, 0.44, 0.92], horizon: [0.66, 0.98, 1.0],
+      skyCol: [0.34, 0.80, 0.96], groundCol: [0.16, 0.42, 0.46],
+      sunCol: [1.10, 1.04, 0.94], ambient: 'spray'
     });
 
     /* Fluss und Wasserfall */
@@ -1388,10 +1396,10 @@
   function caveRush(b) {
     var r = b.rand, i;
     b.zone('Kristallhoehle', 40, 110, {
-      fogCol: [0.24, 0.18, 0.36], fogDensity: 0.0090,
-      zenith: [0.08, 0.06, 0.18], horizon: [0.30, 0.20, 0.44],
-      skyCol: [0.30, 0.22, 0.48], groundCol: [0.14, 0.10, 0.22],
-      sunCol: [0.80, 0.70, 1.00], ambient: 'sparks'
+      fogCol: [0.30, 0.10, 0.48], fogDensity: 0.0090,
+      zenith: [0.06, 0.02, 0.20], horizon: [0.54, 0.10, 0.62],
+      skyCol: [0.42, 0.16, 0.70], groundCol: [0.16, 0.06, 0.28],
+      sunCol: [0.94, 0.62, 1.20], ambient: 'sparks'
     });
 
     b.deco('blob', -9, 6, -2, 16, 18, 14, MAT.crystalRock, [0.2, 0.4, 0]);
@@ -1432,10 +1440,10 @@
   function forkTemple(b) {
     var r = b.rand, i;
     b.zone('Tempel', 60, 150, {
-      fogCol: [0.86, 0.78, 0.62], fogDensity: 0.0022,
-      zenith: [0.26, 0.48, 0.80], horizon: [0.96, 0.86, 0.66],
-      skyCol: [0.66, 0.64, 0.62], groundCol: [0.42, 0.36, 0.24],
-      sunCol: [1.16, 1.02, 0.78], ambient: 'dust'
+      fogCol: [1.0, 0.86, 0.58], fogDensity: 0.0022,
+      zenith: [0.06, 0.56, 0.88], horizon: [1.0, 0.84, 0.50],
+      skyCol: [0.58, 0.76, 0.86], groundCol: [0.52, 0.38, 0.18],
+      sunCol: [1.26, 1.06, 0.74], ambient: 'dust'
     });
 
     b.plat(0, 0, 2, 30, 18, MAT.sandstoneWorn, { thickness: 2.0 });  /* -7 .. 11 */
@@ -1509,10 +1517,10 @@
   function finale(b) {
     var r = b.rand, i;
     b.zone('Gipfel', 60, 160, {
-      fogCol: [0.88, 0.93, 1.0], fogDensity: 0.0026,
-      zenith: [0.10, 0.36, 0.84], horizon: [0.90, 0.95, 1.0],
-      skyCol: [0.62, 0.78, 0.99], groundCol: [0.50, 0.56, 0.64],
-      sunCol: [1.14, 1.08, 0.98], ambient: 'snow'
+      fogCol: [0.86, 0.96, 1.0], fogDensity: 0.0026,
+      zenith: [0.02, 0.38, 0.98], horizon: [0.96, 0.92, 1.0],
+      skyCol: [0.52, 0.84, 1.0], groundCol: [0.48, 0.62, 0.78],
+      sunCol: [1.22, 1.12, 1.02], ambient: 'snow'
     });
 
     b.plat(0, 0, 10, 20, 24, MAT.snow, { thickness: 2.2 });          /* -2 .. 22 */

@@ -55,6 +55,12 @@
     DASH_TIME: 0.15,
     DASH_COOLDOWN: 0.4,
 
+    /* Umschauen: senkrecht ruhiger als waagerecht, und die Eingabe wird
+       ueber ein paar Bilder ausgegeben statt sofort - das nimmt dem
+       Wischen das Zucken, ohne spuerbar zu verzoegern. */
+    LOOK_PITCH: 0.72,
+    LOOK_SMOOTH: 20,
+
     COYOTE: 0.10,
     BUFFER: 0.12,
     TURN_RATE: 26
@@ -420,6 +426,8 @@
       look: new Float32Array(3),
       target: new Float32Array(3),
       manualTimer: 0,
+      lookQX: 0,            /* noch nicht ausgegebene Umschau-Eingabe */
+      lookQY: 0,
       shake: 0,
       view: m4.make(),
       proj: m4.make(),
@@ -445,9 +453,16 @@
         var ca = input.camAxis();
         var kx = ca.x * 2.6 * dt, ky = ca.y * 1.4 * dt;
         if (look.x || look.y || kx || ky) this.manualTimer = 0.9;
-        this.yaw += look.x + kx;
-        this.pitch += look.y + ky;
+        this.lookQX += look.x + kx;
+        this.lookQY += (look.y + ky) * P.LOOK_PITCH;
       }
+      /* Aufgelaufene Eingabe anteilig abgeben statt in einem Ruck. */
+      var take = Math.min(1, P.LOOK_SMOOTH * dt);
+      var takeX = this.lookQX * take, takeY = this.lookQY * take;
+      this.lookQX -= takeX;
+      this.lookQY -= takeY;
+      this.yaw += takeX;
+      this.pitch += takeY;
       this.pitch = M.clamp(this.pitch, -0.55, 0.95);
       if (this.manualTimer > 0) this.manualTimer -= dt;
 
