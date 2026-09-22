@@ -211,6 +211,18 @@ src/game.js     Zustaende, feste 120-Hz-Simulation, Flow, HUD, Bestzeiten
   Mauszeiger oft nicht eingefangen werden. Schlaegt es fehl, wird es nicht
   erneut versucht - stattdessen dreht Ziehen mit gedrueckter Maustaste die
   Kamera, und die Pfeiltasten tun es weiterhin auch.
+* **Figur**: gebaut aus wenigen, klar getrennten Farbflaechen - heller
+  Helm mit dunklem Visier, blauer Koerper, Gold als Akzent, roter Schal.
+  Viele kleine Farbflecken zerfallen bei Tempo. Statt einer Laufschleife
+  fuer alles bekommt jede Lage eine eigene Haltung (stehen, laufen,
+  steigen, fallen, Dash), zwischen denen geblendet wird; das Ruecken-Modul
+  gibt ihr auch von hinten - der Standardsicht - eine Form.
+* **Wasserfall**: mehrere unterschiedlich breite Straenge statt eines
+  Vorhangs, ueberkippende Lippe, Gischt und Nebel am Fuss. Die Flaeche
+  liegt in der x-y-Ebene und wird von -z gesehen; eine Rueckwand gehoert
+  deshalb auf die +z-Seite und wird vom Aufrufer gesetzt (`backWall`),
+  nicht mitgebaut - mitgebaut waere sie nur richtig, solange niemand den
+  Fall dreht.
 * **Plattformkanten**: eine Plattform endete als sauberer Quader - die
   auffaelligste Prototyp-Spur. Feste Plattformen ab 5 Einheiten
   Kantenlaenge bekommen jetzt eine ueberstehende Grasnarbe und einen Saum

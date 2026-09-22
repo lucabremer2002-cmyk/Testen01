@@ -66,13 +66,20 @@
     TURN_RATE: 26
   };
 
-  var MAT_BODY = root.MR.level.mat([0.11, 0.42, 0.72], [0.30, 0.68, 0.98], { emissive: 0.05 });
-  var MAT_TRIM = root.MR.level.mat([0.98, 0.78, 0.20], [1.0, 0.95, 0.60], { emissive: 0.2 });
+  /* Farbaufbau der Figur: kraeftiges Blau als Grundton, Gold als Akzent,
+     ein dunkler Helmvisier-Block als Kontrast. Wenige, klar getrennte
+     Farbflaechen lesen sich bei Tempo besser als viele kleine. */
+  var MAT_BODY = root.MR.level.mat([0.07, 0.33, 0.72], [0.28, 0.66, 1.0], { emissive: 0.04 });
+  var MAT_BODY2 = root.MR.level.mat([0.05, 0.22, 0.52], [0.16, 0.46, 0.84]);
+  var MAT_TRIM = root.MR.level.mat([1.0, 0.76, 0.10], [1.0, 0.96, 0.58], { emissive: 0.22 });
   var MAT_SKIN = root.MR.level.mat([0.98, 0.80, 0.66], [1.0, 0.90, 0.78]);
-  var MAT_EYE = root.MR.level.mat([1, 1, 1], [1, 1, 1], { emissive: 0.25 });
+  var MAT_HELM = root.MR.level.mat([0.90, 0.93, 1.0], [1.0, 1.0, 1.0], { emissive: 0.06 });
+  var MAT_VISOR = root.MR.level.mat([0.03, 0.10, 0.22], [0.10, 0.42, 0.72], { emissive: 0.18 });
+  var MAT_EYE = root.MR.level.mat([0.40, 0.95, 1.0], [0.85, 1.0, 1.0], { emissive: 1.0 });
   var MAT_PUPIL = root.MR.level.mat([0.05, 0.06, 0.12], [0.05, 0.06, 0.12]);
-  var MAT_SCARF = root.MR.level.mat([0.86, 0.22, 0.26], [1.0, 0.48, 0.42], { emissive: 0.12 });
-  var MAT_SHOE = root.MR.level.mat([0.16, 0.16, 0.22], [0.28, 0.28, 0.36]);
+  var MAT_SCARF = root.MR.level.mat([0.92, 0.12, 0.30], [1.0, 0.46, 0.44], { emissive: 0.14 });
+  var MAT_SHOE = root.MR.level.mat([0.10, 0.11, 0.18], [0.22, 0.24, 0.34]);
+  var MAT_GLOW = root.MR.level.mat([1.0, 0.85, 0.20], [1.0, 1.0, 0.80], { emissive: 1.2 });
 
   function create(level) {
     var p = {
@@ -370,28 +377,77 @@
         }
       }
 
-      /* Beine */
-      put('box', -0.22, 0.26 * sq, run * 0.3, 0.27, 0.54 * sq, 0.32, MAT_SHOE, -run * 0.9);
-      put('box', 0.22, 0.26 * sq, -run * 0.3, 0.27, 0.54 * sq, 0.32, MAT_SHOE, run * 0.9);
-      /* Rumpf */
-      put('blob', 0, 0.92 * sq, 0, 0.90 * st, 1.06 * sq, 0.74 * st, body);
-      put('box', 0, 0.58 * sq, 0, 0.94 * st, 0.22 * sq, 0.78 * st, MAT_TRIM);
-      /* Arme */
-      put('box', -0.52 * st, 1.0 * sq, -runB * 0.3, 0.22, 0.6, 0.24, body, runB * 1.1);
-      put('box', 0.52 * st, 1.0 * sq, runB * 0.3, 0.22, 0.6, 0.24, body, -runB * 1.1);
-      /* Kopf */
-      put('sphere', 0, 1.56 * sq, 0.02, 0.62 * st, 0.60 * sq, 0.60 * st, MAT_SKIN);
-      put('sphere', -0.16, 1.6 * sq, 0.24, 0.22, 0.24, 0.16, MAT_EYE);
-      put('sphere', 0.16, 1.6 * sq, 0.24, 0.22, 0.24, 0.16, MAT_EYE);
-      put('sphere', -0.16, 1.6 * sq, 0.3, 0.11, 0.13, 0.09, MAT_PUPIL);
-      put('sphere', 0.16, 1.6 * sq, 0.3, 0.11, 0.13, 0.09, MAT_PUPIL);
-      /* Muetze */
-      put('cone', 0, 1.86 * sq, -0.02, 0.72, 0.44, 0.7, MAT_TRIM);
-      put('sphere', 0, 2.08 * sq, -0.02, 0.2, 0.2, 0.2, MAT_SCARF);
+      /* ------------------------------------------------- Haltung nach Lage
+         Statt einer Laufschleife fuer alles bekommt jede Lage eine eigene
+         Haltung, zwischen denen weich geblendet wird: stehen, laufen,
+         steigen, fallen, Dash. Ohne das sieht jede Lage gleich aus und die
+         Figur wirkt wie eine Puppe an einem Faden. */
+      var sp01 = Math.min(1, this.speed / P.SPRINT);          /* 0 .. 1 Tempo */
+      var dashing = this.dashTimer > 0 ? 1 : 0;
+      var rising = !this.grounded && this.vy > 1 ? 1 : 0;
+      var falling = !this.grounded && this.vy < -1 ? Math.min(1, -this.vy / 22) : 0;
+      var idle = this.grounded ? 1 - Math.min(1, this.speed / 3.5) : 0;
+      var breath = Math.sin(t * 2.2) * 0.02 * idle;           /* Atmen im Stand */
+      var bob = this.grounded ? Math.abs(Math.sin(this.runCycle * 2.4)) * 0.07 * sp01 : 0;
+      var gait = this.grounded ? sp01 : 0;
+
+      /* Arm- und Beinwinkel je Lage */
+      var legF = run * (0.5 + gait * 0.9);                    /* Schrittweite */
+      var armF = runB * (0.5 + gait * 1.0);
+      if (rising) { legF = -0.5; armF = -1.0; }               /* Beine an, Arme hoch */
+      if (falling) { legF = 0.35 * falling; armF = 0.85 * falling; }
+      if (dashing) { legF = -0.8; armF = 1.5; }               /* gestreckt nach hinten */
+
+      var tilt = lean;                                         /* wird von put() addiert */
+
+      /* -------------------------------------------------------- Beine */
+      put('blob', -0.21, 0.09 * sq, legF * 0.32, 0.32, 0.22, 0.44, MAT_SHOE, -legF * 0.5);
+      put('blob', 0.21, 0.09 * sq, -legF * 0.32, 0.32, 0.22, 0.44, MAT_SHOE, legF * 0.5);
+      put('pillar', -0.21, 0.40 * sq, legF * 0.18, 0.28, 0.66 * sq, 0.28, MAT_BODY2, -legF * 0.9);
+      put('pillar', 0.21, 0.40 * sq, -legF * 0.18, 0.28, 0.66 * sq, 0.28, MAT_BODY2, legF * 0.9);
+
+      /* -------------------------------------------------------- Rumpf */
+      var torso = (0.98 + breath) * sq;
+      put('blob', 0, (1.02 + bob) * sq, 0, 0.84 * st, 0.98 * torso, 0.70 * st, body);
+      /* Brustplatte und Guertel geben der Silhouette eine klare Mitte. */
+      put('blob', 0, (1.22 + bob) * sq, 0.24, 0.40 * st, 0.30 * sq, 0.22 * st, MAT_TRIM);
+      put('blob', 0, (0.70 + bob) * sq, 0, 0.78 * st, 0.20 * sq, 0.64 * st, MAT_BODY2);
+      /* Ruecken-Modul: gibt der Figur von hinten - der Standardsicht -
+         ueberhaupt eine Form. */
+      put('blob', 0, (1.12 + bob) * sq, -0.32, 0.54 * st, 0.58 * sq, 0.28 * st, MAT_BODY2);
+      put('sphere', -0.16, (1.12 + bob) * sq, -0.42, 0.14, 0.14, 0.14, MAT_GLOW);
+      put('sphere', 0.16, (1.12 + bob) * sq, -0.42, 0.14, 0.14, 0.14, MAT_GLOW);
+
+      /* --------------------------------------------------------- Arme */
+      put('blob', -0.48 * st, (1.34 + bob) * sq, 0, 0.30, 0.30, 0.30, body);
+      put('blob', 0.48 * st, (1.34 + bob) * sq, 0, 0.30, 0.30, 0.30, body);
+      put('pillar', -0.50 * st, (1.04 + bob) * sq, -armF * 0.28, 0.22, 0.62, 0.24, MAT_BODY2, armF * 1.1);
+      put('pillar', 0.50 * st, (1.04 + bob) * sq, armF * 0.28, 0.22, 0.62, 0.24, MAT_BODY2, -armF * 1.1);
+      put('blob', -0.52 * st, (0.74 + bob) * sq, -armF * 0.52, 0.23, 0.22, 0.23, MAT_HELM, armF * 1.1);
+      put('blob', 0.52 * st, (0.74 + bob) * sq, armF * 0.52, 0.23, 0.22, 0.23, MAT_HELM, -armF * 1.1);
+
+      /* --------------------------------------------------------- Kopf
+         Helm statt nacktem Kopf: eine geschlossene helle Kugel mit dunklem
+         Visier. Das gibt eine eindeutige Silhouette und eine Blickrichtung,
+         die man auch von hinten erkennt. */
+      var headY = (1.74 + bob + breath * 2) * sq;
+      var headTilt = falling * 0.25 - rising * 0.2 - dashing * 0.3;
+      put('sphere', 0, headY, 0.01, 0.66 * st, 0.64 * sq, 0.64 * st, MAT_HELM, headTilt);
+      put('blob', 0, headY + 0.02, 0.26, 0.54 * st, 0.34 * sq, 0.26 * st, MAT_VISOR, headTilt);
+      put('sphere', -0.13, headY + 0.03, 0.34, 0.15, 0.17, 0.10, MAT_EYE, headTilt);
+      put('sphere', 0.13, headY + 0.03, 0.34, 0.15, 0.17, 0.10, MAT_EYE, headTilt);
+      /* Helmkamm in Akzentfarbe */
+      put('prism', 0, headY + 0.28, -0.04, 0.15, 0.17, 0.52, MAT_TRIM, headTilt);
+      /* Antenne mit leuchtender Kugel - kleines bewegtes Detail */
+      var ant = Math.sin(t * 6 + this.speed * 0.3) * (0.08 + sp01 * 0.22);
+      put('cylinder', 0.21, headY + 0.30, -0.16, 0.045, 0.30, 0.045, MAT_BODY2, ant * 0.6);
+      put('sphere', 0.21 + ant * 0.16, headY + 0.47, -0.17, 0.13, 0.13, 0.13, MAT_GLOW);
+
       /* Schal weht mit dem Tempo */
       var flap = Math.sin(t * 14) * 0.1 + Math.min(0.9, this.speed / P.SPRINT);
-      put('box', 0, 1.26 * sq, 0.04, 0.72, 0.22, 0.52, MAT_SCARF);
-      put('box', 0, 1.12 * sq, -0.34 - flap * 0.4, 0.26, 0.18, 0.5 + flap * 1.1, MAT_SCARF, -0.7 - flap * 0.5);
+      put('blob', 0, (1.44 + bob) * sq, 0.02, 0.70 * st, 0.24, 0.58 * st, MAT_SCARF);
+      put('box', 0, (1.30 + bob) * sq, -0.36 - flap * 0.45, 0.26, 0.16, 0.55 + flap * 1.3, MAT_SCARF, -0.7 - flap * 0.5);
+      put('box', -0.16, (1.26 + bob) * sq, -0.30 - flap * 0.3, 0.18, 0.13, 0.40 + flap * 0.9, MAT_SCARF, -0.6 - flap * 0.4);
 
       /* Landering: seit es echten Sonnenschatten gibt, ist der Fleck unter
          der Figur kein Schatten mehr, sondern nur noch die Anzeige, wo man
@@ -486,9 +542,13 @@
       this.distNow = instant ? wantDist : M.damp(this.distNow, wantDist, 5, dt);
 
       /* Blickfeld: leicht weiter beim Sprint, deutlich beim Dash. */
-      var wantFov = this.fovBase + fast * 0.085;
-      this.fovNow = instant ? wantFov : M.damp(this.fovNow, wantFov, 7, dt);
-      this.fovPunch = M.damp(this.fovPunch, 0, 7, dt);
+      /* Tempo weitet das Sichtfeld: die Umgebung zieht sichtbar schneller
+         vorbei, ohne dass die Figur kleiner wird. Der Stoss beim Dash klingt
+         langsamer ab als vorher - bei 7 war er vorbei, bevor man ihn
+         bemerkt hat. */
+      var wantFov = this.fovBase + fast * 0.13;
+      this.fovNow = instant ? wantFov : M.damp(this.fovNow, wantFov, 6, dt);
+      this.fovPunch = M.damp(this.fovPunch, 0, 5.2, dt);
       this.fov = this.fovNow + this.fovPunch;
       this.landPunch = M.damp(this.landPunch, 0, 11, dt);
 

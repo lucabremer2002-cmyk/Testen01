@@ -90,7 +90,7 @@
     caveGlow: mat([0.12, 0.94, 1.0], [0.78, 1.0, 1.0], { emissive: 1.1, pattern: 6, patternScale: 3 }),
     water: mat([0.02, 0.35, 0.76], [0.38, 0.97, 1.0], { pattern: 4, patternScale: 0.35, alpha: 0.76 }),
     waterShallow: mat([0.05, 0.52, 0.82], [0.62, 1.0, 1.0], { pattern: 4, patternScale: 0.6, alpha: 0.62 }),
-    fall: mat([0.62, 0.93, 1.0], [1.0, 1.0, 1.0], { pattern: 8, patternScale: 0.16, alpha: 0.6, emissive: 0.4 }),
+    fall: mat([0.30, 0.76, 1.0], [0.92, 1.0, 1.0], { pattern: 8, patternScale: 0.16, alpha: 0.62, emissive: 0.22 }),
     foam: mat([0.92, 0.98, 1.0], [1.0, 1.0, 1.0], { emissive: 0.3, alpha: 0.8 }),
 
     /* --- Ruinen: Honiggold und Tuerkis --- */
@@ -145,6 +145,7 @@
     rope: mat([0.58, 0.40, 0.20], [0.76, 0.57, 0.29]),
     cloud: mat([0.95, 0.97, 1.0], [1.0, 1.0, 1.0], { emissive: 0.14 }),
     shaft: mat([1.0, 0.96, 0.80], [1.0, 1.0, 0.94], { emissive: 1.0, alpha: 0.055 }),
+    mist: mat([0.86, 0.95, 1.0], [1.0, 1.0, 1.0], { emissive: 0.25, alpha: 0.10 }),
     far: mat([0.29, 0.37, 0.67], [0.77, 0.87, 1.0], { pattern: 3, patternScale: 0.04 }),
     farWarm: mat([0.43, 0.33, 0.61], [0.93, 0.87, 1.0], { pattern: 3, patternScale: 0.05 }),
     shadow: mat([0.02, 0.05, 0.09], null, { pattern: 7, alpha: 0.4 })
@@ -1250,13 +1251,67 @@
     }
   };
 
+  /* Wasserfall als Blickfang: mehrere unterschiedlich breite Straenge
+     statt eines Vorhangs, eine ueberkippende Lippe oben, Gischt und
+     Nebelsaeule unten, Felsen an den Flanken. Ein einzelner Quader mit
+     Streifenmuster liest sich sofort als Platzhalter. */
   B.waterfall = function (lx, ly, lz, w, h, o) {
     o = o || {};
-    this.deco('box', lx, ly - h / 2, lz, w, h, 0.7, MAT.fall);
-    this.deco('box', lx, ly - h / 2, lz + 0.6, w * 0.72, h, 0.7, MAT.fall);
-    this.deco('box', lx, ly - h / 2, lz - 0.6, w * 0.5, h, 0.5, MAT.fall);
-    this.deco('sphere', lx, ly - h + 0.6, lz, w * 1.7, 2.2, w * 1.5, MAT.foam);
-    if (o.top !== false) this.deco('box', lx, ly + 0.2, lz, w * 1.1, 0.6, 2.2, MAT.waterShallow);
+    var r = this.rand;
+    var strands = Math.max(3, Math.round(w * 0.7));
+
+    /* Der Fall ist eine Flaeche in der x-y-Ebene und wird von -z gesehen.
+       Eine Rueckwand gehoert deshalb auf die +z-Seite - sie mitzubauen
+       waere nur richtig, solange niemand den Fall dreht, deshalb setzt sie
+       der Aufrufer (`backWall`). */
+    if (o.backWall) {
+      this.deco('box', lx, ly - h / 2 + 0.4, lz + 1.6, w * 1.9, h * 1.06, 2.6,
+        o.rockMat || MAT.rockDark);
+    }
+
+    /* Hauptstrang, dahinter und davor je zwei schmalere - das gibt Tiefe. */
+    for (var i = 0; i < strands; i++) {
+      var f = (i / Math.max(1, strands - 1)) - 0.5;          /* -0.5 .. 0.5 */
+      var sw = w * (0.30 + (1 - Math.abs(f) * 1.7) * 0.55);
+      if (sw < w * 0.12) sw = w * 0.12;
+      var sz = lz + f * 1.9 + (r() - 0.5) * 0.4;
+      var sx = lx + f * w * 0.28 + (r() - 0.5) * 0.3;
+      var sh = h * (0.94 + r() * 0.1);
+      this.deco('box', sx, ly - sh / 2 + 0.3, sz, sw, sh, 0.55 + r() * 0.4, MAT.fall);
+    }
+
+    /* Lippe: das Wasser kippt ueber die Kante, statt an ihr abzureissen. */
+    if (o.top !== false) {
+      this.deco('box', lx, ly + 0.15, lz, w * 1.12, 0.5, 2.4, MAT.waterShallow);
+      this.deco('blob', lx, ly - 0.15, lz + 0.8, w * 1.05, 0.9, 1.5, MAT.fall);
+    }
+
+    /* Gischt: mehrere Ballen unterschiedlicher Groesse statt einer Kugel. */
+    for (var g = 0; g < 4; g++) {
+      var ga = r() * 6.28, gd = r() * w * 0.7;
+      this.deco('blob', lx + Math.cos(ga) * gd, ly - h + 0.5 + r() * 1.2, lz + Math.sin(ga) * gd * 0.7,
+        w * (0.9 + r() * 0.9), 1.6 + r() * 1.4, w * (0.8 + r() * 0.8), MAT.foam, [0, r() * 6.28, 0]);
+    }
+
+    /* Nebel nur am Fuss und klein: eine Saeule ueber die ganze Hoehe hat
+       den Bereich weissgewaschen, statt Stimmung zu machen. */
+    for (var mI = 0; mI < 2; mI++) {
+      this.deco('blob', lx + (r() - 0.5) * w * 0.7, ly - h + 1.6 + mI * 1.8, lz + 1.2 + r() * 0.8,
+        w * (0.9 + r() * 0.5), 2.2 + r(), w * (0.7 + r() * 0.4), MAT.mist, [0, r() * 6.28, 0]);
+    }
+
+    /* Felsen an den Flanken: der Fall haengt sonst frei in der Wand. */
+    if (o.rocks !== false) {
+      for (var k = 0; k < 4; k++) {
+        var side = k % 2 ? 1 : -1;
+        var ky = ly - h * (0.1 + r() * 0.8);
+        this.deco(k % 3 === 0 ? 'rock' : (k % 3 === 1 ? 'rock2' : 'rock3'),
+          lx + side * (w * 0.62 + r() * 1.2), ky, lz + (r() - 0.5) * 2.2,
+          2.2 + r() * 2.4, 1.8 + r() * 2.2, 2.0 + r() * 2.0,
+          o.rockMat || MAT.rockDark, [(r() - 0.5) * 0.5, r() * 6.28, (r() - 0.5) * 0.5]);
+      }
+    }
+
     var p = this.toWorld(lx, ly - h + 1, lz, [0, 0, 0]);
     this.sprayPoints = this.sprayPoints || [];
     this.sprayPoints.push({ x: p[0], y: p[1], z: p[2], w: w });
@@ -1543,6 +1598,11 @@
     b.deco('box', -30, 6, 60, 20, 60, 140, MAT.cliff);
     b.waterfall(-22, 6, 34, 9, 34);
     b.deco('box', 30, 6, 60, 20, 60, 140, MAT.cliffWarm);
+    /* Wahrzeichen: ein zweiter, deutlich groesserer Fall an der
+       gegenueberliegenden Wand. Er liegt abseits aller Routen und dient
+       allein der Orientierung - man sieht ihn schon aus dem Canyon. */
+    b.waterfall(14, 24, 112, 16, 36, { rockMat: MAT.cliffWarm, backWall: true });
+    b.waterfall(24, 11, 128, 7, 22, { top: false, rockMat: MAT.cliffWarm, backWall: true });
     b.routeSign(-7, 0, -6, 0);
     b.routeSign(8, 0, -6, 1);
     b.routeSign(-17, 0, -6, 2);
