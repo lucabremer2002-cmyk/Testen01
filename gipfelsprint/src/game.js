@@ -738,6 +738,22 @@
           speed: 5, up: 1.2, life: 0.4, size: 0.26, color: [0.9, 0.88, 0.78], grav: -20, spread: 0.7
         });
         this.checkCloseCall();
+      } else if (ev === 'slideland') {
+        /* Der wichtigste Moment des Spiels bekommt das lauteste Echo. */
+        Audio.sfx.boost();
+        this.cam.landPunch = 0.4;
+        this.cam.fovPunch = 0.3;
+        this.cam.shake = 0.12;
+        this.particles.ring(p.x, p.y - 0.8, p.z, 20, 1.0, 9, [1.0, 0.45, 0.7], 0.3, 0.45);
+        this.addFlow(0.14, 90);
+        this.trick('Schwung mitgenommen', 'pink');
+      } else if (ev === 'walljump') {
+        Audio.sfx.doubleJump();
+        this.cam.fovPunch = 0.16;
+        this.particles.burst(p.x, p.y, p.z, 12, { speed: 5, up: 1.5, life: 0.4, size: 0.24, color: [0.8, 0.9, 1.0], grav: -8, spread: 0.6 });
+        this.addFlow(FLOW_GAIN.djump, 40);
+        this.airActions++;
+        if (this.airActions >= 3) this.award('Luftkombo', 'pink', 220);
       } else if (ev === 'bounce') {
         Audio.sfx.bounce();
         this.cam.fovPunch = 0.12;
@@ -790,6 +806,10 @@
       if (gx * gx + gy * gy + gz * gz > 3.4 * 3.4) continue;
       g.taken = true;
       this.gems++;
+      /* Ein Kristall ist eine Dash-Ladung. Damit sind Kristalle Treibstoff
+         fuer die Abkuerzungen statt einer Zahl in der Anzeige - und es
+         lohnt sich, fuer sie vom sicheren Weg abzuweichen. */
+      p.giveDash(1);
       this.chain = this.chainTimer > 0 ? this.chain + 1 : 1;
       this.chainTimer = 2.6;
       if (this.chain > this.bestChainThisRun) this.bestChainThisRun = this.chain;
@@ -920,9 +940,12 @@
     $('flowMult').textContent = 'x' + (1 + this.flowLevel * 0.5).toFixed(1);
     $('hud').className = 'hud flow--l' + this.flowLevel;
     var jumpReady = p.jumps > 0 || p.grounded;
-    var dashReady = p.dashCharge > 0 && p.dashCooldown <= 0;
+    /* Der Dash hat keine Abklingzeit mehr, sondern einen Vorrat von drei
+       Ladungen. Landen gibt eine zurueck, jeder Kristall eine dazu. */
+    var dashReady = p.dashCharge > 0;
     $('abJump').className = 'ability' + (jumpReady ? ' ready' : ' used');
     $('abDash').className = 'ability' + (dashReady ? ' ready' : ' used');
+    $('abDash').firstChild.textContent = p.dashCharge > 1 ? 'DASH ' + p.dashCharge : 'DASH';
     if (this.input.isTouch) {
       var bj = $('tBtnJump'), bd = $('tBtnDash');
       bj.classList.toggle('ready', jumpReady);
@@ -1089,7 +1112,10 @@
       cmd.wishZ = this.wish[1];
       /* Am Handy gibt es keine Sprinttaste: wer den Knopf ganz durchdrueckt,
          sprintet. */
-      cmd.sprint = input.down('sprint') || (ax.fromTouch && ax.len > 0.78);
+      /* Die Taste rutscht jetzt, statt zu sprinten: die Figur laeuft immer
+         so schnell sie kann. Rutschen haelt Tempo und rechnet beim Landen
+         Fallhoehe in Vortrieb um. */
+      cmd.slide = input.down('sprint') || (ax.fromTouch && ax.len > 0.78);
       /* Tastendruecke werden gemerkt, bis ein Simulationsschritt sie
          wirklich verbraucht hat. Die Simulation laeuft mit festen 120
          Schritten je Sekunde; auf einem schnelleren Bildschirm gibt es

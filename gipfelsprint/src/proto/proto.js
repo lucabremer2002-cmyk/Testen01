@@ -13,7 +13,7 @@
 (function (root) {
   'use strict';
   var M = root.MR.math;
-  var Move = root.MR.protoMove;
+  var Move = root.MR.player;
   var Track = root.MR.protoTrack;
 
   var FIXED = 1 / 120;

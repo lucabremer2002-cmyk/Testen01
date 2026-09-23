@@ -15,68 +15,121 @@
   var Physics = root.MR.physics;
   var MAT = root.MR.level.MAT;
 
+  /* -------------------------------------------------------------------
+     Bewegung der Figur.
+
+     Der Unterschied zum alten Modell steckt in einer einzigen Zahl:
+     OVER_DECAY. Dort baute sich jedes Tempo oberhalb der Laufgeschwindigkeit
+     mit 46 Einheiten pro Sekunde ab - ein Dash auf 40 war nach 0,4 s
+     wieder bei 21. Tempo war damit nichts, was man sich erarbeitet, sondern
+     ein kurzer Ausschlag. Hier zerfaellt Ueberschusstempo mit 7 am Boden,
+     2,5 in der Luft und 0,8 im Rutschen: wer schnell ist, bleibt schnell,
+     solange er keinen Fehler macht.
+
+     Tempo entsteht aus Hoehe. Der Motor kennt nur achsparallele Kaesten,
+     also gibt es keine Rampen zum Hinunterrutschen - stattdessen wird beim
+     Landen mit gedrueckter Rutschtaste Fallgeschwindigkeit in Vortrieb
+     umgerechnet. Hoch gehen kostet Zeit und bringt Tempo. Das ist die
+     zentrale Entscheidung des Spiels.
+     ------------------------------------------------------------------- */
   var P = {
     RADIUS: 0.42,
     HEIGHT: 1.7,
-    RUN: 15.0,
-    SPRINT: 21.0,
 
-    /* Boden: praktisch sofortige Reaktion. 240 heisst: aus dem Stand auf
-       Sprinttempo in knapp 0,09 s. Luft: 105, also rund 44 Prozent davon -
-       steuerbar, aber nicht schwebend. */
-    ACCEL_GROUND: 240,
-    /* Rund 38 Prozent des Bodenwerts. Gemessen erreicht ein voll
-       gehaltener Querimpuls in der Luft weiterhin die volle Quergeschwindigkeit
-       - nur langsamer. Wer die Spitze wirklich deckeln will, muss auch die
-       irren Aeste neu bauen; mit 68 faellt der Tempel-Ast aus und die
-       Messwerte aendern sich kaum (94 statt 100 Prozent). */
-    ACCEL_AIR: 90,
-
-    /* Seitwaertsanteil beim Richtungswechsel. Am Boden fast sofort weg
-       (kein Eislaufen), in der Luft bleibt Schwung erhalten. */
-    TURN_DAMP_GROUND: 26,
-    /* Der Wert frisst den Anteil quer zur Eingaberichtung. Bei 5 blieben
-       von 21 Einheiten Vorwaertstempo nach 0,3 s Querhalten nur 4,3 uebrig:
-       eine Kehrtwende in der Luft kostete nichts. Bei 1,9 bleiben rund 11.
-       Kleine Korrekturen sind dadurch fast gratis, eine ganze Drehung
-       kostet Tempo - genau die Abstufung, die Schwung belohnt. */
-    TURN_DAMP_AIR: 3.0,
-
-    /* Loslassen: aus vollem Sprint in gut einer Zehntelsekunde zum Stand. */
-    FRICTION_GROUND: 190,
-    FRICTION_AIR: 1.5,
-
-    /* Tempo oberhalb der Hoechstgeschwindigkeit (Dash, Tempofeld) baut sich
-       am Boden zuegig ab, in der Luft langsam - das belohnt Dash-Spruenge. */
-    OVER_DECAY_GROUND: 46,
-    OVER_DECAY_AIR: 16,
-
-    /* Straffer Sprung: 3,05 m hoch, 0,69 s Flugzeit. Wird die Taste sofort
-       losgelassen, greift die viel staerkere Steigfluggravitation. */
-    GRAV_HOLD: 42,
-    GRAV_UP: 78,
-    GRAV_DOWN: 62,
-    MAX_FALL: 62,
-    JUMP_V: 16.0,
-    DJUMP_V: 14.0,
-
-    /* Dash: kurzer, harter Schub statt langsamer Beschleunigung. */
-    DASH_SPEED: 40,
-    DASH_TIME: 0.15,
-    /* 0,4 liess am Boden acht Dashes in drei Sekunden zu - damit war Dashen
-       schneller als Sprinten und die Hoechstgeschwindigkeit bedeutungslos.
-       0,7 entspricht etwa einem Sprung-Dash-Lande-Zyklus. */
-    DASH_COOLDOWN: 0.7,
-
-    /* Umschauen: senkrecht ruhiger als waagerecht, und die Eingabe wird
-       ueber ein paar Bilder ausgegeben statt sofort - das nimmt dem
-       Wischen das Zucken, ohne spuerbar zu verzoegern. */
+    /* Kamera. Ohne diese beiden wurde der Blickwinkel NaN und es war
+       ueberhaupt nichts mehr zu sehen - nur Himmel. */
     LOOK_PITCH: 0.72,
     LOOK_SMOOTH: 20,
 
+    /* Grundtempo. Es gibt keine Sprinttaste mehr - die Figur laeuft immer
+       so schnell sie kann, die Taste ist zum Rutschen da. */
+    RUN: 17.0,
+
+    ACCEL_GROUND: 200,
+    ACCEL_AIR: 88,
+    ACCEL_SLIDE: 26,          /* im Rutschen kaum noch antreiben */
+
+    TURN_DAMP_GROUND: 22,
+    TURN_DAMP_AIR: 2.6,
+    TURN_DAMP_SLIDE: 1.1,     /* im Rutschen laesst sich kaum lenken */
+
+    FRICTION_GROUND: 170,
+    FRICTION_SLIDE: 5,
+    FRICTION_AIR: 1.2,
+
+    /* Der Kern: Schwung vergeht langsam. */
+    OVER_DECAY_GROUND: 7,
+    OVER_DECAY_AIR: 2.5,
+
+    /* Rutschen war zu gut: es hielt Tempo fast verlustfrei und kostete auf
+       einer geraden Strecke gar nichts. Gemessen hielt der Testpilot
+       sieben Sekunden am Stueck exakt Tempo 40 - ein Plateau, kein Spiel.
+       Jetzt ermuedet das Rutschen: der Verlust waechst mit jeder Sekunde,
+       nach anderthalb Sekunden ist er groesser als beim Laufen.
+
+       Frisch wird es nur durch eine Rutschlandung. Damit haengen die
+       beiden Mechaniken zusammen: aus der Hoehe Tempo holen, es knapp zwei
+       Sekunden tragen, und vorher die naechste Hoehe finden. Das ist der
+       Takt, in dem das Level gebaut ist. */
+    OVER_DECAY_SLIDE: 0.8,
+    SLIDE_FADE: 7.0,
+    SLIDE_RECOVER: 0.4,       /* so schnell erholt sich das Rutschen im Stehen */
+
+    GRAV_HOLD: 42,
+    GRAV_UP: 78,
+    GRAV_DOWN: 64,
+    MAX_FALL: 64,
+    JUMP_V: 15.5,
+    DJUMP_V: 13.5,
+
+    /* Rutschlandung: Anteil der Fallgeschwindigkeit, der in Vortrieb
+       umschlaegt, und die Obergrenze dafuer. 46 ist schnell genug, dass ein
+       hoher Weg sich lohnt, und langsam genug, dass er kein Freifahrtschein
+       ist. */
+    /* Gemessen: mit 0,78 und Deckel 46 war ab 14 m Fallhoehe Schluss - ein
+       Umweg auf 24 m brachte exakt so viel wie einer auf 14. Damit war die
+       Frage "wie hoch lohnt sich" beantwortet, bevor sie gestellt war.
+       Flacher und hoeher gedeckelt skaliert sie weiter: 6 m -> 31,
+       10 m -> 36, 16 m -> 42, 24 m -> 48, ganz hoch -> 54. */
+    SLIDE_LAND_GAIN: 0.62,
+    /* Gedeckelt auf 46. Bei 58 (209 km/h) blieben auf 24 m Plattformabstand
+       vier Zehntelsekunden je Plattform - schneller, als man im Rutschen
+       lenken kann, und der Testpilot verfehlte reihenweise Landungen. Die
+       Geometrie des Levels ist auf 25 bis 40 ausgelegt; 46 ist die Spitze,
+       die man sich fuer einen grossen Sturz holt, nicht der Normalfall. */
+    SLIDE_LAND_MAX: 46,
+    /* Erst ab dieser Aufprallgeschwindigkeit zaehlt es als Sturz - 30
+       entspricht rund sieben Metern Fall.
+
+       Die Schwelle muss deutlich ueber dem liegen, was ein gewoehnlicher
+       Sprung erzeugt: ein gehaltener Sprung steigt 2,8 m und kommt mit 19
+       wieder auf. Bei einer Schwelle von 17 loeste jeder einzelne Huepfer
+       die Rutschlandung aus, und der Testpilot hing sieben Sekunden am
+       Stueck auf Tempo 40 - ein Plateau statt eines Spiels. Bei 6, wie
+       ganz am Anfang, reichte schon eine Stufe von dreissig Zentimetern.
+       Hoehe muss man sich holen, nicht im Vorbeigehen mitnehmen. */
+    SLIDE_LAND_MIN: 30,
+    SLIDE_MIN_SPEED: 5,       /* darunter steht man auf statt zu rutschen */
+    SLIDE_JUMP_KEEP: 1.06,    /* Absprung aus dem Rutschen traegt etwas weiter */
+
+    /* Dash ist keine Faehigkeit mit Abklingzeit mehr, sondern ein Vorrat.
+       Landen gibt eine Ladung zurueck, jeder Kristall gibt eine dazu. Damit
+       sind Kristalle zum ersten Mal ein Teil des Spiels und nicht nur eine
+       Zahl in der Anzeige. */
+    DASH_SPEED: 38,
+    DASH_TIME: 0.16,
+    DASH_MAX: 3,
+
+    /* Wandsprung: haelt das Tempo und lenkt es um, statt es zu stoppen. */
+    WALL_JUMP_V: 14.5,
+    WALL_PUSH: 13,
+    WALL_KEEP: 0.86,
+    WALL_COYOTE: 0.14,
+    WALL_MIN_SPEED: 7,
+
     COYOTE: 0.10,
     BUFFER: 0.12,
-    TURN_RATE: 26
+    TURN_RATE: 16
   };
 
   /* Farbaufbau der Figur: kraeftiges Blau als Grundton, Gold als Akzent,
@@ -109,6 +162,13 @@
       dashCharge: 1,
       dashTimer: 0,
       dashCooldown: 0,
+      sliding: false,
+      slideTime: 0,
+      wallCoyote: 0,
+      wallNX: 0,
+      wallNZ: 0,
+      lastGroundX: 0, lastGroundY: 0, lastGroundZ: 0,
+      topSpeed: 0,
       dashDirX: 0,
       dashDirZ: 1,
       boostTimer: 0,
@@ -141,6 +201,11 @@
       this.dashCharge = 1;
       this.dashTimer = 0;
       this.dashCooldown = 0;
+      this.sliding = false;
+      this.slideTime = 0;
+      this.wallCoyote = 0;
+      this.topSpeed = 0;
+      this.lastGroundX = this.x; this.lastGroundY = this.y; this.lastGroundZ = this.z;
       this.boostTimer = 0;
       this.squash = 1;
       this.lean = 0;
@@ -177,24 +242,34 @@
         this.platVZ *= 0.85;
       }
 
-      if (this.dashCooldown > 0) this.dashCooldown -= dt;
+      if (this.wallCoyote > 0) this.wallCoyote -= dt;
       if (this.boostTimer > 0) this.boostTimer -= dt;
       if (this.coyote > 0) this.coyote -= dt;
       if (this.buffer > 0) this.buffer -= dt;
 
       var wishX = cmd.wishX, wishZ = cmd.wishZ;
       var wishLen = Math.hypot(wishX, wishZ);
-      var targetSpeed = (cmd.sprint ? P.SPRINT : P.RUN) * (wishLen > 0.01 ? Math.min(1, wishLen) : 0);
+      var spNow = Math.hypot(this.vx, this.vz);
+
+      /* Rutschen: nur am Boden und nur mit Tempo. Wer steht, rutscht nicht -
+         sonst waere die Taste ein Dauerzustand ohne Entscheidung. */
+      var wantSlide = !!cmd.slide;
+      this.sliding = wantSlide && this.grounded && spNow > P.SLIDE_MIN_SPEED;
+      /* Die Ermuedung baut sich im Rutschen auf und nur langsam wieder ab -
+         sonst koennte man sie mit kurzem Loslassen zuruecksetzen. */
+      if (this.sliding) this.slideTime += dt;
+      else this.slideTime = Math.max(0, this.slideTime - dt * P.SLIDE_RECOVER);
+
+      var targetSpeed = P.RUN * (wishLen > 0.01 ? Math.min(1, wishLen) : 0);
 
       /* ------------------------------------------------------------ Dash */
-      if (cmd.dash && this.dashTimer <= 0 && this.dashCooldown <= 0 && this.dashCharge > 0) {
+      if (cmd.dash && this.dashTimer <= 0 && this.dashCharge > 0) {
         var dx2 = wishLen > 0.05 ? wishX / wishLen : Math.sin(this.yaw);
         var dz2 = wishLen > 0.05 ? wishZ / wishLen : Math.cos(this.yaw);
         this.dashDirX = dx2;
         this.dashDirZ = dz2;
         this.dashTimer = P.DASH_TIME;
-        this.dashCooldown = P.DASH_COOLDOWN;
-        if (!this.grounded) this.dashCharge = 0;
+        this.dashCharge--;
         this.vy = Math.max(this.vy, 0);
         this.yaw = Math.atan2(dx2, dz2);
         ev.push('dash');
@@ -207,7 +282,7 @@
         this.vy = 0;                 /* waagerechter Schub, kein Absacken */
       } else {
         /* ------------------------------------------------- Laufen / Lenken */
-        var accel = this.grounded ? P.ACCEL_GROUND : P.ACCEL_AIR;
+        var accel = this.sliding ? P.ACCEL_SLIDE : (this.grounded ? P.ACCEL_GROUND : P.ACCEL_AIR);
         if (wishLen > 0.01) {
           /* Beschleunigt wird nur bis zur Wunschgeschwindigkeit in
              Laufrichtung: so bleibt Schwung aus Dash oder Tempofeld erhalten,
@@ -222,7 +297,7 @@
           }
           /* Quer zur Laufrichtung wird abgebaut - am Boden hart (der Wechsel
              sitzt sofort), in der Luft sanft (Schwung bleibt). */
-          var damp = this.grounded ? P.TURN_DAMP_GROUND : P.TURN_DAMP_AIR;
+          var damp = this.sliding ? P.TURN_DAMP_SLIDE : (this.grounded ? P.TURN_DAMP_GROUND : P.TURN_DAMP_AIR);
           var k = 1 - Math.exp(-damp * dt);
           this.vx -= (this.vx - dirX * cur) * k;
           this.vz -= (this.vz - dirZ * cur) * k;
@@ -230,7 +305,8 @@
           /* Nichts gedrueckt: am Boden zackig stehenbleiben. */
           var sp0 = Math.hypot(this.vx, this.vz);
           if (sp0 > 0.001) {
-            var drop = Math.min(sp0, (this.grounded ? P.FRICTION_GROUND : P.FRICTION_AIR) * dt);
+            var fr = this.sliding ? P.FRICTION_SLIDE : (this.grounded ? P.FRICTION_GROUND : P.FRICTION_AIR);
+            var drop = Math.min(sp0, fr * dt);
             this.vx -= this.vx / sp0 * drop;
             this.vz -= this.vz / sp0 * drop;
           }
@@ -240,7 +316,8 @@
         var sp = Math.hypot(this.vx, this.vz);
         var cap = Math.max(targetSpeed, this.boostTimer > 0 ? this.boostCap : 0);
         if (sp > cap && sp > 0.001) {
-          var decay = (this.grounded ? P.OVER_DECAY_GROUND : P.OVER_DECAY_AIR) * dt;
+          var decay = (this.sliding ? (P.OVER_DECAY_SLIDE + this.slideTime * P.SLIDE_FADE)
+                       : (this.grounded ? P.OVER_DECAY_GROUND : P.OVER_DECAY_AIR)) * dt;
           var target = Math.max(cap, sp - decay);
           this.vx *= target / sp;
           this.vz *= target / sp;
@@ -250,7 +327,34 @@
       /* ---------------------------------------------------------- Sprung */
       if (cmd.jumpPressed) this.buffer = P.BUFFER;
       if (this.buffer > 0) {
-        if (this.grounded || this.coyote > 0) {
+        if (!this.grounded && this.coyote <= 0 && this.wallCoyote > 0) {
+          /* ---------------------------------------------------- Wandsprung
+             Die Wand nimmt nur den Anteil weg, der in sie hineingeht. Was
+             an ihr entlanglaeuft, bleibt erhalten - deshalb ist eine Wand
+             hier kein Hindernis, sondern eine Kurve, die man mit Tempo
+             nimmt. */
+          var wnx = this.wallNX, wnz = this.wallNZ;
+          var into = this.vx * wnx + this.vz * wnz;
+          var tvx = this.vx - wnx * into, tvz = this.vz - wnz * into;
+          this.vx = tvx * P.WALL_KEEP + wnx * P.WALL_PUSH;
+          this.vz = tvz * P.WALL_KEEP + wnz * P.WALL_PUSH;
+          if (wishLen > 0.05) {
+            /* Die Eingabe zieht die neue Richtung, ohne das Tempo zu aendern. */
+            var wsp = Math.hypot(this.vx, this.vz);
+            var mx = this.vx / (wsp || 1) * 0.62 + wishX / wishLen * 0.38;
+            var mz = this.vz / (wsp || 1) * 0.62 + wishZ / wishLen * 0.38;
+            var ml = Math.hypot(mx, mz) || 1;
+            this.vx = mx / ml * wsp;
+            this.vz = mz / ml * wsp;
+          }
+          this.vy = P.WALL_JUMP_V;
+          this.dashTimer = 0;
+          this.wallCoyote = 0;
+          this.buffer = 0;
+          this.jumps = 1;
+          this.squash = 1.32;
+          ev.push('walljump');
+        } else if (this.grounded || this.coyote > 0) {
           this.dashTimer = 0;          /* Sprung bricht den Dash ab, Tempo bleibt */
           this.vy = P.JUMP_V;
           this.vx += this.platVX * 0.85;
@@ -261,6 +365,13 @@
           this.buffer = 0;
           this.jumps = 1;
           this.squash = 1.35;
+          /* Absprung aus dem Rutschen traegt etwas weiter - Rutschen ist
+             damit nicht nur Tempo halten, sondern auch der bessere Absprung. */
+          if (this.sliding) {
+            this.vx *= P.SLIDE_JUMP_KEEP;
+            this.vz *= P.SLIDE_JUMP_KEEP;
+            ev.push('slidejump');
+          }
           ev.push('jump');
         } else if (this.jumps > 0) {
           this.dashTimer = 0;
@@ -331,33 +442,72 @@
         }
       }
 
+      /* Wandkontakt fuer den Wandsprung merken, mit kurzer Nachfrist. */
+      if (!grounded && contact.wall && Math.hypot(this.vx, this.vz) > P.WALL_MIN_SPEED) {
+        this.wallNX = contact.wallNx;
+        this.wallNZ = contact.wallNz;
+        this.wallCoyote = P.WALL_COYOTE;
+      }
+
       this.grounded = grounded;
       this.groundCollider = ground;
 
       if (grounded) {
         this.coyote = P.COYOTE;
         this.jumps = 2;
-        this.dashCharge = 1;
+        this.wallCoyote = 0;
+        if (this.dashCharge < 1) this.dashCharge = 1;
         if (!wasGrounded) {
           this.squash = Math.max(0.55, 1 - Math.min(0.45, landing / 60));
+          /* ------------------------------------------- Hoehe wird Tempo
+             Wer mit gedrueckter Rutschtaste aufkommt, rechnet einen Teil
+             seiner Fallgeschwindigkeit in Vortrieb um. Damit zahlt jeder
+             Meter Hoehe spaeter Tempo aus, und der hohe Weg lohnt sich aus
+             sich selbst heraus - ohne dass irgendwo eine Punktzahl
+             hochzaehlt. Ohne Rutschtaste verpufft der Schwung wie vorher. */
+          if (wantSlide && landing > P.SLIDE_LAND_MIN) {
+            var spL = Math.hypot(this.vx, this.vz);
+            var want = Math.min(P.SLIDE_LAND_MAX, spL + landing * P.SLIDE_LAND_GAIN);
+            if (want > spL) {
+              if (spL > 0.5) {
+                this.vx *= want / spL;
+                this.vz *= want / spL;
+              } else {
+                this.vx = Math.sin(this.yaw) * want;
+                this.vz = Math.cos(this.yaw) * want;
+              }
+              this.sliding = true;
+              /* Der Sturz macht das Rutschen wieder frisch. */
+              this.slideTime = 0;
+              ev.push('slideland');
+            }
+          }
           if (landing > 8) ev.push(landing > 26 ? 'land_hard' : 'land');
           this.airTime = 0;
         }
+        this.lastGroundX = this.x; this.lastGroundY = this.y; this.lastGroundZ = this.z;
       } else {
         this.airTime += dt;
       }
 
       /* Ausrichtung, Neigung und Squash rein optisch */
       this.speed = Math.hypot(this.vx, this.vz);
+      if (this.speed > this.topSpeed) this.topSpeed = this.speed;
       if (this.speed > 0.6) {
         this.yaw = M.angleToward(this.yaw, Math.atan2(this.vx, this.vz), P.TURN_RATE * dt);
       }
-      var leanTarget = Math.min(0.32, this.speed / P.SPRINT * 0.22) * (this.grounded ? 1 : 0.4);
+      var leanTarget = Math.min(0.32, this.speed / 26 * 0.22) * (this.grounded ? 1 : 0.4);
       this.lean = M.damp(this.lean, leanTarget, 9, dt);
       this.squash = M.damp(this.squash, 1, 11, dt);
       if (this.grounded) this.runCycle += this.speed * dt * 1.5;
       else this.runCycle += dt * 3;
       return ev;
+    };
+
+    /* Ein Kristall gibt eine Dash-Ladung. Damit sind Kristalle keine Zahl
+       mehr, sondern der Treibstoff fuer die Abkuerzungen. */
+    p.giveDash = function (n) {
+      this.dashCharge = Math.min(P.DASH_MAX, this.dashCharge + (n || 1));
     };
 
     /* Figur zeichnen: ein paar Grundkoerper mit Lauf- und Sprungpose. */
@@ -395,7 +545,7 @@
          Haltung, zwischen denen weich geblendet wird: stehen, laufen,
          steigen, fallen, Dash. Ohne das sieht jede Lage gleich aus und die
          Figur wirkt wie eine Puppe an einem Faden. */
-      var sp01 = Math.min(1, this.speed / P.SPRINT);          /* 0 .. 1 Tempo */
+      var sp01 = Math.min(1, this.speed / 30);          /* 0 .. 1 Tempo */
       var dashing = this.dashTimer > 0 ? 1 : 0;
       var rising = !this.grounded && this.vy > 1 ? 1 : 0;
       var falling = !this.grounded && this.vy < -1 ? Math.min(1, -this.vy / 22) : 0;
@@ -457,7 +607,7 @@
       put('sphere', 0.21 + ant * 0.16, headY + 0.47, -0.17, 0.13, 0.13, 0.13, MAT_GLOW);
 
       /* Schal weht mit dem Tempo */
-      var flap = Math.sin(t * 14) * 0.1 + Math.min(0.9, this.speed / P.SPRINT);
+      var flap = Math.sin(t * 14) * 0.1 + Math.min(0.9, this.speed / 30);
       put('blob', 0, (1.44 + bob) * sq, 0.02, 0.70 * st, 0.24, 0.58 * st, MAT_SCARF);
       put('box', 0, (1.30 + bob) * sq, -0.36 - flap * 0.45, 0.26, 0.16, 0.55 + flap * 1.3, MAT_SCARF, -0.7 - flap * 0.5);
       put('box', -0.16, (1.26 + bob) * sq, -0.30 - flap * 0.3, 0.18, 0.13, 0.40 + flap * 0.9, MAT_SCARF, -0.6 - flap * 0.4);
@@ -552,7 +702,7 @@
            Mit der alten Deckelung auf 4,2 brauchte die Kamera dreiviertel
            Sekunden fuer eine Kehrtwende - solange lief die Figur aus dem
            Bild. */
-        var rate = Math.min(speed > P.SPRINT ? 9.0 : 4.2, 0.9 + speed * 0.22);
+        var rate = Math.min(speed > 24 ? 9.0 : 4.2, 0.9 + speed * 0.22);
         this.yaw = this.yaw + M.wrapAngle(want - this.yaw) * Math.min(1, rate * dt);
       }
 

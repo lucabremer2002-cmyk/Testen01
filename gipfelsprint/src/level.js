@@ -1421,9 +1421,17 @@
  *                   Doppelsprung oder Dash - spart mehrere Sekunden
  * Danach laufen alle drei wieder zusammen.
  *
- * Reichweiten der Figur (gemessen): Laufsprung 10,4 m | Sprintsprung
- * 14,5 m | kurz getippt 9,1 m | Doppelsprung 23,6 m | Dash-Sprung 23,9 m
- * | Dash + Doppelsprung 35 m.
+ * Reichweiten der Figur, mit der jetzigen Bewegung neu gemessen. Tempo
+ * kauft Weite, und das ist die Grundlage des ganzen Levelbaus:
+ *
+ *   Tempo |  Sprung | +Doppel | +Dash | Dash+Doppel
+ *      17 |    12,2 |    18,6 |  23,7 |        32,9
+ *      24 |    15,4 |    24,6 |  26,2 |        37,2
+ *      32 |    20,7 |    33,3 |  29,3 |        42,9
+ *      42 |    27,4 |    44,2 |  33,2 |        50,1
+ *      50 |    32,7 |    53,0 |  36,3 |        55,8
+ *
+ * Sprunghoehe 2,8 m gehalten, 4,9 m mit Doppelsprung.
  */
 (function (root) {
   'use strict';
@@ -1433,550 +1441,535 @@
   var MAT = L.MAT;
 
   /* ------------------------------------------------------ 0 - Start */
+  /* ===================================================================
+     ACHT ABSCHNITTE
 
-  function areaStart(b) {
-    var r = b.rand, i;
-    b.zone('Start', 46, 150, {
-      fogCol: [0.76, 0.93, 1.0], fogDensity: 0.0014,
+     Gebaut gegen die gemessene Reichweitentabelle der Figur. Tempo kauft
+     Weite, und zwar hart:
+
+       Tempo |  Sprung | +Doppel | +Dash | Dash+Doppel
+          17 |    12,2 |    18,6 |  23,7 |        32,9
+          24 |    15,4 |    24,6 |  26,2 |        37,2
+          32 |    20,7 |    33,3 |  29,3 |        42,9
+          42 |    27,4 |    44,2 |  33,2 |        50,1
+          50 |    32,7 |    53,0 |  36,3 |        55,8
+
+     Daraus die Bauregeln fuer Luecken (Kante zu Kante):
+       bis 12 m   immer zu schaffen, auch aus dem Stand
+       14 - 20 m  braucht Schwung oder den Doppelsprung
+       21 - 30 m  braucht Tempo 32 aufwaerts oder eine Dash-Ladung
+       33 - 45 m  nur mit Tempo 42 und Doppelsprung, oder Dash + Doppel
+       ueber 46 m nur als Abkuerzung fuer den, der wirklich schnell ist
+
+     Tempo kommt aus Hoehe: rutschend landen rechnet Fallgeschwindigkeit in
+     Vortrieb um (6 m Fall -> 29, 16 m -> 41, 34 m -> 54). Deshalb endet
+     jeder riskante Weg mit einem Absturz auf die Hauptbahn - er bezahlt
+     sich in Tempo fuer den naechsten Abschnitt aus.
+
+     Farbcode: gruen sicher, gold schnell, rot/pink am schwersten.
+     =================================================================== */
+
+  var SAFE = 0, FAST = 1, RISK = 2;
+
+  /* Kristallbogen zwischen zwei Punkten - sie haengen im Sprungbogen, man
+     nimmt sie also nur mit, wenn man den weiten Weg wirklich springt. */
+  function gemArc(b, x0, y0, z0, x1, y1, z1, n, hint) {
+    for (var i = 1; i <= n; i++) {
+      var t = i / (n + 1);
+      var bow = Math.sin(t * Math.PI) * 3.4;
+      b.gem(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t + bow + 1.8, z0 + (z1 - z0) * t, { hint: hint });
+    }
+  }
+
+  /* Eine Kette gleichartiger Plattformen. Gibt die Mitte der letzten zurueck. */
+  function chain(b, o) {
+    var last = null;
+    for (var i = 0; i < o.n; i++) {
+      var x = o.x + (o.ax ? (i % 2 ? o.ax : -o.ax) : 0);
+      var y = o.y + (o.dy || 0) * i;
+      var z = o.z + o.step * i;
+      b.plat(x, y, z, o.w, o.d, o.mat, { thickness: o.thick || 1.4 });
+      if (o.pillar) b.deco('box', x, y - o.pillar / 2 - 1, z, o.w * 0.55, o.pillar, o.d * 0.5, o.pillarMat || MAT.rock);
+      if (o.route !== undefined) b.routeMark(o.fork, o.route, x, y, z);
+      if (o.mark) b.mark(x, y, z);
+      if (o.gem) b.gem(x, y + 2.2, z, { hint: o.hint });
+      if (o.arcGem && i < o.n - 1) {
+        var nx = o.x + (o.ax ? ((i + 1) % 2 ? o.ax : -o.ax) : 0);
+        gemArc(b, x, y, z + o.d / 2, nx, y + (o.dy || 0), z + o.step - o.d / 2, o.arcGem, o.hint);
+      }
+      last = [x, y, z];
+    }
+    return last;
+  }
+
+  /* ---------------------------------------------------- 1 - Auftakt
+     Ziel: in fuenf Sekunden Sprint, Kante, Sturz, Entscheidung. Die erste
+     Gabel liegt direkt hinter der Startkante - man sieht beide Wege, bevor
+     man springt, und hat keine Sekunde Leerlauf davor. */
+  function s1Auftakt(b) {
+    b.zone('Auftakt', 60, 170, {
+      fogCol: [0.76, 0.93, 1.0], fogDensity: 0.0013,
       zenith: [0.06, 0.48, 1.0], horizon: [0.99, 0.93, 0.78],
       skyCol: [0.46, 0.80, 1.0], groundCol: [0.30, 0.52, 0.22],
       sunCol: [1.18, 1.08, 0.86], ambient: 'pollen'
     });
+    var r = b.rand, i;
 
-    b.start = { x: b.toWorldX(0, 6), y: b.cursor.y + 0.1, z: b.toWorldZ(0, 6), yaw: b.cursor.yaw };
-    /* Die Startflaeche war 42 m am Stueck - man lief 25 m, bevor
-       ueberhaupt etwas passierte. Jetzt zwei Flaechen mit 6 m Luecke
-       genau unter dem Tor: Anlauf nehmen, durchspringen, weiter. */
-    b.plat(0, 0, 3, 26, 24, MAT.meadowLush, { thickness: 2.4 });    /* -9 .. 15 */
-    b.plat(0, 0, 27, 26, 12, MAT.meadowLush, { thickness: 2.4 });   /* 21 .. 33 */
-    b.mass(0, -2.4, 12, 24, 44, 40, MAT.dirt);
-    b.arch(0, 0, 16, 12, 6.5, MAT.beam);
-    b.deco('box', 0, 7.5, 16, 15, 1.5, 0.5, MAT.flagAlt);
-    b.deco('box', 0, 7.5, 16, 10, 1.0, 0.56, MAT.flag);
-    b.hut(-14, 0, 8, 1.0, { yaw: 0.8, roof: MAT.roofRed });
-    b.fence(10, 0, 4, 20, { yaw: 0 });
-    b.fence(-9, 0, 26, 14, { yaw: 0, gap: 4 });
-    b.flowers(-5, 0, 22, 8, 18);
-    b.flowers(7, 0, 26, 6, 12);
-    b.grassTufts(0, 0, 18, 11, 18);
-    b.tree(-11, 0, 28, 1.2, { kind: 'broad' });
-    b.tree(12, 0, 20, 1.0, { kind: 'fir' });
-    b.lantern(-7, 0, 14, 1.0);
-    b.lantern(7, 0, 14, 1.0);
-    b.sign(9, 0, 30, { yaw: -0.4, second: true });
-    b.mark(0, 0, 6);
+    b.plat(0, 0, 4, 22, 14, MAT.meadowLush, { thickness: 2.6 });      /* -3 .. 11 */
+    b.mass(0, -3, 4, 20, 34, 12, MAT.rock);
+    b.start = { x: b.toWorldX(0, 0), y: b.cursor.y + 0.1, z: b.toWorldZ(0, 0), yaw: b.cursor.yaw };
+    b.mark(0, 0, 0);
+    for (i = 0; i < 5; i++) b.tree(-13 + (i % 2) * 26, 0, -4 + i * 4, 0.8 + r() * 0.5, { kind: 'pine' });
 
-    /* Sofort Bewegung: zwei versetzte Spruenge und ein Tempofeld */
-    b.plat(-5, 1.2, 46, 11, 13, MAT.meadow);      /* 39,5 .. 52,5 */
-    b.mass(-5, -0.2, 46, 9, 30, 11, MAT.dirt);
-    b.plat(5, 2.4, 62, 11, 13, MAT.meadow);       /* 55,5 .. 68,5 */
-    b.mass(5, 1.0, 62, 9, 30, 11, MAT.dirt);
-    b.boostPad(5, 2.4, 64, 6, 8, { speed: 34 });
-    b.gem(0, 4.2, 54, { hint: 'zwischen den Stufen' });
-    b.rock(-9, 1.2, 44, 0.9, { kind: 'flat' });
-    b.mark(-5, 1.2, 46);
-    b.mark(5, 2.4, 62);
+    /* Die Gabel steht unmittelbar an der Kante. */
+    b.routeSign(-9, 0, 9, SAFE);
+    b.routeSign(9, 0, 9, RISK);
 
-    /* Abzweigplatz: von hier sieht man alle drei Wege in den Canyon */
-    b.plat(0, 3.2, 84, 26, 20, MAT.meadow, { thickness: 2.4 });     /* 74 .. 94 */
-    b.mass(0, 0.8, 84, 24, 40, 18, MAT.dirt);
-    b.routeSign(-12, 3.2, 88, 0);
-    b.routeSign(0, 3.2, 90, 2);
-    b.routeSign(11, 3.2, 88, 1);
-    b.bouncePad(11, 3.2, 92, { power: 33, mat: MAT.routeFast });
-    b.routeMark(0, 1, 11, 3.2, 92);
-    b.flowers(-8, 3.2, 78, 4, 8);
-    b.mark(0, 3.2, 84);
-    return { len: 94, rise: 3.2, turn: 0 };
+    /* --- SICHER: flache Stufen, kleine Luecken --- */
+    b.routeZone(0, SAFE, -9, 0, 16, 12, 8, 12);
+    b.routeArch(-9, -5, 20, 10, 6, SAFE);
+    b.plat(-9, -5, 28, 16, 20, MAT.meadow, { thickness: 2.0 });       /* 18 .. 38 */
+    b.mass(-9, -8, 28, 14, 30, 18, MAT.rock);
+    b.plat(-6, -9, 60, 16, 24, MAT.meadow, { thickness: 2.0 });       /* 48 .. 72 */
+    b.mass(-6, -12, 60, 14, 30, 22, MAT.rock);
+    b.routeMark(0, SAFE, -9, -5, 28);
+    b.routeMark(0, SAFE, -6, -9, 60);
+    b.mark(-9, -5, 28);
+    b.mark(-6, -9, 60);
+
+    /* --- RISKANT: die hohe Linie ---
+       Sie hing zuerst an einem einzigen Sprungfeld, das elf Meter heben
+       musste. Wer mit Tempo ankam, flog im Bogen darueber hinweg und traf
+       es nie - eine Route, die an einem Punkt haengt, ist keine Route.
+       Jetzt liegt die Linie vier Meter ueber der Einstiegsplattform: ein
+       Doppelsprung traegt 4,9, also kommt man immer hinauf. Das Sprungfeld
+       steht weiterhin da und wirft einen hoeher, fuer die Kristalle im
+       Bogen - es ist die Kuer, nicht die Bedingung. */
+    b.routeZone(0, RISK, 9, 0, 16, 12, 8, 12);
+    b.routeArch(9, -5, 20, 9, 6, RISK);
+    b.plat(9, -5, 32, 13, 30, MAT.stone, { thickness: 1.8 });         /* 17 .. 47 */
+    b.mass(9, -8, 32, 11, 30, 26, MAT.rock);
+    b.bouncePad(9, -5, 30, { power: 30, r: 5, mat: MAT.routeInsane });
+    b.plat(9, -1, 72, 12, 36, MAT.stone, { thickness: 1.4 });         /* 54 .. 90 */
+    b.deco('box', 9, -9, 72, 8, 18, 14, MAT.rockDark);
+    b.gem(9, 1.2, 60, { hint: 'hohe Linie' });
+    b.gem(9, 1.2, 72, { hint: 'hohe Linie' });
+    b.gem(9, 7.5, 50, { hint: 'nur mit Sprungfeld' });
+    b.gem(9, 8.5, 62, { hint: 'nur mit Sprungfeld' });
+    b.routeMark(0, RISK, 9, -5, 32);
+    b.routeMark(0, RISK, 9, -1, 72);
+    b.routeArch(9, -1, 89, 9, 5, RISK);
+
+    /* Zusammenfluss: breit genug, dass ein 20-m-Sturz sicher ankommt. */
+    b.plat(0, -14, 126, 30, 56, MAT.canyonDeck, { thickness: 2.6 });  /* 98 .. 154 */
+    b.mass(0, -18, 126, 28, 40, 52, MAT.canyon);
+    gemArc(b, 9, -1, 90, 3, -14, 110, 2, 'Rueckkehr');
+    b.mark(0, -14, 126);
+    b.gate(0, -14, 144, { name: 'Auftakt' });
+    return { len: 158, rise: -14, turn: 0 };
   }
 
-  /* --------------------------------------- 1 - Abzweig A: Roter Canyon */
-
-  function forkCanyon(b) {
-    var r = b.rand, i;
-    b.zone('Canyon', 60, 150, {
-      /* Roter Fels unter rotem Licht ergibt ein einfarbiges Bild. Das
-         Fuelllicht von oben ist deshalb der kuehle Himmel, die Ruecklicht-
-         farbe von unten bleibt warm (der Fels strahlt zurueck) - so gehen
-         Schatten ins Blaue und beleuchtete Flaechen ins Warme. */
-      fogCol: [0.94, 0.78, 0.74], fogDensity: 0.0022,
-      zenith: [0.12, 0.36, 0.94], horizon: [1.0, 0.74, 0.60],
-      skyCol: [0.56, 0.70, 0.98], groundCol: [0.52, 0.22, 0.16],
-      sunCol: [1.20, 1.02, 0.82], ambient: 'dust'
+  /* ------------------------------------------------- 2 - Sprungkette
+     Ziel: Rhythmus. Innen sechs kurze Haken, aussen vier weite Saetze mit
+     Kristallen. Die innere Kette laesst sich ohne Tempo gehen, die aeussere
+     verlangt 32 aufwaerts - genau die Geschwindigkeit, die man aus dem
+     Auftakt mitbringt, wenn man dort riskant war. */
+  function s2Sprungkette(b) {
+    b.zone('Kette', 70, 170, {
+      fogCol: [0.80, 0.90, 1.0], fogDensity: 0.0016,
+      zenith: [0.05, 0.44, 0.96], horizon: [0.95, 0.90, 0.80],
+      skyCol: [0.48, 0.78, 1.0], groundCol: [0.34, 0.46, 0.30],
+      sunCol: [1.18, 1.10, 0.90], ambient: 'leaves'
     });
-
-    /* Canyonwaende */
-    for (i = 0; i < 10; i++) {
-      var wz = -6 + i * 22;
-      b.deco('box', -40 - r() * 6, 4 + r() * 10, wz, 26, 60 + r() * 30, 22, MAT.canyon, [0, (r() - 0.5) * 0.2, 0]);
-      b.deco('box', 40 + r() * 6, 4 + r() * 10, wz, 26, 60 + r() * 30, 22, MAT.canyonDark, [0, (r() - 0.5) * 0.2, 0]);
-      b.deco('box', -34, 14 + r() * 8, wz + 8, 10, 26, 12, MAT.mesa, [0, (r() - 0.5) * 0.3, 0]);
-      b.deco('box', 34, 12 + r() * 8, wz - 8, 10, 26, 12, MAT.canyonLight, [0, (r() - 0.5) * 0.3, 0]);
-    }
-    for (i = 0; i < 10; i++) {
-      b.rock(-28 + r() * 8, -2, r() * 180, 1.2 + r() * 1.4, { mat: MAT.canyon, kind: 'shard' });
-      b.rock(26 + r() * 8, -2, r() * 180, 1.2 + r() * 1.4, { mat: MAT.canyonLight, kind: 'stack' });
-    }
-
-    /* ---- SICHER: breiter Bogen links, zwei bewegliche Hindernisse ---- */
-    b.routeZone(0, 0, -14, 3, 8, 16, 10, 16);
-    b.routeArch(-14, 0, 6, 10, 6, 0);
-    b.plat(-14, 0, 12, 12, 26, MAT.plank, { thickness: 1.2 });       /* -1 .. 25 */
-    b.routeMark(0, 0, -14, 0, 12);
-    b.plat(-26, 0.6, 40, 11, 22, MAT.plank, { thickness: 1.2 });     /* 29 .. 51 */
-    b.routeMark(0, 0, -26, 0.6, 40);
-    b.pendulum(-26, 2.2, 40, { swing: 7, period: 2.5, rope: 8, d: 8, w: 2.2, h: 2.2 });
-    b.plat(-29, 1.2, 68, 11, 24, MAT.plank, { thickness: 1.2 });     /* 56 .. 80 */
-    b.spinner(-29, 2.0, 68, { len: 14, period: 3.4, h: 1.5, pillar: false });
-    b.plat(-28, 1.8, 96, 11, 24, MAT.plank, { thickness: 1.2 });     /* 84 .. 108 */
-    b.routeMark(0, 0, -29, 1.2, 68);
-    b.routeMark(0, 0, -28, 1.8, 96);
-    b.pendulum(-28, 3.4, 96, { swing: 7, period: 2.2, phase: 0.4, rope: 8, d: 8, w: 2.2, h: 2.2 });
-    b.plat(-22, 2.4, 124, 11, 24, MAT.plank, { thickness: 1.2 });    /* 112 .. 136 */
-    b.pendulum(-22, 4.0, 124, { swing: 7, period: 2.0, phase: 0.2, rope: 8, d: 8, w: 2.2, h: 2.2 });
-    b.plat(-11, 3.0, 152, 12, 24, MAT.plank, { thickness: 1.2 });    /* 140 .. 164 */
-    b.spinner(-11, 3.8, 152, { len: 14, period: 2.8, h: 1.5, pillar: false });
-    b.routeMark(0, 0, -22, 2.4, 124);
-    b.routeMark(0, 0, -11, 3.0, 152);
-    b.gem(-17, 2.4, 40, { hint: 'sichere Route' });
-    /* keine Wegpunkte auf den Nebenaesten - die Kette folgt der schnellen Route */
-    for (i = 0; i < 5; i++) {
-      b.deco('cylinder', -16 + i * 1.5, -14, 14 + i * 36, 2.4, 30, 2.4, MAT.canyonDark);
-    }
-
-    /* ---- IRRE: sieben Felspfeiler, jede Luecke braucht den Dash ---- */
-    b.routeZone(0, 2, 2, 3, 6, 12, 10, 12);
-    b.routeArch(2, 3, 2, 9, 6, 2);
-    /* Sieben statt zehn Pfeiler, dafuer 23 statt 16 Meter Abstand. Bei 16
-       landete man alle 0,8 Sekunden und verlor jedesmal Tempo: gemessen
-       9,05 der 9,30 Sekunden in der Luft und trotzdem langsamer als der
-       sichere Weg, der einfach durchlaeuft. Erst ab etwa 28 Metern lohnt
-       der Dash-Sprung, und dann traegt er 38 m/s statt 21. */
-    for (i = 0; i < 7; i++) {
-      var pz = 6 + i * 24;
-      var py = 1.0 + i * 0.55;
-      var px = 2 + Math.sin(i * 1.1) * 5.5;
-      /* Breiter und tiefer als vorher: der Anflug dauert jetzt laenger,
-         damit waechst der Querfehler. Zwischen den Kanten bleiben 14 m -
-         ein Sprintsprung schafft 14,5, mit Dash liegt es bequem. */
-      b.plat(px, py, pz, 9, 10, MAT.canyonDeck, { thickness: 1.2 });
-      b.deco('cylinder', px, py - 16, pz, 8.2, 32, 8.2, MAT.canyon);
-      if (i === 1 || i === 3 || i === 5) b.gem(px, py + 1.6, pz, { hint: 'Pfeiler' });
-      if (i < 6) b.gem(px, py + 3.4, pz + 12, { hint: 'im Sprungbogen' });
-      b.mark(px, py, pz);
-      b.routeMark(0, 2, px, py, pz);
-    }
-
-    /* ---- SCHNELL: Hochplateaus, Luecken mit Doppelsprung oder Dash ---- */
-    b.routeZone(0, 1, 17, 12, 12, 10, 8, 14);
-    for (i = 0; i < 4; i++) {
-      /* Der Abstand lag bei 19 Metern - zu weit fuer einen Lauf, zu kurz
-         fuer den Dash, gemessen 8,13 von 9,21 Sekunden in der Luft und
-         damit langsamer als der leichteste Weg. Bei 30 Metern ist der
-         Dash-Sprung der gemeinte Weg hinueber und die Kette traegt 38 m/s
-         durch: 7,33 s. 24 Meter waeren im Dash-Takt noch schneller, aber
-         auf den schmalen Flaechen kam der Testpilot dann in vier Anlaeufen
-         nicht durch - ein Weg, den niemand faehrt, nuetzt nichts. */
-      var iz = 12 + i * 26;
-      var iy = 11 + i * 0.5;
-      /* Die erste Flaeche ist eine breite Terrasse. Der Einstieg kommt vom
-         Sprungfeld schraeg von unten und verlangt eine Korrektur quer zur
-         Flugrichtung - auf einer 7 Einheiten schmalen Saeule zu landen war
-         nicht schwer, sondern beliebig. Die Kette danach bleibt schmal,
-         dort liegt die eigentliche Schwierigkeit. */
-      /* Abstand 24 bei 9 Tiefe ergab eine Luecke von 15 m - ein
-         Sprintsprung schafft 14,5. Damit entschied nicht Koennen, sondern
-         ob man den Dash gerade frei hatte. Mit 12 Tiefe bleiben 12 m:
-         sicher im Sprung, aber nur mit Anlauf und sauberer Landung auf
-         einer 7 Einheiten schmalen Flaeche. */
-      var iw = i === 0 ? 16 : 8, idp = i === 0 ? 14 : 12;
-      b.plat(17, iy, iz, iw, idp, MAT.canyonDeck, { thickness: 1.4 });
-      b.routeMark(0, 1, 17, iy, iz);
-      b.deco('cylinder', 17, iy - 20, iz, iw * 0.86, 40, idp * 0.66, MAT.canyonDark);
-      if (i < 4) b.gem(17, iy + 2.9, iz + 15, { hint: 'im Sprungbogen' });
-      if (i === 1) b.gem(17, iy + 1.6, iz, { hint: 'Hochplateau' });
-    }
-    b.routeArch(17, 11, 6, 8, 5, 1);
-
-    /* ---- Zusammenfuehrung ---- */
-    /* Breiter und tiefer als vorher. Der Hochweg kommt aus 48 m freiem
-       Flug von x 17 herein und lag mit seinen 17 Metern genau auf der
-       alten Kante: je nach Anflug traf er oder fiel vorbei - im Test
-       reproduzierbar beides, nur abhaengig davon, als wievielter Lauf er
-       gemessen wurde. Ein Weg, der an so etwas haengt, ist nicht schwer,
-       sondern beliebig. */
-    b.plat(0, 4, 180, 38, 26, MAT.canyonDeck, { thickness: 2.4 });         /* 167 .. 193 */
-    b.mass(0, 1.6, 180, 34, 44, 24, MAT.canyon);
-    b.gate(0, 4, 180, { name: 'Canyon' });
-    b.rock(-11, 4, 186, 1.4, { mat: MAT.canyonLight, kind: 'stack' });
-    b.mark(0, 4, 180);
-    return { len: 191, rise: 4, turn: -18 };
-  }
-
-  /* ------------------------------------------- 2 - Tempo-Abfahrt */
-
-  function speedRun(b) {
-    var r = b.rand, i;
-    b.zone('Abfahrt', 50, 130, {
-      fogCol: [0.82, 0.90, 1.0], fogDensity: 0.0018,
-      zenith: [0.10, 0.48, 0.96], horizon: [0.92, 0.94, 1.0],
-      skyCol: [0.50, 0.78, 1.0], groundCol: [0.34, 0.44, 0.30],
-      sunCol: [1.18, 1.06, 0.90], ambient: 'dust'
-    });
-
-    b.plat(0, 0, 10, 18, 24, MAT.scree, { thickness: 2.0 });         /* -2 .. 22 */
-    b.mass(0, -2, 10, 16, 40, 22, MAT.canyon);
-    b.boostPad(0, 0, 8, 8, 10, { speed: 36 });
-    b.spinner(0, 1.5, 18, { len: 12, period: 2.8, h: 0.9 });
-    b.gem(0, 1.6, 14);
+    b.plat(0, 0, 10, 24, 24, MAT.canyonDeck, { thickness: 2.2 });     /* -2 .. 22 */
+    b.mass(0, -4, 10, 22, 34, 20, MAT.canyon);
     b.mark(0, 0, 10);
+    b.routeSign(-6, 0, 18, SAFE);
+    b.routeSign(10, 0, 18, FAST);
 
-    b.plat(0, -2, 38, 18, 22, MAT.scree, { thickness: 2.0 });        /* 27 .. 49 */
-    b.mass(0, -4, 38, 16, 40, 20, MAT.canyon);
-    b.boostPad(0, -2, 36, 8, 10, { speed: 36 });
-    b.spinner(0, -0.6, 44, { len: 12, period: 2.4, h: 0.9, dir: -1 });
-    b.gem(0, -0.4, 40);
-    b.mark(0, -2, 38);
+    /* Innen: eine absteigende Treppe. Die erste Fassung waren sechs flache
+       Huepfer mit acht Metern Luecke - der Testpilot ging sie mit
+       Grundtempo 17 und hatte vier Sekunden am Stueck nichts zu tun. Jetzt
+       faellt jede Stufe fuenf Meter: mit gehaltener Rutschtaste zahlt jede
+       Landung Tempo, also lernt man hier durch Wiederholung, worum es im
+       ganzen Level geht. */
+    b.routeZone(1, SAFE, -4, 0, 24, 14, 8, 14);
+    /* Drei Meter je Stufe, nicht fuenf. Bei fuenf kam die Landung mit
+       Aufprall 32 ueber der Schwelle von 30 - jede Stufe zahlte also mehr
+       Tempo, als sie kostete, und der Testpilot beschleunigte die Treppe
+       hinunter, bis er die Stufen nicht mehr traf. Bei drei Metern liegt
+       der Aufprall bei 27 und darunter: der sichere Weg gibt Tempo aus,
+       statt welches zu machen. Tempo machen ist die Aufgabe des
+       riskanten Wegs. */
+    chain(b, { n: 6, x: -3, ax: 1.5, y: -2, dy: -3, z: 44, step: 34, w: 22, d: 28,
+               mat: MAT.stone, pillar: 24, fork: 1, route: SAFE, mark: true });
 
-    b.plat(0, -4, 62, 18, 22, MAT.scree, { thickness: 2.0 });        /* 51 .. 73 */
-    b.mass(0, -6, 62, 16, 40, 20, MAT.canyon);
-    b.spinner(0, -2.6, 62, { len: 12, period: 2.2, h: 0.9 });
-    b.mark(0, -4, 62);
-    b.plat(0, -6, 88, 18, 22, MAT.scree, { thickness: 2.0 });        /* 77 .. 99 */
-    b.mass(0, -8, 88, 16, 40, 20, MAT.canyon);
-    b.boostPad(0, -6, 94, 10, 10, { speed: 38 });
-    b.gem(0, -4.4, 84);
-    b.mark(0, -6, 88);
+    /* Aussen: vier weite Saetze, 36 m Abstand - 24 m Luecke, also Tempo 32
+       aufwaerts. Jede Stufe faellt sieben Meter und zahlt entsprechend
+       mehr zurueck. */
+    b.routeZone(1, FAST, 12, 0, 24, 12, 8, 14);
+    b.routeArch(12, 0, 30, 9, 6, FAST);
+    chain(b, { n: 4, x: 14, ax: 1.5, y: 0, dy: -5, z: 56, step: 40, w: 13, d: 18,
+               mat: MAT.marble, pillar: 28, pillarMat: MAT.sandstone,
+               fork: 1, route: FAST, gem: true, arcGem: 1, hint: 'weiter Satz' });
 
-    /* Grosser Sprung ueber die Schlucht - mit Tempofeld locker zu schaffen */
-    b.plat(0, -5, 124, 22, 24, MAT.scree, { thickness: 2.4 });       /* 112 .. 136 */
-    b.mass(0, -7.4, 124, 20, 44, 22, MAT.canyon);
-    b.gem(0, 0.2, 106, { hint: 'im Sprungbogen' });
-    b.gate(0, -5, 126, { name: 'Abfahrt' });
-    b.mark(0, -5, 124);
-    return { len: 136, rise: -5, turn: 22 };
+    b.plat(0, -20, 246, 30, 36, MAT.canyonDeck, { thickness: 2.4 });  /* 228 .. 264 */
+    b.mass(0, -24, 246, 28, 36, 32, MAT.canyon);
+    b.mark(0, -20, 246);
+    b.gate(0, -20, 252, { name: 'Sprungkette' });
+    return { len: 266, rise: -20, turn: 8 };
   }
 
-  /* --------------------------------------- 3 - Abzweig B: Wasserfall */
-
-  function forkFalls(b) {
+  /* --------------------------------------------- 3 - Die grosse Gabel
+     Drei Wege nebeneinander, alle drei von der Einstiegsplattform aus zu
+     sehen. Das ist die Entscheidung, um die das Level gebaut ist. */
+  function s3Gabel(b) {
+    b.zone('Schlucht', 80, 180, {
+      fogCol: [1.0, 0.86, 0.72], fogDensity: 0.0020,
+      zenith: [0.07, 0.42, 0.90], horizon: [1.0, 0.82, 0.58],
+      skyCol: [0.60, 0.72, 0.84], groundCol: [0.48, 0.30, 0.20],
+      sunCol: [1.24, 1.04, 0.80], ambient: 'dust'
+    });
     var r = b.rand, i;
-    b.zone('Wasserfall', 60, 150, {
-      fogCol: [0.60, 0.92, 0.98], fogDensity: 0.0030,
-      zenith: [0.04, 0.44, 0.92], horizon: [0.66, 0.98, 1.0],
-      skyCol: [0.34, 0.80, 0.96], groundCol: [0.16, 0.42, 0.46],
+    b.plat(0, 0, 12, 28, 26, MAT.canyonDeck, { thickness: 2.4 });     /* -1 .. 25 */
+    b.mass(0, -4, 12, 26, 36, 22, MAT.canyon);
+    b.mark(0, 0, 12);
+    b.routeSign(-13, 0, 21, SAFE);
+    b.routeSign(0, 0, 21, FAST);
+    b.routeSign(13, 0, 21, RISK);
+
+    /* --- GRUEN: durchgehender Boden mit Tempofeld. Kein Absturzrisiko,
+       aber man kommt ohne Hoehe und ohne Ladungen am Ende an. --- */
+    b.routeZone(2, SAFE, -13, 0, 30, 14, 8, 16);
+    b.routeArch(-13, -2, 34, 11, 6, SAFE);
+    b.plat(-13, -2, 58, 21, 48, MAT.canyonDeck, { thickness: 2.0 });  /* 34 .. 82 */
+    b.mass(-13, -6, 58, 15, 30, 44, MAT.canyonDark);
+    b.boostPad(-13, -2, 44, 10, 12, { speed: 27 });
+    b.plat(-13, -2, 120, 21, 46, MAT.canyonDeck, { thickness: 2.0 }); /* 97 .. 143 */
+    b.mass(-13, -6, 120, 15, 30, 42, MAT.canyonDark);
+    b.boostPad(-13, -2, 106, 10, 12, { speed: 29 });
+    /* Bis an den Zusammenfluss heran. Vorher endete der sichere Weg bei
+       z 188, der Zusammenfluss begann bei 227 - 39 m Luecke auf dem Weg,
+       der keine verlangen darf. */
+    b.plat(-13, -2, 190, 21, 84, MAT.canyonDeck, { thickness: 2.0 }); /* 148 .. 232 */
+    b.mass(-13, -6, 190, 19, 30, 78, MAT.canyonDark);
+    b.routeMark(2, SAFE, -13, -2, 58);
+    b.routeMark(2, SAFE, -13, -2, 120);
+    b.routeMark(2, SAFE, -13, -2, 190);
+    b.mark(-13, -2, 58); b.mark(-13, -2, 120); b.mark(-13, -2, 176); b.mark(-13, -2, 216);
+
+    /* --- GOLD: mittlere Absaetze, 28 m Abstand, 14 m Luecke --- */
+    b.routeZone(2, FAST, 0, 0, 30, 12, 8, 16);
+    b.routeArch(0, 4, 34, 10, 6, FAST);
+    chain(b, { n: 5, x: 0, ax: 2, y: 4, dy: 0, z: 50, step: 36, w: 15, d: 22,
+               mat: MAT.sandstone, pillar: 30, pillarMat: MAT.canyonLight,
+               fork: 2, route: FAST, gem: true, hint: 'Mittelweg' });
+
+    /* --- ROT: Aquaedukt. Sprungfeld hinauf, 34 m Abstaende, und am Ende
+       sechzehn Meter Fall auf den Zusammenfluss - das zahlt Tempo 41. --- */
+    b.routeZone(2, RISK, 13, 0, 30, 12, 8, 16);
+    b.routeArch(13, 16, 40, 9, 5, RISK);
+    b.plat(13, 0, 32, 14, 28, MAT.stone, { thickness: 1.8 });         /* 18 .. 46 */
+    b.mass(13, -4, 32, 12, 30, 24, MAT.canyonDark);
+    b.bouncePad(13, 0, 38, { power: 46, r: 6, mat: MAT.routeInsane });
+    chain(b, { n: 4, x: 13, ax: 0, y: 16, dy: 0.5, z: 58, step: 44, w: 11, d: 17,
+               mat: MAT.marble, pillar: 40, pillarMat: MAT.sandstoneWorn,
+               fork: 2, route: RISK, gem: true, arcGem: 2, hint: 'Aquaedukt' });
+    b.routeArch(13, 17.5, 190, 8, 5, RISK);
+
+    for (i = 0; i < 6; i++) b.rock(-24 + (i % 2) * 48, -4, 20 + i * 28, 1.4 + r() * 1.6, { kind: 'shard', mat: MAT.canyon });
+
+    /* Weit nach vorne gezogen: die Irre-Route endet bei z 198 und faellt
+       16 m herunter. Ein Sturz aus 16 m dauert 0,71 s und traegt bei Tempo
+       40 achtundzwanzig Meter - auf 28,5 m Luecke war das auf die
+       Zehntelsekunde genau. */
+    b.plat(0, -2, 240, 32, 52, MAT.canyonDeck, { thickness: 2.6 });   /* 214 .. 266 */
+    b.mass(0, -6, 240, 30, 36, 48, MAT.canyon);
+    gemArc(b, 13, 17.5, 198, 6, -2, 220, 2, 'Rueckkehr');
+    b.mark(0, -2, 240);
+    b.gate(0, -2, 252, { name: 'Grosse Gabel' });
+    return { len: 272, rise: -2, turn: -10 };
+  }
+
+  /* ------------------------------------------------ 4 - Tempostrecke
+     Hier wird geerntet. Drei Tempofelder, Luecken die mitwachsen: 15, 17,
+     22, 26 Meter. Wer mit Schwung hereinkommt, merkt sie kaum. Wer langsam
+     ankommt, braucht fuer jede eine Dash-Ladung - und die hat nur, wer
+     vorher Kristalle geholt hat. Oben liegt eine Abkuerzung, die 45 m am
+     Stueck verlangt: Tempo 42 plus Doppelsprung. */
+  function s4Tempo(b) {
+    b.zone('Abfahrt', 60, 170, {
+      fogCol: [1.0, 0.88, 0.76], fogDensity: 0.0018,
+      zenith: [0.08, 0.46, 0.94], horizon: [1.0, 0.86, 0.64],
+      skyCol: [0.62, 0.76, 0.90], groundCol: [0.46, 0.34, 0.24],
+      sunCol: [1.22, 1.06, 0.84], ambient: 'dust'
+    });
+    b.plat(0, 0, 18, 24, 34, MAT.canyonDeck, { thickness: 2.4 });     /* 1 .. 35 */
+    b.mass(0, -4, 18, 22, 34, 30, MAT.canyonDark);
+    b.boostPad(0, 0, 10, 11, 13, { speed: 28 });
+    b.mark(0, 0, 18);
+
+    b.plat(0, -2, 66, 22, 28, MAT.canyonDeck, { thickness: 2.2 });    /* 52 .. 80 */
+    b.mass(0, -6, 66, 20, 30, 24, MAT.canyonDark);
+    b.boostPad(0, -2, 58, 11, 13, { speed: 32 });
+    b.mark(0, -2, 66);
+
+    b.plat(0, -4, 114, 22, 26, MAT.canyonDeck, { thickness: 2.2 });   /* 101 .. 127 */
+    b.mass(0, -8, 114, 20, 30, 22, MAT.canyonDark);
+    b.boostPad(0, -4, 106, 11, 13, { speed: 36 });
+    b.mark(0, -4, 114);
+
+    b.plat(0, -6, 164, 22, 26, MAT.canyonDeck, { thickness: 2.2 });   /* 151 .. 177 */
+    b.mass(0, -10, 164, 20, 30, 22, MAT.canyonDark);
+    b.mark(0, -6, 164);
+
+    b.plat(0, -8, 214, 26, 32, MAT.canyonDeck, { thickness: 2.4 });   /* 198 .. 230 */
+    b.mass(0, -12, 214, 24, 34, 28, MAT.canyonDark);
+    b.mark(0, -8, 214);
+
+    /* Die Abkuerzung. In der ersten Fassung lag das Brett so, dass von
+       der Bahn aus 97 m am Stueck zu ueberbruecken waren - die groesste
+       gemessene Reichweite der Figur ist 55,8 m (Tempo 50, Dash und
+       Doppelsprung). Sie war schlicht unmoeglich. Jetzt sind es 38 m
+       hinauf und 40 m hinunter: machbar mit Tempo 42 und Doppelsprung,
+       und sie spart die dritte Plattform. */
+    b.routeSign(11, -2, 72, RISK);
+    b.routeArch(11, 4, 104, 8, 5, RISK);
+    b.plat(11, 4, 118, 10, 20, MAT.gold, { thickness: 1.0 });         /* 108 .. 128 */
+    b.routeMark(3, RISK, 11, 4, 118);
+    gemArc(b, 2, -2, 80, 11, 4, 108, 2, 'Abkuerzung');
+    gemArc(b, 11, 4, 128, 2, -6, 168, 2, 'Abkuerzung');
+
+    b.gate(0, -8, 222, { name: 'Tempostrecke' });
+    return { len: 234, rise: -8, turn: 0 };
+  }
+
+  /* ----------------------------------------------- 5 - Wandschlucht
+     Zwei Waende, dazwischen zwei Hoehen. Oben schmale Absaetze im Wechsel,
+     nur mit Wandspruengen zu verbinden - wer sie haelt, behaelt Hoehe und
+     Tempo. Unten laeuft ein Boden durch: sicher, aber er nimmt einem die
+     Hoehe, aus der am Ende Tempo wird. */
+  function s5Wand(b) {
+    b.zone('Engstelle', 60, 160, {
+      fogCol: [0.72, 0.84, 0.96], fogDensity: 0.0022,
+      zenith: [0.05, 0.36, 0.86], horizon: [0.82, 0.86, 0.94],
+      skyCol: [0.44, 0.62, 0.84], groundCol: [0.30, 0.34, 0.38],
       sunCol: [1.10, 1.04, 0.94], ambient: 'spray'
     });
-
-    /* Fluss und Wasserfall */
-    b.waterBody(0, -11, 80, 60, 180, { bed: false, foam: 14, mat: MAT.water });
-    b.deco('box', -30, 6, 60, 20, 60, 140, MAT.cliff);
-    b.waterfall(-22, 6, 34, 9, 34);
-    b.deco('box', 30, 6, 60, 20, 60, 140, MAT.cliffWarm);
-    /* Wahrzeichen: ein zweiter, deutlich groesserer Fall an der
-       gegenueberliegenden Wand. Er liegt abseits aller Routen und dient
-       allein der Orientierung - man sieht ihn schon aus dem Canyon. */
-    b.waterfall(14, 24, 112, 16, 36, { rockMat: MAT.cliffWarm, backWall: true });
-    b.waterfall(24, 11, 128, 7, 22, { top: false, rockMat: MAT.cliffWarm, backWall: true });
-    b.routeSign(-7, 0, -6, 0);
-    b.routeSign(8, 0, -6, 2);
-    b.routeSign(-17, 0, -6, 1);
-
-    /* ---- SICHER: Steinbruecke und breite Absaetze ---- */
-    b.routeZone(1, 0, -6, 3, 8, 12, 8, 14);
-    b.plat(-6, 0, 22, 10, 46, MAT.stone, { thickness: 1.4 });        /* -1 .. 45 */
-    b.routeMark(1, 0, -6, 0, 10);
-    b.routeMark(1, 0, -6, 0, 36);
-    for (i = 0; i < 6; i++) {
-      b.deco('cylinder', -6, -6, 2 + i * 9, 2.2, 14, 2.2, MAT.stone);
-      b.deco('box', -10.6, 0.9, 2 + i * 9, 0.5, 1.6, 0.5, MAT.stone);
-      b.deco('box', -1.4, 0.9, 2 + i * 9, 0.5, 1.6, 0.5, MAT.stone);
-    }
-    b.plat(-12, 0.6, 58, 10, 20, MAT.stone, { thickness: 1.4 });     /* 48 .. 68 */
-    b.spinner(-12, 2.0, 58, { len: 13, period: 3.0, h: 1.5, pillar: false });
-    b.plat(-15, 1.2, 84, 11, 22, MAT.stone, { thickness: 1.4 });     /* 73 .. 95 */
-    b.plat(-12, 1.8, 112, 11, 22, MAT.stone, { thickness: 1.4 });    /* 101 .. 123 */
-    b.spinner(-12, 3.2, 112, { len: 14, period: 2.6, h: 1.5, pillar: false });
-    b.plat(-6, 2.4, 140, 11, 22, MAT.stone, { thickness: 1.4 });     /* 129 .. 151 */
-    b.routeMark(1, 0, -12, 0.6, 58);
-    b.routeMark(1, 0, -15, 1.2, 84);
-    b.routeMark(1, 0, -12, 1.8, 112);
-    b.routeMark(1, 0, -6, 2.4, 140);
-    b.gem(-12, 2.2, 58, { hint: 'sichere Route' });
-
-    /* ---- IRRE: Flussbaenke, jeder Satz sitzt ---- */
-    /* Neun Flusssteine im 17-Meter-Takt: dasselbe Muster wie am Tempel -
-       dauernd landen, nie Tempo aufbauen, gemessen 8,41 s und damit
-       langsamer als der sichere Weg (8,08). Jetzt drei lange Baenke mit
-       weiten Saetzen dazwischen; die kleinen Steine bleiben als Zierde im
-       Wasser stehen. */
-    b.routeZone(1, 2, 8, 3, 8, 12, 8, 14);
-    var BANK = [[8, 0.6, 24], [10, 1.4, 74], [6, 2.2, 124]];
-    for (i = 0; i < BANK.length; i++) {
-      var sx = BANK[i][0], sy = BANK[i][1], sz = BANK[i][2];
-      b.plat(sx, sy, sz, 12, 24, MAT.rockDark, { thickness: 1.4 });
-      b.deco('blob', sx, sy - 2.1, sz, 13, 5, 25, MAT.rockDark, [0, r() * 6.28, 0]);
-      b.deco('blob', sx + 4, sy - 0.1, sz + 9, 3, 1.2, 3, MAT.foam, [0, r() * 6.28, 0]);
-      b.deco('blob', sx - 4, sy - 0.1, sz - 9, 3, 1.2, 3, MAT.foam, [0, r() * 6.28, 0]);
-      b.gem(sx, sy + 1.8, sz, { hint: 'Flussbank' });
-      b.mark(sx, sy, sz);
-      b.routeMark(1, 2, sx, sy, sz);
-      if (i < BANK.length - 1) {
-        var mz = (sz + BANK[i + 1][2]) * 0.5, mx = (sx + BANK[i + 1][0]) * 0.5;
-        b.gem(mx, sy + 4.0, mz, { hint: 'im Sprungbogen' });
-        /* Kleine Steine im Wasser - Zierde, kein Trittbrett: zu tief und
-           zu weit abseits, um die Luecke zu entschaerfen. */
-        b.deco('blob', mx + 5.5, -1.4, mz - 6, 5, 3, 5, MAT.rockDark, [0, r() * 6.28, 0]);
-        b.deco('blob', mx - 5.5, -1.4, mz + 6, 4, 3, 4, MAT.rockDark, [0, r() * 6.28, 0]);
-      }
-    }
-
-    /* ---- SCHNELL: Dash durch den Wasserfall in den Tunnel ---- */
-    b.routeZone(1, 1, -20, 4, 30, 9, 10, 16);
-    b.plat(-20, 1.5, 30, 8, 14, MAT.rockDark, { thickness: 1.4 });   /* 23 .. 37 */
-    b.routeMark(1, 1, -20, 1.5, 30);
-    b.caveShell(-20, 1.5, 58, 12, 8, 46, { mat: MAT.crystalRock });
-    b.plat(-20, 2.5, 76, 8, 76, MAT.crystalRock, { thickness: 1.4 });/* 38 .. 114 */
-    for (i = 0; i < 6; i++) {
-      b.gem(-20, 4.0, 44 + i * 13, { hint: 'Wasserfalltunnel' });
-      b.crystalCluster(-24 + (i % 2) * 8, 2.5, 46 + i * 13, 1.0);
-    }
-    b.plat(-16, 4, 130, 9, 22, MAT.crystalRock, { thickness: 1.4 }); /* 119 .. 141 */
-    b.routeMark(1, 1, -20, 2.5, 60);
-    b.routeMark(1, 1, -20, 2.5, 100);
-    b.routeMark(1, 1, -16, 4, 130);
-    b.routeArch(-20, 1.5, 24, 8, 6, 1);
-
-    /* ---- Zusammenfuehrung ---- */
-    b.plat(0, 5, 168, 26, 22, MAT.stone, { thickness: 2.4 });        /* 157 .. 179 */
-    b.mass(0, 2.6, 168, 24, 44, 20, MAT.cliff);
-    b.gate(0, 5, 168, { name: 'Wasserfall' });
-    b.mark(0, 5, 168);
-    return { len: 179, rise: 5, turn: -20 };
-  }
-
-  /* --------------------------------------- 4 - Kristallhoehle */
-
-  function caveRush(b) {
-    var r = b.rand, i;
-    b.zone('Kristallhoehle', 40, 110, {
-      fogCol: [0.30, 0.10, 0.48], fogDensity: 0.0090,
-      zenith: [0.06, 0.02, 0.20], horizon: [0.54, 0.10, 0.62],
-      skyCol: [0.42, 0.16, 0.70], groundCol: [0.16, 0.06, 0.28],
-      sunCol: [0.94, 0.62, 1.20], ambient: 'sparks'
-    });
-
-    b.deco('blob', -9, 6, -2, 16, 18, 14, MAT.crystalRock, [0.2, 0.4, 0]);
-    b.deco('blob', 9, 6, -2, 16, 18, 14, MAT.crystalRock, [0.1, 2.2, 0]);
-    b.deco('blob', 0, 13, 2, 26, 10, 14, MAT.crystalRock);
-
-    /* Enge S-Kurve: bei Tempo muss gelenkt werden */
-    /* Die vier Absaetze stiessen fast aneinander (2 m Spalt) - man lief
-       37 m am Stueck geradeaus durch die Hoehle, der laengste Leerlauf der
-       ganzen Strecke. Jetzt 8 m Luecke je Uebergang: ein Sprung bei
-       Lauftempo schafft 10,4 m, mit dem Versatz der S-Kurve muss er aber
-       auch gezielt sein. */
-    /* Die Einstiegsflaeche stiess direkt an die Landeplattform des
-       Wasserfall-Abzweigs - zusammen ueber 40 m durchgehender Boden, die
-       laengste Leerlaufstrecke der Strecke. Jetzt beginnt die Hoehle erst
-       nach einer Luecke; die Landung nach dem Abzweig bleibt sicher, der
-       Einstieg in die Hoehle ist ein Sprung. */
-    b.plat(0, 0, 17, 11, 14, MAT.crystalRock, { thickness: 1.6 });   /* 10 .. 24 */
-    b.caveShell(0, 0, 12, 15, 9, 30, { mat: MAT.crystalRock });
-    b.plat(-8, 0.5, 40, 10, 18, MAT.crystalRock, { thickness: 1.6 });/* 31 .. 49 */
-    b.caveShell(-8, 0.5, 40, 14, 9, 26, { mat: MAT.crystalRock });
-    b.plat(5, 1.0, 66, 10, 18, MAT.crystalRock, { thickness: 1.6 }); /* 57 .. 75 */
-    b.caveShell(5, 1.0, 66, 14, 9, 26, { mat: MAT.crystalRock });
-    b.plat(-6, 1.5, 92, 10, 20, MAT.crystalRock, { thickness: 1.6 });/* 82 .. 102 */
-    /* Endet am Tor: sonst ragen die Tunnelwaende in den Tempelvorplatz
-       und versperren die Anlaufbahn zum Sprungfeld der irren Route. */
-    b.caveShell(-6, 1.5, 89, 14, 9, 20, { mat: MAT.crystalRock });
-    /* Broeckelnder Tritt in der mittleren Luecke: wer zoegert, faellt. */
-    b.crumble(-1, 0.9, 53, 5, 5, { delay: 0.35 });
-    b.gem(-1, 2.6, 53, { hint: 'ueber dem Tritt' });
-    b.boostPad(-6, 1.5, 96, 7, 9, { speed: 36 });
-
-    for (i = 0; i < 12; i++) {
-      var cx = (i % 3 - 1) * 7, cz = i * 9;
-      b.crystalCluster(cx + (r() - 0.5) * 4, 0.4, cz, 0.8 + r() * 0.9);
-      b.deco('crystal', cx, 7.5, cz + 3, 1.2, 3.4, 1.2,
-        i % 2 ? MAT.crystalGlow : MAT.crystalGlow2, [Math.PI, r() * 6.28, 0]);
-    }
-    b.gem(-8, 2.0, 40, { hint: 'Hoehle' });
-    b.gem(5, 2.5, 66, { hint: 'Hoehle' });
-    b.gate(-6, 1.5, 100, { name: 'Hoehle' });
+    var i;
+    b.plat(0, 0, 12, 24, 26, MAT.stone, { thickness: 2.2 });          /* -1 .. 25 */
+    b.mass(0, -4, 12, 22, 34, 22, MAT.cliff);
     b.mark(0, 0, 12);
-    b.mark(-8, 0.5, 40);
-    b.mark(5, 1.0, 70);
-    b.mark(-6, 1.5, 92);
-    return { len: 104, rise: 1.5, turn: 24 };
-  }
+    b.routeSign(-7, 0, 21, SAFE);
+    b.routeSign(7, 0, 21, RISK);
 
-  /* --------------------------------------- 5 - Abzweig C: Tempel */
+    b.mass(-13, 6, 112, 6, 30, 170, MAT.cliff);
+    b.mass(13, 6, 112, 6, 30, 170, MAT.cliff);
 
-  function forkTemple(b) {
-    var r = b.rand, i;
-    b.zone('Tempel', 60, 150, {
-      fogCol: [1.0, 0.86, 0.58], fogDensity: 0.0022,
-      zenith: [0.06, 0.56, 0.88], horizon: [1.0, 0.84, 0.50],
-      skyCol: [0.58, 0.76, 0.86], groundCol: [0.52, 0.38, 0.18],
-      sunCol: [1.26, 1.06, 0.74], ambient: 'dust'
-    });
-
-    b.plat(0, 0, 2, 30, 18, MAT.sandstoneWorn, { thickness: 2.0 });  /* -7 .. 11 */
-    b.mass(0, -2, 2, 28, 40, 16, MAT.cliffWarm);
-    b.routeSign(-10, 0, 8, 0);
-    b.routeSign(4, 0, 8, 2);
-    b.routeSign(12, 0, 9, 1);
-    b.bouncePad(12, 0, 4, { power: 30, mat: MAT.routeFast });
-    b.routeMark(2, 1, 12, 0, 4);
-
-    /* ---- SICHER: Freitreppe und breite Hoefe ---- */
-    b.routeZone(2, 0, -10, 3, 16, 12, 10, 14);
-    b.stairs(-10, 0, 12, 14, { w: 11, rise: 0.4, run: 1.3, mat: MAT.sandstone, rail: true });
-    b.plat(-10, 5.6, 40, 13, 26, MAT.marble, { thickness: 2.0 });    /* 27 .. 53 */
-    b.routeMark(2, 0, -10, 2.8, 18);
-    b.routeMark(2, 0, -10, 5.6, 40);
-    b.plat(-22, 6.2, 70, 13, 26, MAT.marble, { thickness: 2.0 });    /* 57 .. 83 */
-    b.plat(-24, 6.8, 98, 13, 24, MAT.marble, { thickness: 2.0 });    /* 86 .. 110 */
-    b.spinner(-24, 8.2, 98, { len: 16, period: 3.2, h: 1.5, pillar: false, mat: MAT.metal });
-    b.plat(-20, 7.4, 128, 13, 26, MAT.marble, { thickness: 2.0 });   /* 115 .. 141 */
-    b.plat(-9, 8.0, 158, 13, 24, MAT.marble, { thickness: 2.0 });    /* 146 .. 170 */
-    b.routeMark(2, 0, -22, 6.2, 70);
-    b.routeMark(2, 0, -24, 6.8, 98);
-    b.routeMark(2, 0, -20, 7.4, 128);
-    b.routeMark(2, 0, -9, 8.0, 158);
+    /* Unten: durchgehend, sechs Meter tiefer. */
+    b.routeZone(4, SAFE, 0, -6, 34, 14, 8, 16);
     for (i = 0; i < 5; i++) {
-      b.column(-17, 5.6, 30 + i * 14, 5 + r() * 2, { r: 1.2, mat: MAT.sandstone });
-      b.column(-4, 5.6, 34 + i * 14, 4 + r() * 2, { r: 1.2, mat: MAT.sandstone });
-    }
-    b.pendulum(-22, 8.0, 70, { swing: 7, period: 2.4, rope: 7, d: 8, w: 2.2, h: 2.2, mat: MAT.metal });
-    b.gem(-10, 7.0, 40, { hint: 'sichere Route' });
-
-    /* ---- IRRE: Anlaufterrassen ---- */
-    /* Zehn Saeulenkoepfe im 16-Meter-Takt hiessen: alle 0,8 Sekunden
-       landen und jedesmal Tempo verlieren - gemessen 8,48 der 9,22
-       Sekunden in der Luft und damit langsamer als der sichere Weg, der
-       einfach durchlaeuft. Dazwischen gibt es nichts: unter 16 Metern
-       springt man ohne Dash und bleibt bei 21 m/s, ab 24 traegt die
-       Dash-Kette 38. Der mittlere Weg mischt jetzt beides - drei
-       Anlaufterrassen, dazwischen weite Saetze. */
-    b.routeZone(2, 2, 4, 3, 16, 10, 10, 14);
-    var TER = [[4, 3.0, 28, 12, 26], [5, 5.0, 78, 12, 24], [3, 7.0, 128, 12, 24]];
-    for (i = 0; i < TER.length; i++) {
-      var tx = TER[i][0], ty = TER[i][1], tz = TER[i][2];
-      b.plat(tx, ty, tz, TER[i][3], TER[i][4], MAT.sandstone, { thickness: 1.6 });
-      b.routeMark(2, 2, tx, ty, tz);
-      b.mark(tx, ty, tz);
-      b.column(tx - 4.6, ty - 9, tz - 8, 9, { r: 1.6, mat: MAT.sandstone, capMat: MAT.templeTrim });
-      b.column(tx + 4.6, ty - 9, tz + 8, 9, { r: 1.6, mat: MAT.sandstone, capMat: MAT.templeTrim });
-      b.gem(tx, ty + 1.8, tz, { hint: 'Terrasse' });
-      if (i < TER.length - 1) {
-        b.gem((tx + TER[i + 1][0]) * 0.5, ty + 4.2, (tz + TER[i + 1][2]) * 0.5, { hint: 'im Sprungbogen' });
-      }
+      b.plat(0, -6, 48 + i * 34, 20, 30, MAT.rockDark, { thickness: 1.8 });
+      b.mark(0, -6, 48 + i * 34);
+      b.routeMark(4, SAFE, 0, -6, 48 + i * 34);
     }
 
-    /* ---- SCHNELL: Aquaedukt in der Hoehe ---- */
-    /* Das Aquaedukt lief bis z 180 auf x 18 und y 14,5 - der Zusammenfluss
-       liegt aber bei (0, 8, 186). Wer mit 35 m/s ankam, hatte sechs Meter
-       Platz, um achtzehn Meter zur Seite und sechs nach unten zu kommen.
-       Gemessen: 3,1 Sekunden Kreisen vor dem Ziel, mehr als die schnelle
-       Mitte einbrachte - der schwerste Weg war der langsamste. Jetzt
-       schwenkt das Aquaedukt zum Schluss ein und endet mit einem weiten
-       Sprung statt mit einem Haken. Auch der Einstieg liegt zwei Meter
-       tiefer: das Hochkommen kostete 1,2 Sekunden fast ohne Vortrieb. */
-    b.routeZone(2, 1, 18, 13, 12, 10, 8, 16);
-    var AQ = [[18, 10.0, 6], [18, 10.5, 38], [18, 11.0, 70], [18, 11.5, 102], [15, 11.0, 132], [8, 9.6, 158]];
-    for (i = 0; i < AQ.length; i++) {
-      var ax = AQ[i][0], ay = AQ[i][1], az = AQ[i][2];
-      b.plat(ax, ay, az, 5.5, 18, MAT.sandstone, { thickness: 1.2 });
-      b.routeMark(2, 1, ax, ay, az);
-      for (var q = 0; q < 3; q++) {
-        b.deco('box', ax, ay - 8, az - 6 + q * 6, 4.6, 16, 1.6, MAT.sandstoneWorn);
-      }
-      b.gem(ax, ay + 2.6, az, { hint: 'Aquaedukt' });
-      if (i < AQ.length - 1) {
-        b.gem((ax + AQ[i + 1][0]) * 0.5, ay + 4.4, (az + AQ[i + 1][2]) * 0.5, { hint: 'im Sprungbogen' });
-      }
+    /* Oben: sechs schmale Absaetze im Wechsel, 24 m Abstand. */
+    b.routeZone(4, RISK, 7, 4, 34, 10, 8, 16);
+    b.routeArch(0, 5, 34, 14, 6, RISK);
+    for (i = 0; i < 6; i++) {
+      var wx = (i % 2 === 0) ? -7 : 7;
+      var wz = 50 + i * 30;
+      b.plat(wx, 5, wz, 6, 11, MAT.metal, { thickness: 1.0 });
+      b.gem(wx, 7.4, wz, { hint: 'Wandabsatz' });
+      b.routeMark(4, RISK, wx, 5, wz);
+      if (i < 5) gemArc(b, wx, 5, wz + 5, -wx, 5, wz + 19, 1, 'Wandsprung');
     }
-    b.routeArch(18, 10, 0, 7, 5, 1);
 
-    /* ---- Zusammenfuehrung auf dem Turm ---- */
-    /* Zusammenfuehrung: breit genug zum sicheren Landen aus allen drei
-       Wegen, aber nicht mehr 22 m tief - so lief man nach dem Abzweig
-       zwanzig Meter geradeaus. */
-    b.plat(0, 8, 186, 26, 15, MAT.marble, { thickness: 2.4 });       /* 178,5 .. 193,5 */
-    b.mass(0, 5.6, 186, 24, 44, 20, MAT.cliffWarm);
-    b.ruinWall(-12, 8, 190, 14, 5, { yaw: Math.PI / 2 });
-    b.ruinWall(12, 8, 190, 14, 5, { yaw: Math.PI / 2 });
-    b.gate(0, 8, 186, { name: 'Tempel' });
-    b.mark(0, 8, 186);
-    return { len: 197, rise: 8, turn: 26 };
+    /* Ausstieg: unten ueber ein Sprungfeld, oben direkt hinueber. */
+    b.plat(0, -6, 216, 22, 30, MAT.rockDark, { thickness: 1.8 });
+    b.bouncePad(0, -6, 222, { power: 42, r: 6, mat: MAT.routeSafe });
+    /* Der Ausstieg lag acht Meter ueber dem Schluchtboden und haeng an
+       einem einzigen Sprungfeld - ein Punkt, an dem alles scheitert, wenn
+       man zu langsam hereinkommt. Jetzt sind es vier Meter: ein
+       Doppelsprung traegt 4,9, das Sprungfeld ist nur noch die bequeme
+       Variante. */
+    b.plat(0, -2, 244, 26, 30, MAT.stone, { thickness: 2.0 });        /* 229 .. 259 */
+    b.mass(0, -6, 244, 24, 34, 26, MAT.cliff);
+    b.mark(0, -6, 216);
+    b.mark(0, -2, 244);
+    b.gate(0, -2, 250, { name: 'Wandschlucht' });
+    return { len: 262, rise: -2, turn: 12 };
   }
 
-  /* --------------------------------------- 6 - Schlussabfahrt */
-
-  function finale(b) {
-    var r = b.rand, i;
-    b.zone('Gipfel', 60, 160, {
-      fogCol: [0.86, 0.96, 1.0], fogDensity: 0.0026,
-      zenith: [0.02, 0.38, 0.98], horizon: [0.96, 0.92, 1.0],
-      skyCol: [0.52, 0.84, 1.0], groundCol: [0.48, 0.62, 0.78],
-      sunCol: [1.22, 1.12, 1.02], ambient: 'snow'
+  /* ------------------------------------------- 6 - Setpiece Wasserfall
+     Anlauf, Sprungfeld, Flug durch den Wasserfall, dahinter ein schmales
+     Brett und ein Dash auf die Landung. Wem das zu viel ist, nimmt die
+     Bruecke aussen herum - sie ist laenger und flach, kostet also beides:
+     Zeit und die Hoehe fuer den naechsten Abschnitt. */
+  function s6Wasserfall(b) {
+    b.zone('Wasserfall', 70, 170, {
+      fogCol: [0.80, 0.92, 1.0], fogDensity: 0.0024,
+      zenith: [0.05, 0.42, 0.94], horizon: [0.88, 0.94, 1.0],
+      skyCol: [0.50, 0.74, 0.96], groundCol: [0.28, 0.44, 0.44],
+      sunCol: [1.14, 1.10, 1.00], ambient: 'spray'
     });
-
-    /* Auf dem Gipfel lagen zwischen den Absaetzen nur 4 bis 6 m - zuwenig
-       fuer einen Sprung, also lief man hinueber. Jetzt 9 bis 10 m; der
-       Anflug kommt hier ohnehin mit Tempo vom Tempofeld. */
-    /* Wie in der Hoehle: die Gipfelflaeche schloss unmittelbar an den
-       Tempelturm an, 26 m Geradeauslauf. */
-    b.plat(0, 0, 14, 20, 18, MAT.snow, { thickness: 2.2 });          /* 5 .. 23 */
-    b.mass(0, -2.2, 10, 18, 44, 22, MAT.cliff);
-    b.boostPad(0, 0, 16, 9, 10, { speed: 38 });
+    var i;
+    b.plat(0, 0, 14, 24, 28, MAT.stone, { thickness: 2.2 });          /* 0 .. 28 */
+    b.mass(0, -4, 14, 22, 34, 24, MAT.cliff);
     b.mark(0, 0, 14);
-    b.snowDrift(-8, 0, 12, 1.2);
-    b.iceSpike(9, 0, 13, 1.0);
+    b.routeSign(-14, 0, 24, SAFE);
+    b.routeSign(4, 0, 24, RISK);
 
-    b.plat(0, -2, 38, 18, 18, MAT.iceSolid, { thickness: 2.0 });     /* 29 .. 47 */
-    b.mass(0, -4, 38, 16, 44, 20, MAT.cliff);
-    b.spinner(0, -0.6, 38, { len: 13, period: 2.5, h: 0.9 });
-    b.gem(0, -0.4, 44);
-    b.mark(0, -2, 38);
+    /* Die Wand mit dem Fall. Der Durchflug ist die Abkuerzung. */
+    b.mass(0, 10, 92, 34, 40, 8, MAT.cliff);
+    b.waterfall(0, 26, 88, 16, 34, { backWall: false });
+    b.deco('box', 0, 2, 88, 11, 14, 7, MAT.rockDark);
 
-    b.plat(0, -4, 64, 18, 18, MAT.snow, { thickness: 2.0 });         /* 55 .. 73 */
-    b.mass(0, -6, 64, 16, 44, 20, MAT.cliff);
-    b.iceSpike(-8, -4, 58, 1.2);
-    b.mark(0, -4, 64);
+    /* --- RISKANT: Sprungfeld, Durchflug, Brett, Dash --- */
+    b.routeZone(5, RISK, 4, 0, 30, 12, 8, 14);
+    /* Lag bei z 38 - die Plattform endet bei 28. Das Feld schwebte frei
+       in der Luft und war nie zu treffen. */
+    b.plat(4, 0, 38, 14, 26, MAT.stone, { thickness: 1.8 });          /* 25 .. 51 */
+    b.mass(4, -4, 38, 12, 30, 22, MAT.cliff);
+    b.bouncePad(4, 0, 44, { power: 44, r: 6, mat: MAT.routeInsane });
+    b.routeArch(0, 12, 74, 11, 6, RISK);
+    b.plat(0, 8, 104, 11, 14, MAT.crystalRock, { thickness: 1.4 });   /* 97 .. 111 */
+    b.routeMark(5, RISK, 4, 0, 44);
+    b.routeMark(5, RISK, 0, 8, 104);
+    b.gem(0, 10.4, 104, { hint: 'hinter dem Fall' });
+    gemArc(b, 4, 0, 44, 0, 8, 97, 3, 'Durchflug');
+    /* 28 m Luecke, gedacht als Dash-Sprung. */
+    b.plat(0, 2, 146, 16, 18, MAT.crystalRock, { thickness: 1.6 });   /* 137 .. 155 */
+    b.routeMark(5, RISK, 0, 2, 146);
+    gemArc(b, 0, 8, 111, 0, 2, 137, 2, 'Dash-Luecke');
 
-    b.plat(0, -6, 92, 18, 18, MAT.iceSolid, { thickness: 2.0 });     /* 83 .. 101 */
-    b.mass(0, -8, 92, 16, 44, 20, MAT.cliff);
-    b.spinner(0, -4.6, 92, { len: 13, period: 2.2, h: 0.9, dir: -1 });
-    b.boostPad(0, -6, 98, 14, 10, { speed: 40 });
+    /* --- SICHER: Bruecke aussen herum, flach und lang --- */
+    b.routeZone(5, SAFE, -14, 0, 30, 12, 8, 14);
+    b.routeArch(-16, 0, 36, 10, 6, SAFE);
+    b.plat(-16, -2, 74, 16, 64, MAT.stone, { thickness: 1.8 });       /* 42 .. 106 */
+    b.mass(-16, -6, 74, 10, 30, 60, MAT.rockDark);
+    b.plat(-16, -2, 140, 16, 56, MAT.stone, { thickness: 1.8 });      /* 112 .. 168 */
+    b.mass(-16, -6, 140, 10, 30, 52, MAT.rockDark);
+    b.routeMark(5, SAFE, -16, -2, 74);
+    b.routeMark(5, SAFE, -16, -2, 140);
+    b.mark(-16, -2, 74);
+    b.mark(-16, -2, 140);
 
-    /* Schlusssprung durch drei Ringe auf das Zielplateau */
-    for (i = 0; i < 3; i++) {
-      b.deco('torus', 0, -1.5 + i * 0.8, 112 + i * 6, 9, 9, 9, MAT.gold, [Math.PI / 2, 0, 0]);
-    }
-    b.gem(0, 1.0, 118, { hint: 'Schlusssprung' });
-    b.mark(0, -6, 96);
-    b.plat(0, -4, 134, 30, 28, MAT.snow, { thickness: 3.0 });        /* 120 .. 148 */
-    b.mass(0, -7, 134, 28, 54, 26, MAT.cliff);
-    b.deco('cone', -11, -4, 142, 10, 8, 10, MAT.snow);
-    b.deco('cone', 11.5, -4, 139, 8, 7, 8, MAT.snow);
-    b.snowDrift(0, -4, 146, 1.8);
+    for (i = 0; i < 5; i++) b.tree(-26 + (i % 2) * 52, -2, 30 + i * 30, 0.8 + b.rand() * 0.6, { kind: 'pine' });
 
-    var p = b.toWorld(0, -4, 132, [0, 0, 0]);
-    b.finish = { x: p[0], y: p[1], z: p[2], yaw: b.cursor.yaw, r: 8.0 };
-    b.arch(0, -4, 132, 14, 8, MAT.gold);
-    b.deco('box', 0, 4.9, 132, 16.4, 1.6, 0.6, MAT.flag);
-    for (i = 0; i < 7; i++) {
-      b.deco('box', -7 + i * 2.3, 3.8, 132, 1.8, 1.2, 0.3, i % 2 ? MAT.flagAlt : MAT.flag);
-    }
-    b.mark(0, -4, 134);
-    return { len: 148, rise: -4, turn: 0 };
+    b.plat(0, -12, 190, 28, 32, MAT.stone, { thickness: 2.4 });       /* 174 .. 206 */
+    b.mass(0, -16, 190, 26, 36, 28, MAT.cliff);
+    b.mark(0, -12, 190);
+    b.gate(0, -12, 196, { name: 'Wasserfall' });
+    return { len: 208, rise: -12, turn: 0 };
   }
 
-  root.MR.level.SECTIONS = [areaStart, forkCanyon, speedRun, forkFalls, caveRush, forkTemple, finale];
+  /* ----------------------------------------------- 7 - Setpiece Ruinen
+     Der einzige Abschnitt, in dem es nach oben geht. Unten ein sicherer
+     Rundweg, oben eine Kletterei ueber Terrassen und Wandspruenge. Wer
+     oben ankommt, faellt am Ende 26 m auf die Zielgerade - mit Tempo 48
+     sind die letzten Luecken dann kein Problem mehr. */
+  function s7Ruinen(b) {
+    b.zone('Ruinen', 70, 180, {
+      fogCol: [1.0, 0.88, 0.66], fogDensity: 0.0020,
+      zenith: [0.06, 0.52, 0.90], horizon: [1.0, 0.84, 0.54],
+      skyCol: [0.58, 0.76, 0.86], groundCol: [0.50, 0.38, 0.20],
+      sunCol: [1.24, 1.06, 0.78], ambient: 'dust'
+    });
+    var r = b.rand, i;
+    b.plat(0, 0, 14, 26, 28, MAT.sandstoneWorn, { thickness: 2.4 });  /* 0 .. 28 */
+    b.mass(0, -4, 14, 24, 34, 24, MAT.cliffWarm);
+    b.mark(0, 0, 14);
+    b.routeSign(-11, 0, 24, SAFE);
+    b.routeSign(11, 0, 24, RISK);
+
+    /* --- SICHER: Hoefe auf einer Ebene --- */
+    b.routeZone(6, SAFE, -11, 0, 30, 14, 8, 16);
+    b.routeArch(-11, -1, 36, 11, 6, SAFE);
+    for (i = 0; i < 4; i++) {
+      b.plat(-11, -1, 52 + i * 40, 18, 30, MAT.marble, { thickness: 2.0 });
+      b.mass(-11, -5, 52 + i * 40, 16, 26, 26, MAT.sandstone);
+      b.mark(-11, -1, 52 + i * 40);
+      b.routeMark(6, SAFE, -11, -1, 52 + i * 40);
+      b.column(-19, -1, 44 + i * 40, 6 + r() * 2, { r: 1.3, mat: MAT.sandstone, capital: true });
+      b.column(-3, -1, 62 + i * 40, 5 + r() * 2, { r: 1.3, mat: MAT.sandstone, capital: true });
+    }
+
+    /* --- RISKANT: hinauf ueber Terrassen und eine Wand --- */
+    b.routeZone(6, RISK, 11, 0, 30, 12, 8, 16);
+    b.plat(11, 0, 36, 14, 28, MAT.sandstone, { thickness: 1.8 });     /* 22 .. 50 */
+    b.mass(11, -4, 36, 12, 30, 24, MAT.cliffWarm);
+    b.bouncePad(11, 0, 42, { power: 45, r: 6, mat: MAT.routeInsane });
+    b.routeArch(11, 12, 50, 9, 5, RISK);
+    b.plat(11, 12, 66, 11, 20, MAT.marble, { thickness: 1.4 });       /* 56 .. 76 */
+    b.gem(11, 14.4, 66, { hint: 'Terrasse' });
+    /* Eine Wand zum Abstossen - ohne sie ist die naechste Terrasse zu hoch. */
+    b.mass(19, 18, 96, 5, 26, 44, MAT.cliffWarm);
+    b.plat(11, 20, 112, 11, 20, MAT.marble, { thickness: 1.4 });      /* 102 .. 122 */
+    b.gem(11, 22.4, 112, { hint: 'Wandsprung' });
+    gemArc(b, 11, 12, 76, 11, 20, 102, 2, 'hinauf');
+    b.plat(11, 27, 156, 13, 22, MAT.marble, { thickness: 1.6 });      /* 145 .. 167 */
+    b.gem(11, 29.4, 156, { hint: 'Spitze' });
+    b.routeMark(6, RISK, 11, 0, 42);
+    b.routeMark(6, RISK, 11, 12, 66);
+    b.routeMark(6, RISK, 11, 20, 112);
+    b.routeMark(6, RISK, 11, 27, 156);
+    b.routeArch(11, 27, 166, 10, 5, RISK);
+    for (i = 0; i < 4; i++) b.ruinWall(22 + (i % 2) * 6, -1, 40 + i * 44, 10 + r() * 6, 4 + r() * 3, { yaw: r() * 3 });
+
+    b.plat(0, 0, 212, 30, 34, MAT.marble, { thickness: 2.6 });        /* 195 .. 229 */
+    b.mass(0, -4, 212, 28, 36, 30, MAT.cliffWarm);
+    gemArc(b, 11, 27, 167, 4, 0, 198, 2, 'Rueckkehr');
+    b.mark(0, 0, 212);
+    b.gate(0, 0, 218, { name: 'Ruinen' });
+    return { len: 230, rise: 0, turn: -8 };
+  }
+
+  /* ------------------------------------------------- 8 - Zielsprint
+     Ein Sturz, ein Tempofeld, zwei weite Luecken, das Tor. Keine
+     Entscheidung mehr - hier zahlt sich nur noch aus, mit welchem Tempo
+     man hereinkommt. */
+  function s8Ziel(b) {
+    b.zone('Gipfel', 60, 170, {
+      fogCol: [0.88, 0.96, 1.0], fogDensity: 0.0022,
+      zenith: [0.03, 0.42, 0.98], horizon: [0.96, 0.94, 1.0],
+      skyCol: [0.54, 0.84, 1.0], groundCol: [0.50, 0.62, 0.76],
+      sunCol: [1.22, 1.14, 1.04], ambient: 'snow'
+    });
+    var i;
+    b.plat(0, 0, 12, 24, 24, MAT.snow, { thickness: 2.2 });           /* 0 .. 24 */
+    b.mass(0, -4, 12, 22, 34, 20, MAT.cliff);
+    b.mark(0, 0, 12);
+    b.routeArch(0, 0, 24, 14, 7, RISK);
+
+    /* Der letzte grosse Sturz: 16 m werden zu Tempo 41. */
+    b.plat(0, -16, 62, 28, 40, MAT.snow, { thickness: 2.4 });         /* 42 .. 82 */
+    b.mass(0, -20, 62, 26, 36, 36, MAT.cliff);
+    gemArc(b, 0, 0, 24, 0, -16, 44, 2, 'Absprung');
+    b.boostPad(0, -16, 52, 12, 14, { speed: 38 });
+    b.mark(0, -16, 62);
+
+    b.plat(0, -18, 112, 26, 36, MAT.snow, { thickness: 2.2 });        /* 94 .. 130 */
+    b.mass(0, -22, 112, 24, 32, 32, MAT.cliff);
+    gemArc(b, 0, -16, 82, 0, -18, 94, 2, 'weite Luecke');
+    b.mark(0, -18, 112);
+
+    b.plat(0, -20, 162, 30, 40, MAT.snow, { thickness: 2.4 });        /* 142 .. 182 */
+    b.mass(0, -24, 162, 28, 36, 36, MAT.cliff);
+    gemArc(b, 0, -18, 130, 0, -20, 142, 2, 'letzte Luecke');
+    b.mark(0, -20, 162);
+    for (i = 0; i < 6; i++) b.iceSpike(-18 + (i % 2) * 36, -20, 150 + i * 6, 0.8 + b.rand() * 0.8);
+
+    var p = b.toWorld(0, -20, 172, [0, 0, 0]);
+    b.finish = { x: p[0], y: p[1], z: p[2], yaw: b.cursor.yaw, r: 8.0 };
+    b.arch(0, -20, 172, 16, 9, MAT.gold);
+    b.deco('box', 0, -10.6, 172, 17, 1.4, 0.6, MAT.flag);
+    b.mark(0, -20, 172);
+    return { len: 190, rise: -20, turn: 0 };
+  }
+
+  root.MR.level.SECTIONS = [s1Auftakt, s2Sprungkette, s3Gabel, s4Tempo, s5Wand, s6Wasserfall, s7Ruinen, s8Ziel];
 })(window);
 
 /*
@@ -2204,7 +2197,11 @@
        mit dreizehn Stuerzen. Platin lag bei 56,7 s und war damit geschenkt.
        Jetzt liegt es knapp ueber dem Bestlauf und verlangt saubere
        Routenwahl; wer einmal haengenbleibt, faellt auf Gold. */
-    var base = pathLen / 26 + totalRise / 16;
+    /* Geeicht am gemessenen Lauf: der Testpilot faehrt die sichere Linie
+       sturzfrei in 57,5 s. Platin liegt darunter, ist also nur ueber die
+       riskanten Wege zu erreichen. Mit /26 lag Platin bei 69,9 s und war
+       langsamer als ein mittelmaessiger Durchlauf. */
+    var base = pathLen / 36 + totalRise / 22;
     var medals = [
       { name: 'Platin', key: 'platin', time: Math.round(base * 1.00 * 10) / 10 },
       { name: 'Gold', key: 'gold', time: Math.round(base * 1.19 * 10) / 10 },
