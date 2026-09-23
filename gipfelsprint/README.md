@@ -321,6 +321,35 @@ Physik fuer sich. Aktuelle Werte:
   Geschwindigkeit vom Zielpunkt ab. Ohne das schiesst er ueber jede
   Plattform hinaus und der Test misst den Piloten statt das Level.
 
+### Kamera: ebenfalls gemessen
+
+Ein zweiter Messstand laesst den Testpiloten die Strecke fahren und
+protokolliert dabei jedes Bild die Kamera. Bilder waehrend eines
+Todessturzes zaehlen nicht mit - dort ist der Lauf ohnehin vorbei.
+
+| Groesse | vorher | jetzt |
+| --- | --- | --- |
+| Figur ausserhalb des Bildes | 1,99 % der Bilder | 0 % |
+| Groesster Abstandssprung je Bild | 8,13 m | 3,71 m (1 Bild von 8155) |
+| Zittern (mittlere Bildbeschleunigung) | 0,040 | 0,025 |
+| Kamera in Geometrie | 0 % | 0 % |
+| Sichtfeld senkrecht | 64,2 Grad | 72,2 / 74,4 / 78,1 Grad (Stand / Sprint / Dash) |
+| Vorausschau | rund 1,9 m | 0 / 3,1 / 6,3 m |
+
+* **Vorausschau gehoert an den Blickpunkt, nicht an den Umlaufpunkt.**
+  Wird der Punkt vorgeschoben, um den die Kamera kreist, rutscht die Figur
+  nach hinten aus dem Bild - gemessen an Tempofeldern, wo das Tempo
+  schlagartig auf 36 springt. Am Blickpunkt bleibt sie im Bild und man
+  sieht trotzdem frueher, was kommt.
+* **Ausrichten bei Richtungswechsel**: die Rate war auf 4,2 gedeckelt, eine
+  Kehrtwende dauerte damit dreiviertel Sekunden. Oberhalb Sprinttempo sind
+  es jetzt bis 9,0.
+* **Kollisionsabstand**: naeher heran sofort, wieder weg nur langsam. In
+  beide Richtungen hart gesetzt sprang die Kamera um bis zu acht Meter,
+  sobald der Strahl eine Kante streifte. Das harte Heranziehen bleibt
+  bewusst - eine Kamera, die kurz im Fels steckt, ist schlimmer als ein
+  einzelner Ruck, und uebrig ist genau ein Bild von 8155.
+
 ### Messfallen, in die ich gelaufen bin
 
 Zwei Tests haben mir gruenes Licht gegeben, das nichts wert war - beide

@@ -492,15 +492,19 @@
       pitch: 0.22,
       dist: 8.2,
       distNow: 8.2,
-      fov: 1.12,
-      fovBase: 1.12,
-      fovNow: 1.12,
+      /* 72 Grad senkrecht. Bei 64 war der Ausschnitt so eng, dass
+         Landepunkte schraeg unterhalb ausserhalb des Bildes lagen. */
+      fov: 1.26,
+      fovBase: 1.26,
+      fovNow: 1.26,
       fovPunch: 0,          /* kurzer Stoss beim Dash */
       landPunch: 0,         /* kurzes Einfedern bei harter Landung */
       pos: new Float32Array(3),
       look: new Float32Array(3),
       target: new Float32Array(3),
       manualTimer: 0,
+      leadX: 0,
+      leadZ: 0,
       lookQX: 0,            /* noch nicht ausgegebene Umschau-Eingabe */
       lookQY: 0,
       shake: 0,
@@ -544,7 +548,11 @@
       var speed = Math.hypot(player.vx, player.vz);
       if (this.manualTimer <= 0 && speed > 5.5) {
         var want = Math.atan2(player.vx, player.vz);
-        var rate = Math.min(4.2, 0.9 + speed * 0.16);
+        /* Bei Tempofeld oder Dash aendert sich die Richtung schlagartig.
+           Mit der alten Deckelung auf 4,2 brauchte die Kamera dreiviertel
+           Sekunden fuer eine Kehrtwende - solange lief die Figur aus dem
+           Bild. */
+        var rate = Math.min(speed > P.SPRINT ? 9.0 : 4.2, 0.9 + speed * 0.22);
         this.yaw = this.yaw + M.wrapAngle(want - this.yaw) * Math.min(1, rate * dt);
       }
 
@@ -567,11 +575,26 @@
 
       /* Die Kamera bleibt beim Springen auf Kopfhoehe statt mitzuhuepfen:
          vertikal wird traeger gefolgt, solange die Figur in der Luft ist. */
-      var tx = player.x + M.clamp(player.vx * 0.09, -2.2, 2.2);
+      /* Vorausschau: bei Tempo rueckt der Blickpunkt in Bewegungsrichtung,
+         damit man Hindernisse und Abzweige frueher sieht statt sie erst zu
+         bemerken, wenn sie unter einem sind. Vorher waren es feste 0,09
+         Sekunden Vorlauf - bei Sprinttempo knapp zwei Meter und damit
+         praktisch nicht wahrnehmbar. */
+      /* Vorausschau wirkt auf den BLICKpunkt, nicht auf den Umlaufpunkt.
+         Wird der Umlaufpunkt vorgeschoben, rutscht die Figur nach hinten
+         aus dem Bild - gemessen bei Tempofeldern, wo das Tempo schlagartig
+         auf 36 springt. So bleibt sie im Bild und man sieht trotzdem
+         frueher, was kommt. */
+      var leadX = M.clamp(player.vx * (0.10 + fast * 0.16), -7.0, 7.0);
+      var leadZ = M.clamp(player.vz * (0.10 + fast * 0.16), -7.0, 7.0);
+      var tx = player.x + M.clamp(player.vx * 0.05, -1.2, 1.2);
       var ty = player.y + 0.75 + fall * 1.15 - this.landPunch * 0.7;
-      var tz = player.z + M.clamp(player.vz * 0.09, -2.2, 2.2);
+      var tz = player.z + M.clamp(player.vz * 0.05, -1.2, 1.2);
       var k = instant ? 1 : 1 - Math.exp(-18 * dt);
-      var ky = instant ? 1 : 1 - Math.exp(-(player.grounded ? 12 : 6) * dt);
+      /* Senkrecht wird in der Luft traeger gefolgt, damit die Kamera nicht
+         mithuepft - bei 6 blieb sie bei hohen Doppelspruengen aber so weit
+         zurueck, dass die Figur an den Bildrand geriet. */
+      var ky = instant ? 1 : 1 - Math.exp(-(player.grounded ? 12 : 8.5) * dt);
       this.target[0] += (tx - this.target[0]) * k;
       this.target[1] += (ty - this.target[1]) * ky;
       this.target[2] += (tz - this.target[2]) * k;
@@ -582,10 +605,18 @@
 
       var dist = this.distNow;
       if (world) {
-        /* Kamera nicht in den Fels schieben lassen. */
+        /* Kamera nicht in den Fels schieben lassen. Naeher heran geht
+           sofort, sonst steckt sie einen Moment in der Wand; wieder weg
+           nur langsam. Wurde der Abstand in beide Richtungen hart gesetzt,
+           sprang die Kamera um bis zu acht Meter, sobald der Strahl eine
+           Kante nur streifte - das war das auffaelligste Rucken. */
         var ox = this.target[0], oy = this.target[1], oz = this.target[2];
         var h = Physics.raycast(world, ox, oy, oz, -dirX, -dirY, -dirZ, dist + 0.6, hit);
-        if (h) dist = Math.max(2.0, h.t - 0.55);
+        var wantColl = h ? Math.max(2.0, h.t - 0.55) : dist;
+        if (this.collDist === undefined || instant) this.collDist = wantColl;
+        else if (wantColl < this.collDist) this.collDist = wantColl;
+        else this.collDist = M.damp(this.collDist, wantColl, 4.0, dt);
+        dist = Math.min(dist, this.collDist);
       }
 
       var shake = this.shake > 0 ? this.shake : 0;
@@ -594,9 +625,14 @@
       this.pos[0] = this.target[0] - dirX * dist + (Math.random() - 0.5) * shake;
       this.pos[1] = this.target[1] - dirY * dist + (Math.random() - 0.5) * shake;
       this.pos[2] = this.target[2] - dirZ * dist + (Math.random() - 0.5) * shake;
-      this.look[0] = this.target[0];
-      this.look[1] = this.target[1] + 0.35;
-      this.look[2] = this.target[2];
+      /* Der Blickpunkt wandert weich nach vorn, sonst zuckt er bei jedem
+         Tempowechsel. */
+      var lk = instant ? 1 : 1 - Math.exp(-7 * dt);
+      this.leadX += (leadX - this.leadX) * lk;
+      this.leadZ += (leadZ - this.leadZ) * lk;
+      this.look[0] = this.target[0] + this.leadX;
+      this.look[1] = this.target[1] + 0.35 - fall * 0.5;
+      this.look[2] = this.target[2] + this.leadZ;
     };
 
     cam.buildMatrices = function (aspect) {
