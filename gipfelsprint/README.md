@@ -350,6 +350,32 @@ Todessturzes zaehlen nicht mit - dort ist der Lauf ohnehin vorbei.
   bewusst - eine Kamera, die kurz im Fels steckt, ist schlimmer als ein
   einzelner Ruck, und uebrig ist genau ein Bild von 8155.
 
+### Levelfluss: Leerlauf gemessen
+
+Leerlauf heisst hier: die Figur laeuft am Boden geradeaus, ohne Sprung,
+Dash, Luftphase, Kristall oder Tempofeld. Gemessen auf einem Lauf, der
+wirklich ins Ziel kommt - mit einem Piloten, der auf halber Strecke
+stirbt, misst man nur die Startwiese nach Neustarts.
+
+| | vorher | jetzt |
+| --- | --- | --- |
+| Leerlauf gesamt | 9,3 s von 50,7 s (18 %) | 5,4 s von 51,0 s (10,6 %) |
+| Laengste Strecke am Stueck | 37,6 m | 15,8 m (im Tempoabschnitt) |
+| Startanlauf bis zur ersten Aktion | 25 m | 8,9 m |
+
+* **Die toten Strecken lagen an den Zusammenfuehrungen.** Die grosse,
+  bewusst sichere Landeflaeche nach einem Abzweig stiess unmittelbar an
+  die Einstiegsflaeche des naechsten Abschnitts - zusammen ueber 40 m
+  durchgehender Boden. Die Landung bleibt sicher, aber der Einstieg in den
+  naechsten Abschnitt ist jetzt ein Sprung.
+* **Der Tempoabschnitt bleibt absichtlich ruhig.** Die drei Strecken von
+  13 bis 16 m dort liegen zwischen Tempofeldern; dort ist Geradeauslaufen
+  der Inhalt, nicht der Mangel.
+* **Nach Koordinaten suchen, nicht nach Namen.** Der erste Durchgang
+  ordnete die Strecken ueber die naechstgelegene Zone zu. Das lag daneben,
+  und die Korrekturen landeten an Stellen, die gar kein Problem hatten -
+  sichtbar daran, dass sich nichts verbesserte.
+
 ### Messfallen, in die ich gelaufen bin
 
 Zwei Tests haben mir gruenes Licht gegeben, das nichts wert war - beide

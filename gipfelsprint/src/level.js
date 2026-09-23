@@ -1444,7 +1444,11 @@
     });
 
     b.start = { x: b.toWorldX(0, 6), y: b.cursor.y + 0.1, z: b.toWorldZ(0, 6), yaw: b.cursor.yaw };
-    b.plat(0, 0, 12, 26, 42, MAT.meadowLush, { thickness: 2.4 });   /* -9 .. 33 */
+    /* Die Startflaeche war 42 m am Stueck - man lief 25 m, bevor
+       ueberhaupt etwas passierte. Jetzt zwei Flaechen mit 6 m Luecke
+       genau unter dem Tor: Anlauf nehmen, durchspringen, weiter. */
+    b.plat(0, 0, 3, 26, 24, MAT.meadowLush, { thickness: 2.4 });    /* -9 .. 15 */
+    b.plat(0, 0, 27, 26, 12, MAT.meadowLush, { thickness: 2.4 });   /* 21 .. 33 */
     b.mass(0, -2.4, 12, 24, 44, 40, MAT.dirt);
     b.arch(0, 0, 16, 12, 6.5, MAT.beam);
     b.deco('box', 0, 7.5, 16, 15, 1.5, 0.5, MAT.flagAlt);
@@ -1735,16 +1739,29 @@
     b.deco('blob', 0, 13, 2, 26, 10, 14, MAT.crystalRock);
 
     /* Enge S-Kurve: bei Tempo muss gelenkt werden */
-    b.plat(0, 0, 12, 11, 28, MAT.crystalRock, { thickness: 1.6 });   /* -2 .. 26 */
+    /* Die vier Absaetze stiessen fast aneinander (2 m Spalt) - man lief
+       37 m am Stueck geradeaus durch die Hoehle, der laengste Leerlauf der
+       ganzen Strecke. Jetzt 8 m Luecke je Uebergang: ein Sprung bei
+       Lauftempo schafft 10,4 m, mit dem Versatz der S-Kurve muss er aber
+       auch gezielt sein. */
+    /* Die Einstiegsflaeche stiess direkt an die Landeplattform des
+       Wasserfall-Abzweigs - zusammen ueber 40 m durchgehender Boden, die
+       laengste Leerlaufstrecke der Strecke. Jetzt beginnt die Hoehle erst
+       nach einer Luecke; die Landung nach dem Abzweig bleibt sicher, der
+       Einstieg in die Hoehle ist ein Sprung. */
+    b.plat(0, 0, 17, 11, 14, MAT.crystalRock, { thickness: 1.6 });   /* 10 .. 24 */
     b.caveShell(0, 0, 12, 15, 9, 30, { mat: MAT.crystalRock });
-    b.plat(-8, 0.5, 40, 10, 24, MAT.crystalRock, { thickness: 1.6 });/* 28 .. 52 */
+    b.plat(-8, 0.5, 40, 10, 18, MAT.crystalRock, { thickness: 1.6 });/* 31 .. 49 */
     b.caveShell(-8, 0.5, 40, 14, 9, 26, { mat: MAT.crystalRock });
-    b.plat(5, 1.0, 66, 10, 24, MAT.crystalRock, { thickness: 1.6 }); /* 54 .. 78 */
+    b.plat(5, 1.0, 66, 10, 18, MAT.crystalRock, { thickness: 1.6 }); /* 57 .. 75 */
     b.caveShell(5, 1.0, 66, 14, 9, 26, { mat: MAT.crystalRock });
-    b.plat(-6, 1.5, 92, 10, 24, MAT.crystalRock, { thickness: 1.6 });/* 80 .. 104 */
+    b.plat(-6, 1.5, 92, 10, 20, MAT.crystalRock, { thickness: 1.6 });/* 82 .. 102 */
     /* Endet am Tor: sonst ragen die Tunnelwaende in den Tempelvorplatz
        und versperren die Anlaufbahn zum Sprungfeld der irren Route. */
     b.caveShell(-6, 1.5, 89, 14, 9, 20, { mat: MAT.crystalRock });
+    /* Broeckelnder Tritt in der mittleren Luecke: wer zoegert, faellt. */
+    b.crumble(-1, 0.9, 53, 5, 5, { delay: 0.35 });
+    b.gem(-1, 2.6, 53, { hint: 'ueber dem Tritt' });
     b.boostPad(-6, 1.5, 96, 7, 9, { speed: 36 });
 
     for (i = 0; i < 12; i++) {
@@ -1831,7 +1848,10 @@
     b.routeArch(18, 12, 4, 7, 5, 2);
 
     /* ---- Zusammenfuehrung auf dem Turm ---- */
-    b.plat(0, 8, 186, 26, 22, MAT.marble, { thickness: 2.4 });       /* 175 .. 197 */
+    /* Zusammenfuehrung: breit genug zum sicheren Landen aus allen drei
+       Wegen, aber nicht mehr 22 m tief - so lief man nach dem Abzweig
+       zwanzig Meter geradeaus. */
+    b.plat(0, 8, 186, 26, 15, MAT.marble, { thickness: 2.4 });       /* 178,5 .. 193,5 */
     b.mass(0, 5.6, 186, 24, 44, 20, MAT.cliffWarm);
     b.ruinWall(-12, 8, 190, 14, 5, { yaw: Math.PI / 2 });
     b.ruinWall(12, 8, 190, 14, 5, { yaw: Math.PI / 2 });
@@ -1851,25 +1871,30 @@
       sunCol: [1.22, 1.12, 1.02], ambient: 'snow'
     });
 
-    b.plat(0, 0, 10, 20, 24, MAT.snow, { thickness: 2.2 });          /* -2 .. 22 */
+    /* Auf dem Gipfel lagen zwischen den Absaetzen nur 4 bis 6 m - zuwenig
+       fuer einen Sprung, also lief man hinueber. Jetzt 9 bis 10 m; der
+       Anflug kommt hier ohnehin mit Tempo vom Tempofeld. */
+    /* Wie in der Hoehle: die Gipfelflaeche schloss unmittelbar an den
+       Tempelturm an, 26 m Geradeauslauf. */
+    b.plat(0, 0, 14, 20, 18, MAT.snow, { thickness: 2.2 });          /* 5 .. 23 */
     b.mass(0, -2.2, 10, 18, 44, 22, MAT.cliff);
-    b.boostPad(0, 0, 12, 9, 10, { speed: 38 });
-    b.mark(0, 0, 10);
-    b.snowDrift(-8, 0, 4, 1.2);
-    b.iceSpike(9, 0, 6, 1.0);
+    b.boostPad(0, 0, 16, 9, 10, { speed: 38 });
+    b.mark(0, 0, 14);
+    b.snowDrift(-8, 0, 12, 1.2);
+    b.iceSpike(9, 0, 13, 1.0);
 
-    b.plat(0, -2, 38, 18, 22, MAT.iceSolid, { thickness: 2.0 });     /* 27 .. 49 */
+    b.plat(0, -2, 38, 18, 18, MAT.iceSolid, { thickness: 2.0 });     /* 29 .. 47 */
     b.mass(0, -4, 38, 16, 44, 20, MAT.cliff);
     b.spinner(0, -0.6, 38, { len: 13, period: 2.5, h: 0.9 });
     b.gem(0, -0.4, 44);
     b.mark(0, -2, 38);
 
-    b.plat(0, -4, 64, 18, 22, MAT.snow, { thickness: 2.0 });         /* 53 .. 75 */
+    b.plat(0, -4, 64, 18, 18, MAT.snow, { thickness: 2.0 });         /* 55 .. 73 */
     b.mass(0, -6, 64, 16, 44, 20, MAT.cliff);
     b.iceSpike(-8, -4, 58, 1.2);
     b.mark(0, -4, 64);
 
-    b.plat(0, -6, 92, 18, 22, MAT.iceSolid, { thickness: 2.0 });     /* 81 .. 103 */
+    b.plat(0, -6, 92, 18, 18, MAT.iceSolid, { thickness: 2.0 });     /* 83 .. 101 */
     b.mass(0, -8, 92, 16, 44, 20, MAT.cliff);
     b.spinner(0, -4.6, 92, { len: 13, period: 2.2, h: 0.9, dir: -1 });
     b.boostPad(0, -6, 98, 14, 10, { speed: 40 });

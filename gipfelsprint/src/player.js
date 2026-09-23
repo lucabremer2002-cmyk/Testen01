@@ -630,9 +630,14 @@
       var lk = instant ? 1 : 1 - Math.exp(-7 * dt);
       this.leadX += (leadX - this.leadX) * lk;
       this.leadZ += (leadZ - this.leadZ) * lk;
-      this.look[0] = this.target[0] + this.leadX;
+      /* Muss die Kamera wegen einer Wand dicht heran, schrumpft die
+         Vorausschau mit. Aus zwei Metern Abstand wirft schon ein kleiner
+         Versatz des Blickpunkts die Figur aus dem Bild - gemessen im engen
+         Hoehlentunnel. */
+      var tight = M.clamp(dist / Math.max(0.001, this.distNow), 0, 1);
+      this.look[0] = this.target[0] + this.leadX * tight;
       this.look[1] = this.target[1] + 0.35 - fall * 0.5;
-      this.look[2] = this.target[2] + this.leadZ;
+      this.look[2] = this.target[2] + this.leadZ * tight;
     };
 
     cam.buildMatrices = function (aspect) {
