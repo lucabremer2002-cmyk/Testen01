@@ -1481,10 +1481,10 @@
     b.plat(0, 3.2, 84, 26, 20, MAT.meadow, { thickness: 2.4 });     /* 74 .. 94 */
     b.mass(0, 0.8, 84, 24, 40, 18, MAT.dirt);
     b.routeSign(-12, 3.2, 88, 0);
-    b.routeSign(0, 3.2, 90, 1);
-    b.routeSign(11, 3.2, 88, 2);
-    b.bouncePad(11, 3.2, 92, { power: 33, mat: MAT.routeInsane });
-    b.routeMark(0, 2, 11, 3.2, 92);
+    b.routeSign(0, 3.2, 90, 2);
+    b.routeSign(11, 3.2, 88, 1);
+    b.bouncePad(11, 3.2, 92, { power: 33, mat: MAT.routeFast });
+    b.routeMark(0, 1, 11, 3.2, 92);
     b.flowers(-8, 3.2, 78, 4, 8);
     b.mark(0, 3.2, 84);
     return { len: 94, rise: 3.2, turn: 0 };
@@ -1540,32 +1540,44 @@
     b.routeMark(0, 0, -11, 3.0, 152);
     b.gem(-17, 2.4, 40, { hint: 'sichere Route' });
     /* keine Wegpunkte auf den Nebenaesten - die Kette folgt der schnellen Route */
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < 5; i++) {
       b.deco('cylinder', -16 + i * 1.5, -14, 14 + i * 36, 2.4, 30, 2.4, MAT.canyonDark);
     }
 
-    /* ---- SCHNELL: sieben Felspfeiler, Sprintsprung am Limit ---- */
-    b.routeZone(0, 1, 2, 3, 6, 12, 10, 12);
-    b.routeArch(2, 3, 2, 9, 6, 1);
-    for (i = 0; i < 10; i++) {
-      var pz = 6 + i * 16;
-      var py = 1.0 + i * 0.4;
-      var px = 2 + Math.sin(i * 1.1) * 1.6;
-      b.plat(px, py, pz, 7, 8, MAT.canyonDeck, { thickness: 1.2 });
-      b.deco('cylinder', px, py - 16, pz, 6.4, 32, 6.4, MAT.canyon);
+    /* ---- IRRE: sieben Felspfeiler, jede Luecke braucht den Dash ---- */
+    b.routeZone(0, 2, 2, 3, 6, 12, 10, 12);
+    b.routeArch(2, 3, 2, 9, 6, 2);
+    /* Sieben statt zehn Pfeiler, dafuer 23 statt 16 Meter Abstand. Bei 16
+       landete man alle 0,8 Sekunden und verlor jedesmal Tempo: gemessen
+       9,05 der 9,30 Sekunden in der Luft und trotzdem langsamer als der
+       sichere Weg, der einfach durchlaeuft. Erst ab etwa 28 Metern lohnt
+       der Dash-Sprung, und dann traegt er 38 m/s statt 21. */
+    for (i = 0; i < 7; i++) {
+      var pz = 6 + i * 24;
+      var py = 1.0 + i * 0.55;
+      var px = 2 + Math.sin(i * 1.1) * 5.5;
+      /* Breiter und tiefer als vorher: der Anflug dauert jetzt laenger,
+         damit waechst der Querfehler. Zwischen den Kanten bleiben 14 m -
+         ein Sprintsprung schafft 14,5, mit Dash liegt es bequem. */
+      b.plat(px, py, pz, 9, 10, MAT.canyonDeck, { thickness: 1.2 });
+      b.deco('cylinder', px, py - 16, pz, 8.2, 32, 8.2, MAT.canyon);
       if (i === 1 || i === 3 || i === 5) b.gem(px, py + 1.6, pz, { hint: 'Pfeiler' });
+      if (i < 6) b.gem(px, py + 3.4, pz + 12, { hint: 'im Sprungbogen' });
       b.mark(px, py, pz);
-      b.routeMark(0, 1, px, py, pz);
+      b.routeMark(0, 2, px, py, pz);
     }
 
-    /* ---- IRRE: Hochplateaus, Luecken nur mit Doppelsprung oder Dash ---- */
-    b.routeZone(0, 2, 17, 12, 12, 10, 8, 14);
-    for (i = 0; i < 7; i++) {
-      /* Abstand von 24 auf 19 verkleinert. Bei 24 blieb nach der Landung
-         kaum Anlauf fuer den naechsten Satz - die Kette entschied sich
-         daran, wieviel Tempo die vorige Landung uebriggelassen hat, nicht
-         am Timing. */
-      var iz = 12 + i * 19;
+    /* ---- SCHNELL: Hochplateaus, Luecken mit Doppelsprung oder Dash ---- */
+    b.routeZone(0, 1, 17, 12, 12, 10, 8, 14);
+    for (i = 0; i < 4; i++) {
+      /* Der Abstand lag bei 19 Metern - zu weit fuer einen Lauf, zu kurz
+         fuer den Dash, gemessen 8,13 von 9,21 Sekunden in der Luft und
+         damit langsamer als der leichteste Weg. Bei 30 Metern ist der
+         Dash-Sprung der gemeinte Weg hinueber und die Kette traegt 38 m/s
+         durch: 7,33 s. 24 Meter waeren im Dash-Takt noch schneller, aber
+         auf den schmalen Flaechen kam der Testpilot dann in vier Anlaeufen
+         nicht durch - ein Weg, den niemand faehrt, nuetzt nichts. */
+      var iz = 12 + i * 26;
       var iy = 11 + i * 0.5;
       /* Die erste Flaeche ist eine breite Terrasse. Der Einstieg kommt vom
          Sprungfeld schraeg von unten und verlangt eine Korrektur quer zur
@@ -1577,18 +1589,24 @@
          ob man den Dash gerade frei hatte. Mit 12 Tiefe bleiben 12 m:
          sicher im Sprung, aber nur mit Anlauf und sauberer Landung auf
          einer 7 Einheiten schmalen Flaeche. */
-      var iw = i === 0 ? 16 : 7, idp = i === 0 ? 14 : 12;
+      var iw = i === 0 ? 16 : 8, idp = i === 0 ? 14 : 12;
       b.plat(17, iy, iz, iw, idp, MAT.canyonDeck, { thickness: 1.4 });
-      b.routeMark(0, 2, 17, iy, iz);
+      b.routeMark(0, 1, 17, iy, iz);
       b.deco('cylinder', 17, iy - 20, iz, iw * 0.86, 40, idp * 0.66, MAT.canyonDark);
-      if (i < 4) b.gem(17, iy + 2.6, iz + 12, { hint: 'im Sprungbogen' });
+      if (i < 4) b.gem(17, iy + 2.9, iz + 15, { hint: 'im Sprungbogen' });
       if (i === 1) b.gem(17, iy + 1.6, iz, { hint: 'Hochplateau' });
     }
-    b.routeArch(17, 11, 6, 8, 5, 2);
+    b.routeArch(17, 11, 6, 8, 5, 1);
 
     /* ---- Zusammenfuehrung ---- */
-    b.plat(0, 4, 180, 28, 22, MAT.canyonDeck, { thickness: 2.4 });         /* 169 .. 191 */
-    b.mass(0, 1.6, 180, 26, 44, 20, MAT.canyon);
+    /* Breiter und tiefer als vorher. Der Hochweg kommt aus 48 m freiem
+       Flug von x 17 herein und lag mit seinen 17 Metern genau auf der
+       alten Kante: je nach Anflug traf er oder fiel vorbei - im Test
+       reproduzierbar beides, nur abhaengig davon, als wievielter Lauf er
+       gemessen wurde. Ein Weg, der an so etwas haengt, ist nicht schwer,
+       sondern beliebig. */
+    b.plat(0, 4, 180, 38, 26, MAT.canyonDeck, { thickness: 2.4 });         /* 167 .. 193 */
+    b.mass(0, 1.6, 180, 34, 44, 24, MAT.canyon);
     b.gate(0, 4, 180, { name: 'Canyon' });
     b.rock(-11, 4, 186, 1.4, { mat: MAT.canyonLight, kind: 'stack' });
     b.mark(0, 4, 180);
@@ -1661,8 +1679,8 @@
     b.waterfall(14, 24, 112, 16, 36, { rockMat: MAT.cliffWarm, backWall: true });
     b.waterfall(24, 11, 128, 7, 22, { top: false, rockMat: MAT.cliffWarm, backWall: true });
     b.routeSign(-7, 0, -6, 0);
-    b.routeSign(8, 0, -6, 1);
-    b.routeSign(-17, 0, -6, 2);
+    b.routeSign(8, 0, -6, 2);
+    b.routeSign(-17, 0, -6, 1);
 
     /* ---- SICHER: Steinbruecke und breite Absaetze ---- */
     b.routeZone(1, 0, -6, 3, 8, 12, 8, 14);
@@ -1686,23 +1704,37 @@
     b.routeMark(1, 0, -6, 2.4, 140);
     b.gem(-12, 2.2, 58, { hint: 'sichere Route' });
 
-    /* ---- SCHNELL: Flusssteine, jeder Sprung sitzt ---- */
-    b.routeZone(1, 1, 8, 3, 8, 12, 8, 14);
-    for (i = 0; i < 9; i++) {
-      var sz = 8 + i * 17;
-      var sx = 8 + Math.sin(i * 1.3) * 2.2;
-      b.plat(sx, 0.5 + i * 0.3, sz, 8, 9, MAT.rockDark, { thickness: 1.2 });
-      b.deco('blob', sx, -1.6, sz, 9, 5, 9, MAT.rockDark, [0, r() * 6.28, 0]);
-      b.deco('blob', sx + 3, 0.4, sz + 3, 3, 1.2, 3, MAT.foam, [0, r() * 6.28, 0]);
-      if (i === 1 || i === 3 || i === 5) b.gem(sx, 2.1 + i * 0.3, sz, { hint: 'Flussstein' });
-      b.mark(sx, 0.5 + i * 0.3, sz);
-      b.routeMark(1, 1, sx, 0.5 + i * 0.3, sz);
+    /* ---- IRRE: Flussbaenke, jeder Satz sitzt ---- */
+    /* Neun Flusssteine im 17-Meter-Takt: dasselbe Muster wie am Tempel -
+       dauernd landen, nie Tempo aufbauen, gemessen 8,41 s und damit
+       langsamer als der sichere Weg (8,08). Jetzt drei lange Baenke mit
+       weiten Saetzen dazwischen; die kleinen Steine bleiben als Zierde im
+       Wasser stehen. */
+    b.routeZone(1, 2, 8, 3, 8, 12, 8, 14);
+    var BANK = [[8, 0.6, 24], [10, 1.4, 74], [6, 2.2, 124]];
+    for (i = 0; i < BANK.length; i++) {
+      var sx = BANK[i][0], sy = BANK[i][1], sz = BANK[i][2];
+      b.plat(sx, sy, sz, 12, 24, MAT.rockDark, { thickness: 1.4 });
+      b.deco('blob', sx, sy - 2.1, sz, 13, 5, 25, MAT.rockDark, [0, r() * 6.28, 0]);
+      b.deco('blob', sx + 4, sy - 0.1, sz + 9, 3, 1.2, 3, MAT.foam, [0, r() * 6.28, 0]);
+      b.deco('blob', sx - 4, sy - 0.1, sz - 9, 3, 1.2, 3, MAT.foam, [0, r() * 6.28, 0]);
+      b.gem(sx, sy + 1.8, sz, { hint: 'Flussbank' });
+      b.mark(sx, sy, sz);
+      b.routeMark(1, 2, sx, sy, sz);
+      if (i < BANK.length - 1) {
+        var mz = (sz + BANK[i + 1][2]) * 0.5, mx = (sx + BANK[i + 1][0]) * 0.5;
+        b.gem(mx, sy + 4.0, mz, { hint: 'im Sprungbogen' });
+        /* Kleine Steine im Wasser - Zierde, kein Trittbrett: zu tief und
+           zu weit abseits, um die Luecke zu entschaerfen. */
+        b.deco('blob', mx + 5.5, -1.4, mz - 6, 5, 3, 5, MAT.rockDark, [0, r() * 6.28, 0]);
+        b.deco('blob', mx - 5.5, -1.4, mz + 6, 4, 3, 4, MAT.rockDark, [0, r() * 6.28, 0]);
+      }
     }
 
-    /* ---- IRRE: Dash durch den Wasserfall in den Tunnel ---- */
-    b.routeZone(1, 2, -20, 4, 30, 9, 10, 16);
+    /* ---- SCHNELL: Dash durch den Wasserfall in den Tunnel ---- */
+    b.routeZone(1, 1, -20, 4, 30, 9, 10, 16);
     b.plat(-20, 1.5, 30, 8, 14, MAT.rockDark, { thickness: 1.4 });   /* 23 .. 37 */
-    b.routeMark(1, 2, -20, 1.5, 30);
+    b.routeMark(1, 1, -20, 1.5, 30);
     b.caveShell(-20, 1.5, 58, 12, 8, 46, { mat: MAT.crystalRock });
     b.plat(-20, 2.5, 76, 8, 76, MAT.crystalRock, { thickness: 1.4 });/* 38 .. 114 */
     for (i = 0; i < 6; i++) {
@@ -1710,10 +1742,10 @@
       b.crystalCluster(-24 + (i % 2) * 8, 2.5, 46 + i * 13, 1.0);
     }
     b.plat(-16, 4, 130, 9, 22, MAT.crystalRock, { thickness: 1.4 }); /* 119 .. 141 */
-    b.routeMark(1, 2, -20, 2.5, 60);
-    b.routeMark(1, 2, -20, 2.5, 100);
-    b.routeMark(1, 2, -16, 4, 130);
-    b.routeArch(-20, 1.5, 24, 8, 6, 2);
+    b.routeMark(1, 1, -20, 2.5, 60);
+    b.routeMark(1, 1, -20, 2.5, 100);
+    b.routeMark(1, 1, -16, 4, 130);
+    b.routeArch(-20, 1.5, 24, 8, 6, 1);
 
     /* ---- Zusammenfuehrung ---- */
     b.plat(0, 5, 168, 26, 22, MAT.stone, { thickness: 2.4 });        /* 157 .. 179 */
@@ -1794,10 +1826,10 @@
     b.plat(0, 0, 2, 30, 18, MAT.sandstoneWorn, { thickness: 2.0 });  /* -7 .. 11 */
     b.mass(0, -2, 2, 28, 40, 16, MAT.cliffWarm);
     b.routeSign(-10, 0, 8, 0);
-    b.routeSign(4, 0, 8, 1);
-    b.routeSign(12, 0, 9, 2);
-    b.bouncePad(12, 0, 4, { power: 34, mat: MAT.routeInsane });
-    b.routeMark(2, 2, 12, 0, 4);
+    b.routeSign(4, 0, 8, 2);
+    b.routeSign(12, 0, 9, 1);
+    b.bouncePad(12, 0, 4, { power: 30, mat: MAT.routeFast });
+    b.routeMark(2, 1, 12, 0, 4);
 
     /* ---- SICHER: Freitreppe und breite Hoefe ---- */
     b.routeZone(2, 0, -10, 3, 16, 12, 10, 14);
@@ -1821,31 +1853,53 @@
     b.pendulum(-22, 8.0, 70, { swing: 7, period: 2.4, rope: 7, d: 8, w: 2.2, h: 2.2, mat: MAT.metal });
     b.gem(-10, 7.0, 40, { hint: 'sichere Route' });
 
-    /* ---- SCHNELL: Saeulenkoepfe ---- */
-    b.routeZone(2, 1, 4, 3, 16, 10, 10, 14);
-    for (i = 0; i < 10; i++) {
-      var cz = 16 + i * 16;
-      var cx = 4 + Math.sin(i * 1.2) * 1.8;
-      var cy = 2.2 + i * 0.7;
-      b.column(cx, cy - 5.7, cz, 4.4, { r: 2.8, platform: true, mat: MAT.sandstone, capMat: MAT.templeTrim });
-      if (i === 1 || i === 3 || i === 5) b.gem(cx, cy + 1.8, cz, { hint: 'Saeulenkopf' });
-      b.mark(cx, cy, cz);
-      b.routeMark(2, 1, cx, cy, cz);
+    /* ---- IRRE: Anlaufterrassen ---- */
+    /* Zehn Saeulenkoepfe im 16-Meter-Takt hiessen: alle 0,8 Sekunden
+       landen und jedesmal Tempo verlieren - gemessen 8,48 der 9,22
+       Sekunden in der Luft und damit langsamer als der sichere Weg, der
+       einfach durchlaeuft. Dazwischen gibt es nichts: unter 16 Metern
+       springt man ohne Dash und bleibt bei 21 m/s, ab 24 traegt die
+       Dash-Kette 38. Der mittlere Weg mischt jetzt beides - drei
+       Anlaufterrassen, dazwischen weite Saetze. */
+    b.routeZone(2, 2, 4, 3, 16, 10, 10, 14);
+    var TER = [[4, 3.0, 28, 12, 26], [5, 5.0, 78, 12, 24], [3, 7.0, 128, 12, 24]];
+    for (i = 0; i < TER.length; i++) {
+      var tx = TER[i][0], ty = TER[i][1], tz = TER[i][2];
+      b.plat(tx, ty, tz, TER[i][3], TER[i][4], MAT.sandstone, { thickness: 1.6 });
+      b.routeMark(2, 2, tx, ty, tz);
+      b.mark(tx, ty, tz);
+      b.column(tx - 4.6, ty - 9, tz - 8, 9, { r: 1.6, mat: MAT.sandstone, capMat: MAT.templeTrim });
+      b.column(tx + 4.6, ty - 9, tz + 8, 9, { r: 1.6, mat: MAT.sandstone, capMat: MAT.templeTrim });
+      b.gem(tx, ty + 1.8, tz, { hint: 'Terrasse' });
+      if (i < TER.length - 1) {
+        b.gem((tx + TER[i + 1][0]) * 0.5, ty + 4.2, (tz + TER[i + 1][2]) * 0.5, { hint: 'im Sprungbogen' });
+      }
     }
 
-    /* ---- IRRE: Aquaedukt in der Hoehe ---- */
-    b.routeZone(2, 2, 18, 13, 12, 10, 8, 16);
-    for (i = 0; i < 6; i++) {
-      var az = 10 + i * 34;
-      b.plat(18, 12 + i * 0.5, az, 5.5, 18, MAT.sandstone, { thickness: 1.2 });
-      b.routeMark(2, 2, 18, 12 + i * 0.5, az);
+    /* ---- SCHNELL: Aquaedukt in der Hoehe ---- */
+    /* Das Aquaedukt lief bis z 180 auf x 18 und y 14,5 - der Zusammenfluss
+       liegt aber bei (0, 8, 186). Wer mit 35 m/s ankam, hatte sechs Meter
+       Platz, um achtzehn Meter zur Seite und sechs nach unten zu kommen.
+       Gemessen: 3,1 Sekunden Kreisen vor dem Ziel, mehr als die schnelle
+       Mitte einbrachte - der schwerste Weg war der langsamste. Jetzt
+       schwenkt das Aquaedukt zum Schluss ein und endet mit einem weiten
+       Sprung statt mit einem Haken. Auch der Einstieg liegt zwei Meter
+       tiefer: das Hochkommen kostete 1,2 Sekunden fast ohne Vortrieb. */
+    b.routeZone(2, 1, 18, 13, 12, 10, 8, 16);
+    var AQ = [[18, 10.0, 6], [18, 10.5, 38], [18, 11.0, 70], [18, 11.5, 102], [15, 11.0, 132], [8, 9.6, 158]];
+    for (i = 0; i < AQ.length; i++) {
+      var ax = AQ[i][0], ay = AQ[i][1], az = AQ[i][2];
+      b.plat(ax, ay, az, 5.5, 18, MAT.sandstone, { thickness: 1.2 });
+      b.routeMark(2, 1, ax, ay, az);
       for (var q = 0; q < 3; q++) {
-        b.deco('box', 18, 4 + i * 0.5, az - 6 + q * 6, 4.6, 16, 1.6, MAT.sandstoneWorn);
+        b.deco('box', ax, ay - 8, az - 6 + q * 6, 4.6, 16, 1.6, MAT.sandstoneWorn);
       }
-      b.gem(18, 14.6 + i * 0.5, az, { hint: 'Aquaedukt' });
-      if (i < 5) b.gem(18, 16.5, az + 17, { hint: 'im Sprungbogen' });
+      b.gem(ax, ay + 2.6, az, { hint: 'Aquaedukt' });
+      if (i < AQ.length - 1) {
+        b.gem((ax + AQ[i + 1][0]) * 0.5, ay + 4.4, (az + AQ[i + 1][2]) * 0.5, { hint: 'im Sprungbogen' });
+      }
     }
-    b.routeArch(18, 12, 4, 7, 5, 2);
+    b.routeArch(18, 10, 0, 7, 5, 1);
 
     /* ---- Zusammenfuehrung auf dem Turm ---- */
     /* Zusammenfuehrung: breit genug zum sicheren Landen aus allen drei
@@ -2144,10 +2198,13 @@
     backdrop(b, bounds);
     b.farMode = false;
 
-    /* Richtwert aus Streckenlaenge und Hoehenmetern. Ein Testlauf ohne
-       Optimierung braucht rund 52 s, ein sauberer Lauf deutlich weniger -
-       Platin soll genau da liegen. */
-    var base = pathLen / 19 + totalRise / 12;
+    /* Richtwert aus Streckenlaenge und Hoehenmetern, geeicht am gemessenen
+       Bestlauf: seit die schweren Wege wirklich Zeit einbringen, faehrt der
+       Testpilot die drei Irre-Aeste sturzfrei in 37 s - vorher waren es 51
+       mit dreizehn Stuerzen. Platin lag bei 56,7 s und war damit geschenkt.
+       Jetzt liegt es knapp ueber dem Bestlauf und verlangt saubere
+       Routenwahl; wer einmal haengenbleibt, faellt auf Gold. */
+    var base = pathLen / 26 + totalRise / 16;
     var medals = [
       { name: 'Platin', key: 'platin', time: Math.round(base * 1.00 * 10) / 10 },
       { name: 'Gold', key: 'gold', time: Math.round(base * 1.19 * 10) / 10 },

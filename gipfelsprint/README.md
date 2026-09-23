@@ -77,11 +77,11 @@ eigenen Rekord liegt.
 An jedem Abzweig stehen drei Wegweiser nebeneinander, farblich sortiert
 und schon aus der Ferne zu sehen:
 
-| | Farbe | Charakter |
-| --- | --- | --- |
-| **Sicher** | gruen | Breiter Umweg. Kaum Absturzgefahr, aber Sperrbalken und Pendel kosten Takt. |
-| **Schnell** | gold | Kette aus Felspfeilern bzw. Saeulenkoepfen. Jeder Sprung muss sitzen, dafuer die direkte Linie. |
-| **Irre** | rot | Luecken jenseits des Sprintsprungs. Nur mit Doppelsprung oder Dash-Sprung, dafuer traegt der Dash mit 40 Einheiten pro Sekunde. |
+| | Farbe | Charakter | gemessen |
+| --- | --- | --- | --- |
+| **Sicher** | gruen | Breiter Umweg, durchgehender Boden. Kaum Absturzgefahr, aber Sperrbalken und Pendel kosten Takt. Ohne Dash fahrbar. | 8,1 - 8,9 s |
+| **Schnell** | gold | Kette in der Hoehe: Hochplateaus, Aquaedukt, Wasserfalltunnel. Luecken um 26 bis 32 m, jede braucht den Dash. | 6,9 - 7,7 s |
+| **Irre** | rot | Wenige lange Anlaufflaechen, dazwischen Saetze von 25 m Kante zu Kante. Schnellster Weg, kleinster Fehlerspielraum. | 6,4 - 6,8 s |
 
 Die Abzweige liegen im **Canyon**, am **Wasserfall** und im **Tempel**.
 Nach jedem Abzweig laufen alle drei Wege wieder zusammen, sodass man pro
@@ -116,13 +116,35 @@ Flow ist die Kuer.
 
 Oben laufen die aktuelle Zeit und die Bestzeit mit. Sobald ein Rekordlauf
 existiert, zeigt der **Geist** ihn als durchscheinende Figur, und die
-Anzeige nennt laufend den Rueckstand bzw. Vorsprung (`-01,42`) - berechnet
-aus der Position, nicht aus der Zeit, sodass man genau sieht, an welcher
-Stelle man verliert. Der Bestlauf wird mit 20 Bildern pro Sekunde
-aufgezeichnet.
+Anzeige nennt laufend den Rueckstand bzw. Vorsprung (`-00:01.420`, im
+selben Format wie die Uhr) - berechnet aus der Position, nicht aus der
+Zeit, sodass man genau sieht, an welcher Stelle man verliert. Der Bestlauf
+wird mit 20 Bildern pro Sekunde aufgezeichnet.
 
 Nach dem Ziel: Zeit, Differenz zur Bestzeit, Kristalle, gewaehlte Route,
-Flow-Punkte und die Zwischenzeiten je Abschnitt mit ihrer Abweichung.
+Flow-Punkte und die Zwischenzeiten je Abschnitt mit ihrer Abweichung. Es
+gibt eine Zeile je Tor **plus eine fuer das Stueck vom letzten Tor ins
+Ziel** - erst damit ergeben die Abschnitte zusammen die Gesamtzeit und die
+Abweichungen zusammen den Gesamtrueckstand. Verglichen wird immer gegen
+den **vorherigen** Rekord: vorher verglich sich ausgerechnet der beste
+Lauf mit sich selbst und zeigte als einziger gar keine Vergleichswerte.
+
+### Gemessen
+
+| | |
+| --- | --- |
+| Uhr gegen echte Zeit seit dem Startsignal | Abweichung hoechstens 8,3 ms (ein Simulationsschritt), bei 30 wie bei 165 Hz |
+| Uhr ueber 240 Schritte | 2,000 s |
+| Sturz bis wieder steuerbar | 183 ms |
+| Versteckte Zeit vor dem Signal oder nach dem Ziel | keine |
+
+Der Countdown laeuft in echter Bildzeit und endet deshalb mitten in einem
+Bild. Vorher zaehlte das ganze Bild als Laufzeit - bei 60 Hz bis zu 17 ms,
+bei 30 Hz bis zu 33 ms, die niemand spielen konnte. Der Fehler war damit
+**bildratenabhaengig**: ein 30-Hz-Spieler bekam bis zu 33 ms mehr auf die
+Uhr als ein 120-Hz-Spieler. Jetzt wird der Zaehler beim Signal um genau
+den Ueberhang vorgezogen, und die Abweichung liegt bei jeder Bildrate
+unter einem Simulationsschritt.
 
 Dauerhaft gespeichert werden (`localStorage`, Schluessel
 `gipfelsprint.record.v3`): Bestzeit samt Geist und Route, beste
@@ -133,14 +155,19 @@ Flow-Rekord, Anzahl der Laeufe und der Zieleinlaeufe.
 
 | Medaille | Zeit |
 | --- | --- |
-| Platin | 0:56.7 |
-| Gold | 1:07.4 |
-| Silber | 1:22.2 |
-| Bronze | 1:47.6 |
+| Platin | 0:41.4 |
+| Gold | 0:49.3 |
+| Silber | 1:00.1 |
+| Bronze | 1:18.7 |
 
 Die Zeiten leiten sich aus der Streckenlaenge ab (`build()` in
-`src/level.js`). Ein automatisierter Testlauf ohne Optimierung braucht
-rund 50 s auf der schnellen Route.
+`src/level.js`) und sind am gemessenen Bestlauf geeicht: der Testpilot
+faehrt die Strecke ueber die drei irren Aeste sturzfrei in **37,0 s**.
+Platin liegt knapp darueber, wer einmal haengenbleibt faellt auf Gold.
+
+Vorher lagen die Grenzen bei 0:56.7 bis 1:47.6 - aus einer Zeit, in der
+derselbe Lauf 51 s mit dreizehn Stuerzen brauchte, weil die riskanten Wege
+langsamer waren als der sichere.
 
 ## Bewegung
 
@@ -158,10 +185,25 @@ Reichweiten (gemessen): Laufsprung 10,4 m | Sprintsprung 14,5 m | kurz
 getippt 9,1 m | Doppelsprung 23,6 m | Dash-Sprung 23,9 m | Dash +
 Doppelsprung 35 m.
 
-Daraus folgt das Abstandsfenster im Level: Landeflaechen sind 7 bis 9
-Einheiten tief, Luecken auf der schnellen Route 8 bis 10 (bei Tempo 15 bis
-21 erreichbar, ohne bei Vollgas darueber hinauszuschiessen), auf der irren
-Route 15 bis 16 (Sprintsprung reicht nicht mehr).
+Daraus folgt das Abstandsfenster im Level - und zwar anders, als es
+zunaechst aussieht. Entscheidend ist nicht die Sprungweite, sondern der
+Takt des Dashs: er klingt nach 0,7 s wieder auf und traegt dabei rund 22 m.
+
+* **bis 16 m Kante zu Kante**: man springt ohne Dash und bleibt bei 21
+  Einheiten pro Sekunde. Alle 0,8 s eine Landung, jede kostet Tempo - das
+  ist der langsamste Bauzustand ueberhaupt, langsamer als einfach laufen.
+* **18 bis 22 m**: jede Luecke braucht den Dash, ohne Reserve. Wer ihn
+  einmal in der Luft zur Rettung verbraucht, faellt am naechsten Absprung.
+  Dieses Band wird im Level gemieden.
+* **ab 25 m mit Anlauf**: der Dash-Sprung ist der gemeinte Weg hinueber
+  und traegt 38 statt 21 Einheiten pro Sekunde. Das ist der schnellste
+  Bauzustand.
+* **ueber 40 m**: nicht mehr erreichbar; nur als Schlussgleitflug mit
+  deutlichem Hoehenverlust auf eine breite Flaeche.
+
+Schwierigkeit kommt deshalb aus schmalen Landeflaechen und Hoehe, nicht
+aus weiten Luecken. Weite ueber dem Dash-Takt kostet nur Zeit, weil das
+Tempo ueber dem Limit zerfaellt, waehrend man fliegt.
 
 ## Die Strecke
 
@@ -400,7 +442,18 @@ Aeste jedes Abzweigs durchlaufbar sind und ob Sturz, Sofortneustart, Ziel,
 Bestzeit und Geist funktionieren.
 
 Was der Testpilot **nicht** kann: optimal fahren. Er bremst vor jedem
-Zielpunkt ab, nimmt keine Abkuerzungen und setzt den Dash nur als
-Notbremse ein. Seine Rundenzeiten sind deshalb eine Untergrenze fuer
-Machbarkeit, kein Massstab dafuer, welche Route wirklich die schnellste
-ist.
+Zielpunkt ab und nimmt keine Abkuerzungen. Seine Rundenzeiten sind eine
+Untergrenze fuer Machbarkeit.
+
+Zwei Fallen, in die ich dabei selbst getappt bin:
+
+* Der Gesamtlauf-Bot hat den Dash lange **gar nicht benutzt**. Damit war
+  jede Strecke, die er schaffte, zwangslaeufig eine, auf der man mit dem
+  Dash auch nichts gewinnen kann - und genau das war jahrelang der Befund:
+  alle riskanten Wege langsamer als der sichere.
+* Der Routenpilot entschied den Dash an einer festen Meterzahl (`d2 > 18`).
+  Im Band um 18 bis 22 m kippte er je nach Zufall hinein oder nicht, und
+  Levelabstaende dort waren damit nicht messbar. Eine reichweitenbasierte
+  Regel habe ich versucht und wieder verworfen - sie verpulverte den Dash
+  auf kurzen Luecken. Die Schwelle steht wieder, und das unscharfe Band
+  wird im Level gemieden.

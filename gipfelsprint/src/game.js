@@ -32,8 +32,16 @@
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s + '.' + ('00' + (ms % 1000)).slice(-3);
   }
 
+  /* Rueckstand im selben Format wie die Uhr, damit man beide Zahlen ohne
+     Umrechnen vergleichen kann - vorher stand dort "-2,53" neben einer Uhr
+     im Format 01:02.418: anderes Trennzeichen, eine Stelle weniger. */
   function formatDelta(sec) {
-    return (sec >= 0 ? '+' : '-') + Math.abs(sec).toFixed(2).replace('.', ',');
+    return (sec >= 0 ? '+' : '-') + formatTime(Math.abs(sec));
+  }
+
+  /* Kurzform fuer enge Stellen (Torhinweise waehrend des Laufs). */
+  function formatDeltaShort(sec) {
+    return (sec >= 0 ? '+' : '-') + Math.abs(sec).toFixed(2) + ' s';
   }
 
   /* --------------------------------------------------------- Partikel */
@@ -442,6 +450,7 @@
     this.state = 'menu';
     this.input.releasePointer();
     $('menu').hidden = false;
+    this.fitScreens();
     $('result').hidden = true;
     $('pause').hidden = true;
     $('hud').hidden = true;
@@ -521,6 +530,7 @@
     if (on && this.state === 'run') {
       this.state = 'pause';
       $('pause').hidden = false;
+      this.fitScreens();
       this.input.releasePointer();
     } else if (!on && this.state === 'pause') {
       this.state = 'run';
@@ -534,7 +544,9 @@
   Game.prototype.die = function (reason) {
     if (this.state !== 'run') return;
     this.state = 'dying';
-    this.dyingTimer = 0.3;
+    /* Nur so lange, dass der Treffer noch zu sehen ist. Wer hundertmal
+       stirbt, wartet sonst Minuten. */
+    this.dyingTimer = 0.18;
     Audio.sfx.hit();
     this.cam.shake = 0.7;
     var f = $('flash');
@@ -555,6 +567,10 @@
     var time = this.runTime;
     var medal = this.medalFor(time);
     var prev = this.record ? this.record.time : null;
+    /* Die Splits des alten Rekords sichern, bevor ein neuer ihn ersetzt.
+       Sonst verglich sich gerade der beste Lauf mit sich selbst und zeigte
+       als einziger gar keine Vergleichswerte. */
+    var prevSplits = this.record && this.record.splits ? this.record.splits.slice() : null;
     var isBest = !this.record || time < this.record.time;
 
     this.store.finished++;
@@ -591,25 +607,30 @@
     var diff = $('resultDiff');
     if (prev !== null) {
       var d = time - prev;
-      diff.textContent = formatDelta(d) + ' s';
+      diff.textContent = formatDelta(d);
       diff.className = 'result__diff ' + (d <= 0 ? 'ahead' : 'behind');
     } else {
       diff.textContent = 'Erster Lauf im Ziel';
       diff.className = 'result__diff';
     }
 
-    var html = '';
-    for (i = 0; i < this.splits.length; i++) {
-      var name = this.level.gates[i] ? this.level.gates[i].name : ('Abschnitt ' + (i + 1));
-      var segNow = this.splits[i] - (i > 0 ? this.splits[i - 1] : 0);
-      var refAll = this.record && this.record.splits ? this.record.splits : null;
+    /* Eine Zeile je Tor, plus das Stueck vom letzten Tor ins Ziel - erst
+       damit ergeben die Abschnitte zusammen die Gesamtzeit. */
+    var html = '', n = this.splits.length;
+    for (i = 0; i <= n; i++) {
+      var last = i === n;
+      var name = last ? 'Ziel' : (this.level.gates[i] ? this.level.gates[i].name : ('Abschnitt ' + (i + 1)));
+      var upto = last ? time : this.splits[i];
+      var segNow = upto - (i > 0 ? this.splits[i - 1] : 0);
       var cls = '';
       var txt = formatTime(segNow);
-      if (prev !== null && refAll && refAll[i] !== undefined && this.record.time !== time) {
-        var segRef = refAll[i] - (i > 0 ? refAll[i - 1] : 0);
+      var refUpto = !prevSplits ? undefined : (last ? prev : prevSplits[i]);
+      if (refUpto !== undefined && refUpto !== null && (i === 0 || prevSplits[i - 1] !== undefined)) {
+        var segRef = refUpto - (i > 0 ? prevSplits[i - 1] : 0);
         var sd = segNow - segRef;
         cls = sd <= 0 ? ' ahead' : ' behind';
-        txt += ' <b>' + formatDelta(sd) + '</b>';
+        /* In der schmalen Splitzeile ist die Kurzform lesbarer. */
+        txt += ' <b>' + formatDeltaShort(sd) + '</b>';
       }
       html += '<div class="split' + cls + '"><small>' + name + '</small>' + txt + '</div>';
     }
@@ -619,6 +640,7 @@
     big.className = 'medal-big' + (medal ? ' show ' + medal.key : '');
     $('resultMedals').innerHTML = this.medalHtml(time);
     $('result').hidden = false;
+    this.fitScreens();
     this.updateMenu();
 
     Audio.sfx.finish(!!medal);
@@ -815,7 +837,7 @@
       Audio.sfx.gate(ahead);
       if (ref !== undefined) {
         var d2 = this.runTime - ref;
-        this.trick(gate.name, d2 <= 0 ? 'lime' : '', formatDelta(d2) + ' s');
+        this.trick(gate.name, d2 <= 0 ? 'lime' : '', formatDeltaShort(d2));
       } else {
         this.trick(gate.name, 'cyan');
       }
@@ -995,12 +1017,28 @@
 
   /* ------------------------------------------------------------- Frame */
 
+  /* Die Knopfzeile klebt nur dann am unteren Rand, wenn der Inhalt wirklich
+     nicht ins Bild passt. Sonst liegt sie als dunkler Balken ueber Werten,
+     die man lesen will. CSS kann "passt nicht" nicht abfragen, also wird es
+     hier gemessen - auch nach jedem Drehen des Handys. */
+  Game.prototype.fitScreens = function () {
+    var ids = ['result', 'pause', 'menu'], i, el, inner;
+    for (i = 0; i < ids.length; i++) {
+      el = $(ids[i]);
+      if (!el) continue;
+      inner = el.querySelector('.screen__inner');
+      if (!inner) continue;
+      el.classList.toggle('is-scroll', !el.hidden && inner.scrollHeight > inner.clientHeight + 1);
+    }
+  };
+
   Game.prototype.resize = function () {
     /* Handys haben oft dreifache Pixeldichte - das kostet mehr Leistung als
        es bringt. Deshalb deutlich niedriger deckeln. */
     var cap = this.lowQuality ? 1 : (this.input.isTouch ? 1.2 : 2);
     var dpr = Math.min(root.devicePixelRatio || 1, cap);
     this.gfx.resize(dpr);
+    this.fitScreens();
   };
 
   Game.prototype.frame = function (now) {
@@ -1011,28 +1049,6 @@
     var input = this.input;
     var cmd = { wishX: 0, wishZ: 0, sprint: false, dash: false, jumpPressed: false, jumpHeld: false };
     var playing = this.state === 'run' || this.state === 'countdown' || this.state === 'dying';
-
-    if (this.state === 'run') {
-      var ax = input.axis();
-      this.cam.wish(ax.x, ax.y, this.wish || (this.wish = [0, 0]));
-      cmd.wishX = this.wish[0];
-      cmd.wishZ = this.wish[1];
-      /* Am Handy gibt es keine Sprinttaste: wer den Knopf ganz durchdrueckt,
-         sprintet. */
-      cmd.sprint = input.down('sprint') || (ax.fromTouch && ax.len > 0.78);
-      /* Tastendruecke werden gemerkt, bis ein Simulationsschritt sie
-         wirklich verbraucht hat. Die Simulation laeuft mit festen 120
-         Schritten je Sekunde; auf einem schnelleren Bildschirm gibt es
-         Bilder, in denen kein Schritt faellt. Wurde der Druck dort direkt
-         in den Befehl geschrieben, war er weg, bevor ihn jemand gelesen
-         hat - gemessen jeder sechste Sprung bei 144 Hz und jeder vierte
-         bei 165 Hz. */
-      if (input.hit('dash')) this.pendDash = true;
-      if (input.hit('jump')) this.pendJump = true;
-      cmd.dash = !!this.pendDash;
-      cmd.jumpPressed = !!this.pendJump;
-      cmd.jumpHeld = input.down('jump');
-    }
 
     if (this.state === 'countdown') {
       this.countdown -= dtReal;
@@ -1054,7 +1070,38 @@
         this.cam.manualTimer = 0;
         this.bigMessage('LOS!', 'go');
         Audio.sfx.countdown(true);
+        /* Die Uhr beginnt exakt beim Signal. Der Countdown laeuft in
+           echter Bildzeit ab und endet deshalb mitten in einem Bild: seit
+           dem Signal sind bis zum Bildende nur noch -countdown Sekunden
+           vergangen, nicht das ganze Bild. Weiter unten kommt dtReal auf
+           den Zaehler, also wird er hier um genau so viel vorgezogen. Ohne
+           das zaehlte das ganze Bild als Laufzeit - bei 60 Hz bis zu 17 ms,
+           bei 30 Hz bis zu 33 ms, die niemand spielen konnte. */
+        this.accumulator = M.clamp(-this.countdown - dtReal, -0.1, 0);
+        this.countdown = 0;
       }
+    }
+
+    if (this.state === 'run') {
+      var ax = input.axis();
+      this.cam.wish(ax.x, ax.y, this.wish || (this.wish = [0, 0]));
+      cmd.wishX = this.wish[0];
+      cmd.wishZ = this.wish[1];
+      /* Am Handy gibt es keine Sprinttaste: wer den Knopf ganz durchdrueckt,
+         sprintet. */
+      cmd.sprint = input.down('sprint') || (ax.fromTouch && ax.len > 0.78);
+      /* Tastendruecke werden gemerkt, bis ein Simulationsschritt sie
+         wirklich verbraucht hat. Die Simulation laeuft mit festen 120
+         Schritten je Sekunde; auf einem schnelleren Bildschirm gibt es
+         Bilder, in denen kein Schritt faellt. Wurde der Druck dort direkt
+         in den Befehl geschrieben, war er weg, bevor ihn jemand gelesen
+         hat - gemessen jeder sechste Sprung bei 144 Hz und jeder vierte
+         bei 165 Hz. */
+      if (input.hit('dash')) this.pendDash = true;
+      if (input.hit('jump')) this.pendJump = true;
+      cmd.dash = !!this.pendDash;
+      cmd.jumpPressed = !!this.pendJump;
+      cmd.jumpHeld = input.down('jump');
     }
 
     if (playing || this.state === 'finish') {
