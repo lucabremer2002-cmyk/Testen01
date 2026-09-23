@@ -15,6 +15,8 @@
   var MAT = LevelMod.MAT;
   var Audio = root.MR.audio;
   var Ghost = root.MR.ghost;
+  /* Einzige Quelle der Bewegungswerte - siehe P in src/player.js. */
+  var TUNING = root.MR.player.TUNING;
 
   var FIXED = 1 / 120;
   var STORE_KEY = 'gipfelsprint.record.v3';
@@ -158,6 +160,10 @@
     this.lastFrame = 0;
     this.fps = 60;
     this.qualityChecked = 0;
+    /* Entwicklerauskunft. Aus: kostet nichts, weil updateDebug sofort
+       zurueckkehrt. An: F3. */
+    this.debug = false;
+    this.debugFault = '';
 
     this.ghostRec = new Ghost.Recorder(Ghost.HZ);
     this.ghostPlay = null;
@@ -167,6 +173,9 @@
       squash: 1, lean: 0, runCycle: 0, speed: 0, grounded: true
     };
     this.ghostMat = LevelMod.mat([0.30, 0.78, 1.0], [0.70, 0.95, 1.0], { emissive: 0.5 });
+    /* Einmal angelegt statt je Bild neu - der Geist wird in jedem Bild
+       gezeichnet, in dem er sichtbar ist. */
+    this.ghostOpts = { alpha: 0.34, mat: this.ghostMat, shadow: false };
 
     this.store = this.loadStore();
     this.record = this.store.best || null;
@@ -275,7 +284,9 @@
       if (self.state === 'run' || self.state === 'countdown') Audio.unlock();
     });
 
-    this.input.onKey = function (code) {
+    /* input.js reicht (code, event) durch - das Ereignis wird fuer
+       preventDefault gebraucht. */
+    this.input.onKey = function (code, ev) {
       if (code === 'KeyM') {
         self.toast(Audio.toggleMute() ? 'Ton aus' : 'Ton an');
         return;
@@ -290,6 +301,12 @@
           Audio.unlock();
           self.startRun(false);
         }
+        return;
+      }
+      if (code === 'F3') {
+        self.debug = !self.debug;
+        $('debug').hidden = !self.debug;
+        if (ev) ev.preventDefault();
         return;
       }
       if (code === 'KeyR') { self.startRun(true); return; }
@@ -956,6 +973,44 @@
     $('speedlines').className = 'speedlines' + (p.speed > 26 ? ' on' : '');
   };
 
+  /* ------------------------------------------------------- Entwicklerauskunft
+     Jeder Zustand, der einen Sprung entscheidet, steht hier als Zahl. In
+     dieser Sitzung habe ich mehrfach geraten, warum die Figur eine Luecke
+     nicht schafft, statt es zu sehen - das kostet mehr Zeit als die
+     Anzeige je kosten kann.
+
+     Kosten: wenn aus, ein Vergleich je Bild. Wenn an, ein textContent je
+     Bild. Nichts davon liegt im Simulationspfad. */
+  Game.prototype.updateDebug = function (dtReal) {
+    if (!this.debug) return;
+    var p = this.player, c = this.cam;
+
+    /* Stille Fehler sichtbar machen (Abschnitt 20). Ein NaN in Lage oder
+       Kamera hat in dieser Sitzung einmal das gesamte Bild unsichtbar
+       gemacht; gefunden habe ich es erst nach mehreren Umwegen. */
+    var fault = '';
+    if (!isFinite(p.x + p.y + p.z)) fault = 'Spielerlage ist NaN';
+    else if (!isFinite(p.vx + p.vy + p.vz)) fault = 'Spielertempo ist NaN';
+    else if (!isFinite(c.yaw + c.pitch + c.distNow)) fault = 'Kamera ist NaN';
+    else if (!isFinite(this.runTime)) fault = 'Laufuhr ist NaN';
+    if (fault && fault !== this.debugFault) root.console.error('[FEHLER] ' + fault);
+    this.debugFault = fault;
+
+    $('debug').textContent =
+      'Zustand   ' + this.state + (fault ? '   *** ' + fault + ' ***' : '') + '\n' +
+      'Position  ' + p.x.toFixed(2) + '  ' + p.y.toFixed(2) + '  ' + p.z.toFixed(2) + '\n' +
+      'Tempo     ' + p.speed.toFixed(2) + '   (' + Math.round(p.speed * 3.6) + ' km/h)\n' +
+      'v         ' + p.vx.toFixed(2) + '  ' + p.vy.toFixed(2) + '  ' + p.vz.toFixed(2) + '\n' +
+      'Boden     ' + (p.grounded ? 'ja' : 'nein') + '   Luftzeit ' + p.airTime.toFixed(2) + ' s\n' +
+      'Spruenge  ' + p.jumps + '   Coyote ' + p.coyote.toFixed(3) + '   Puffer ' + p.buffer.toFixed(3) + '\n' +
+      'Dash      ' + p.dashCharge + '/' + TUNING.DASH_MAX + '   laeuft ' + p.dashTimer.toFixed(3) + '\n' +
+      'Rutschen  ' + (p.sliding ? 'ja' : 'nein') + '   Ermuedung ' + p.slideTime.toFixed(2) + ' s\n' +
+      'Wand      ' + p.wallCoyote.toFixed(3) + '   Normale ' + p.wallNX.toFixed(2) + ' ' + p.wallNZ.toFixed(2) + '\n' +
+      'Kamera    Gier ' + c.yaw.toFixed(2) + '   Neigung ' + c.pitch.toFixed(2) + '   Abstand ' + c.distNow.toFixed(1) + '\n' +
+      'Uhr       ' + this.runTime.toFixed(3) + ' s   Rest ' + (this.accumulator * 1000).toFixed(2) + ' ms\n' +
+      'Bild      ' + this.fps.toFixed(0) + ' Hz   ' + (dtReal * 1000).toFixed(1) + ' ms   gezeichnet ' + (this.gfx.drawn || 0);
+  };
+
   /* ------------------------------------------------------------- Umwelt */
 
   Game.prototype.updateEnvironment = function (dt) {
@@ -1174,6 +1229,7 @@
     Audio.setMusicIntensity(Math.min(1, this.player.speed / 26 + this.flowLevel * 0.2));
 
     this.render(dtReal);
+    this.updateDebug(dtReal);
     input.endFrame();
 
     if (!this.lowQuality && this.state === 'run') {
@@ -1213,7 +1269,7 @@
         av.x = gs.x; av.y = gs.y; av.z = gs.z; av.yaw = gs.yaw;
         av.speed = gs.speed; av.grounded = gs.grounded;
         av.runCycle = this.runTime * 14;
-        this.player.render.call(av, dyn, glass, t, { alpha: 0.34, mat: this.ghostMat, shadow: false });
+        this.player.render.call(av, dyn, glass, t, this.ghostOpts);
       }
     }
 

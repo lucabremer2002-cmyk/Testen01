@@ -434,6 +434,74 @@ Male, weil die Messung am eigentlichen Vorgang vorbeiging:
   warten, bis zwei Bilder hintereinander gleich sind; erst dann sagt die
   Abweichung etwas ueber die Aenderung aus.
 
+### Selbsttest: die technische Basislinie
+
+```
+python3 -m http.server 8123 &
+node tools/selftest.js
+```
+
+Sieben Messungen mit harten Schranken; wird eine gerissen, endet der Lauf
+mit Code 1. Die Schranken stammen aus gemessenen Werten, nicht aus
+Wunschdenken. Stand der Messung:
+
+| Messung | Wert | Schranke |
+| --- | --- | --- |
+| Determinismus (2x 1200 Schritte, gleiche Eingabe) | **0 m** Abweichung | 0 |
+| Laufuhr nach 10 s Wanduhr, 30 bis 165 Hz | Fehler **0,025 s** | 0,05 s |
+| Spitzentempo, Streuung ueber die Bildraten | **0,5 %** | 6 % |
+| Durchschlagene Waende (0,4-2,0 m dick, Tempo 30-70) | **0 von 25** | 0 |
+| Ein Simulationsschritt | **0,023 ms** | 0,25 ms |
+| Eine Anzeigenaktualisierung | **0,009 ms** | 0,10 ms |
+| Heap-Zuwachs je Bild | **0 Byte** | 64 Byte |
+
+Der Simulationsschritt kostet bei 120 Hz rund 2,8 ms pro Sekunde
+Spielzeit, also knapp drei Promille einer Sekunde Rechenzeit.
+
+### Entwicklerauskunft
+
+**F3** blendet jeden Zustand ein, der einen Sprung entscheidet: Lage,
+Tempo, Geschwindigkeitsvektor, Bodenkontakt, Luftzeit, verbleibende
+Spruenge, Coyote-Zeit, Sprungpuffer, Dash-Vorrat und laufender Dash,
+Rutschzustand samt Ermuedung, Wandkontakt, Kamera, Laufuhr samt Rest im
+Zeitzaehler sowie Bildrate und gezeichnete Stapel.
+
+Sie prueft zusaetzlich auf NaN in Spielerlage, Tempo, Kamera und Uhr und
+schreibt einen Fund in die Konsole. Das ist kein Selbstzweck: ein NaN im
+Kamerawinkel hat waehrend der Entwicklung einmal das gesamte Bild
+unsichtbar gemacht, und die Ursache war ohne diese Anzeige nur ueber
+Umwege zu finden.
+
+Kosten: 0,00005 ms je Bild wenn aus, 0,018 ms wenn an. Sie liegt
+ausserhalb des Simulationspfads und faengt keine Eingaben ab.
+
+### Gemessene Zeichenlast
+
+Bei 1280x720 an sechs Stellen der Strecke gemessen: **110 bis 195
+Zeichenaufrufe** je Bild fuer **3000 bis 7600 Instanzen**, also rund 36
+Instanzen je Aufruf. Die Ursache ist die Aufteilung in 80 raeumliche
+Felder mal etwa neun Netztypen - jedes Paar ist ein eigener Aufruf.
+
+Das ist keine gute Instancing-Ausnutzung. Es ist aber auch **kein
+gemessenes Problem**: die Zeichenvorbereitung auf der CPU kostet 0,22 bis
+1,56 ms von 16,7 ms Budget. Groessere Felder wuerden die Aufrufe senken
+und das Verwerfen ungenauer machen. Solange die Zahl nicht drueckt, bleibt
+sie, wie sie ist - die Zahl steht hier, damit eine spaetere Entscheidung
+nicht bei null anfaengt.
+
+### Bewusste technische Schuld
+
+* **`src/game.js` ist mit rund 1300 Zeilen ein Monolith.** Er haelt
+  Tastenbelegung, Simulationsschleife, Anzeige, Menues, Speicherstand,
+  Partikel und Geist zugleich. Eine Aufteilung in eigene Einheiten waere
+  sauberer, ist aber ein Umbau ohne gemessenen Nutzen - er wartet auf den
+  Moment, in dem eine Aenderung daran tatsaechlich teuer wird.
+* **Die Routen zahlen sich noch nicht in Zeit aus.** Gemessen ist die
+  riskante Linie an der ersten Gabel 2,4 s langsamer als die sichere. Das
+  ist ein offener Entwurfsfehler, kein technischer.
+* **Drei Aeste sind ungeprueft**, weil der Testpilot weder Wandspruenge
+  noch den Durchflug durch den Wasserfall beherrscht.
+
 ### Was automatisiert geprueft wird
 
 Ein Testpilot simuliert die Physik ohne Rendering und faehrt die Strecke

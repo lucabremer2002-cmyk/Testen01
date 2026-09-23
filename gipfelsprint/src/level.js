@@ -1983,6 +1983,11 @@
   var L = root.MR.level;
   var MAT = L.MAT;
 
+  /* Wie schnell das Aufblitzen eines Tores abklingt (Anteil je Sekunde).
+     Steht hier, weil level.update in dieser Einheit liegt - in der
+     Baukasten-Einheit darueber waere es zur Laufzeit nicht sichtbar. */
+  var FLASH_FADE = 1.0;
+
   /* Passende Streudeko je nach Zone - die Umgebung soll zum Abschnitt passen. */
   function scatter(b, zoneName, x, y, z, r) {
     b.cursor.x = x; b.cursor.z = z; b.cursor.y = y; b.cursor.yaw = 0;
@@ -2322,6 +2327,15 @@
         }
         ent.update(t, dt, player);
       }
+      /* Aufblitzen der Tore gehoert in die Simulation, nicht ins Zeichnen.
+         Vorher stand hier ein fester Abzug von 0,016 je gezeichnetem Bild:
+         das Zeichnen veraenderte damit Spielzustand, und bei 144 Hz
+         verblasste das Tor zweieinhalbmal schneller als bei 60. */
+      for (i5 = 0; i5 < this.gates.length; i5++) {
+        var gt5 = this.gates[i5];
+        if (gt5.flash > 0) gt5.flash = Math.max(0, gt5.flash - dt * FLASH_FADE);
+      }
+
       for (i5 = 0; i5 < this.enemies.length; i5++) {
         var en = this.enemies[i5];
         if (!en.alive) { en.squash = Math.max(0, en.squash - dt * 3); continue; }
@@ -2382,7 +2396,6 @@
       /* Zeittore: reine Zwischenzeit, kein Wiedereinstieg. */
       for (i6 = 0; i6 < this.gates.length; i6++) {
         var gt = this.gates[i6];
-        if (gt.flash > 0) gt.flash = Math.max(0, gt.flash - 0.016);
         var lit = gt.passed ? 1 : 0;
         var pulse = 1 + (gt.flash > 0 ? gt.flash * 0.25 : Math.sin(t * 3 + i6) * 0.03);
         var gmat = gt.passed ? MAT.ringOn : MAT.ringOff;

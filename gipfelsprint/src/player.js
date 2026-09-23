@@ -147,6 +147,9 @@
   var MAT_SHOE = root.MR.level.mat([0.10, 0.11, 0.18], [0.22, 0.24, 0.34]);
   var MAT_GLOW = root.MR.level.mat([1.0, 0.85, 0.20], [1.0, 1.0, 0.80], { emissive: 1.2 });
 
+  /* Gemeinsamer Matrix-Kratzblock fuers Zeichnen der Figur. */
+  var SCRATCH_M = new Float32Array(16);
+
   function create(level) {
     var p = {
       x: 0, y: 0, z: 0,
@@ -510,9 +513,15 @@
       this.dashCharge = Math.min(P.DASH_MAX, this.dashCharge + (n || 1));
     };
 
-    /* Figur zeichnen: ein paar Grundkoerper mit Lauf- und Sprungpose. */
+    /* Figur zeichnen: ein paar Grundkoerper mit Lauf- und Sprungpose.
+
+       Die Matrix ist ein Kratzblock auf Modulebene, kein neues Array je
+       Aufruf. Gezeichnet wird pro Bild zweimal (Figur und Geist), das
+       waren 2 x 64 Byte je Bild fuer nichts. Ein gemeinsamer Block ist
+       hier gefahrlos: es wird in einem Faden gezeichnet und render ruft
+       sich nicht selbst auf. */
     p.render = function (batch, glass, t, opts) {
-      var m = new Float32Array(16);
+      var m = SCRATCH_M;
       var sq = this.squash;
       var st = 1 / Math.max(0.35, sq);
       var bx = this.x, bz = this.z;
