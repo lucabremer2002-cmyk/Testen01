@@ -1491,6 +1491,28 @@
     }
   }
 
+  /* Eine Kristallkette laengs des Weges, im Wechsel seitlich versetzt.
+
+     Sie hat zwei Aufgaben zugleich. Erstens gibt sie dem sicheren Weg
+     ueberhaupt einen Gegenwert: gemessen brachte er 5 Kristalle, die
+     Alternativen zusammen 67 - er kostete also Zeit und gab nichts
+     zurueck, war damit nicht die vorsichtige Wahl, sondern schlicht die
+     schlechtere. Zweitens fuellt sie die Leere: auf dem sicheren Weg lagen
+     bis zu 5,5 Sekunden am Stueck ohne eine einzige Eingabe.
+
+     Der seitliche Versatz ist der Punkt. Liegen die Kristalle auf der
+     Ideallinie, sammelt man sie, ohne etwas zu tun. Im Wechsel daneben
+     verlangen sie genau das, was ein sicherer Weg verlangen darf:
+     lenken, nicht springen. */
+  function gemLine(b, o) {
+    for (var i = 0; i < o.n; i++) {
+      var t = o.n === 1 ? 0 : i / (o.n - 1);
+      var z = o.z0 + (o.z1 - o.z0) * t;
+      var x = o.x + (i % 2 ? o.seit : -o.seit);
+      b.gem(x, o.y + 1.6, z, { hint: o.hint || 'Ladung' });
+    }
+  }
+
   /* Eine Kette gleichartiger Plattformen. Gibt die Mitte der letzten zurueck. */
   function chain(b, o) {
     var last = null;
@@ -1766,6 +1788,8 @@
        der keine verlangen darf. */
     b.plat(-14, -2, 194, 26, 76, MAT.canyonDeck, { thickness: 2.0 }); /* 156 .. 232 */
     b.mass(-14, -6, 194, 14, 30, 70, MAT.canyonDark);
+    gemLine(b, { n: 12, x: -14, seit: 3, y: -2, z0: 44, z1: 224, hint: 'Ladung' });
+
     b.routeMark(2, SAFE, -16, -2, 62);
     b.routeMark(2, SAFE, -12, -2, 124);
     b.routeMark(2, SAFE, -16, -2, 194);
@@ -1944,6 +1968,9 @@
       b.mark(0, -6, wz0[i][0]);
       b.routeMark(4, SAFE, 0, -6, wz0[i][0]);
     }
+    /* Hier lag die laengste Leere des ganzen Laufs: 5,5 Sekunden ohne eine
+       einzige Eingabe. Jetzt liegt eine Ladungskette auf dem Boden. */
+    gemLine(b, { n: 11, x: 0, seit: 3, y: -6, z0: 40, z1: 200, hint: 'Ladung' });
 
     /* Oben: sechs schmale Absaetze im Wechsel zwischen den Waenden.
 
@@ -2067,6 +2094,7 @@
     b.mass(-18, -10, 74, 12, 30, 60, MAT.rockDark);
     b.plat(-18, -6, 137, 18, 62, MAT.stone, { thickness: 1.8 });      /* 106 .. 168 */
     b.mass(-18, -10, 137, 12, 30, 58, MAT.rockDark);
+    gemLine(b, { n: 10, x: -18, seit: 3, y: -6, z0: 48, z1: 162, hint: 'Ladung' });
     b.routeMark(5, SAFE, -18, -6, 74);
     b.routeMark(5, SAFE, -18, -6, 137);
     b.mark(-18, -6, 74);
@@ -2154,6 +2182,7 @@
       b.column(rx[i][0] - 13, -6, rx[i][1] - 8, 6 + r() * 2, { r: 1.3, mat: MAT.sandstone, capital: true });
       b.column(rx[i][0] + 13, -6, rx[i][1] + 8, 5 + r() * 2, { r: 1.3, mat: MAT.sandstone, capital: true });
     }
+    gemLine(b, { n: 11, x: -16, seit: 3, y: -6, z0: 36, z1: 198, hint: 'Ladung' });
 
     /* --- RISKANT: die obere Linie ---
        Vorher ging es hier ueber drei Terrassen 27 m hinauf und am Ende
@@ -2247,6 +2276,260 @@
     b.mark(0, -20, 172);
     return { len: 190, rise: -20, turn: 0 };
   }
+
+  /* ==================================================================
+     KURZSTRECKE "DER STURZ" - ein Prototyp von rund 25 Sekunden.
+
+     Er ist um die EINE Mechanik gebaut, die dieses Movement von jedem
+     anderen unterscheidet und die das lange Level bisher verschenkt hat:
+     Hoehe wird Tempo. Wer mit gedrueckter Rutschtaste aufkommt, rechnet
+     62 Prozent seiner Aufprallgeschwindigkeit in Vortrieb um - aber erst
+     ab Aufprall 30, also ab sieben Metern Fall.
+
+     Im langen Level liegt fast jeder Sturz unter dieser Schwelle. Hier
+     liegt fast keiner darunter. Der ganze Abschnitt faellt, und jeder
+     Sturz bezahlt den naechsten Sprung. Daraus entsteht die Kette, die
+     das Spiel bisher nicht hatte:
+
+       Sturz -> Rutschlandung -> schneller Absprung -> Dash ueber die
+       Luecke -> naechster Sturz
+
+     Kein Meter Geradeauslaufen. Jede Gabel entscheidet, wie viel Hoehe
+     man in Tempo umwandelt statt sie wegzuwerfen.
+     ================================================================== */
+
+  /* ---------------------------------------------------- K1 Absprung
+     Ziel: in der ersten Sekunde Tempo, in der dritten die erste
+     Entscheidung. Kein Anlauf, kein Warmlaufen. */
+  function k1Absprung(b) {
+    b.zone('Kante', 60, 200, {
+      fogCol: [0.80, 0.90, 1.0], fogDensity: 0.0014,
+      zenith: [0.05, 0.42, 0.98], horizon: [0.99, 0.90, 0.76],
+      skyCol: [0.46, 0.78, 1.0], groundCol: [0.32, 0.50, 0.26],
+      sunCol: [1.18, 1.08, 0.88], ambient: 'pollen'
+    });
+    var i;
+    /* Startkante. Absichtlich kurz: zwoelf Meter, dann ist Schluss. */
+    b.plat(0, 0, 4, 18, 18, MAT.meadowLush, { thickness: 2.4 });      /* -5 .. 13 */
+    b.mass(0, -4, 4, 16, 40, 14, MAT.rock);
+    b.start = { x: b.toWorldX(0, 0), y: b.cursor.y + 0.1, z: b.toWorldZ(0, 0), yaw: b.cursor.yaw };
+    b.mark(0, 0, 0);
+
+    /* Sturz 1 - der Einstieg ins Spiel. Zehn Meter, Aufprall 35,8; wer
+       rutschend landet, steht nach einer Sekunde auf Tempo 39 statt 17.
+       Wer es verpasst, merkt den Unterschied sofort und will es noch
+       einmal versuchen. Genau dafuer ist er die erste Handlung. */
+    b.plat(0, -10, 40, 28, 32, MAT.stone, { thickness: 2.2 });        /* 24 .. 56 */
+    b.mass(0, -14, 40, 24, 40, 28, MAT.cliff);
+    gemArc(b, 0, 0, 13, 0, -10, 24, 2, 'Rutschtaste halten');
+    b.mark(0, -10, 40);
+
+    /* Drei Saetze auf Tempo. 24 m Luecke - bei 39 reicht ein Sprung,
+       bei 17 nicht einmal mit Doppelsprung. Die Kette bestraft also
+       sofort, wer den ersten Sturz nicht genutzt hat. */
+    chain(b, { n: 3, x: 0, ax: 3, y: -10, dy: 0, z: 80, step: 40, w: 15, d: 16,
+               mat: MAT.marble, pillar: 30, pillarMat: MAT.sandstone, mark: true,
+               gem: true, arcGem: 1, hint: 'weiter Satz' });
+
+    /* --- Gabel 1: Hoehe behalten oder Hoehe verkaufen ---
+       Ein Zweig ersetzt beim Abfahren den GANZEN Abschnittspfad, nicht nur
+       sein eigenes Stueck. Liegt die Gabel - wie hier - mitten im
+       Abschnitt, muss der gemeinsame Anlauf deshalb in beiden Zweigen
+       stehen. Ohne ihn zielte der Laeufer vom Start direkt auf die erste
+       Flaeche des Zweigs, 204 m weit, und starb siebenmal. */
+    var k1vor = [[0, -10, 40], [-3, -10, 80], [3, -10, 120], [-3, -10, 160]];
+    for (i = 0; i < k1vor.length; i++) {
+      b.routeMark(0, SAFE, k1vor[i][0], k1vor[i][1], k1vor[i][2]);
+      b.routeMark(0, FAST, k1vor[i][0], k1vor[i][1], k1vor[i][2]);
+    }
+    b.routeSign(-10, -10, 168, SAFE);
+    b.routeSign(10, -10, 168, FAST);
+
+    /* SICHER: bleibt oben, zwei breite Flaechen, 18 m Luecke. Kostet
+       nichts und bringt nichts - am Zusammenfluss kommt man mit dem an,
+       was man schon hatte. */
+    /* Drei Stufen von je vier Metern. Aufprall 22,6 - die Rutschlandung
+       zahlt erst ab 30. Dieser Weg gibt seine sechzehn Hoehenmeter also
+       ab, ohne einen einzigen davon in Tempo zu verwandeln. Genau das ist
+       der Unterschied zum Zweig daneben, und er ist die ganze These
+       dieses Abschnitts. */
+    b.routeZone(0, SAFE, -12, -10, 176, 14, 8, 16);
+    b.routeArch(-14, -10, 182, 11, 6, SAFE);
+    var k1s = [[-16, -14, 200, 32], [-16, -18, 242, 32], [-14, -22, 282, 30]];
+    for (i = 0; i < k1s.length; i++) {
+      b.plat(k1s[i][0], k1s[i][1], k1s[i][2], 20, k1s[i][3], MAT.stone, { thickness: 2.0 });
+      b.mass(k1s[i][0], k1s[i][1] - 4, k1s[i][2], 16, 30, k1s[i][3] - 4, MAT.cliff);
+      b.routeMark(0, SAFE, k1s[i][0], k1s[i][1], k1s[i][2]);
+      b.mark(k1s[i][0], k1s[i][1], k1s[i][2]);
+    }
+    gemLine(b, { n: 7, x: -15, seit: 3, y: -15, z0: 190, z1: 292, hint: 'Ladung' });
+
+    /* SCHNELL: springt seitlich ueber die Kante, vierzehn Meter hinunter
+       auf ein schmales Band. Aufprall 42 - das ist die Hoechstgrenze von
+       46 in einem Zug. Danach traegt ein einziger Sprung bis zum
+       Zusammenfluss. Wer sich traut, ist unten schneller als oben. */
+    b.routeZone(0, FAST, 12, -10, 176, 12, 8, 16);
+    b.routeArch(12, -10, 180, 9, 5, FAST);
+    /* Gerechnet, nicht geraten: ein gehaltener Sprung bei Tempo 39 steigt
+       2,86 m und faellt dann 16,9 m - zusammen 1,09 s Flugzeit, also rund
+       42 m Reichweite. Die erste Fassung verlangte 56 m vom Ende der
+       Kette und danach 62 m bis zum Zusammenfluss. Beides war jenseits
+       der gemessenen Reichweite (56 m mit Dash UND Doppelsprung), und der
+       Testpilot starb siebenmal. Jetzt sind es 36 m und 31 m. */
+    /* Sechzehn Meter am Stueck. Aufprall 45,3 - wer rutschend aufkommt,
+       steht augenblicklich am Deckel von 46 statt bei 39. Die Kristalle
+       im Bogen zeigen die Linie, und der letzte liegt auf der Flaeche:
+       er ist die Erinnerung, die Taste gedrueckt zu halten. */
+    b.plat(11, -26, 206, 12, 28, MAT.crystalRock, { thickness: 1.6 }); /* 192 .. 220 */
+    b.deco('box', 11, -42, 206, 8, 30, 16, MAT.rockDark);
+    b.routeMark(0, FAST, 11, -26, 206);
+    b.gem(11, -23.6, 206, { hint: 'Rutschtaste!' });
+    gemArc(b, 12, -10, 178, 11, -26, 198, 3, 'Sturz');
+    b.plat(6, -26, 258, 14, 26, MAT.crystalRock, { thickness: 1.6 });  /* 245 .. 271 */
+    b.deco('box', 6, -42, 258, 9, 30, 14, MAT.rockDark);
+    b.routeMark(0, FAST, 6, -26, 258);
+    gemArc(b, 11, -26, 220, 6, -26, 245, 2, 'weiter Satz');
+
+    /* Zusammenfluss */
+    b.plat(0, -26, 300, 32, 44, MAT.canyonDeck, { thickness: 2.6 });  /* 278 .. 322 */
+    b.mass(0, -30, 300, 28, 40, 40, MAT.canyon);
+    b.mark(0, -26, 300);
+    b.gate(0, -26, 306, { name: 'Absprung' });
+    for (i = 0; i < 4; i++) b.tree(-26 + (i % 2) * 52, -10, 30 + i * 50, 0.8 + b.rand() * 0.5, { kind: 'pine' });
+    return { len: 330, rise: -26, turn: 0 };
+  }
+
+  /* ---------------------------------------------------- K2 Der Sprung
+     Der Wow-Moment. Ein Abgrund von 48 Metern, unter dem nichts ist -
+     man sieht ihn zwei Sekunden vorher und weiss sofort, dass ein
+     normaler Sprung nicht reicht. Gemessene Reichweiten: bei Tempo 42
+     traegt ein Sprung 27 m, mit Doppelsprung 44, mit Dash und
+     Doppelsprung 50. Der Abgrund liegt also genau dort, wo die volle
+     Kombination noetig ist - und die Kristalle davor bezahlen den Dash.
+
+     Dahinter kommt die Belohnung: drei Stuerze von je zwoelf Metern in
+     Folge. Jeder zahlt Aufprall 39, jeder hebt das Tempo, bis es am
+     Deckel von 46 steht. Man faellt eine Treppe hinunter und wird dabei
+     immer schneller - das ist der Moment, fuer den der Abschnitt da ist. */
+  function k2Sprung(b) {
+    b.zone('Abgrund', 70, 210, {
+      fogCol: [1.0, 0.86, 0.72], fogDensity: 0.0018,
+      zenith: [0.06, 0.40, 0.92], horizon: [1.0, 0.82, 0.58],
+      skyCol: [0.58, 0.72, 0.86], groundCol: [0.46, 0.30, 0.20],
+      sunCol: [1.24, 1.04, 0.80], ambient: 'dust'
+    });
+    var i;
+    b.plat(0, 0, 14, 30, 34, MAT.canyonDeck, { thickness: 2.4 });     /* -3 .. 31 */
+    b.mass(0, -4, 14, 26, 40, 30, MAT.canyon);
+    b.mark(0, 0, 14);
+
+    /* Anlauf. Eine einzige Flaeche, 26 m Luecke - wer aus dem ersten
+       Abschnitt Tempo mitbringt, nimmt sie ohne nachzudenken. */
+    b.plat(0, 0, 74, 22, 30, MAT.canyonDeck, { thickness: 2.2 });     /* 59 .. 89 */
+    b.mass(0, -4, 74, 18, 36, 26, MAT.canyonDark);
+    b.mark(0, 0, 74);
+    gemArc(b, 0, 0, 31, 0, 0, 59, 2, 'Anlauf');
+
+    /* ----------------------------- DER ABGRUND -----------------------------
+       Abflugkante bei z 89, Landung ab z 137. 48 Meter ueber nichts.
+       Die Landung liegt 14 m tiefer: wer rutschend aufkommt, bekommt
+       Aufprall 42 zurueck und steht sofort am Deckel. Der Sprung zahlt
+       sich also doppelt - er ist die Abkuerzung UND der Tempomacher. */
+    b.deco('box', -22, -30, 113, 10, 60, 40, MAT.cliff);
+    b.deco('box', 22, -30, 113, 10, 60, 40, MAT.cliff);
+    gemArc(b, 0, 0, 90, 0, -14, 136, 3, 'DASH');
+    b.plat(0, -14, 156, 26, 38, MAT.stone, { thickness: 2.4 });       /* 137 .. 175 */
+    b.mass(0, -18, 156, 22, 40, 34, MAT.cliff);
+    b.mark(0, -14, 156);
+
+    /* ------------------ Die Treppe nach unten: drei Stuerze ------------------
+       Je zwoelf Meter tief, 30 m Abstand. Aufprall 39 - deutlich ueber der
+       Schwelle von 30, also zahlt jede einzelne Landung. */
+    var k2vor = [[0, 0, 14], [0, 0, 74], [0, -14, 156]];
+    for (i = 0; i < k2vor.length; i++) {
+      b.routeMark(1, SAFE, k2vor[i][0], k2vor[i][1], k2vor[i][2]);
+      b.routeMark(1, FAST, k2vor[i][0], k2vor[i][1], k2vor[i][2]);
+    }
+    b.routeSign(-11, -14, 180, SAFE);
+    b.routeSign(11, -14, 180, FAST);
+
+    /* SICHER: eine lange Rampe in kleinen Stufen. Aufprall unter 30,
+       also gibt es nichts zurueck - dafuer kann man nicht danebentreten. */
+    b.routeZone(1, SAFE, -13, -14, 186, 14, 8, 16);
+    b.routeArch(-14, -16, 190, 11, 6, SAFE);
+    for (i = 0; i < 6; i++) {
+      b.plat(-16, -20 - i * 6, 192 + i * 30, 22, 26, MAT.rockDark, { thickness: 2.0 });
+      b.mass(-16, -24 - i * 6, 192 + i * 30, 18, 30, 22, MAT.cliff);
+      b.routeMark(1, SAFE, -16, -20 - i * 6, 192 + i * 30);
+      b.mark(-16, -20 - i * 6, 192 + i * 30);
+    }
+    gemLine(b, { n: 9, x: -16, seit: 4, y: -26, z0: 190, z1: 344, hint: 'Ladung' });
+
+    /* SCHNELL: drei Stuerze von je zwoelf Metern. */
+    b.routeZone(1, FAST, 13, -14, 186, 12, 8, 16);
+    b.routeArch(12, -14, 190, 9, 5, FAST);
+    for (i = 0; i < 3; i++) {
+      b.plat(12, -26 - i * 12, 214 + i * 40, 14, 22, MAT.crystalRock, { thickness: 1.6 });
+      b.deco('box', 12, -44 - i * 12, 214 + i * 40, 9, 34, 12, MAT.rockDark);
+      b.routeMark(1, FAST, 12, -26 - i * 12, 214 + i * 40);
+      b.gem(12, -23.6 - i * 12, 214 + i * 40, { hint: 'Rutschlandung' });
+      if (i < 2) gemArc(b, 12, -26 - i * 12, 225 + i * 40, 12, -38 - i * 12, 243 + i * 40, 2, 'Sturz');
+    }
+
+    /* Zusammenfluss */
+    /* Der Zusammenfluss lag bei z 392 - von der letzten Sturzflaeche bei
+       z 304 waren das 65 m ohne Gefaelle, also unerreichbar. Jetzt liegt
+       er bei 350, das sind 23 m. */
+    b.plat(0, -50, 350, 34, 46, MAT.canyonDeck, { thickness: 2.6 });  /* 327 .. 373 */
+    b.mass(0, -54, 350, 30, 44, 42, MAT.canyon);
+    gemArc(b, 12, -50, 304, 4, -50, 326, 2, 'weiter Satz');
+    b.mark(0, -50, 350);
+    b.gate(0, -50, 356, { name: 'Der Sprung' });
+    return { len: 380, rise: -50, turn: 6 };
+  }
+
+  /* ---------------------------------------------------- K3 Zielhang
+     Alles, was vorher an Tempo geholt wurde, wird hier ausgegeben. Keine
+     Entscheidung mehr ueber Sicherheit, nur noch eine ueber Mut: die
+     hohe Linie ist kuerzer, die tiefe laenger. */
+  function k3Zielhang(b) {
+    b.zone('Gipfel', 60, 190, {
+      fogCol: [0.88, 0.96, 1.0], fogDensity: 0.0020,
+      zenith: [0.03, 0.42, 0.98], horizon: [0.96, 0.94, 1.0],
+      skyCol: [0.54, 0.84, 1.0], groundCol: [0.50, 0.62, 0.76],
+      sunCol: [1.22, 1.14, 1.04], ambient: 'snow'
+    });
+    var i;
+    b.plat(0, 0, 12, 28, 28, MAT.snow, { thickness: 2.2 });           /* -2 .. 26 */
+    b.mass(0, -4, 12, 24, 40, 24, MAT.cliff);
+    b.mark(0, 0, 12);
+
+    /* Zwei weite Saetze auf Hoechsttempo - 34 m Luecke. Bei 46 traegt ein
+       Sprung 32 m, mit Doppelsprung weit darueber. Wer hier langsam
+       ankommt, merkt es sofort. */
+    chain(b, { n: 2, x: 0, ax: 4, y: 0, dy: 0, z: 62, step: 50, w: 16, d: 16,
+               mat: MAT.ice, pillar: 34, pillarMat: MAT.cliff, mark: true,
+               gem: true, arcGem: 2, hint: 'Hoechsttempo' });
+
+    /* Letzter Sturz vor dem Ziel: sechzehn Meter am Stueck. Aufprall 45. */
+    gemArc(b, 0, 0, 120, 0, -16, 150, 3, 'letzter Sturz');
+    b.plat(0, -16, 176, 34, 44, MAT.snow, { thickness: 2.6 });        /* 154 .. 198 */
+    b.mass(0, -20, 176, 30, 40, 40, MAT.cliff);
+    b.mark(0, -16, 176);
+    for (i = 0; i < 6; i++) b.iceSpike(-20 + (i % 2) * 40, -16, 158 + i * 7, 0.8 + b.rand() * 0.8);
+
+    var p = b.toWorld(0, -16, 190, [0, 0, 0]);
+    b.finish = { x: p[0], y: p[1], z: p[2], yaw: b.cursor.yaw, r: 8.0 };
+    b.arch(0, -16, 190, 18, 9, MAT.gold);
+    b.deco('box', 0, -6.6, 190, 19, 1.4, 0.6, MAT.flag);
+    b.mark(0, -16, 190);
+    return { len: 210, rise: -16, turn: 0 };
+  }
+
+  root.MR.level.SETS = {
+    lang: [s1Auftakt, s2Sprungkette, s3Gabel, s4Tempo, s5Wand, s6Wasserfall, s7Ruinen, s8Ziel],
+    sturz: [k1Absprung, k2Sprung, k3Zielhang]
+  };
 
   root.MR.level.SECTIONS = [s1Auftakt, s2Sprungkette, s3Gabel, s4Tempo, s5Wand, s6Wasserfall, s7Ruinen, s8Ziel];
 })(window);
@@ -2448,7 +2731,9 @@
     var b = new L.Builder();
     /* Dichte der Halme laesst sich fuer schwaechere Geraete herunterziehen. */
     b.grassScale = opts.grassScale === undefined ? 1 : opts.grassScale;
-    var SECTIONS = L.SECTIONS;
+    /* Welcher Abschnittssatz gebaut wird. Vorgabe bleibt die lange
+       Strecke; die Kurzstrecke "Der Sturz" ist der Prototyp. */
+    var SECTIONS = opts.sections || (opts.satz && L.SETS[opts.satz]) || L.SECTIONS;
     var totalRise = 0;
 
     for (var i = 0; i < SECTIONS.length; i++) {

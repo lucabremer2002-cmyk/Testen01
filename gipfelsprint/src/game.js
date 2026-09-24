@@ -142,7 +142,13 @@
     /* Auf Beruehrungsgeraeten weniger Halme: Gras ist der mit Abstand
        groesste Posten an Instanzen und wird zweimal gezeichnet (Bild und
        Schattenkarte). */
-    this.level = LevelMod.build({ grassScale: this.input.isTouch ? 0.5 : 1 });
+    /* Welche Strecke? Die Wahl ueberlebt den Neuladen, damit der Knopf im
+       Menue sie umschalten kann, ohne dass der Aufbau mitten im Betrieb
+       neu laufen muss - das waere der deutlich groessere Eingriff. */
+    this.satz = 'lang';
+    try { this.satz = localStorage.getItem('mr_satz') || 'lang'; } catch (e) {}
+    if (!LevelMod.SETS || !LevelMod.SETS[this.satz]) this.satz = 'lang';
+    this.level = LevelMod.build({ grassScale: this.input.isTouch ? 0.5 : 1, satz: this.satz });
     this.player = root.MR.player.create(this.level);
     this.cam = root.MR.player.createCamera();
     this.particles = new Particles(760);
@@ -269,6 +275,14 @@
 
   Game.prototype.bindUi = function () {
     var self = this;
+    var btnSatz = $('btnSatz');
+    if (btnSatz) {
+      btnSatz.textContent = self.satz === 'sturz' ? 'Lange Strecke' : 'Kurzstrecke "Der Sturz"';
+      btnSatz.addEventListener('click', function () {
+        try { localStorage.setItem('mr_satz', self.satz === 'sturz' ? 'lang' : 'sturz'); } catch (e) {}
+        location.reload();
+      });
+    }
     $('btnStart').addEventListener('click', function () {
       Audio.unlock();
       if (self.input.isTouch && !document.fullscreenElement && self.fullscreenAllowed()) self.toggleFullscreen();
