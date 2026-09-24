@@ -47,9 +47,17 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
     const gemZeiten = [], torZeiten = [];
     let dashSummeMax = 0, n = 0;
     const histTempo = [], bremsungen = [];
+    let kursAlt = null;
 
+    /* `lenk` ist die Kursaenderung in Grad je Fenster.
+
+       Diese Groesse fehlte, und ihr Fehlen hat mich in die Irre gefuehrt:
+       das Werkzeug zaehlte nur Spruenge und Dashes, also galt ein Slalom
+       bei Tempo 40 als genauso leer wie ein gerader Korridor. Lenken ist
+       aber eine Handlung - und auf einem sicheren Weg ist es sogar die
+       einzige, die Tempo kostet statt es zu schenken. */
     function neuesFenster(t){ return { t: t, ereignisse: [], tempoMin: 1e9, tempoMax: 0, luft: 0, n: 0,
-                                       eingaben: 0, dashVoll: 0 }; }
+                                       eingaben: 0, dashVoll: 0, lenk: 0 }; }
     fenster = neuesFenster(0);
 
     for (let i=0;i<120*150;i++){
@@ -94,6 +102,16 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
           bremsungen.push({ t:+g.runTime.toFixed(2), von:+alt.toFixed(0), auf:+neu.toFixed(0),
                             x:+p.x.toFixed(0), y:+p.y.toFixed(0), z:+p.z.toFixed(0) });
       }
+      if (p.speed > 3) {
+        const kurs = Math.atan2(p.vx, p.vz);
+        if (kursAlt !== null) {
+          let d = kurs - kursAlt;
+          while (d > Math.PI) d -= 2 * Math.PI;
+          while (d < -Math.PI) d += 2 * Math.PI;
+          fenster.lenk += Math.abs(d) * 180 / Math.PI;
+        }
+        kursAlt = kurs;
+      }
       fenster.n++; n++;
       if (!p.grounded) fenster.luft++;
       if (p.speed < fenster.tempoMin) fenster.tempoMin = p.speed;
@@ -118,22 +136,24 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
   console.log('Routenwahl ' + WAHL.join('') + '   ' + R.zustand + '   ' + R.zeit + ' s   Stuerze ' + R.tode +
               '   Kristalle ' + R.kristalle);
   console.log('');
-  console.log('  Zeit   Tempo        Luft  Handlungen');
+  console.log('  Zeit   Tempo        Luft  Kurs  Handlungen');
   let leerLauf = 0, leerMax = 0, leerStart = 0, leerBesteStart = 0, leerN = 0;
   R.takt.forEach(f => {
     const ev = f.ereignisse.map(e => KUERZEL[e] || '?').join('');
     const bar = '#'.repeat(Math.round(f.tempoMax / 3));
-    const leer = f.ereignisse.length === 0;
+    const leer = f.ereignisse.length === 0 && f.lenk < 6;
     if (leer) { if (leerLauf === 0) leerStart = f.t; leerLauf += 0.5; leerN += 0.5;
                 if (leerLauf > leerMax) { leerMax = leerLauf; leerBesteStart = leerStart; } }
     else leerLauf = 0;
     console.log('  ' + f.t.toFixed(1).padStart(5) + '  ' +
       (f.tempoMin===1e9?0:f.tempoMin).toFixed(0).padStart(3) + '-' + f.tempoMax.toFixed(0).padStart(3) + ' ' +
-      bar.padEnd(16) + ' ' + (f.luft/Math.max(1,f.n)).toFixed(2) + '  ' +
-      (ev || (leer ? '.....  LEER' : '')));
+      bar.padEnd(16) + ' ' + (f.luft/Math.max(1,f.n)).toFixed(2) +
+      String(f.lenk.toFixed(0) +( '\u00b0')).padStart(6) + '  ' +
+      (ev || (leer ? '.....  LEER' : (f.lenk >= 6 ? 'lenken' : ''))));
   });
   console.log('');
   console.log('Laengste Strecke ohne Handlung: ' + leerMax.toFixed(1) + ' s (ab ' + leerBesteStart.toFixed(1) + ' s)');
+  console.log('  (Handlung = Sprung, Dash, Landung ODER mehr als 6 Grad Kursaenderung je halbe Sekunde)');
   console.log('Anteil Leerlauf am ganzen Lauf: ' + (leerN / R.zeit * 100).toFixed(0) + ' %');
   console.log('Dash-Vorrat voll (3/3):         ' + (R.dashVollAnteil*100).toFixed(0) + ' % der Zeit');
   /* Aufeinanderfolgende Meldungen gehoeren zum selben Ereignis. */

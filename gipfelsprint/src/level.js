@@ -1510,6 +1510,85 @@
     }
   }
 
+  /* Eine Felsnadel: fest, sichtbar, und kein Todesurteil.
+
+     Gebraucht fuer Slalomstrecken. `B.column` taugte dafuer nicht - sie
+     besteht ausschliesslich aus Deko und haette sich durchlaufen lassen,
+     was schlimmer ist als gar kein Hindernis: man sieht etwas und es ist
+     nicht da.
+
+     Der Kollisionskoerper ist schmaler als die sichtbare Spitze. Das ist
+     Absicht: streift man sie, behaelt man gemessen 96 bis 99 Prozent des
+     Tempos (die Wand nimmt nur den Anteil, der in sie hineingeht), und
+     ein knappes Vorbei fuehlt sich nach Koennen an statt nach Strafe. */
+  function felsnadel(b, lx, ly, lz, rad, h, mat) {
+    b.block(lx, ly + h / 2, lz, rad * 1.5, h, rad * 1.5, null, {});
+    b.deco('cone', lx, ly + h / 2, lz, rad * 2.3, h, rad * 2.3, mat || MAT.rockDark);
+    b.deco('blob', lx, ly + 0.5, lz, rad * 3.2, 1.6, rad * 3.0, mat || MAT.rockDark);
+  }
+
+  /* Ein Slalom aus Toren: jedes Tor sperrt eine Seite des Korridors und
+     laesst die andere offen, und die offene Seite wechselt.
+
+     Der erste Versuch waren einzelne Nadeln links und rechts. Der war
+     wirkungslos, und zwar aus einem Grund, den man am Reissbrett sieht,
+     sobald man ihn einmal gesehen hat: zwischen einer Nadel bei x +5 und
+     einer bei x -5 bleibt die MITTE frei. Man laeuft schnurgerade
+     hindurch, ohne einmal zu lenken - gemessen null Grad Kursaenderung
+     auf der ganzen Strecke. Ein Hindernis, das eine gerade Linie
+     uebriglaesst, ist kein Hindernis.
+
+     Ein Tor reicht deshalb von einer Wand bis ueber die Mitte hinaus. Die
+     Oeffnung wechselt die Seite, also MUSS die Linie schwingen.
+
+     Sieben Meter hoch, damit Springen keine Abkuerzung ist (gemessene
+     Sprunghoehe 2,8 m, mit Doppelsprung 4,9). Hier wird gelenkt, nicht
+     gesprungen - und Lenken ist die einzige Handlung, die einen sicheren
+     Weg beschaeftigt, ohne ihn schneller zu machen. Sprungketten heben
+     ab, und in der Luft haelt Tempo dreimal besser. */
+  /* Zur Breite der Durchfahrt: genau die halbe Korridorbreite ist der
+     strengste Wert, bei dem die beiden Torstellungen sich gerade noch
+     nicht ueberlappen - dann MUSS geschwungen werden, aber es gibt keinen
+     Millimeter Spielraum. Gemessen verlor der Laeufer damit viermal je
+     Lauf mehr als vierzig Prozent Tempo an einer Torkante. Mit 58 Prozent
+     bleibt eine schmale Mittelspur fuer den, der sie trifft, und der Rest
+     ist verzeihlich. */
+  function slalom(b, o) {
+    var pfad = [];
+    var halb = o.breite / 2;               /* halbe Korridorbreite */
+    var oeff = o.oeffnung || 9;            /* Breite der Durchfahrt */
+    for (var i = 0; i < o.n; i++) {
+      var z = o.z0 + (o.z1 - o.z0) * (o.n === 1 ? 0 : i / (o.n - 1));
+      var rechts = (i % 2) === 0;          /* offen rechts, dann links, ... */
+      /* Die Mauer ist so breit wie der Korridor MINUS der Durchfahrt.
+         Im ersten Wurf stand hier `halb - oeff` fuer die linke Variante,
+         und damit wurde die MAUER 12 m breit statt der Oeffnung: jedes
+         zweite Tor hatte nur 8 m Durchlass, und die Ideallinie zielte
+         1,6 m neben die Kante. Der Laeufer blieb dort haengen. */
+      var vonX = rechts ? -halb : -halb + oeff;
+      var bisX = rechts ? -halb + (o.breite - oeff) : halb;
+      var mitte = (vonX + bisX) / 2, breit = bisX - vonX;
+      var h = o.hoehe || 7, t = o.tiefe || 3;
+      /* Der Kollisionskoerper ist an der Durchfahrtskante 1,2 m schmaler
+         als die sichtbare Mauer. Das ist keine Nachlaessigkeit, sondern
+         derselbe Kniff wie die Nachfrist an einer Absprungkante: was
+         knapp aussieht, geht knapp durch. Ohne diesen Versatz verlor der
+         Laeufer dreimal je Lauf mehr als vierzig Prozent Tempo an einer
+         Kante, die er optisch verfehlt hatte. Sichtbar bleibt die volle
+         Breite - der Spieler soll das Tor sehen, nicht den Koerper. */
+      var innen = rechts ? -0.6 : 0.6;
+      b.block(o.x + mitte + innen, o.y + h / 2, z, Math.max(1, breit - 1.2), h, t, null, {});
+      b.deco('box', o.x + mitte, o.y + h / 2, z, breit, h, t, o.mat || MAT.rockDark);
+      /* Ein Pfosten an der Durchfahrtskante macht sie lesbar. */
+      b.deco('cylinder', o.x + (rechts ? bisX : vonX), o.y + h * 0.58, z,
+             1.5, h * 1.16, 1.5, MAT.metal);
+      var durch = rechts ? (halb - oeff / 2) : (-halb + oeff / 2);
+      pfad.push([o.x + durch, o.y, z]);
+      if (o.gem) b.gem(o.x + durch, o.y + 1.6, z, { hint: 'Ladung' });
+    }
+    return pfad;
+  }
+
   /* Eine Kristallkette laengs des Weges, im Wechsel seitlich versetzt.
 
      Sie hat zwei Aufgaben zugleich. Erstens gibt sie dem sicheren Weg
@@ -1807,12 +1886,17 @@
        der keine verlangen darf. */
     b.plat(-14, -2, 194, 26, 76, MAT.canyonDeck, { thickness: 2.0 }); /* 156 .. 232 */
     b.mass(-14, -6, 194, 14, 30, 70, MAT.canyonDark);
-    gemLine(b, { n: 12, x: -14, seit: 3, y: -2, z0: 44, z1: 224, hint: 'Ladung' });
-
-    b.routeMark(2, SAFE, -16, -2, 62);
-    b.routeMark(2, SAFE, -12, -2, 124);
-    b.routeMark(2, SAFE, -16, -2, 194);
-    b.mark(-16, -2, 62); b.mark(-12, -2, 124); b.mark(-16, -2, 178); b.mark(-12, -2, 216);
+    /* Das Zickzack um zwei Meter war unsichtbar: eine Ideallinie, die
+       ueber eine leere 26 m breite Flaeche pendelt, ohne dass irgendetwas
+       den Bogen erklaert. Jetzt stehen Tore darin, und die Linie webt aus
+       einem Grund. Die Kristalle liegen in den Durchfahrten. */
+    var gslalom = slalom(b, { n: 7, x: -14, breite: 26, oeffnung: 15, y: -2,
+                              z0: 46, z1: 220, hoehe: 7, tiefe: 1.2,
+                              mat: MAT.canyonDark, gem: true });
+    for (i = 0; i < gslalom.length; i++) {
+      b.mark(gslalom[i][0], gslalom[i][1], gslalom[i][2]);
+      b.routeMark(2, SAFE, gslalom[i][0], gslalom[i][1], gslalom[i][2]);
+    }
 
     /* --- GOLD: mittlere Absaetze, 28 m Abstand, 14 m Luecke --- */
     b.routeZone(2, FAST, 0, 0, 30, 12, 8, 16);
@@ -1984,12 +2068,58 @@
     var wz0 = [[50, 50], [97, 44], [141, 44], [186, 46]];
     for (i = 0; i < 4; i++) {
       b.plat(0, -6, wz0[i][0], 20, wz0[i][1], MAT.rockDark, { thickness: 1.8 });
-      b.mark(0, -6, wz0[i][0]);
-      b.routeMark(4, SAFE, 0, -6, wz0[i][0]);
     }
     /* Hier lag die laengste Leere des ganzen Laufs: 5,5 Sekunden ohne eine
-       einzige Eingabe. Jetzt liegt eine Ladungskette auf dem Boden. */
-    gemLine(b, { n: 11, x: 0, seit: 3, y: -6, z0: 40, z1: 200, hint: 'Ladung' });
+       einzige Eingabe - geradeaus durch einen zwanzig Meter breiten,
+       voellig leeren Korridor. Eine Kristallkette allein hat daran nichts
+       geaendert, weil man sie im Vorbeilaufen mitnimmt.
+
+       Jetzt steht ein Slalom darin: sechs Nadeln im Wechsel, die Linie
+       webt hindurch. Alle 32 Meter - bei Tempo 40 also alle acht
+       Zehntelsekunden - muss gelenkt werden. Die Kristalle liegen auf der
+       Innenseite jeder Kurve und belohnen die saubere Linie. */
+    /* Fuenf Tore statt sechs, Durchfahrt 12 m statt 9, und nur noch 4,5 m
+       hoch. Die erste Fassung (sechs Tore, 9 m, 7 m hoch) war zu streng:
+       der Laeufer schlug an, verlor zweimal mehr als vierzig Prozent
+       Tempo und drehte sich an einer Stelle um 177 Grad - also komplett
+       um. Ein Hindernis, das einen umdreht, ist nicht schwer, es ist
+       kaputt.
+
+       Auf 4,5 m Hoehe herunterzugehen, damit ein Doppelsprung (gemessen
+       4,9 m) sie nehmen kann, war ein Fehlschlag: der Laeufer LANDETE auf
+       der 2,4 m tiefen Oberkante und kam nicht mehr herunter - der ganze
+       Lauf blieb stehen. Eine Abkuerzung, auf der man haengenbleibt, ist
+       keine. Sieben Meter sind daher Absicht: hier wird gelenkt, Punkt.
+
+       Sieben Tore, nicht fuenf. Bei fuenf standen sie 37 m auseinander -
+       bei Eingangstempo 46 knapp eine Sekunde, aber der sichere Weg
+       faellt unterwegs auf Grundtempo 17 zurueck, und dort werden daraus
+       2,2 Sekunden Pause zwischen zwei Toren. Gemessen blieben genau dort
+       wieder vier leere Fenster am Stueck. Mit 26 m Abstand ist auch im
+       langsamsten Teil alle anderthalb Sekunden etwas zu tun.
+
+       Zur Durchfahrt von 12 m im 20-m-Korridor: rechnerisch bleibt damit
+       eine 4 m breite Mittelspur frei, durch die beide Torstellungen
+       passen. Das ist bewusst so geblieben. Den Korridor zu verbreitern
+       ginge nicht - die Wandsprung-Route dahinter braucht die Waende bei
+       plus/minus zehn, sonst greift der Wandsprung nicht mehr. Und die
+       Mittelspur ist kein Fehler, sondern die Koennerlinie: wer sie bei
+       Tempo trifft, spart das Schwingen. Wer sie verfehlt, streift - und
+       die Mauern sind nur noch 1,2 m tief, damit das ein Abgleiten wird
+       statt eines Vollstopps (gemessen behaelt ein flacher Streifer 96
+       bis 99 Prozent des Tempos, ein Aufprall auf eine Stirnflaeche
+       nichts). */
+    var wslalom = slalom(b, { n: 7, x: 0, breite: 20, oeffnung: 12, y: -6,
+                              z0: 48, z1: 204, hoehe: 7, tiefe: 1.2,
+                              mat: MAT.rockDark, gem: true });
+    /* Die Marken setzen die Ideallinie. Beide Eintraege sind noetig: der
+       Spine (b.mark) fuehrt den sicheren Weg, routeMark nur die Zweige -
+       im ersten Versuch stand der Slalom nur in routeMark, der Laeufer
+       folgte weiter der geraden Spine-Linie und ging mitten hindurch. */
+    for (i = 0; i < wslalom.length; i++) {
+      b.mark(wslalom[i][0], wslalom[i][1], wslalom[i][2]);
+      b.routeMark(4, SAFE, wslalom[i][0], wslalom[i][1], wslalom[i][2]);
+    }
 
     /* Oben: sechs schmale Absaetze im Wechsel zwischen den Waenden.
 
@@ -2113,11 +2243,13 @@
     b.mass(-18, -10, 74, 12, 30, 60, MAT.rockDark);
     b.plat(-18, -6, 137, 18, 62, MAT.stone, { thickness: 1.8 });      /* 106 .. 168 */
     b.mass(-18, -10, 137, 12, 30, 58, MAT.rockDark);
-    gemLine(b, { n: 10, x: -18, seit: 3, y: -6, z0: 48, z1: 162, hint: 'Ladung' });
-    b.routeMark(5, SAFE, -18, -6, 74);
-    b.routeMark(5, SAFE, -18, -6, 137);
-    b.mark(-18, -6, 74);
-    b.mark(-18, -6, 137);
+    var fslalom = slalom(b, { n: 5, x: -18, breite: 18, oeffnung: 12, y: -6,
+                              z0: 50, z1: 158, hoehe: 7, tiefe: 1.2,
+                              mat: MAT.rockDark, gem: true });
+    for (i = 0; i < fslalom.length; i++) {
+      b.mark(fslalom[i][0], fslalom[i][1], fslalom[i][2]);
+      b.routeMark(5, SAFE, fslalom[i][0], fslalom[i][1], fslalom[i][2]);
+    }
 
     for (i = 0; i < 5; i++) b.tree(-26 + (i % 2) * 52, -2, 30 + i * 30, 0.8 + b.rand() * 0.6, { kind: 'pine' });
 
@@ -2196,12 +2328,19 @@
     for (i = 0; i < 4; i++) {
       b.plat(rx[i][0], -6, rx[i][1], 30, rx[i][2], MAT.marble, { thickness: 2.0 });
       b.mass(rx[i][0], -10, rx[i][1], 24, 26, rx[i][2] - 6, MAT.sandstone);
-      b.mark(rx[i][0], -6, rx[i][1]);
-      b.routeMark(6, SAFE, rx[i][0], -6, rx[i][1]);
+      /* Keine Spine-Marke mehr auf der Mittellinie: der Slalom weiter
+         unten setzt sie, und zwei konkurrierende Linien zoegen den
+         Laeufer zurueck in die Mitte. */
       b.column(rx[i][0] - 13, -6, rx[i][1] - 8, 6 + r() * 2, { r: 1.3, mat: MAT.sandstone, capital: true });
       b.column(rx[i][0] + 13, -6, rx[i][1] + 8, 5 + r() * 2, { r: 1.3, mat: MAT.sandstone, capital: true });
     }
-    gemLine(b, { n: 11, x: -16, seit: 3, y: -6, z0: 36, z1: 198, hint: 'Ladung' });
+    var rslalom = slalom(b, { n: 7, x: -16, breite: 28, oeffnung: 16, y: -6,
+                              z0: 40, z1: 196, hoehe: 7, tiefe: 1.2,
+                              mat: MAT.sandstone, gem: true });
+    for (i = 0; i < rslalom.length; i++) {
+      b.mark(rslalom[i][0], rslalom[i][1], rslalom[i][2]);
+      b.routeMark(6, SAFE, rslalom[i][0], rslalom[i][1], rslalom[i][2]);
+    }
 
     /* --- RISKANT: die obere Linie ---
        Vorher ging es hier ueber drei Terrassen 27 m hinauf und am Ende
@@ -2842,8 +2981,11 @@
        Jetzt, am Testpiloten ueber alle 96 Kombinationen gemessen:
          Platin 51,5 s  erreichen 27 Kombinationen - das obere Drittel
          Gold   54,1 s  erreichen 57 - gute Routenwahl, nicht perfekte
-         Silber 62,8 s  erreichen alle 96, auch der komplett sichere
-                        Lauf (60,74 s)
+         Silber 71,3 s  erreichen alle 96, auch der komplett sichere
+                        Lauf - der dauert seit den Slalomstrecken 68,7 s
+                        statt 60,7, und mit dem alten Faktor 1,22 waere
+                        ausgerechnet der vorsichtige Durchlauf auf Bronze
+                        gefallen. Ankommen ohne Risiko ist Silber wert.
          Bronze 82,4 s  ankommen genuegt
        Der Testpilot bremst vor jedem Wegpunkt ab; ein Mensch, der die
        Linie kennt, liegt darunter. */
@@ -2851,7 +2993,7 @@
     var medals = [
       { name: 'Platin', key: 'platin', time: Math.round(base * 1.00 * 10) / 10 },
       { name: 'Gold', key: 'gold', time: Math.round(base * 1.05 * 10) / 10 },
-      { name: 'Silber', key: 'silber', time: Math.round(base * 1.22 * 10) / 10 },
+      { name: 'Silber', key: 'silber', time: Math.round(base * 1.36 * 10) / 10 },
       { name: 'Bronze', key: 'bronze', time: Math.round(base * 1.60 * 10) / 10 }
     ];
 
