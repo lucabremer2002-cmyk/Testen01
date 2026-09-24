@@ -404,6 +404,18 @@
     '    base = mix(vC, vA, vUv.y * 0.82 + 0.18);',
     '    float fl = vnoise(vec2(vW.x, vW.z) * 0.6);',
     '    base *= 0.86 + 0.30 * fl;',
+    '  } else if (pat == 11) {',   /* Gelaende: Grate, Flanken, Schneelinie */
+    /* Die Berge im Hintergrund waren glatte Kegel in einer Farbe - sie
+       lasen sich als Platzhalter, nicht als Landschaft. Drei Lagen
+       Rauschen geben ihnen Grate, die Steilheit verdunkelt die Flanken
+       (echte Haenge fangen weniger Himmelslicht), und weit oben liegt
+       Schnee. Kostet keine einzige Flaeche mehr. */
+    '    vec2 tuv = vW.xz * sc;',
+    '    float n = vnoise(tuv) * 0.54 + vnoise(tuv * 2.7) * 0.31 + vnoise(tuv * 7.3) * 0.15;',
+    '    float grat = 1.0 - abs(n - 0.5) * 2.0;',
+    '    base *= 0.66 + 0.52 * n;',
+    '    base *= 1.0 - (1.0 - abs(N.y)) * 0.30;',
+    '    base += vA * 0.22 * smoothstep(0.72, 0.95, grat) * smoothstep(0.25, 0.7, N.y);',
     '  } else if (pat == 9) {',    /* Warnstreifen / Tempo-Pfeile */
     '    float f = fract((puv.x + puv.y) * sc - uTime * 1.8);',
     '    base = mix(base, vA, step(0.5, f));',
@@ -429,7 +441,11 @@
        die ganz im Schatten liegen, wurden unlesbar. Etwas mehr
        Umgebungslicht und ein schwaecherer Farbstich. */
     '  vec3 shadeTint = mix(uSkyCol * 1.02 + 0.10, vec3(1.0), sh);',
-    '  vec3 col = base * (amb * 0.54 * shadeTint + uSunCol * ndl * 1.30 * sh + uSunCol * fill * 0.19);',
+    /* Das Fuelllicht lag bei 0,54 und damit so hoch, dass beschattete und
+       besonnte Flaechen fast gleich hell waren - es gab kein Licht und
+       keinen Schatten, nur Helligkeit. Weniger Umgebung, mehr Sonne:
+       dasselbe Modell, aber mit Richtung. */
+    '  vec3 col = base * (amb * 0.38 * shadeTint + uSunCol * ndl * 1.52 * sh + uSunCol * fill * 0.16);',
 
     /* Glanz fuer Wasser und Kristall */
     '  if (pat == 4 || pat == 6) {',
@@ -443,9 +459,37 @@
 
     '  col = mix(col, base * 1.35 + 0.18, clamp(vP.x, 0.0, 1.0));',
 
+    /* Kontaktverdunklung. Nach unten zeigende Flaechen bekommen kein
+       Himmelslicht und waren trotzdem genauso hell wie alles andere -
+       dadurch stand nichts auf dem Boden, alles schwebte. Das ist der
+       billigste Ersatz fuer Umgebungsverdeckung und kostet eine Zeile. */
+    '  col *= 1.0 - clamp(-N.y, 0.0, 1.0) * 0.34;',
+
+    /* ------------------------------------------------------- Atmosphaere
+       Vorher: ein Nebelwert mal eine helle Farbe, gleichmaessig ueber die
+       ganze Strecke. Das Ergebnis war Milchglas - die Berge im Hintergrund
+       hatten dieselbe Helligkeit wie der Boden vor den Fuessen, und dem
+       Bild fehlte jede Tiefe.
+
+       Jetzt drei Dinge zugleich, wie in der echten Atmosphaere:
+       - die Dichte nimmt mit der Hoehe ab, also bleibt der Himmel klar
+         und nur das Tal steht im Dunst,
+       - die Ferne verliert zuerst SAETTIGUNG und erst danach Helligkeit,
+       - blickt man Richtung Sonne, kippt der Dunst in ihre Farbe. */
     '  float dist = length(uCamPos - vW);',
-    '  float fog = 1.0 - exp(-dist * uFogDensity);',
-    '  col = mix(col, uFogCol, clamp(fog, 0.0, 0.92));',
+    '  vec3 Vd = normalize(vW - uCamPos);',
+    '  float hFall = exp(-clamp(vW.y - uCamPos.y, -40.0, 120.0) * 0.011);',
+    '  float fog = 1.0 - exp(-dist * uFogDensity * hFall);',
+    '  fog = clamp(fog, 0.0, 0.88);',
+    '  float sunAmt = pow(max(dot(Vd, L), 0.0), 5.0);',
+    /* Die Nebelfarben der Zonen liegen nahe Weiss (0,80/0,90/1,00). Bei
+       95 % Deckung verschwand der ganze Hintergrund darin - die Berge
+       waren Papierschnitte. Abgedunkelt und auf 88 % begrenzt behaelt die
+       Ferne ihre Form. */
+    '  vec3 fogC = mix(uFogCol * 0.80, uSunCol * 1.06, sunAmt * 0.55);',
+    '  float fl = dot(col, vec3(0.299, 0.587, 0.114));',
+    '  col = mix(col, vec3(fl), fog * 0.42);',
+    '  col = mix(col, fogC, fog);',
 
     '  outColor = vec4(col, alpha);',
     '}'
@@ -521,8 +565,8 @@
     '  vec3 col = mix(uHorizon, uZenith, pow(h, 0.75));',
     /* Sonne mit weichem Hof */
     '  float sd = max(dot(dir, normalize(uSunDir)), 0.0);',
-    '  col += uSunCol * pow(sd, 340.0) * 2.4;',
-    '  col += uSunCol * pow(sd, 12.0) * 0.28;',
+    '  col += uSunCol * pow(sd, 620.0) * 1.5;',
+    '  col += uSunCol * pow(sd, 22.0) * 0.20;',
     /* Weiche Wolkenbaender ueber dem Horizont */
     '  if (dir.y > 0.0) {',
     '    vec2 cu = dir.xz / max(dir.y + 0.16, 0.05);',
@@ -570,32 +614,68 @@
     'precision highp float;',
     'in vec2 vUv;',
     'uniform sampler2D uScene, uBloom;',
-    'uniform float uBloomStrength, uVignette;',
+    'uniform float uBloomStrength, uVignette, uChroma;',
     'out vec4 outColor;',
+
+    /* Szene plus Bloom an einer Stelle - einmal je Kanal abgetastet, damit
+       der Farbsaum zum Rand hin entsteht. */
+    'vec3 hole(vec2 uv){ return texture(uScene, uv).rgb + texture(uBloom, uv).rgb * uBloomStrength; }',
+
     'void main(){',
-    '  vec3 c = texture(uScene, vUv).rgb + texture(uBloom, vUv).rgb * uBloomStrength;',
-    /* Filmische Kennlinie (ACES-Naeherung), aber nur auf die Helligkeit
-       angewandt und der Farbton unveraendert daruebergelegt. Kanalweise
-       angewandt zieht dieselbe Kurve kraeftigen Farben die Saettigung weg,
-       weil sie den hellsten Kanal staerker staucht als die anderen. */
+    /* --------------------------------------------------- Linse zuerst
+       Der Farbsaum MUSS vor der Farbentwicklung stehen. In der ersten
+       Fassung wurden Rot und Blau nachtraeglich neu abgetastet, waehrend
+       Gruen schon durch Kennlinie, Saettigung und S-Kurve gelaufen war -
+       die drei Kanaele kamen damit aus verschiedenen Bearbeitungsstufen,
+       und das ganze Bild fiel blass zusammen. */
+    '  vec2 q = vUv - 0.5;',
+    '  float r2 = dot(q, q);',
+    '  vec3 c;',
+    '  float ca = uChroma * (0.5 + 3.4 * r2);',
+    '  if (ca > 0.0004) {',
+    '    c.r = hole(vUv - q * ca).r;',
+    '    c.g = hole(vUv).g;',
+    '    c.b = hole(vUv + q * ca).b;',
+    '  } else {',
+    '    c = hole(vUv);',
+    '  }',
+
+    /* Filmische Kennlinie (ACES-Naeherung), nur auf die Helligkeit
+       angewandt - kanalweise zieht dieselbe Kurve kraeftigen Farben die
+       Saettigung weg, weil sie den hellsten Kanal staerker staucht. */
     '  float y = max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 1e-4);',
-    '  float ye = y * 1.06;',
+    '  float ye = y * 1.02;',
     '  float yt = (ye * (2.51 * ye + 0.03)) / (ye * (2.43 * ye + 0.59) + 0.14);',
     '  c *= yt / y;',
-    /* Ueberlaufende Kanaele gemeinsam zurueckholen - das haelt den Farbton. */
     '  c /= max(1.0, max(max(c.r, c.g), c.b));',
-    /* Farbkraft: blasse Stellen werden deutlich angehoben, ohnehin kraeftige
-       nur wenig - sonst laufen die Neonfarben ins Weisse. */
+
+    /* Farbkraft: blasse Stellen deutlich anheben, kraeftige kaum - sonst
+       laufen die Neonfarben ins Weisse. */
     '  float lum = dot(c, vec3(0.299, 0.587, 0.114));',
     '  float sat = clamp(length(c - vec3(lum)) * 1.7, 0.0, 1.0);',
-    '  c = mix(vec3(lum), c, mix(1.40, 1.12, sat));',
-    /* Leichte S-Kurve: Tiefen satter, Lichter strahlender. */
+    '  c = mix(vec3(lum), c, mix(1.42, 1.10, sat));',
+
+    /* Schwarzpunkt. Hier lag der Grund, warum das Bild nach Prototyp
+       aussah: der letzte Schritt war frueher pow(c, 0.92), also eine
+       Aufhellung. Zusammen mit dem Dunst lag alles im oberen Drittel des
+       Helligkeitsbereichs - es gab nirgends ein Schwarz, und ohne Tiefen
+       wirkt jedes Modell flach. */
+    '  c = max(c - 0.050, 0.0) / (1.0 - 0.050);',
+
+    /* S-Kurve: Tiefen satter, Lichter strahlender. */
     '  vec3 t = clamp(c, 0.0, 1.0);',
-    '  c = mix(c, t * t * (3.0 - 2.0 * t), 0.26);',
-    '  vec2 q = vUv - 0.5;',
-    '  c *= 1.0 - dot(q, q) * uVignette;',
-    '  c = pow(max(c, 0.0), vec3(0.92));',
-    '  outColor = vec4(c, 1.0);',
+    '  c = mix(c, t * t * (3.0 - 2.0 * t), 0.30);',
+
+    /* Farbteilung: Tiefen kuehl, Lichter warm - der Griff, der ein Bild
+       nach Film aussehen laesst, fuer zwei Mischungen. */
+    '  float ly = dot(c, vec3(0.299, 0.587, 0.114));',
+    '  c = mix(c * vec3(0.94, 0.975, 1.08), c * vec3(1.06, 1.005, 0.93), smoothstep(0.20, 0.82, ly));',
+
+    '  c *= 1.0 - r2 * uVignette;',
+    /* Feines Korn haelt Verlaeufe ruhig und nimmt dem Bild das Sterile. */
+    '  float gr = fract(sin(dot(vUv * 1024.0, vec2(12.9898, 78.233))) * 43758.5453);',
+    '  c += (gr - 0.5) * 0.014;',
+    '  outColor = vec4(max(c, 0.0), 1.0);',
     '}'
   ].join('\n');
 
@@ -979,7 +1059,13 @@
     }
 
     var env = {
-      sunDir: [0.46, 0.66, 0.38],
+      /* Sonnenstand. Vorher 48 Grad ueber dem Horizont - also fast Mittag,
+         und Mittagslicht ist das flachste Licht, das es gibt: die Schatten
+         liegen unter den Objekten und man sieht keine Form. Jetzt 24 Grad.
+         Die Schatten werden lang und legen sich quer ueber die Flaechen,
+         Kanten bekommen Licht und Gegenlicht, und die Szene hat eine
+         Richtung. Das ist der billigste Griff mit der groessten Wirkung. */
+      sunDir: [0.62, 0.36, 0.52],
       sunCol: [1.05, 0.96, 0.80],
       skyCol: [0.46, 0.66, 0.92],
       groundCol: [0.30, 0.28, 0.22],
@@ -1116,14 +1202,21 @@
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, fbo.bright.tex);
       gl.uniform1i(comp.u.uBloom, 1);
-      gl.uniform1f(comp.u.uBloomStrength, 0.46);
-      gl.uniform1f(comp.u.uVignette, 0.42);
+      /* Bildstimmung. `gfx.grade` setzt das Spiel je Bild - bei Tempo
+         wird der Rand dunkler und die Randfehlfarbe staerker, das ist der
+         billigste und wirksamste Tempoeindruck, den ein Bildschirm hat. */
+      gl.uniform1f(comp.u.uBloomStrength, gfx.grade.bloom);
+      gl.uniform1f(comp.u.uVignette, gfx.grade.vignette);
+      gl.uniform1f(comp.u.uChroma, gfx.grade.chroma);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.activeTexture(gl.TEXTURE0);
 
       gl.enable(gl.DEPTH_TEST);
       gl.depthMask(true);
     };
+
+    /* Vorgabewerte; das Spiel schreibt sie je Bild um. */
+    gfx.grade = { bloom: 0.46, vignette: 0.42, chroma: 0.0 };
 
     return gfx;
   }

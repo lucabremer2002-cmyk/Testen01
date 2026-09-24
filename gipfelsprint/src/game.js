@@ -457,14 +457,33 @@
   };
 
   /* Trickmeldung rechts im Bild. */
+  /* Trickmeldungen. Vorher standen bis zu fuenf gleichzeitig da, und weil
+     jede Wiederholung eine neue Zeile bekam, stapelte sich dreimal
+     "SCHWUNG MITGENOMMEN" untereinander - der halbe Bildschirm war Text.
+     Jetzt gilt: hoechstens drei, und eine Wiederholung zaehlt die
+     vorhandene Zeile hoch, statt eine neue zu oeffnen. */
   Game.prototype.trick = function (text, cls, sub) {
+    var box = $('tricks');
+    var letzte = box.lastElementChild;
+    if (letzte && letzte.dataset.text === text) {
+      var n = (parseInt(letzte.dataset.n, 10) || 1) + 1;
+      letzte.dataset.n = n;
+      letzte.innerHTML = text + '<small>x' + n + '</small>';
+      letzte.classList.remove('trick--puls');
+      void letzte.offsetWidth;
+      letzte.classList.add('trick--puls');
+      if (letzte.__t) root.clearTimeout(letzte.__t);
+      letzte.__t = root.setTimeout(function () { if (letzte.parentNode) letzte.remove(); }, 1600);
+      return;
+    }
     var el = document.createElement('div');
     el.className = 'trick' + (cls ? ' trick--' + cls : '');
+    el.dataset.text = text;
+    el.dataset.n = 1;
     el.innerHTML = text + (sub ? '<small>' + sub + '</small>' : '');
-    var box = $('tricks');
     box.appendChild(el);
-    while (box.children.length > 5) box.removeChild(box.firstChild);
-    root.setTimeout(function () { if (el.parentNode) el.remove(); }, 1600);
+    while (box.children.length > 3) box.removeChild(box.firstChild);
+    el.__t = root.setTimeout(function () { if (el.parentNode) el.remove(); }, 1600);
   };
 
   Game.prototype.bigMessage = function (text, cls) {
@@ -985,6 +1004,27 @@
       bd.classList.toggle('used', !dashReady);
     }
     $('speedlines').className = 'speedlines' + (p.speed > 26 ? ' on' : '');
+
+    /* ----------------------------------------------- Tempo sichtbar machen
+       Die Zahl unten rechts sagt 160 km/h, aber das Bild sah bei 60 und
+       bei 160 gleich aus. Jetzt zieht sich der Rand zu und die Linse
+       bekommt Farbsaum, je schneller man ist - beides zusammen ist der
+       Eindruck von Tempo, den Fahrzeugspiele seit jeher benutzen, und es
+       kostet drei Zahlen je Bild.
+
+       Der Dash setzt zusaetzlich einen kurzen Stoss obendrauf, damit sich
+       die Faehigkeit vom blossen Schnellsein unterscheidet. */
+    if (this.gfx.grade) {
+      var g = this.gfx.grade;
+      var t = M.clamp((p.speed - 20) / (TUNING.SPEED_CAP - 20), 0, 1);
+      var stoss = M.clamp(this.cam.fovPunch * 2.2, 0, 1);
+      g.vignette = 0.42 + t * 0.26 + stoss * 0.20;
+      /* Gemessen am Bild: 0,0022 bei Hoechsttempo war deutlich zu viel -
+         die Anzeige bekam sichtbare Regenbogenraender. Ein Drittel davon
+         liest sich als Linse, nicht als Fehler. */
+      g.chroma = 0.0003 + t * 0.0008 + stoss * 0.0014;
+      g.bloom = 0.46 + t * 0.14 + stoss * 0.18;
+    }
   };
 
   /* ------------------------------------------------------- Entwicklerauskunft

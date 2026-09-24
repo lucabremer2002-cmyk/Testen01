@@ -924,3 +924,35 @@ body.touch .flow { width: clamp(92px, 20vw, 150px); }
   z-index: 9;
 }
 .debug[hidden] { display: none; }
+
+
+/* Wiederholte Trickmeldung: die vorhandene Zeile pulst, statt eine neue
+   zu oeffnen - sonst stapelt sich derselbe Text untereinander. */
+.trick--puls { animation: trickPuls .28s ease-out; }
+@keyframes trickPuls {
+  0%   { transform: scale(1);    filter: brightness(1); }
+  40%  { transform: scale(1.14); filter: brightness(1.5); }
+  100% { transform: scale(1);    filter: brightness(1); }
+}
+
+
+/* Flow-Anzeige lesbar. Die Stufenbezeichnung stand in Rosa auf dem rosa
+   Balkenverlauf - Farbe auf Farbe, praktisch unlesbar. Die Stufenfarben
+   bleiben (sie sind die Information), bekommen aber einen dunklen Rand
+   und damit Halt gegen jeden Hintergrund. Diese Regeln stehen bewusst am
+   Dateiende: die Stufenfarben .flow--l1/2/3 sind gleich spezifisch und
+   haetten eine frueher notierte Regel ueberschrieben. */
+.flow__label b {
+  text-shadow: 0 1px 2px rgba(6, 10, 20, .9), 0 0 10px rgba(6, 10, 20, .7);
+  filter: brightness(1.25);
+}
+.flow__label span {
+  opacity: 1;
+  color: rgba(255,255,255,.92);
+  text-shadow: 0 1px 2px rgba(6, 10, 20, .9);
+}
+.flow__bar { box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 2px 8px rgba(0,0,0,.35); }
+
+/* Tempoanzeige: dieselbe Behandlung, sie stand ebenfalls ohne Kontrast
+   ueber wechselndem Hintergrund. */
+.speedo__label { text-shadow: 0 1px 3px rgba(6, 10, 20, .9); }

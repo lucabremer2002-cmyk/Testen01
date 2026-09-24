@@ -153,8 +153,27 @@
     cloud: mat([0.95, 0.97, 1.0], [1.0, 1.0, 1.0], { emissive: 0.14 }),
     shaft: mat([1.0, 0.96, 0.80], [1.0, 1.0, 0.94], { emissive: 1.0, alpha: 0.055 }),
     mist: mat([0.86, 0.95, 1.0], [1.0, 1.0, 1.0], { emissive: 0.25, alpha: 0.10 }),
-    far: mat([0.29, 0.37, 0.67], [0.77, 0.87, 1.0], { pattern: 3, patternScale: 0.04 }),
-    farWarm: mat([0.43, 0.33, 0.61], [0.93, 0.87, 1.0], { pattern: 3, patternScale: 0.05 }),
+    /* Drei Tiefenlagen statt einer. Reale Luftperspektive staffelt
+       Bergketten in Helligkeit: die naechste Kette ist dunkel und
+       farbig, die hinterste fast Himmelsfarbe. Vorher hatten alle
+       dieselbe blasse Farbe, und der Hintergrund las sich als eine
+       einzige flache Wand aus Kegeln. */
+    far: mat([0.17, 0.21, 0.42], [0.52, 0.62, 0.86], { pattern: 11, patternScale: 0.035 }),
+    farWarm: mat([0.26, 0.19, 0.40], [0.66, 0.58, 0.84], { pattern: 11, patternScale: 0.045 }),
+    farMid: mat([0.34, 0.40, 0.64], [0.74, 0.82, 0.98], { pattern: 11, patternScale: 0.03 }),
+    /* Haenge neben der Strecke. Sie sind bis zu 200 m breit - bei den
+       feinen Mustern der Plattformen (Massstab 0,3 bis 0,8) liegt dort
+       rechnerisch alle anderthalb Meter ein Detail, was aus der Entfernung
+       zu einer einzigen glatten Flaeche verschmiert. Mit Massstab 0,04
+       sitzt alle 25 m eine Mulde, und der Hang bekommt Form. */
+    hangGruen: mat([0.22, 0.40, 0.17], [0.52, 0.78, 0.34], { pattern: 11, patternScale: 0.045 }),
+    hangFels: mat([0.27, 0.25, 0.30], [0.62, 0.60, 0.66], { pattern: 11, patternScale: 0.040 }),
+    hangWarm: mat([0.44, 0.24, 0.14], [0.86, 0.58, 0.30], { pattern: 11, patternScale: 0.042 }),
+    hangSchnee: mat([0.46, 0.58, 0.80], [0.98, 0.99, 1.0], { pattern: 11, patternScale: 0.05 }),
+    /* Talboden weit unter dem Parcours - dunkel, damit die Welt nach unten
+       hin schliesst statt ins Helle auszulaufen. */
+    talboden: mat([0.17, 0.26, 0.22], [0.34, 0.48, 0.36], { pattern: 11, patternScale: 0.012 }),
+    farNear: mat([0.22, 0.30, 0.44], [0.58, 0.72, 0.82], { pattern: 11, patternScale: 0.05 }),
     shadow: mat([0.02, 0.05, 0.09], null, { pattern: 7, alpha: 0.4 })
   };
 
@@ -2608,10 +2627,17 @@
     return best;
   }
 
+  /* Jede Zone bekommt ihren Hang. Die Zonen der Kurzstrecke ('Kante',
+     'Abgrund') fehlten hier und fielen auf MAT.cliff zurueck - deshalb
+     stand der Prototyp in einer einzigen strukturlosen Flaeche. */
   var HILL_MAT = {
-    'Start': MAT.meadowLush, 'Canyon': MAT.canyon, 'Abfahrt': MAT.canyonDark,
-    'Wasserfall': MAT.cliff, 'Kristallhoehle': MAT.crystalRock,
-    'Tempel': MAT.cliffWarm, 'Gipfel': MAT.snow
+    'Start': MAT.hangGruen, 'Auftakt': MAT.hangGruen, 'Kante': MAT.hangGruen,
+    'Kette': MAT.hangGruen, 'Wald': MAT.hangGruen,
+    'Canyon': MAT.hangWarm, 'Schlucht': MAT.hangWarm, 'Abfahrt': MAT.hangWarm,
+    'Abgrund': MAT.hangWarm, 'Ruinen': MAT.hangWarm, 'Tempel': MAT.hangWarm,
+    'Bergschlucht': MAT.hangFels, 'Engstelle': MAT.hangFels,
+    'Wasserfall': MAT.hangFels, 'Kristallhoehle': MAT.crystalRock,
+    'Gipfel': MAT.hangSchnee
   };
 
   /* Gelaende neben der Strecke: Haenge, Kuppen und Streudeko je Zone. */
@@ -2696,14 +2722,51 @@
     var r = M.rng(4711);
     b.cursor.x = 0; b.cursor.y = 0; b.cursor.z = 0; b.cursor.yaw = 0;
 
-    for (var i = 0; i < 30; i++) {
-      var a = i / 30 * Math.PI * 2 + r() * 0.12;
-      var dist = span * (0.60 + r() * 0.8);
-      var h = 70 + r() * 170;
-      var w = h * (1.05 + r() * 0.7);
-      var px = cx + Math.cos(a) * dist, pz = cz + Math.sin(a) * dist;
-      b.deco('cone', px, bounds.minY - 30 + h / 2, pz, w, h, w, r() > 0.5 ? MAT.far : MAT.farWarm);
-      if (h > 120) b.deco('cone', px, bounds.minY - 30 + h - h * 0.11, pz, w * 0.26, h * 0.22, w * 0.26, MAT.snow);
+    /* Talboden. Unter dem Parcours war bisher nichts - man sah bis zum
+       Horizont ins Leere, und der Uebergang von Welt zu Himmel war eine
+       harte Linie ohne Grund darunter. Eine sehr grosse, sehr flache
+       Scheibe weit unten gibt der Welt einen Boden, ohne dass man je
+       darauf landen koennte (reine Deko, keine Kollision). */
+    b.deco('blob', cx, bounds.minY - 150, cz, span * 5.0, 120, span * 5.0, MAT.talboden);
+    /* Zwei Duenengruppen darauf brechen die Flaeche. */
+    for (var tb = 0; tb < 26; tb++) {
+      var ta = r() * Math.PI * 2, td = span * (0.8 + r() * 1.9);
+      var ts = span * (0.10 + r() * 0.22);
+      b.deco('blob', cx + Math.cos(ta) * td, bounds.minY - 120 + r() * 30, cz + Math.sin(ta) * td,
+        ts, ts * (0.10 + r() * 0.10), ts * (0.7 + r() * 0.6), MAT.talboden, [0, r() * 6.28, 0]);
+    }
+
+    /* Drei Ketten hintereinander, jede mit eigenem Material und eigener
+       Hoehe. Jeder Gipfel besteht aus zwei bis drei versetzten Kegeln -
+       ein einzelner Kegel hat eine zu saubere Silhouette und verraet
+       sofort, dass er ein Kegel ist. */
+    var KETTEN = [
+      { n: 14, nah: 0.52, weit: 0.24, h0: 46, h1: 70, mat: MAT.farNear, schnee: 0.42 },
+      { n: 16, nah: 0.86, weit: 0.42, h0: 90, h1: 130, mat: MAT.farWarm, schnee: 0.62 },
+      { n: 18, nah: 1.35, weit: 0.55, h0: 150, h1: 200, mat: MAT.far, schnee: 0.86 }
+    ];
+    for (var kk = 0; kk < KETTEN.length; kk++) {
+      var K = KETTEN[kk];
+      for (var i = 0; i < K.n; i++) {
+        var a = i / K.n * Math.PI * 2 + r() * 0.28;
+        var dist = span * (K.nah + r() * K.weit);
+        var h = K.h0 + r() * (K.h1 - K.h0);
+        var w = h * (1.15 + r() * 0.8);
+        var px = cx + Math.cos(a) * dist, pz = cz + Math.sin(a) * dist;
+        var basis = bounds.minY - 30;
+        b.deco('cone', px, basis + h / 2, pz, w, h, w, K.mat);
+        /* Nebengipfel brechen die Silhouette */
+        var nb = 1 + (r() > 0.45 ? 1 : 0);
+        for (var q = 0; q < nb; q++) {
+          var hs = h * (0.42 + r() * 0.34);
+          var ws = hs * (1.1 + r() * 0.6);
+          b.deco('cone', px + (r() - 0.5) * w * 1.15, basis + hs / 2, pz + (r() - 0.5) * w * 1.15,
+            ws, hs, ws, K.mat);
+        }
+        if (r() < K.schnee) {
+          b.deco('cone', px, basis + h - h * 0.10, pz, w * 0.30, h * 0.21, w * 0.30, MAT.snow);
+        }
+      }
     }
     for (var j = 0; j < 20; j++) {
       var a2 = r() * Math.PI * 2;
@@ -2713,10 +2776,13 @@
     }
     for (var c = 0; c < 44; c++) {
       var ca = r() * Math.PI * 2;
-      var cd = span * (0.12 + r() * 0.9);
+      /* Nicht mehr bis an die Kamera heran (0,12 der Spannweite): eine
+         Wolke direkt ueber dem Kopf verdeckte das halbe Bild und zerstoerte
+         jeden Massstab. */
+      var cd = span * (0.55 + r() * 0.8);
       var cxp = cx + Math.cos(ca) * cd, czp = cz + Math.sin(ca) * cd;
-      var cy = bounds.minY + 30 + r() * (bounds.maxY - bounds.minY + 90);
-      var s = 9 + r() * 18;
+      var cy = bounds.minY + 70 + r() * (bounds.maxY - bounds.minY + 120);
+      var s = 7 + r() * 12;
       for (var q2 = 0; q2 < 4; q2++) {
         b.deco('blob', cxp + (r() - 0.5) * s * 1.8, cy + (r() - 0.5) * s * 0.3, czp + (r() - 0.5) * s * 1.2,
           s * (0.8 + r() * 0.8), s * (0.45 + r() * 0.2), s * (0.7 + r() * 0.5), MAT.cloud);
