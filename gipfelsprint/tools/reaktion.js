@@ -10,6 +10,7 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
   const b = await chromium.launch({ args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--no-sandbox'] });
   const page = await b.newPage({ viewport: { width: 320, height: 240 } });
   page.on('pageerror', e => console.log('[err]', e.message));
+  await page.addInitScript(() => { try { localStorage.setItem('mr_satz', 'lang'); } catch (e) {} });
   await page.goto('http://127.0.0.1:8123/index.html', { waitUntil: 'load' });
   await page.waitForFunction(() => !!window.GAME, null, { timeout: 30000 });
   const R = await page.evaluate(() => {

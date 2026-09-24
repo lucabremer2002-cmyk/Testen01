@@ -16,7 +16,12 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
   page.on('pageerror', e => console.log('[err]', e.message));
   /* Welcher Abschnittssatz gemessen wird - MR_SATZ=sturz waehlt die
      Kurzstrecke. Die Wahl liegt im localStorage, also vor dem Laden setzen. */
-  const SATZ = process.env.MR_SATZ || '';
+  /* Ohne Angabe die LANGE Strecke. Diese Werkzeuge sind fuer sie
+     geschrieben (sieben Gabeln, acht Abschnitte). Seit die Kurzstrecke
+     Vorgabe des Spiels ist, massen sie sonst stillschweigend die falsche
+     Strecke - routen-alle.js rechnete 96 Kombinationen auf einem Level
+     mit zwei Gabeln aus und meldete trotzdem "sauber". */
+  const SATZ = process.env.MR_SATZ || 'lang';
   if (SATZ) await page.addInitScript(s => { try { localStorage.setItem('mr_satz', s); } catch (e) {} }, SATZ);
   await page.goto('http://127.0.0.1:8123/index.html', { waitUntil: 'load' });
   await page.waitForFunction(() => !!window.GAME, null, { timeout: 30000 });

@@ -100,6 +100,12 @@
        ist auf 25 bis 40 ausgelegt, 46 ist die Spitze fuer einen grossen
        Sturz - nicht der Normalfall. */
     SPEED_CAP: 46,
+    /* Kurzzeitige Rauschgrenze nach einem grossen Sturz - siehe die
+       Rutschlandung weiter unten. Aufprall 36 entspricht rund zehn
+       Metern Fall; darunter bleibt alles beim Alten. */
+    RAUSCH_MIN: 36,
+    RAUSCH_CAP: 56,
+    RAUSCH_ZEIT: 1.6,
     /* Erst ab dieser Aufprallgeschwindigkeit zaehlt es als Sturz - 30
        entspricht rund sieben Metern Fall.
 
@@ -482,7 +488,29 @@
              hochzaehlt. Ohne Rutschtaste verpufft der Schwung wie vorher. */
           if (wantSlide && landing > P.SLIDE_LAND_MIN) {
             var spL = Math.hypot(this.vx, this.vz);
-            var want = Math.min(P.SPEED_CAP, spL + landing * P.SLIDE_LAND_GAIN);
+            /* ---------------------------------------------- Rauschgrenze
+               Ein grosser Sturz darf kurz ueber die Hoechstgeschwindigkeit
+               hinaus. Der Grund ist gemessen: im ganzen Lauf lag das Tempo
+               bei 36 bis 40 und beruehrte den Deckel von 46 genau zweimal
+               - der Lauf war durchgehend schnell und deshalb ohne jede
+               Dynamik. Eine Belohnung, die man nicht sieht, ist keine.
+
+               Ab Aufprall 36 (also rund zehn Metern Fall) steigt die
+               Grenze fuer 1,6 s auf RAUSCH_CAP. Sie ist ausschliesslich
+               durch Koennen zu bekommen: man muss hoch gewesen sein UND
+               die Rutschtaste im richtigen Moment halten. Das ist kein
+               Tempofeld, das ist die Kernmechanik mit sichtbarem Ertrag.
+
+               Danach faellt das Tempo mit dem normalen Zerfall auf 46
+               zurueck - der Rausch verpufft, wenn man ihn nicht in
+               Strecke umsetzt. */
+            var gross = landing > P.RAUSCH_MIN;
+            if (gross) {
+              this.boostCap = P.RAUSCH_CAP;
+              this.boostTimer = P.RAUSCH_ZEIT;
+            }
+            var deckel = gross ? P.RAUSCH_CAP : P.SPEED_CAP;
+            var want = Math.min(deckel, spL + landing * P.SLIDE_LAND_GAIN);
             if (want > spL) {
               if (spL > 0.5) {
                 this.vx *= want / spL;

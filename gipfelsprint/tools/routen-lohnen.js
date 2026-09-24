@@ -8,6 +8,8 @@
    Abschnitt - der Spieler sieht ihn dann nicht. */
 const { execFileSync } = require('child_process');
 const PROF = __dirname + '/abschnitt-profil.js';
+/* Die lange Strecke, siehe abschnitt-profil.js */
+process.env.MR_SATZ = process.env.MR_SATZ || 'lang';
 const NAMEN = ['Auftakt','Sprungkette','Grosse Gabel','Tempostrecke','Wandschlucht','Wasserfall','Ruinen','ZIEL'];
 const LBL = { 1: 'FAST', 2: 'RISK' };
 
