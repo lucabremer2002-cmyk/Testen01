@@ -145,9 +145,14 @@
     /* Welche Strecke? Die Wahl ueberlebt den Neuladen, damit der Knopf im
        Menue sie umschalten kann, ohne dass der Aufbau mitten im Betrieb
        neu laufen muss - das waere der deutlich groessere Eingriff. */
-    this.satz = 'lang';
-    try { this.satz = localStorage.getItem('mr_satz') || 'lang'; } catch (e) {}
-    if (!LevelMod.SETS || !LevelMod.SETS[this.satz]) this.satz = 'lang';
+    /* Vorgabe ist die Kurzstrecke. Gemessen ist sie die dichtere Strecke
+       (25 Prozent Leerlauf gegen 34) und mit 24 bis 26 Sekunden kurz
+       genug, dass ein misslungener Lauf sofort zum naechsten einlaedt.
+       Die lange Strecke bleibt einen Knopfdruck entfernt - aber der erste
+       Eindruck soll der bessere sein. */
+    this.satz = 'sturz';
+    try { this.satz = localStorage.getItem('mr_satz') || 'sturz'; } catch (e) {}
+    if (!LevelMod.SETS || !LevelMod.SETS[this.satz]) this.satz = 'sturz';
     this.level = LevelMod.build({ grassScale: this.input.isTouch ? 0.5 : 1, satz: this.satz });
     this.player = root.MR.player.create(this.level);
     this.cam = root.MR.player.createCamera();
@@ -275,9 +280,21 @@
 
   Game.prototype.bindUi = function () {
     var self = this;
+    /* Der Untertitel versprach fest "Sechs Abzweige" - das gilt fuer die
+       lange Strecke, die Kurzstrecke hat zwei. Eine Zeile, die je nach
+       Strecke etwas anderes verspricht als das, was gleich kommt, ist
+       schlimmer als gar keine. */
+    var tag = $('tagline');
+    if (tag) {
+      tag.textContent = self.satz === 'sturz'
+        ? 'Ein Lauf, fuenfundzwanzig Sekunden, keine Checkpoints. Jeder Sturz bezahlt den naechsten Sprung.'
+        : 'Ein Lauf, eine Minute, keine Checkpoints. Sechs Abzweige \u2013 der schwerste Weg ist jedes Mal der schnellste.';
+    }
     var btnSatz = $('btnSatz');
     if (btnSatz) {
-      btnSatz.textContent = self.satz === 'sturz' ? 'Lange Strecke' : 'Kurzstrecke "Der Sturz"';
+      btnSatz.textContent = self.satz === 'sturz'
+        ? 'Lange Strecke \u2013 Gipfelsprint (ca. 60 s)'
+        : 'Kurzstrecke \u2013 Der Sturz (ca. 25 s)';
       btnSatz.addEventListener('click', function () {
         try { localStorage.setItem('mr_satz', self.satz === 'sturz' ? 'lang' : 'sturz'); } catch (e) {}
         location.reload();

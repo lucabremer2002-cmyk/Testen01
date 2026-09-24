@@ -1890,7 +1890,10 @@
        ueber eine leere 26 m breite Flaeche pendelt, ohne dass irgendetwas
        den Bogen erklaert. Jetzt stehen Tore darin, und die Linie webt aus
        einem Grund. Die Kristalle liegen in den Durchfahrten. */
-    var gslalom = slalom(b, { n: 7, x: -14, breite: 26, oeffnung: 15, y: -2,
+    /* Neun Tore, nicht sieben. Bei sieben standen sie 29 m auseinander -
+       auf Grundtempo 17 sind das 1,7 s Pause, und genau dort blieben
+       wieder vier leere Fenster am Stueck. */
+    var gslalom = slalom(b, { n: 9, x: -14, breite: 26, oeffnung: 15, y: -2,
                               z0: 46, z1: 220, hoehe: 7, tiefe: 1.2,
                               mat: MAT.canyonDark, gem: true });
     for (i = 0; i < gslalom.length; i++) {
@@ -2334,7 +2337,7 @@
       b.column(rx[i][0] - 13, -6, rx[i][1] - 8, 6 + r() * 2, { r: 1.3, mat: MAT.sandstone, capital: true });
       b.column(rx[i][0] + 13, -6, rx[i][1] + 8, 5 + r() * 2, { r: 1.3, mat: MAT.sandstone, capital: true });
     }
-    var rslalom = slalom(b, { n: 7, x: -16, breite: 28, oeffnung: 16, y: -6,
+    var rslalom = slalom(b, { n: 8, x: -16, breite: 28, oeffnung: 16, y: -6,
                               z0: 40, z1: 196, hoehe: 7, tiefe: 1.2,
                               mat: MAT.sandstone, gem: true });
     for (i = 0; i < rslalom.length; i++) {
