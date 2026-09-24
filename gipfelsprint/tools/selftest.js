@@ -39,7 +39,7 @@ const GRENZEN = {
   await page.waitForTimeout(500);
 
   const R = await page.evaluate(() => {
-    const g = window.GAME, F = 1 / 120, p = g.player;
+    const g = window.GAME, F = 1 / 120, p = g.player, P = window.MR.physics;
     const ergebnis = {};
     g.render = function () {};
 
@@ -61,9 +61,11 @@ const GRENZEN = {
 
     /* 2 Bildratenunabhaengigkeit, auf freier Flaeche und ueber die echte
        Schleife - sonst misst man Levelgeometrie oder Abtastraster. */
+    /* World.add() traegt selbst ins Raumraster ein - der Aufruf von
+       rebuild() war wirkungslos (die Methode gibt es nicht) und hat nur
+       so ausgesehen, als wuerde hier etwas nachgezogen. */
     g.level.world.add({ x: 0, y: 999, z: 600, hx: 400, hy: 1, hz: 700,
                         yaw: 0, cos: 1, sin: 0, active: true });
-    if (g.level.world.rebuild) g.level.world.rebuild();
     const echterFloor = g.level.floorAt;
     g.level.floorAt = () => 900;
 
@@ -107,21 +109,38 @@ const GRENZEN = {
     ergebnis.bildraten = raten.map((hz, i) => hz + 'Hz:' + werte[i].uhr.toFixed(3) + 's/Spitze' + werte[i].tempo.toFixed(1));
     g.level.floorAt = echterFloor;
 
-    /* 3 Durchschlagen duenner Waende bei hohem Tempo */
+    /* 3 Durchschlagen duenner Waende bei hohem Tempo
+
+       Diese Pruefung mass zuvor sich selbst. Sie hat die beiden Testwaende
+       mit `world.all.pop()` entfernt und danach `world.rebuild()`
+       aufgerufen - eine Methode, die es in World nicht gibt, weshalb der
+       Aufruf hinter `if` stillschweigend entfiel. `all` ist aber nur die
+       Liste; die Koerper stehen zusaetzlich im Raumraster `grid`, und
+       daraus hat sie nie jemand geloescht. Ab dem zweiten Durchlauf stand
+       also ein wachsender Stapel Waende an derselben Stelle, und jede
+       weitere Messung lief gegen die Geometrie des ersten Durchgangs. Das
+       Ergebnis "0 Durchschlaege" war damit kein Beweis, sondern ein
+       Artefakt.
+
+       Jetzt bekommt jede Konfiguration eine frische Welt. Das ist
+       billiger als eine Aufraeumfunktion und kann per Konstruktion nicht
+       verschmutzen. */
     let durch = 0;
+    const echteWelt = g.level.world;
     for (let dicke = 0.4; dicke <= 2.0; dicke += 0.4) {
       for (let v = 30; v <= 70; v += 10) {
-        g.level.world.add({ x: 0, y: 503, z: 40, hx: 30, hy: 6, hz: dicke / 2, yaw: 0, cos: 1, sin: 0, active: true });
-        g.level.world.add({ x: 0, y: 499, z: 20, hx: 30, hy: 1, hz: 60, yaw: 0, cos: 1, sin: 0, active: true });
+        const w = new P.World();
+        w.add({ x: 0, y: 503, z: 40, hx: 30, hy: 6, hz: dicke / 2, yaw: 0, cos: 1, sin: 0, active: true });
+        w.add({ x: 0, y: 499, z: 20, hx: 30, hy: 1, hz: 60, yaw: 0, cos: 1, sin: 0, active: true });
+        g.level.world = w;
         p.spawnAt({ x: 0, y: 500.2, z: 0, yaw: 0 });
         p.grounded = true;
         const cmd = { wishX: 0, wishZ: 1, slide: false, dash: false, jumpPressed: false, jumpHeld: false };
         for (let i = 0; i < 240; i++) { p.vz = v; p.vx = 0; p.step(F, cmd); if (p.z > 45) break; }
         if (p.z > 42) durch++;
-        g.level.world.all.pop(); g.level.world.all.pop();
-        if (g.level.world.rebuild) g.level.world.rebuild();
       }
     }
+    g.level.world = echteWelt;
     ergebnis.durchschlaege = durch;
 
     /* 4 Kosten je Bild */

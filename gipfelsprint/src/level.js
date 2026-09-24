@@ -361,7 +361,17 @@
       yaw: this.cursor.yaw + (opts.yaw || 0),
       tag: opts.tag || 'solid',
       dynamic: !!opts.dynamic,
-      noCollide: !!opts.noCollide,
+      /* `ghost` macht alles, was waehrend seiner Gueltigkeit gebaut wird,
+         durchlaessig. Gedacht fuer Streudeko dicht am Weg: `ruinWall` und
+         `column` bauen echte Kollisionskoerper, und die Streuung setzt sie
+         9 bis 16 m neben die Ideallinie - also genau dorthin, wo gelaufen
+         wird. Gemessen hat das einen Lauf zum Stillstand gebracht: ein
+         Block von 3 x 3 x 1,6 m stand auf der ersten Flaeche der oberen
+         Linie, der Laeufer klemmte bei Tempo 0 fest, unbeweglich und ohne
+         zu sterben - der Lauf hing, bis die Zeit ablief. Deko darf ein
+         Level aussehen lassen, wie sie will; einen Lauf beenden darf sie
+         nicht. */
+      noCollide: !!opts.noCollide || !!this.ghost,
       trigger: !!opts.trigger,
       data: opts.data || null
     });
@@ -1606,6 +1616,7 @@
      verlangt 32 aufwaerts - genau die Geschwindigkeit, die man aus dem
      Auftakt mitbringt, wenn man dort riskant war. */
   function s2Sprungkette(b) {
+    var i;
     b.zone('Kette', 70, 170, {
       fogCol: [0.80, 0.90, 1.0], fogDensity: 0.0016,
       zenith: [0.05, 0.44, 0.96], horizon: [0.95, 0.90, 0.80],
@@ -1624,30 +1635,69 @@
        faellt jede Stufe fuenf Meter: mit gehaltener Rutschtaste zahlt jede
        Landung Tempo, also lernt man hier durch Wiederholung, worum es im
        ganzen Level geht. */
-    b.routeZone(1, SAFE, -4, 0, 24, 14, 8, 14);
     /* Drei Meter je Stufe, nicht fuenf. Bei fuenf kam die Landung mit
        Aufprall 32 ueber der Schwelle von 30 - jede Stufe zahlte also mehr
        Tempo, als sie kostete, und der Testpilot beschleunigte die Treppe
        hinunter, bis er die Stufen nicht mehr traf. Bei drei Metern liegt
        der Aufprall bei 27 und darunter: der sichere Weg gibt Tempo aus,
-       statt welches zu machen. Tempo machen ist die Aufgabe des
-       riskanten Wegs. */
-    chain(b, { n: 6, x: -3, ax: 1.5, y: -2, dy: -3, z: 44, step: 34, w: 22, d: 28,
-               mat: MAT.stone, pillar: 24, fork: 1, route: SAFE, mark: true });
+       statt welches zu machen.
+
+       Die zweite Messung zeigte dann das eigentliche Problem: der sichere
+       Weg lief auf x -3, also praktisch geradeaus, mit 6 m Luecke bei 34 m
+       Abstand - Luftanteil 0,58, Schnitt 35,2. Er war selbst eine
+       Sprungkette und deshalb exakt so schnell wie der schnelle Weg
+       (7,88 s zu 7,91 s). Eine Entscheidung ohne Zeitunterschied ist keine
+       Entscheidung.
+
+       Jetzt gilt hier dieselbe Regel wie im Auftakt, und sie kostet keinen
+       einzigen kuenstlichen Bremsklotz: sechs Meter Luecke bei 40 m
+       Abstand heisst Boden unter den Fuessen, und auf dem Boden zerfaellt
+       Tempo mit 7 Einheiten je Sekunde statt mit 2,5 in der Luft. Dazu
+       geht er weit nach aussen - 36 m nach links und wieder zurueck. */
+    b.routeZone(1, SAFE, -10, 0, 24, 14, 8, 14);
+    b.routeArch(-20, -2, 26, 11, 6, SAFE);
+    /* Breite Flaechen, die einander beruehren: der Bogen nach aussen wird
+       gelaufen, nicht gesprungen. Mit 6 m Luecke war der Luftanteil noch
+       0,51 - in der Luft zerfaellt Tempo dreimal langsamer, und genau das
+       hielt den sicheren Weg schnell. Ohne Luecke ist er endlich das, was
+       er sein soll: ruhig, breit, und ohne eine einzige Stelle, an der man
+       sterben kann. */
+    var sk = [[-18, -2, 44, 44], [-27, -5, 90, 48], [-23, -8, 136, 44],
+              [-11, -11, 182, 48], [-3, -14, 214, 20]];
+    for (i = 0; i < sk.length; i++) {
+      b.plat(sk[i][0], sk[i][1], sk[i][2], 32, sk[i][3], MAT.stone, { thickness: 2.0 });
+      b.mass(sk[i][0], sk[i][1] - 4, sk[i][2], 26, 30, sk[i][3] - 6, MAT.rock);
+      b.routeMark(1, SAFE, sk[i][0], sk[i][1], sk[i][2]);
+      b.mark(sk[i][0], sk[i][1], sk[i][2]);
+    }
 
     /* Aussen: vier weite Saetze, 36 m Abstand - 24 m Luecke, also Tempo 32
        aufwaerts. Jede Stufe faellt sieben Meter und zahlt entsprechend
        mehr zurueck. */
-    b.routeZone(1, FAST, 12, 0, 24, 12, 8, 14);
-    b.routeArch(12, 0, 30, 9, 6, FAST);
+    b.routeZone(1, FAST, 8, 0, 24, 12, 8, 14);
+    b.routeArch(6, 0, 30, 9, 6, FAST);
     /* Der schnelle Weg baut unterwegs keine Hoehe ab - er gibt seine
        zwanzig Meter erst am Zusammenfluss in einem Stueck her. Vorher fiel
        er in Stufen von fuenf Metern; gemessen kam er damit auf dieselbe
        Zeit wie der sichere Weg, weil jede Stufe einzeln zu flach war, um
-       viel einzubringen. */
-    chain(b, { n: 4, x: 14, ax: 1.5, y: 0, dy: 0, z: 56, step: 40, w: 13, d: 18,
+       viel einzubringen.
+
+       Er laeuft jetzt schnurgerade auf x 6 statt im Zickzack um x 14: das
+       sind 240 m Weg gegen 253 m aussen herum. Kuerzer UND schneller -
+       aber nur, wenn man 26 m Luecke viermal hintereinander trifft. */
+    /* Zwei Stuerze von zehn Metern statt eines am Ende. Aufprall 35,8 je
+       Sturz - die Rutschlandung braucht 30, also zahlt jeder einzelne.
+       Flach gebaut brachte die Kette nur den Luftvorteil; so bringt sie
+       zusaetzlich zweimal Tempo, aber nur dem, der mit gedrueckter
+       Rutschtaste aufkommt. Wer das verpasst, ist hier langsamer als
+       aussen herum. */
+    chain(b, { n: 2, x: 6, ax: 0, y: 0, dy: 0, z: 58, step: 42, w: 12, d: 16,
                mat: MAT.marble, pillar: 34, pillarMat: MAT.sandstone,
                fork: 1, route: FAST, gem: true, arcGem: 1, hint: 'weiter Satz' });
+    chain(b, { n: 2, x: 6, ax: 0, y: -10, dy: 0, z: 142, step: 42, w: 12, d: 16,
+               mat: MAT.marble, pillar: 26, pillarMat: MAT.sandstone,
+               fork: 1, route: FAST, gem: true, arcGem: 1, hint: 'Sturz' });
+    gemArc(b, 6, 0, 108, 6, -10, 134, 2, 'Sturz');
 
     b.plat(0, -20, 246, 30, 36, MAT.canyonDeck, { thickness: 2.4 });  /* 228 .. 264 */
     b.mass(0, -24, 246, 28, 36, 32, MAT.canyon);
@@ -1672,32 +1722,43 @@
     b.mark(0, 0, 12);
     b.routeSign(-13, 0, 21, SAFE);
     b.routeSign(0, 0, 21, FAST);
-    b.routeSign(13, 0, 21, RISK);
+    b.routeSign(12, 0, 21, RISK);
 
     /* --- GRUEN: durchgehender Boden mit Tempofeld. Kein Absturzrisiko,
        aber man kommt ohne Hoehe und ohne Ladungen am Ende an. --- */
     b.routeZone(2, SAFE, -13, 0, 30, 14, 8, 16);
     b.routeArch(-13, -2, 34, 11, 6, SAFE);
-    b.plat(-13, -2, 58, 21, 48, MAT.canyonDeck, { thickness: 2.0 });  /* 34 .. 82 */
-    b.mass(-13, -6, 58, 15, 30, 44, MAT.canyonDark);
-    b.boostPad(-13, -2, 44, 10, 12, { speed: 27 });
-    b.plat(-13, -2, 120, 21, 46, MAT.canyonDeck, { thickness: 2.0 }); /* 97 .. 143 */
-    b.mass(-13, -6, 120, 15, 30, 42, MAT.canyonDark);
-    b.boostPad(-13, -2, 106, 10, 12, { speed: 29 });
+    /* Ohne Tempofelder. Sie standen hier, um den sicheren Weg ertraeglich
+       zu machen - und taten genau das Falsche: sie hoben sein Tempo
+       kuenstlich auf 27 und 29 an und nahmen damit dem roten Weg den
+       Lohn, den er sich durch praezise Luecken verdient. Ein Weg, der
+       nichts riskiert, soll auch nichts geschenkt bekommen. Was er
+       stattdessen bietet, ist unveraendert: durchgehender Boden, keine
+       einzige Stelle, an der man faellt. */
+    /* Ein einziger Spalt von zehn Metern, und zwar mit Absicht.
+       Durchgehend gebaut war dieser Weg 12,28 s schnell - beide
+       Alternativen landeten dann bei 62 bis 64 %, also weit jenseits
+       dessen, was eine Gabel an Belohnung tragen soll. Ganz ohne Spalt
+       ist der Laeufer zu 85 % am Boden, mit Spalten ueberall zu 55 % in
+       der Luft; dazwischen gibt es nur diesen einen Regler. */
+    b.plat(-13, -2, 62, 21, 56, MAT.canyonDeck, { thickness: 2.0 });  /* 34 .. 90 */
+    b.mass(-13, -6, 62, 15, 30, 52, MAT.canyonDark);
+    b.plat(-13, -2, 124, 21, 48, MAT.canyonDeck, { thickness: 2.0 }); /* 100 .. 148 */
+    b.mass(-13, -6, 124, 15, 30, 44, MAT.canyonDark);
     /* Bis an den Zusammenfluss heran. Vorher endete der sichere Weg bei
        z 188, der Zusammenfluss begann bei 227 - 39 m Luecke auf dem Weg,
        der keine verlangen darf. */
     b.plat(-13, -2, 190, 21, 84, MAT.canyonDeck, { thickness: 2.0 }); /* 148 .. 232 */
     b.mass(-13, -6, 190, 19, 30, 78, MAT.canyonDark);
-    b.routeMark(2, SAFE, -13, -2, 58);
-    b.routeMark(2, SAFE, -13, -2, 120);
+    b.routeMark(2, SAFE, -13, -2, 62);
+    b.routeMark(2, SAFE, -13, -2, 124);
     b.routeMark(2, SAFE, -13, -2, 190);
-    b.mark(-13, -2, 58); b.mark(-13, -2, 120); b.mark(-13, -2, 176); b.mark(-13, -2, 216);
+    b.mark(-13, -2, 62); b.mark(-13, -2, 124); b.mark(-13, -2, 176); b.mark(-13, -2, 216);
 
     /* --- GOLD: mittlere Absaetze, 28 m Abstand, 14 m Luecke --- */
     b.routeZone(2, FAST, 0, 0, 30, 12, 8, 16);
     b.routeArch(0, 4, 34, 10, 6, FAST);
-    chain(b, { n: 5, x: 0, ax: 2, y: 4, dy: 0, z: 50, step: 36, w: 15, d: 22,
+    chain(b, { n: 5, x: 0, ax: 2, y: 4, dy: 0, z: 50, step: 36, w: 15, d: 29,
                mat: MAT.sandstone, pillar: 30, pillarMat: MAT.canyonLight,
                fork: 2, route: FAST, gem: true, hint: 'Mittelweg' });
 
@@ -1712,17 +1773,44 @@
        laenger in der Luft, und dort zerfaellt Tempo mit 2,5 statt 7
        Einheiten je Sekunde. Die Kristalle in den Boegen bezahlen die
        Dash-Ladungen, die man fuer die Luecken braucht. */
-    b.routeZone(2, RISK, 13, 0, 30, 12, 8, 16);
+    b.routeZone(2, RISK, 11, 0, 30, 12, 8, 16);
     /* Die erste Flaeche liegt dicht an der Einstiegsplattform. Vier Meter
        hinauf sind bei Tempo 39 nur ueber einen Doppelsprung zu holen, und
        ueber dreizehn Meter Luecke traf der Testpilot sie siebenmal nicht -
        er schlug seitlich gegen die Flanke. Aus fuenf Metern Luecke ist der
        Schritt sicher. */
-    b.routeArch(13, 4, 30, 9, 5, RISK);
-    chain(b, { n: 5, x: 13, ax: 0, y: 4, dy: 0, z: 38, step: 40, w: 11, d: 16,
+    /* Gemessen lagen der goldene und der rote Weg auf 7,72 s und 7,70 s -
+       zwei Entscheidungen, die dasselbe bedeuten.
+
+       Den roten schneller zu machen lief ins Leere: mit 0,87 Luftanteil
+       haengt er ohnehin fast ununterbrochen in der Luft, und dort ist das
+       Tempo ausgereizt. Breitere Luecken (30 m) machten ihn nicht
+       schneller, sondern unpassierbar - sieben Stuerze. Ihn auf x 8 nach
+       innen zu ziehen brachte ihn an die Einstiegsplattform heran, wo
+       vier Meter Anstieg ueber sieben Meter Luecke warten: dieselbe Falle
+       wie in der Wandschlucht, und derselbe Ausgang.
+
+       Der Hebel liegt also nicht beim roten Weg, sondern beim goldenen.
+       Er bekommt 30 m tiefe Flaechen statt 22 - aus 14 m Luecke werden 6,
+       er steht damit ueberwiegend auf dem Boden, und dort zerfaellt Tempo
+       mit 7 statt 2,5 Einheiten je Sekunde. Gold ist der Mittelweg:
+       schneller als aussen herum, aber nicht so schnell wie eine Kette,
+       die vier Sekunden am Stueck in der Luft haengt. */
+    /* Auf Einstiegshoehe, nicht vier Meter darueber. Der Anstieg brachte
+       nichts: von y 4 auf den Zusammenfluss bei -2 sind sechs Meter,
+       Aufprall 27,7 - die Rutschlandung braucht 30, es gab also ohnehin
+       kein Tempo zurueck. Gekostet hat er dafuer alles. Wer aus der
+       Sprungkette ueber den schnellen Weg hereinkam, hatte Tempo 45,9
+       statt 39,1 und verfehlte die erste Flaeche: sieben Stuerze, kein
+       Durchlauf. Per Gabel einzeln gemessen fiel das nie auf, weil der
+       Anlauf dort immer der sichere war - erst die Kombination zeigte es.
+       Dieselbe Falle wie in der Wandschlucht, und dieselbe Antwort:
+       riskante Wege steigen nirgends. */
+    b.routeArch(11, 0, 30, 9, 5, RISK);
+    chain(b, { n: 6, x: 11, ax: 0, y: 0, dy: 0, z: 38, step: 34, w: 11, d: 16,
                mat: MAT.marble, pillar: 34, pillarMat: MAT.sandstoneWorn,
                fork: 2, route: RISK, gem: true, arcGem: 2, hint: 'Dash-Kette' });
-    b.routeArch(13, 4, 206, 8, 5, RISK);
+    b.routeArch(11, 0, 198, 8, 5, RISK);
 
     for (i = 0; i < 6; i++) b.rock(-24 + (i % 2) * 48, -4, 20 + i * 28, 1.4 + r() * 1.6, { kind: 'shard', mat: MAT.canyon });
 
@@ -1732,7 +1820,7 @@
        Zehntelsekunde genau. */
     b.plat(0, -2, 240, 32, 52, MAT.canyonDeck, { thickness: 2.6 });   /* 214 .. 266 */
     b.mass(0, -6, 240, 30, 36, 48, MAT.canyon);
-    gemArc(b, 13, 4, 207, 6, -2, 216, 1, 'Sturz');
+    gemArc(b, 11, 0, 199, 5, -2, 212, 1, 'Sturz');
     b.mark(0, -2, 240);
     b.gate(0, -2, 252, { name: 'Grosse Gabel' });
     return { len: 272, rise: -2, turn: -10 };
@@ -1803,46 +1891,90 @@
     b.plat(0, 0, 12, 24, 26, MAT.stone, { thickness: 2.2 });          /* -1 .. 25 */
     b.mass(0, -4, 12, 22, 34, 22, MAT.cliff);
     b.mark(0, 0, 12);
+    /* Gold, nicht rot. Gemessen laeuft die obere Linie in 84,5 % der Zeit
+       des Schluchtbodens - das ist die Groessenordnung eines schnellen
+       Weges, nicht die einer Expertenroute. Schneller geht sie nicht: sie
+       haengt bereits zu 91 % in der Luft, und dort ist das Tempo
+       ausgereizt. Langsamer geht der Boden nicht: er ist schon
+       durchgehend. Also sagt das Schild, was die Uhr sagt. */
     b.routeSign(-7, 0, 21, SAFE);
-    b.routeSign(7, 0, 21, RISK);
+    b.routeSign(6, 0, 21, FAST);
 
     b.mass(-13, 6, 112, 6, 30, 170, MAT.cliff);
     b.mass(13, 6, 112, 6, 30, 170, MAT.cliff);
 
-    /* Unten: durchgehend, sechs Meter tiefer. */
+    /* Unten: durchgehender Schluchtboden, sechs Meter tiefer. Die Flaechen
+       beruehren einander - hier wird gelaufen, nicht gesprungen, und auf
+       dem Boden zerfaellt Tempo mit 7 statt 2,5 Einheiten je Sekunde. */
     b.routeZone(4, SAFE, 0, -6, 34, 14, 8, 16);
-    for (i = 0; i < 5; i++) {
-      b.plat(0, -6, 48 + i * 34, 20, 30, MAT.rockDark, { thickness: 1.8 });
-      b.mark(0, -6, 48 + i * 34);
-      b.routeMark(4, SAFE, 0, -6, 48 + i * 34);
+    /* Flach und ohne eine einzige Stufe.
+
+       Der Zwischenschritt war eine Treppe mit Stufen von drei Metern - in
+       der Annahme, kleine Stufen wuerden bremsen, weil ihr Aufprall (27)
+       unter der Schwelle der Rutschlandung (30) liegt. Gemessen war das
+       Gegenteil der Fall: die Treppe machte den sicheren Weg SCHNELLER,
+       8,58 s wurden 7,13 s. Jede Stufe hebt den Laeufer vom Boden ab
+       (Luftanteil 0,24 stieg auf 0,56), und in der Luft zerfaellt Tempo
+       mit 2,5 statt mit 7 Einheiten je Sekunde. Eine Stufe kostet also
+       kein Tempo, sie schenkt Flugzeit.
+
+       Deshalb gilt fuer langsame Wege: flach und ununterbrochen. Die
+       Hoehe wird einmal am Einstieg abgegeben (sechs Meter, Aufprall 28 -
+       knapp unter der Schwelle, also ohne Gegenwert) und einmal am
+       Ausstieg (noch einmal vier). Dazwischen wird gelaufen. */
+    var wz0 = [[50, 50], [97, 44], [141, 44], [186, 46]];
+    for (i = 0; i < 4; i++) {
+      b.plat(0, -6, wz0[i][0], 20, wz0[i][1], MAT.rockDark, { thickness: 1.8 });
+      b.mark(0, -6, wz0[i][0]);
+      b.routeMark(4, SAFE, 0, -6, wz0[i][0]);
     }
 
-    /* Oben: sechs schmale Absaetze im Wechsel, 24 m Abstand. */
-    b.routeZone(4, RISK, 7, 4, 34, 10, 8, 16);
-    b.routeArch(0, 5, 34, 14, 6, RISK);
+    /* Oben: sechs schmale Absaetze im Wechsel zwischen den Waenden.
+
+       Diese Route war unpassierbar, und zwar nicht knapp: die Absaetze
+       lagen auf y 5, der Einstieg auf y 0. Vier Komma zwei Meter hinauf,
+       auf eine Flaeche von sechs mal elf Metern, bei Tempo 39. Der
+       Doppelsprung traegt gemessen 4,91 m - es blieben also 70 cm Spiel,
+       und das Landefenster von elf Metern Tiefe durchquert man in 0,28 s.
+       Der Testpilot schlug reihenweise seitlich gegen die Vorderkante
+       (Tempo 39 auf 5), fiel auf den Schluchtboden und kam nie wieder
+       hoch. Kein Wandsprung der Welt haette das gerettet - das Problem war
+       der Anstieg, nicht das Koennen.
+
+       Jetzt liegen die Absaetze auf Einstiegshoehe: kein Anstieg, keine
+       Rampe, nur der Sprung von Wand zu Wand. Sie sind acht mal vierzehn
+       Meter gross und reichen bis an die Waende heran, damit der
+       Wandsprung greift. Die Hoehe gibt diese Route erst am Ausstieg her,
+       dafuer zwoelf Meter am Stueck: Aufprall 39, die Rutschlandung
+       braucht 30. */
+    b.routeZone(4, FAST, 6, 0, 34, 10, 8, 16);
+    b.routeArch(0, 0, 34, 14, 6, FAST);
     for (i = 0; i < 6; i++) {
-      var wx = (i % 2 === 0) ? -7 : 7;
+      var wx = (i % 2 === 0) ? -6 : 6;
       var wz = 50 + i * 30;
-      b.plat(wx, 5, wz, 6, 11, MAT.metal, { thickness: 1.0 });
-      b.gem(wx, 7.4, wz, { hint: 'Wandabsatz' });
-      b.routeMark(4, RISK, wx, 5, wz);
-      if (i < 5) gemArc(b, wx, 5, wz + 5, -wx, 5, wz + 19, 1, 'Wandsprung');
+      b.plat(wx, 0, wz, 8, 14, MAT.metal, { thickness: 1.0 });
+      b.gem(wx, 2.4, wz, { hint: 'Wandabsatz' });
+      b.routeMark(4, FAST, wx, 0, wz);
+      if (i < 5) gemArc(b, wx, 0, wz + 7, -wx, 0, wz + 23, 1, 'Wandsprung');
     }
 
-    /* Ausstieg: unten ueber ein Sprungfeld, oben direkt hinueber. */
-    b.plat(0, -6, 216, 22, 30, MAT.rockDark, { thickness: 1.8 });
-    b.bouncePad(0, -6, 222, { power: 42, r: 6, mat: MAT.routeSafe });
-    /* Der Ausstieg lag acht Meter ueber dem Schluchtboden und haeng an
-       einem einzigen Sprungfeld - ein Punkt, an dem alles scheitert, wenn
-       man zu langsam hereinkommt. Jetzt sind es vier Meter: ein
-       Doppelsprung traegt 4,9, das Sprungfeld ist nur noch die bequeme
-       Variante. */
-    b.plat(0, -2, 244, 26, 30, MAT.stone, { thickness: 2.0 });        /* 229 .. 259 */
-    b.mass(0, -6, 244, 24, 34, 26, MAT.cliff);
-    b.mark(0, -6, 216);
-    b.mark(0, -2, 244);
-    b.gate(0, -2, 250, { name: 'Wandschlucht' });
-    return { len: 262, rise: -2, turn: 12 };
+    /* Ausstieg. Er liegt jetzt zwoelf Meter unter der oberen Linie und
+       sechs unter dem Schluchtboden. Fuer unten sind das sechs Meter
+       Gefaelle - Aufprall 28, die Rutschlandung braucht 30, es gibt also
+       nichts zurueck. Fuer oben sind es zwoelf: Aufprall 39. Genau darin
+       besteht der Unterschied zwischen den beiden Wegen, und er entsteht
+       aus Hoehe und Timing, nicht aus einem Tempofeld.
+
+       Vorher lag der Ausstieg acht Meter ueber dem Schluchtboden und hing
+       an einem einzigen Sprungfeld - ein Punkt, an dem alles scheitert,
+       wenn man zu langsam hereinkommt. Jetzt geht es fuer beide Wege
+       ausschliesslich abwaerts. */
+    b.plat(0, -10, 236, 28, 44, MAT.stone, { thickness: 2.0 });       /* 214 .. 258 */
+    b.mass(0, -14, 236, 26, 34, 40, MAT.cliff);
+    gemArc(b, 6, 0, 208, 0, -10, 222, 2, 'Sturz');
+    b.mark(0, -10, 236);
+    b.gate(0, -10, 246, { name: 'Wandschlucht' });
+    return { len: 262, rise: -10, turn: 12 };
   }
 
   /* ------------------------------------------- 6 - Setpiece Wasserfall
@@ -1861,8 +1993,9 @@
     b.plat(0, 0, 14, 24, 28, MAT.stone, { thickness: 2.2 });          /* 0 .. 28 */
     b.mass(0, -4, 14, 22, 34, 24, MAT.cliff);
     b.mark(0, 0, 14);
+    /* Ebenfalls gold: 82,1 % der Zeit der Bruecke. */
     b.routeSign(-14, 0, 24, SAFE);
-    b.routeSign(4, 0, 24, RISK);
+    b.routeSign(4, 0, 24, FAST);
 
     /* Die Wand mit dem Fall. Der Durchflug ist die Abkuerzung. */
     b.mass(0, 10, 92, 34, 40, 8, MAT.cliff);
@@ -1870,40 +2003,65 @@
     b.deco('box', 0, 2, 88, 11, 14, 7, MAT.rockDark);
 
     /* --- RISKANT: Sprungfeld, Durchflug, Brett, Dash --- */
-    b.routeZone(5, RISK, 4, 0, 30, 12, 8, 14);
-    /* Lag bei z 38 - die Plattform endet bei 28. Das Feld schwebte frei
-       in der Luft und war nie zu treffen. */
-    b.plat(4, 0, 38, 14, 26, MAT.stone, { thickness: 1.8 });          /* 25 .. 51 */
-    b.mass(4, -4, 38, 12, 30, 22, MAT.cliff);
-    b.bouncePad(4, 0, 44, { power: 44, r: 6, mat: MAT.routeInsane });
-    b.routeArch(0, 12, 74, 11, 6, RISK);
-    b.plat(0, 8, 104, 11, 14, MAT.crystalRock, { thickness: 1.4 });   /* 97 .. 111 */
-    b.routeMark(5, RISK, 4, 0, 44);
-    b.routeMark(5, RISK, 0, 8, 104);
-    b.gem(0, 10.4, 104, { hint: 'hinter dem Fall' });
-    gemArc(b, 4, 0, 44, 0, 8, 97, 3, 'Durchflug');
-    /* 28 m Luecke, gedacht als Dash-Sprung. */
-    b.plat(0, 2, 146, 16, 18, MAT.crystalRock, { thickness: 1.6 });   /* 137 .. 155 */
-    b.routeMark(5, RISK, 0, 2, 146);
-    gemArc(b, 0, 8, 111, 0, 2, 137, 2, 'Dash-Luecke');
+    /* Diese Route hing an einem Sprungfeld (Kraft 44) und stieg dahinter
+       auf +8 - also genau das, was ein Zeitvorteil NICHT sein soll: ein
+       kuenstlicher Schub, gefolgt von einem Anstieg, der ihn wieder
+       auffrisst. Gemessen war sie damit langsamer als der sichere Weg
+       (107 % seiner Zeit), obwohl sie riskanter aussah.
+
+       Jetzt bleibt sie auf Einstiegshoehe und traegt sich allein durch
+       Tempo: drei schmale Flaechen, 24 bis 28 m Luecke, und der Durchflug
+       durch den Fall ist eine Flugbahn, kein Katapult. Die Felswand ist
+       Kulisse ohne Kollision (mass() setzt noCollide) - man fliegt
+       wirklich hindurch. Ihre zwoelf Hoehenmeter gibt sie erst am
+       Ausstieg her, in einem Stueck: Aufprall 39, die Rutschlandung
+       braucht 30. */
+    b.routeZone(5, FAST, 4, 0, 30, 12, 8, 14);
+    b.plat(4, 0, 38, 13, 24, MAT.stone, { thickness: 1.8 });          /* 26 .. 50 */
+    b.mass(4, -4, 38, 11, 30, 20, MAT.cliff);
+    b.routeArch(2, 0, 66, 11, 6, FAST);
+    b.plat(2, 0, 82, 11, 16, MAT.crystalRock, { thickness: 1.4 });    /* 74 .. 90 */
+    b.plat(0, 0, 126, 11, 16, MAT.crystalRock, { thickness: 1.4 });   /* 118 .. 134 */
+    b.routeMark(5, FAST, 4, 0, 38);
+    b.routeMark(5, FAST, 2, 0, 82);
+    b.routeMark(5, FAST, 0, 0, 126);
+    b.gem(2, 2.4, 82, { hint: 'im Fall' });
+    b.gem(0, 2.4, 126, { hint: 'hinter dem Fall' });
+    gemArc(b, 4, 0, 50, 2, 0, 74, 2, 'Durchflug');
+    gemArc(b, 2, 0, 90, 0, 0, 118, 2, 'Dash-Luecke');
 
     /* --- SICHER: Bruecke aussen herum, flach und lang --- */
     b.routeZone(5, SAFE, -14, 0, 30, 12, 8, 14);
-    b.routeArch(-16, 0, 36, 10, 6, SAFE);
-    b.plat(-16, -2, 74, 16, 64, MAT.stone, { thickness: 1.8 });       /* 42 .. 106 */
-    b.mass(-16, -6, 74, 10, 30, 60, MAT.rockDark);
-    b.plat(-16, -2, 140, 16, 56, MAT.stone, { thickness: 1.8 });      /* 112 .. 168 */
-    b.mass(-16, -6, 140, 10, 30, 52, MAT.rockDark);
-    b.routeMark(5, SAFE, -16, -2, 74);
-    b.routeMark(5, SAFE, -16, -2, 140);
-    b.mark(-16, -2, 74);
-    b.mark(-16, -2, 140);
+    b.routeArch(-18, -3, 36, 10, 6, SAFE);
+    /* Die Bruecke lag auf -2 und der Ausstieg auf -12: zehn Meter Sturz,
+       Aufprall 36, also rund 22 Einheiten Tempo geschenkt - dem SICHEREN
+       Weg, ausgerechnet am Ende. Jetzt liegt sie auf -6. Der Einstieg
+       kostet sechs Meter, der Ausstieg noch einmal sechs; beide Aufpralle
+       liegen bei 28 und damit unter der Schwelle von 30. Die Bruecke gibt
+       Hoehe ab, ohne je etwas dafuer zu bekommen - und dazwischen ist sie
+       durchgehender Boden ohne eine einzige Luecke. */
+    /* Schnurgerade auf x -18. Der Bogen nach aussen (-24 auf -20) machte
+       die Bruecke SCHNELLER statt langsamer - 5,92 s statt 6,76 -, weil
+       jeder Seitenversatz den Laeufer an der Kante abheben laesst.
+       Dieselbe Messung wie bei den Stufen: was den Weg verlaengert, hebt
+       ihn auch ab, und in der Luft haelt Tempo dreimal besser. Fuer einen
+       langsamen Weg zaehlt nur eins - ununterbrochener Boden in einer
+       geraden Linie. */
+    b.plat(-18, -6, 74, 18, 64, MAT.stone, { thickness: 1.8 });       /* 42 .. 106 */
+    b.mass(-18, -10, 74, 12, 30, 60, MAT.rockDark);
+    b.plat(-18, -6, 137, 18, 62, MAT.stone, { thickness: 1.8 });      /* 106 .. 168 */
+    b.mass(-18, -10, 137, 12, 30, 58, MAT.rockDark);
+    b.routeMark(5, SAFE, -18, -6, 74);
+    b.routeMark(5, SAFE, -18, -6, 137);
+    b.mark(-18, -6, 74);
+    b.mark(-18, -6, 137);
 
     for (i = 0; i < 5; i++) b.tree(-26 + (i % 2) * 52, -2, 30 + i * 30, 0.8 + b.rand() * 0.6, { kind: 'pine' });
 
-    b.plat(0, -12, 190, 28, 32, MAT.stone, { thickness: 2.4 });       /* 174 .. 206 */
-    b.mass(0, -16, 190, 26, 36, 28, MAT.cliff);
-    b.mark(0, -12, 190);
+    b.plat(0, -12, 186, 28, 44, MAT.stone, { thickness: 2.4 });       /* 164 .. 208 */
+    b.mass(0, -16, 186, 26, 36, 40, MAT.cliff);
+    gemArc(b, 0, 0, 134, 0, -12, 160, 2, 'Sturz');
+    b.mark(0, -12, 186);
     b.gate(0, -12, 196, { name: 'Wasserfall' });
     return { len: 208, rise: -12, turn: 0 };
   }
@@ -1924,22 +2082,61 @@
     b.plat(0, 0, 14, 26, 28, MAT.sandstoneWorn, { thickness: 2.4 });  /* 0 .. 28 */
     b.mass(0, -4, 14, 24, 34, 24, MAT.cliffWarm);
     b.mark(0, 0, 14);
-    b.routeSign(-11, 0, 24, SAFE);
-    b.routeSign(11, 0, 24, RISK);
+    b.routeSign(-13, 0, 24, SAFE);
+    b.routeSign(7, 0, 24, RISK);
 
     /* --- SICHER: Hoefe auf einer Ebene --- */
     b.routeZone(6, SAFE, -11, 0, 30, 14, 8, 16);
-    b.routeArch(-11, -1, 36, 11, 6, SAFE);
+    b.routeArch(-16, -6, 36, 11, 6, SAFE);
     /* Stufen von gut drei Metern: Aufprall 27, die Rutschlandung braucht
        30. Der sichere Weg gibt die Hoehe also ab, ohne Tempo dafuer zu
        bekommen - genau das ist sein Preis. */
+    /* Gemessen war der sichere Weg hier 236 m lang, der riskante 241 - der
+       sichere war also KUERZER, und mit 10 m Luecke bei 40 m Abstand kam
+       er auf Luftanteil 0,62 und Schnitt 38,7. Damit war er genauso
+       schnell wie die obere Linie (5,86 s zu 5,95 s).
+
+       Zwei Aenderungen, beide ohne Bremsklotz: die Hoefe ruecken weit nach
+       aussen (der Weg wird laenger statt kuerzer), und aus 10 m Luecke
+       werden 6 - damit steht man auf dem Boden, wo Tempo mit 7 statt 2,5
+       Einheiten je Sekunde zerfaellt. Die Stufen von 3,2 m bleiben: ihr
+       Aufprall liegt bei 27, die Rutschlandung braucht 30. Der sichere Weg
+       gibt Hoehe ab, ohne Tempo dafuer zu bekommen - das ist sein Preis. */
+    /* Gemessen: ein WEITERER Bogen (-26/-37/-33/-14) machte den sicheren
+       Weg schneller, nicht langsamer - 6,58 s statt 6,93. Die groesseren
+       Seitenversaetze heben den Laeufer an den Uebergaengen vom Boden ab
+       (Luftanteil 0,49 statt 0,47, Schnitt 37 statt 34), und in der Luft
+       zerfaellt Tempo dreimal langsamer. Fuer einen langsamen Weg zaehlt
+       also nicht, wie weit er aussen liegt, sondern wie ununterbrochen der
+       Boden unter ihm bleibt. */
+    /* Die Hoefe lagen auf Stufen von 3,2 m und wurden dadurch schneller,
+       nicht langsamer - dieselbe Messung wie in der Wandschlucht: jede
+       Stufe schenkt Flugzeit, und in der Luft haelt Tempo dreimal besser.
+       Jetzt liegen sie alle auf -6: der Einstieg kostet sechs Meter
+       (Aufprall 28, knapp unter der Schwelle von 30), der Ausstieg noch
+       einmal vier. Dazwischen durchgehender Boden. */
+    /* Ebenfalls schnurgerade - aus demselben Grund. Mit Bogen
+       (-20/-28/-24/-12) lag der sichere Weg bei 10,19 s und der riskante
+       bei 58 % davon; das ist mehr Belohnung, als eine einzelne Gabel
+       tragen soll. Gerade ist er kuerzer und damit etwas schneller, und
+       das Verhaeltnis ruecht dorthin, wo es hingehoert. */
+    /* Die Tiefe dieser vier Flaechen ist der empfindlichste Wert im ganzen
+       Level, und sie verhaelt sich nicht allmaehlich, sondern wie ein
+       Schalter: bei 44 (kein Spalt) braucht der sichere Weg 10,50 s und
+       der riskante 57 % davon; bei 40 (vier Meter Spalt) sind es 6,43 s
+       und 93 %; bei 36 praktisch dasselbe. Vier Meter Spalt genuegen
+       also bereits, um den Laeufer dauerhaft vom Boden zu heben - und
+       damit faellt der ganze Unterschied zwischen den beiden Wegen weg.
+       Es gibt hier kein Dazwischen, also bleibt der Boden geschlossen,
+       und die obere Linie wird stattdessen etwas geerdet. */
+    var rx = [[-16, 50, 44], [-16, 94, 44], [-16, 148, 48], [-16, 192, 40]];
     for (i = 0; i < 4; i++) {
-      b.plat(-11, -1 - i * 3.2, 52 + i * 40, 18, 30, MAT.marble, { thickness: 2.0 });
-      b.mass(-11, -5 - i * 3.2, 52 + i * 40, 16, 26, 26, MAT.sandstone);
-      b.mark(-11, -1 - i * 3.2, 52 + i * 40);
-      b.routeMark(6, SAFE, -11, -1 - i * 3.2, 52 + i * 40);
-      b.column(-19, -1 - i * 3.2, 44 + i * 40, 6 + r() * 2, { r: 1.3, mat: MAT.sandstone, capital: true });
-      b.column(-3, -1 - i * 3.2, 62 + i * 40, 5 + r() * 2, { r: 1.3, mat: MAT.sandstone, capital: true });
+      b.plat(rx[i][0], -6, rx[i][1], 30, rx[i][2], MAT.marble, { thickness: 2.0 });
+      b.mass(rx[i][0], -10, rx[i][1], 24, 26, rx[i][2] - 6, MAT.sandstone);
+      b.mark(rx[i][0], -6, rx[i][1]);
+      b.routeMark(6, SAFE, rx[i][0], -6, rx[i][1]);
+      b.column(rx[i][0] - 13, -6, rx[i][1] - 8, 6 + r() * 2, { r: 1.3, mat: MAT.sandstone, capital: true });
+      b.column(rx[i][0] + 13, -6, rx[i][1] + 8, 5 + r() * 2, { r: 1.3, mat: MAT.sandstone, capital: true });
     }
 
     /* --- RISKANT: die obere Linie ---
@@ -1952,17 +2149,37 @@
        Stufen zehn Meter abbaut. Am Ende faellt sie diese zehn Meter in
        einem Stueck: Aufprall 36, also rund 22 Einheiten Tempo direkt vor
        dem Zielsprint. */
-    b.routeZone(6, RISK, 11, 0, 30, 12, 8, 16);
-    b.routeArch(11, 0, 34, 9, 5, RISK);
-    chain(b, { n: 4, x: 11, ax: 1.5, y: 0, dy: 0, z: 48, step: 42, w: 12, d: 18,
+    b.routeZone(6, RISK, 6, 0, 30, 12, 8, 16);
+    b.routeArch(5, 0, 34, 9, 5, RISK);
+    /* Schnurgerade auf x 5 statt im Zickzack um x 11, und schmaler: die
+       obere Linie ist damit der kuerzeste Weg durch den Abschnitt, waehrend
+       der sichere weit nach aussen geht. Die 24 m Luecke bleiben - sie sind
+       der Grund, warum man hier oben in der Luft ist und nicht auf dem
+       Boden Tempo verliert. */
+    chain(b, { n: 6, x: 5, ax: 0, y: 0, dy: 0, z: 44, step: 28, w: 12, d: 20,
                mat: MAT.marble, pillar: 30, pillarMat: MAT.sandstone,
                fork: 6, route: RISK, gem: true, arcGem: 2, hint: 'obere Linie' });
-    b.routeArch(11, 0, 182, 10, 5, RISK);
-    for (i = 0; i < 4; i++) b.ruinWall(22 + (i % 2) * 6, -1, 40 + i * 44, 10 + r() * 6, 4 + r() * 3, { yaw: r() * 3 });
+    b.routeArch(5, 0, 190, 10, 5, RISK);
+    /* Diese Mauern sind Kulisse, aber `ruinWall` baut echte Kollisionskoerper
+       - und mit `yaw: r() * 3` drehte sich eine bis zu 16 m lange Mauer um
+       bis zu 172 Grad. Ihre Segmente wanderten damit quer durch den
+       Abschnitt, ohne dass man beim Entwerfen sehen konnte, wohin.
+
+       Die obere Linie lag frueher auf x 11 und ging zufaellig daran vorbei.
+       Als sie auf x 5 wanderte, stand ploetzlich ein Block von 3 x 3 x 1,6 m
+       mitten auf der ersten Flaeche: der Laeufer klemmte dort bei Tempo 0
+       fest, unbeweglich, ohne zu sterben - der Lauf hing einfach. Genau so
+       ein Zustand darf nicht aus einer Zufallszahl entstehen koennen.
+
+       Jetzt stehen sie auf x 26 und 32, und ihr Winkel ist auf plus/minus
+       0,5 rad begrenzt. Eine 16-m-Mauer greift damit hoechstens 3,8 m zur
+       Seite aus, reicht also bis x 22,2 - die obere Linie endet bei x 11.
+       Elf Meter Abstand, garantiert, nicht zufaellig. */
+    for (i = 0; i < 4; i++) b.ruinWall(26 + (i % 2) * 6, -1, 40 + i * 44, 10 + r() * 6, 4 + r() * 3, { yaw: r() - 0.5 });
 
     b.plat(0, -10, 206, 30, 38, MAT.marble, { thickness: 2.6 });      /* 187 .. 225 */
     b.mass(0, -14, 206, 28, 36, 34, MAT.cliffWarm);
-    gemArc(b, 11, 0, 183, 4, -10, 198, 2, 'Sturz');
+    gemArc(b, 5, 0, 192, 2, -10, 200, 2, 'Sturz');
     b.mark(0, -10, 206);
     /* Hinter der Landezone, nicht davor. Ein Sturz aus zehn Metern dauert
        0,56 s; bei Tempo 40 kommt man damit 22 m weiter hinten auf. Bei
@@ -2153,16 +2370,20 @@
           var ox = cur[0] + nx * side * (off - width * 0.3 + (r() - 0.5) * width * 0.5);
           var oz = cur[2] + nz * side * (off - width * 0.3 + (r() - 0.5) * width * 0.5);
           var oy = cur[1] - down + width * (0.35 + r() * 0.2);
+          b.ghost = true;
           scatter(b, zone.name, ox, Math.min(oy, cur[1] + 2), oz, r);
+          b.ghost = false;
         }
       }
 
-      /* Kleinzeug direkt am Weg */
+      /* Kleinzeug direkt am Weg - rein sichtbar, siehe `ghost` in block(). */
+      b.ghost = true;
       for (var s2 = 0; s2 < 2; s2++) {
         var sgn = r() > 0.5 ? 1 : -1;
         scatter(b, zone.name, cur[0] + nx * sgn * (9 + r() * 7), cur[1] - 0.4,
           cur[2] + nz * sgn * (9 + r() * 7), r);
       }
+      b.ghost = false;
     }
 
     b.cursor.x = saved.x; b.cursor.y = saved.y; b.cursor.z = saved.z; b.cursor.yaw = saved.yaw;
@@ -2242,16 +2463,15 @@
     backdrop(b, bounds);
     b.farMode = false;
 
-    /* Richtwert aus Streckenlaenge und Hoehenmetern, geeicht am gemessenen
-       Bestlauf: seit die schweren Wege wirklich Zeit einbringen, faehrt der
-       Testpilot die drei Irre-Aeste sturzfrei in 37 s - vorher waren es 51
-       mit dreizehn Stuerzen. Platin lag bei 56,7 s und war damit geschenkt.
-       Jetzt liegt es knapp ueber dem Bestlauf und verlangt saubere
-       Routenwahl; wer einmal haengenbleibt, faellt auf Gold. */
-    /* Geeicht am gemessenen Lauf: der Testpilot faehrt die sichere Linie
-       sturzfrei in 57,5 s. Platin liegt darunter, ist also nur ueber die
-       riskanten Wege zu erreichen. Mit /26 lag Platin bei 69,9 s und war
-       langsamer als ein mittelmaessiger Durchlauf. */
+    /* Richtwert aus Streckenlaenge und Hoehenmetern, geeicht an allen 96
+       Routenkombinationen: der Testpilot faehrt die sichere Linie sturzfrei
+       in 62,07 s und die beste Kombination in 46,77 s.
+
+       Damit liegt Platin (51,5) nur ueber die schnellen und riskanten Wege
+       drin, und Gold (61,3) ist knapp schneller als ein vollstaendig
+       sicherer Durchlauf - wer nirgends etwas wagt, bekommt Silber. Genau
+       so herum soll es sein: die Medaille misst die Routenwahl, nicht die
+       Ausdauer. */
     var base = pathLen / 36 + totalRise / 22;
     var medals = [
       { name: 'Platin', key: 'platin', time: Math.round(base * 1.00 * 10) / 10 },

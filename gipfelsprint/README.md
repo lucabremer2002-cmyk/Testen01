@@ -77,20 +77,26 @@ eigenen Rekord liegt.
 An jedem Abzweig stehen drei Wegweiser nebeneinander, farblich sortiert
 und schon aus der Ferne zu sehen:
 
-| | Farbe | Charakter | gemessen |
+| | Farbe | Charakter | Anteil der sicheren Zeit |
 | --- | --- | --- | --- |
-| **Sicher** | gruen | Breiter Umweg, durchgehender Boden. Kaum Absturzgefahr, aber Sperrbalken und Pendel kosten Takt. Ohne Dash fahrbar. | 8,1 - 8,9 s |
-| **Schnell** | gold | Kette in der Hoehe: Hochplateaus, Aquaedukt, Wasserfalltunnel. Luecken um 26 bis 32 m, jede braucht den Dash. | 6,9 - 7,7 s |
-| **Irre** | rot | Wenige lange Anlaufflaechen, dazwischen Saetze von 25 m Kante zu Kante. Schnellster Weg, kleinster Fehlerspielraum. | 6,4 - 6,8 s |
+| **Sicher** | gruen | Flach, gerade, durchgehender Boden. Keine Luecke, keine Stufe, keine Stelle, an der man faellt - und genau deshalb langsam: auf dem Boden zerfaellt Tempo dreimal schneller als in der Luft. | 100 % |
+| **Schnell** | gold | Weite Luecken auf Einstiegshoehe, ein Sturz am Ende. Man ist ueberwiegend in der Luft und haelt dort sein Tempo. | 75 - 85 % |
+| **Irre** | rot | Dieselbe Idee, auf die Spitze getrieben: schmale Flaechen, 24 bis 30 m Luecke, Luftanteil ueber 0,85. Kuerzeste Zeit, kleinster Fehlerspielraum. | 65 - 75 % |
 
-Die Abzweige liegen im **Canyon**, am **Wasserfall** und im **Tempel**.
-Nach jedem Abzweig laufen alle drei Wege wieder zusammen, sodass man pro
-Lauf drei unabhaengige Entscheidungen trifft - `Sicher / Irre / Schnell`
-ist eine andere Route als `Schnell / Schnell / Irre`, und das Ergebnis
-zeigt, welche man genommen hat.
+Es gibt **sechs** Abzweige (Auftakt, Sprungkette, Grosse Gabel,
+Wandschlucht, Wasserfall, Ruinen); die Grosse Gabel hat als einzige alle
+drei Wege nebeneinander. Nach jedem Abzweig laufen sie wieder zusammen -
+pro Lauf trifft man also sechs unabhaengige Entscheidungen, und die
+Gesamtzeit zeigt, welche.
+
+Gemessen ueber alle 96 gueltigen Kombinationen: **61,97 s** wer ueberall
+sicher geht, **46,97 s** wer ueberall die Alternative nimmt. Die
+schnellste Kombination ist genau die, die jede einzelne Abzweigung
+riskiert - es gibt keine Stelle, an der sich der sichere Weg lohnt.
 
 Auf den riskanten Wegen liegen mehr Kristalle, einige davon frei in der
-Luft mitten im Sprungbogen.
+Luft mitten im Sprungbogen. Sie sind Dash-Ladungen, kein Tempo: kein Weg
+im Level bekommt Geschwindigkeit geschenkt.
 
 ## Belohnung und Flow
 
@@ -155,19 +161,20 @@ Flow-Rekord, Anzahl der Laeufe und der Zieleinlaeufe.
 
 | Medaille | Zeit |
 | --- | --- |
-| Platin | 0:41.4 |
-| Gold | 0:49.3 |
-| Silber | 1:00.1 |
-| Bronze | 1:18.7 |
+| Platin | 0:51.5 |
+| Gold | 1:01.3 |
+| Silber | 1:14.7 |
+| Bronze | 1:37.8 |
 
 Die Zeiten leiten sich aus der Streckenlaenge ab (`build()` in
-`src/level.js`) und sind am gemessenen Bestlauf geeicht: der Testpilot
-faehrt die Strecke ueber die drei irren Aeste sturzfrei in **37,0 s**.
-Platin liegt knapp darueber, wer einmal haengenbleibt faellt auf Gold.
+`src/level.js`) und sind an allen 96 Routenkombinationen geeicht: der
+Testpilot faehrt die sichere Linie sturzfrei in **61,97 s**, die beste
+Kombination in **46,97 s**.
 
-Vorher lagen die Grenzen bei 0:56.7 bis 1:47.6 - aus einer Zeit, in der
-derselbe Lauf 51 s mit dreizehn Stuerzen brauchte, weil die riskanten Wege
-langsamer waren als der sichere.
+Platin ist damit nur ueber die schnellen und riskanten Wege zu holen, und
+Gold liegt knapp unter einem vollstaendig sicheren Durchlauf - wer
+nirgends etwas wagt, bekommt Silber. Die Medaille misst die Routenwahl,
+nicht die Ausdauer.
 
 ## Bewegung
 
@@ -436,59 +443,114 @@ Male, weil die Messung am eigentlichen Vorgang vorbeiging:
 
 ### Warum sich die riskanten Wege lohnen
 
-Sie taten es lange nicht. Gemessen war die riskante Linie an der ersten
-Gabel 2,4 s **langsamer** als die sichere. Die Ursache war strukturell und
-in einer Tabelle sofort zu sehen: jedes Astpaar hatte dieselbe Laenge und
-denselben Netto-Hoehenverlust. Die riskanten Wege stiegen nur mehr und
-fielen dafuer mehr - und das ist ein garantierter Verlust, weil Steigen
-Tempo kostet, der Sturz davon 62 Prozent zurueckgibt und bei 46 gedeckelt
-ist. Der schlimmste Fall stieg 27 m und fiel 27 m.
+Sie taten es lange nicht. Die Ursache war strukturell und in einer Tabelle
+sofort zu sehen: jedes Astpaar hatte dieselbe Laenge und denselben
+Netto-Hoehenverlust. Die riskanten Wege stiegen nur mehr und fielen dafuer
+mehr - ein garantierter Verlust, weil Steigen Tempo kostet, der Sturz
+davon 62 Prozent zurueckgibt und bei 46 gedeckelt ist.
 
-Daraus die Regel, nach der jetzt jede Gabel gebaut ist:
+Beim Nachmessen kam heraus, dass die Frage falsch gestellt war. Der
+einzige nennenswerte Hebel ist nicht die Hoehe, sondern der **Bodenkontakt**:
 
-* **Sicher** geht weit aussen herum und baut die Hoehe in Stufen von drei
-  Metern ab. Ein gehaltener Sprung steigt 2,8 m, man kommt also mit
-  Aufprall 27 auf - die Rutschlandung braucht 30. Es gibt kein Tempo
-  zurueck, nur einen ruhigen Weg.
-* **Riskant** steigt nirgends, bleibt gerade und oben, und gibt die
-  gesamte Hoehe am Ende in einem Sturz ab. Aufprall ueber 35, also rund
-  22 Einheiten Tempo - und zwar genau vor dem naechsten Abschnitt, wo sie
-  noch einmal Zeit sparen.
+* auf dem Boden zerfaellt Ueberschusstempo mit 7 Einheiten je Sekunde,
+* in der Luft mit 2,5.
 
-Beide verlieren dieselbe Hoehe. Der Unterschied ist, ob sie verteilt oder
-gebuendelt abgegeben wird.
+Gemessen ueber 240 m: durchgehender Boden ergibt Schnitt 20, eine Kette
+mit 12 m Luecke ergibt 43 - **mehr als das Doppelte, bei gleicher Strecke
+und gleicher Hoehe.** Daraus die Regel, nach der jetzt jede Gabel gebaut
+ist:
 
-| Gabel | sicher | schnell | irre |
-| --- | --- | --- | --- |
-| Auftakt | 4,67 s / Tempo 26 | &ndash; | **3,72 s / Tempo 38** / 6 Kristalle |
-| Sprungkette | 7,88 s / Tempo 39 | 7,91 s / Tempo 39 / 7 Kristalle | &ndash; |
-| Grosse Gabel | 10,71 s / Tempo 17 | **7,77 s / Tempo 46** / 5 Kristalle | **7,76 s** / 14 Kristalle |
-| Wasserfall | 7,19 s / Tempo 35 | &ndash; | **6,47 s / Tempo 38** / 3 Kristalle |
-| Ruinen | 5,86 s / Tempo 38 | &ndash; | 5,95 s / 11 Kristalle |
+* **Sicher** ist flach, gerade und ununterbrochen. Keine Luecke, keine
+  Stufe, kein Tempofeld. Er ist langsam, weil man auf ihm laeuft.
+* **Schnell und riskant** bleiben auf Einstiegshoehe, haben weite Luecken
+  und geben ihre Hoehe erst am Ende in einem Stueck ab (Aufprall ueber 35,
+  die Rutschlandung braucht 30).
 
-Ueber den ganzen Lauf, mit demselben Testpiloten:
+Drei Annahmen, die dabei widerlegt wurden - alle drei hatte ich fuer
+selbstverstaendlich gehalten:
 
-| Routenwahl | Zeit | Kristalle |
-| --- | --- | --- |
-| alles sicher | 56,82 s | 4 |
-| gemischt riskant | **50,14 s** | 18 |
-| alles riskant | 50,55 s | 39 |
+1. **Kleine Stufen bremsen.** Sie tun das Gegenteil. Eine Treppe mit 3-m-
+   Stufen machte den sicheren Weg durch die Wandschlucht *schneller*
+   (8,58 s auf 7,13 s), weil jede Stufe den Laeufer abheben laesst.
+2. **Ein weiterer Bogen macht laenger und damit langsamer.** Auch falsch:
+   jeder Seitenversatz hebt an der Kante ab. Der weite Bogen in den Ruinen
+   war schneller als der enge (6,58 s statt 6,93 s).
+3. **Der Regler ist stufenlos.** Ist er nicht. In den Ruinen: kein Spalt
+   = 10,50 s, vier Meter Spalt = 6,43 s. Dazwischen liegt nichts.
 
-Die Medaillen leiten sich aus der Streckenlaenge ab und passen dadurch von
-selbst: Platin liegt bei 51,1 s. Ein sauberer Lauf ueber die sicheren Wege
-reicht fuer Gold, Platin gibt es nur ueber die riskanten.
+Entfernt statt kaschiert wurden dabei alle kuenstlichen Tempoquellen: die
+zwei Tempofelder auf dem sicheren Weg der grossen Gabel (sie hoben ihn auf
+27 und 29 an und nahmen dem roten Weg seinen Lohn) und das Sprungfeld am
+Wasserfall (Kraft 44, dahinter ein Anstieg auf +8, der den Schub wieder
+auffrass - die Route war damit *langsamer* als die Bruecke).
 
-Zwei Dinge, die dabei nicht funktioniert haben und entfernt statt
-kaschiert wurden: eine Abkuerzung auf der Tempostrecke, die sechs Meter
-hinauf und wieder herunter fuehrte und gemessen 0,70 s **langsamer** war
-als die Bahn selbst; und drei Sprungfelder, die Routen ueberhaupt erst
-erreichbar machen sollten - wer mit Tempo ankam, flog im Bogen darueber
-hinweg oder schlug seitlich gegen die Flanke der hoeheren Flaeche und
-stand augenblicklich.
+#### Gemessen, je Gabel gegen denselben sicheren Anlauf
 
-Offen: die Sprungkette und die Ruinen sind zeitlich ausgeglichen statt
-schneller; sie zahlen nur in Kristallen. Der Ast durch die Wandschlucht
-ist weiterhin ungeprueft, weil der Testpilot keine Wandspruenge kann.
+`node tools/routen-lohnen.js`
+
+| Gabel | sicher | Alternative | Anteil | Luftanteil sicher/alt |
+| --- | --- | --- | --- | --- |
+| Auftakt | 4,67 s | **3,72 s** irre | 79,7 % | 0,52 / 0,81 |
+| Sprungkette | 9,59 s | **7,90 s** schnell | 82,4 % | 0,41 / 0,80 |
+| Grosse Gabel | 10,62 s | **8,02 s** schnell | 75,5 % | 0,23 / 0,55 |
+| Grosse Gabel | 10,62 s | **6,86 s** irre | 64,6 % | 0,23 / 0,85 |
+| Wandschlucht | 8,66 s | **7,32 s** schnell | 84,5 % | 0,23 / 0,91 |
+| Wasserfall | 6,83 s | **5,61 s** schnell | 82,1 % | 0,29 / 0,66 |
+| Ruinen | 8,28 s | **6,05 s** irre | 73,1 % | 0,27 / 0,76 |
+
+Jede Gabel wird gegen denselben Anlauf gemessen: nur *eine* wird
+umgestellt, alles davor und dahinter bleibt sicher. Anders ist der
+Vergleich wertlos, denn ein Abschnitt, in den man mit Tempo 38 statt 26
+hereinkommt, ist schon deshalb schneller.
+
+Die Schilder sagen, was die Uhr sagt: was in 80 bis 90 % der Zeit laeuft,
+steht auf Gold; was darunter liegt, auf Rot. Die Wandschlucht und der
+Wasserfall sind deshalb von Rot auf Gold gewechselt - sie sind schnelle
+Wege, keine Expertenrouten, und ein rotes Schild haette etwas versprochen,
+das die Messung nicht deckt.
+
+#### Alle 96 Kombinationen
+
+`node tools/routen-alle.js` faehrt jede gueltige Routenwahl einmal durch.
+96 von 96 kommen sturzfrei an.
+
+| Routenwahl | Zeit |
+| --- | --- |
+| alles sicher | 61,97 s |
+| beste Kombination | **46,97 s** |
+
+Fuenfzehn Sekunden auf einen Lauf von einer Minute - und die schnellste
+Kombination ist genau die, die ueberall die Alternative nimmt. Jede
+einzelne Entscheidung zahlt sich also aus.
+
+Dieser Test existiert, weil die Messung Gabel fuer Gabel eine Stelle
+uebersehen hat: die Dash-Kette der grossen Gabel war ueber den sicheren
+Anlauf passierbar und ueber den schnellen nicht. Sie verlangte vier Meter
+Anstieg auf die erste Flaeche, und wer mit Tempo 45,9 statt 39,1 ankam,
+verfehlte sie - sieben Stuerze, kein Durchlauf. Dieselbe Falle steckte in
+der Wandschlucht (4,2 m Anstieg auf Flaechen von 6 x 11 m, bei einer
+gemessenen Doppelsprunghoehe von 4,91 m; diese Route war nie passierbar)
+und am Wasserfall. Daher jetzt als Regel: **riskante Wege steigen
+nirgends.**
+
+Die Medaillen sind daran geeicht: Platin liegt bei 51,5 s und ist nur
+ueber die schnellen und riskanten Wege zu holen; Gold bei 61,3 s ist
+knapp schneller als ein vollstaendig sicherer Durchlauf. Wer nirgends
+etwas wagt, bekommt Silber.
+
+#### Deko darf keinen Lauf beenden
+
+Ein Lauf blieb reproduzierbar an derselben Stelle stehen: Tempo 0,
+unbeweglich, ohne zu sterben, bis die Zeit ablief. Ursache war ein Block
+von 3 x 3 x 1,6 m mitten auf der ersten Flaeche der oberen Linie in den
+Ruinen - Streudeko, die `ruinWall` als echten Kollisionskoerper baut und
+die 9 bis 16 m neben die Ideallinie gesetzt wird. Solange die obere Linie
+auf x 11 lag, ging sie zufaellig daran vorbei; auf x 5 nicht mehr.
+
+`Builder.block` kennt dafuer jetzt `ghost`: was waehrend seiner Gueltigkeit
+gebaut wird, ist durchlaessig. Streudeko in Wegnaehe ist damit rein
+sichtbar. Ein Level darf aussehen, wie es will - einen Lauf beenden darf
+nur Geometrie, die jemand mit Absicht dorthin gesetzt hat.
 
 ### Selbsttest: die technische Basislinie
 
@@ -552,11 +614,14 @@ nicht bei null anfaengt.
   Partikel und Geist zugleich. Eine Aufteilung in eigene Einheiten waere
   sauberer, ist aber ein Umbau ohne gemessenen Nutzen - er wartet auf den
   Moment, in dem eine Aenderung daran tatsaechlich teuer wird.
-* **Die Routen zahlen sich noch nicht in Zeit aus.** Gemessen ist die
-  riskante Linie an der ersten Gabel 2,4 s langsamer als die sichere. Das
-  ist ein offener Entwurfsfehler, kein technischer.
-* **Drei Aeste sind ungeprueft**, weil der Testpilot weder Wandspruenge
-  noch den Durchflug durch den Wasserfall beherrscht.
+* **Die grosse Gabel liegt eine Stufe zu grosszuegig.** Gemessen 75,5 %
+  und 64,6 % statt 80 bis 90 % und 65 bis 80 %. Die Ursache ist bekannt
+  und nicht behebbar, ohne die Gabel schlechter zu machen: der sichere
+  Weg ist dort fast vollstaendig Boden (Luftanteil 0,23) und deshalb sehr
+  langsam. Zieht man einen zweiten Spalt hinein, ruecken beide
+  Alternativen auf 87 % und 84 % - dann sind sie aber untereinander nicht
+  mehr unterscheidbar, und das ist bei einer Gabel mit drei Wegen der
+  groessere Fehler. Der Abstand ist wichtiger als der Absolutwert.
 
 ### Was automatisiert geprueft wird
 
@@ -564,6 +629,16 @@ Ein Testpilot simuliert die Physik ohne Rendering und faehrt die Strecke
 ab. Damit laesst sich pruefen, ob jeder Uebergang machbar ist, ob alle drei
 Aeste jedes Abzweigs durchlaufbar sind und ob Sturz, Sofortneustart, Ziel,
 Bestzeit und Geist funktionieren.
+
+Er beherrscht inzwischen auch den **Wandsprung**: sobald er in der Luft
+eine Wand beruehrt und die Nachfrist laeuft, drueckt er Sprung und zielt
+zum naechsten Wegpunkt. Vorher war die Wandschlucht als "ungeprueft"
+markiert. Das Bemerkenswerte daran: mit dieser Faehigkeit war sie
+*weiterhin* nicht passierbar - die Spur zeigte, dass er die Absaetze gar
+nicht erreichte, weil sie 4,2 m ueber dem Einstieg lagen. Nicht das
+Koennen fehlte, sondern die Route war unmoeglich gebaut. Eine Faehigkeit
+nachzuruesten hat hier also nicht die Luecke im Test geschlossen, sondern
+einen Entwurfsfehler sichtbar gemacht.
 
 Was der Testpilot **nicht** kann: optimal fahren. Er bremst vor jedem
 Zielpunkt ab und nimmt keine Abkuerzungen. Seine Rundenzeiten sind eine

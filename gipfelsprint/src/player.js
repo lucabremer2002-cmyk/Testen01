@@ -92,12 +92,14 @@
        Flacher und hoeher gedeckelt skaliert sie weiter: 6 m -> 31,
        10 m -> 36, 16 m -> 42, 24 m -> 48, ganz hoch -> 54. */
     SLIDE_LAND_GAIN: 0.62,
-    /* Gedeckelt auf 46. Bei 58 (209 km/h) blieben auf 24 m Plattformabstand
-       vier Zehntelsekunden je Plattform - schneller, als man im Rutschen
-       lenken kann, und der Testpilot verfehlte reihenweise Landungen. Die
-       Geometrie des Levels ist auf 25 bis 40 ausgelegt; 46 ist die Spitze,
-       die man sich fuer einen grossen Sturz holt, nicht der Normalfall. */
-    SLIDE_LAND_MAX: 46,
+    /* Hoechstgeschwindigkeit des Spiels - eine Zahl, eine Bedeutung. Hier
+       enden sowohl die Rutschlandung als auch der Absprung aus dem
+       Rutschen. Bei 58 (209 km/h) blieben auf 24 m Plattformabstand vier
+       Zehntelsekunden je Plattform, schneller als man im Rutschen lenken
+       kann; der Testpilot verfehlte reihenweise Landungen. Die Geometrie
+       ist auf 25 bis 40 ausgelegt, 46 ist die Spitze fuer einen grossen
+       Sturz - nicht der Normalfall. */
+    SPEED_CAP: 46,
     /* Erst ab dieser Aufprallgeschwindigkeit zaehlt es als Sturz - 30
        entspricht rund sieben Metern Fall.
 
@@ -368,12 +370,22 @@
           this.buffer = 0;
           this.jumps = 1;
           this.squash = 1.35;
-          /* Absprung aus dem Rutschen traegt etwas weiter - Rutschen ist
-             damit nicht nur Tempo halten, sondern auch der bessere Absprung. */
+          /* Absprung aus dem Rutschen traegt weiter - aber nur bis zur
+             Hoechstgeschwindigkeit. Ohne diese Grenze multiplizierte jeder
+             Absprung das Tempo mit 1,06, und das kettete sich auf: gemessen
+             auf ebenem Boden von 40 auf 52 in acht Sekunden, ohne Ende und
+             ohne dass die Strecke etwas beitrug. Damit waere jede
+             Routenentscheidung wirkungslos - wer einmal schnell ist, wird
+             ueberall schneller. Unterhalb der Grenze bleibt der Bonus: er
+             belohnt, Tempo zu HALTEN, nicht, es aus dem Nichts zu machen. */
           if (this.sliding) {
-            this.vx *= P.SLIDE_JUMP_KEEP;
-            this.vz *= P.SLIDE_JUMP_KEEP;
-            ev.push('slidejump');
+            var spJump = Math.hypot(this.vx, this.vz);
+            if (spJump > 0.01 && spJump < P.SPEED_CAP) {
+              var zielJump = Math.min(P.SPEED_CAP, spJump * P.SLIDE_JUMP_KEEP);
+              this.vx *= zielJump / spJump;
+              this.vz *= zielJump / spJump;
+              ev.push('slidejump');
+            }
           }
           ev.push('jump');
         } else if (this.jumps > 0) {
@@ -470,7 +482,7 @@
              hochzaehlt. Ohne Rutschtaste verpufft der Schwung wie vorher. */
           if (wantSlide && landing > P.SLIDE_LAND_MIN) {
             var spL = Math.hypot(this.vx, this.vz);
-            var want = Math.min(P.SLIDE_LAND_MAX, spL + landing * P.SLIDE_LAND_GAIN);
+            var want = Math.min(P.SPEED_CAP, spL + landing * P.SLIDE_LAND_GAIN);
             if (want > spL) {
               if (spL > 0.5) {
                 this.vx *= want / spL;
