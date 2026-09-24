@@ -434,6 +434,62 @@ Male, weil die Messung am eigentlichen Vorgang vorbeiging:
   warten, bis zwei Bilder hintereinander gleich sind; erst dann sagt die
   Abweichung etwas ueber die Aenderung aus.
 
+### Warum sich die riskanten Wege lohnen
+
+Sie taten es lange nicht. Gemessen war die riskante Linie an der ersten
+Gabel 2,4 s **langsamer** als die sichere. Die Ursache war strukturell und
+in einer Tabelle sofort zu sehen: jedes Astpaar hatte dieselbe Laenge und
+denselben Netto-Hoehenverlust. Die riskanten Wege stiegen nur mehr und
+fielen dafuer mehr - und das ist ein garantierter Verlust, weil Steigen
+Tempo kostet, der Sturz davon 62 Prozent zurueckgibt und bei 46 gedeckelt
+ist. Der schlimmste Fall stieg 27 m und fiel 27 m.
+
+Daraus die Regel, nach der jetzt jede Gabel gebaut ist:
+
+* **Sicher** geht weit aussen herum und baut die Hoehe in Stufen von drei
+  Metern ab. Ein gehaltener Sprung steigt 2,8 m, man kommt also mit
+  Aufprall 27 auf - die Rutschlandung braucht 30. Es gibt kein Tempo
+  zurueck, nur einen ruhigen Weg.
+* **Riskant** steigt nirgends, bleibt gerade und oben, und gibt die
+  gesamte Hoehe am Ende in einem Sturz ab. Aufprall ueber 35, also rund
+  22 Einheiten Tempo - und zwar genau vor dem naechsten Abschnitt, wo sie
+  noch einmal Zeit sparen.
+
+Beide verlieren dieselbe Hoehe. Der Unterschied ist, ob sie verteilt oder
+gebuendelt abgegeben wird.
+
+| Gabel | sicher | schnell | irre |
+| --- | --- | --- | --- |
+| Auftakt | 4,67 s / Tempo 26 | &ndash; | **3,72 s / Tempo 38** / 6 Kristalle |
+| Sprungkette | 7,88 s / Tempo 39 | 7,91 s / Tempo 39 / 7 Kristalle | &ndash; |
+| Grosse Gabel | 10,71 s / Tempo 17 | **7,77 s / Tempo 46** / 5 Kristalle | **7,76 s** / 14 Kristalle |
+| Wasserfall | 7,19 s / Tempo 35 | &ndash; | **6,47 s / Tempo 38** / 3 Kristalle |
+| Ruinen | 5,86 s / Tempo 38 | &ndash; | 5,95 s / 11 Kristalle |
+
+Ueber den ganzen Lauf, mit demselben Testpiloten:
+
+| Routenwahl | Zeit | Kristalle |
+| --- | --- | --- |
+| alles sicher | 56,82 s | 4 |
+| gemischt riskant | **50,14 s** | 18 |
+| alles riskant | 50,55 s | 39 |
+
+Die Medaillen leiten sich aus der Streckenlaenge ab und passen dadurch von
+selbst: Platin liegt bei 51,1 s. Ein sauberer Lauf ueber die sicheren Wege
+reicht fuer Gold, Platin gibt es nur ueber die riskanten.
+
+Zwei Dinge, die dabei nicht funktioniert haben und entfernt statt
+kaschiert wurden: eine Abkuerzung auf der Tempostrecke, die sechs Meter
+hinauf und wieder herunter fuehrte und gemessen 0,70 s **langsamer** war
+als die Bahn selbst; und drei Sprungfelder, die Routen ueberhaupt erst
+erreichbar machen sollten - wer mit Tempo ankam, flog im Bogen darueber
+hinweg oder schlug seitlich gegen die Flanke der hoeheren Flaeche und
+stand augenblicklich.
+
+Offen: die Sprungkette und die Ruinen sind zeitlich ausgeglichen statt
+schneller; sie zahlen nur in Kristallen. Der Ast durch die Wandschlucht
+ist weiterhin ungeprueft, weil der Testpilot keine Wandspruenge kann.
+
 ### Selbsttest: die technische Basislinie
 
 ```
