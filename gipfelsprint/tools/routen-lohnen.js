@@ -28,7 +28,7 @@ console.log('Gesamtzeit sicher: ' + basis.gesamt.toFixed(2) + ' s   (Stuerze ' +
 console.log('Gabel                Zweig   SAFE     ALT    Anteil   Luft S/A      Folgeabschnitt   Summe');
 console.log('-'.repeat(92));
 
-const ZWEIGE = [[0,[2]],[1,[1]],[2,[1,2]],[4,[1]],[5,[1]],[6,[2]]];
+const ZWEIGE = [[0,[1]],[1,[1]],[2,[1,2]],[4,[1]],[5,[1]],[6,[2]]];
 let zeilen = [];
 for (const [fork, brs] of ZWEIGE) {
   for (const br of brs) {
@@ -52,7 +52,7 @@ for (const [fork, brs] of ZWEIGE) {
   }
 }
 console.log('-'.repeat(92));
-console.log('Sollwerte: FAST 80-90%, RISK 65-80% (Richtwert des Auftraggebers)');
-const daneben = zeilen.filter(z => (z.br === 1 ? (z.pct < 80 || z.pct > 90) : (z.pct < 65 || z.pct > 80)));
+console.log('Sollwerte: FAST 80-85%, IRRE 65-75% (Richtwert des Auftraggebers)');
+const daneben = zeilen.filter(z => (z.br === 1 ? (z.pct < 80 || z.pct > 85) : (z.pct < 65 || z.pct > 75)));
 console.log(daneben.length ? 'Ausserhalb: ' + daneben.map(z => NAMEN[z.fork] + ' ' + LBL[z.br] + ' ' + z.pct.toFixed(1) + '%').join(', ')
                            : 'Alle Gabeln im Sollbereich.');

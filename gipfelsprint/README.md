@@ -89,8 +89,8 @@ drei Wege nebeneinander. Nach jedem Abzweig laufen sie wieder zusammen -
 pro Lauf trifft man also sechs unabhaengige Entscheidungen, und die
 Gesamtzeit zeigt, welche.
 
-Gemessen ueber alle 96 gueltigen Kombinationen: **61,97 s** wer ueberall
-sicher geht, **46,97 s** wer ueberall die Alternative nimmt. Die
+Gemessen ueber alle 96 gueltigen Kombinationen: **60,74 s** wer ueberall
+sicher geht, **46,77 s** wer ueberall die Alternative nimmt. Die
 schnellste Kombination ist genau die, die jede einzelne Abzweigung
 riskiert - es gibt keine Stelle, an der sich der sichere Weg lohnt.
 
@@ -162,19 +162,29 @@ Flow-Rekord, Anzahl der Laeufe und der Zieleinlaeufe.
 | Medaille | Zeit |
 | --- | --- |
 | Platin | 0:51.5 |
-| Gold | 1:01.3 |
-| Silber | 1:14.7 |
-| Bronze | 1:37.8 |
+| Gold | 0:54.1 |
+| Silber | 1:02.8 |
+| Bronze | 1:22.4 |
 
 Die Zeiten leiten sich aus der Streckenlaenge ab (`build()` in
 `src/level.js`) und sind an allen 96 Routenkombinationen geeicht: der
-Testpilot faehrt die sichere Linie sturzfrei in **61,97 s**, die beste
-Kombination in **46,97 s**.
+Testpilot faehrt die sichere Linie sturzfrei in **60,74 s**, die beste
+Kombination in **46,77 s**.
 
-Platin ist damit nur ueber die schnellen und riskanten Wege zu holen, und
-Gold liegt knapp unter einem vollstaendig sicheren Durchlauf - wer
-nirgends etwas wagt, bekommt Silber. Die Medaille misst die Routenwahl,
-nicht die Ausdauer.
+Die Faktoren sind so gesetzt, dass die Medaille die **Routenwahl** misst
+und nicht die Ausdauer. Am Testpiloten ueber alle 96 Kombinationen:
+
+| Medaille | erreichen |
+| --- | --- |
+| Platin 51,5 s | 27 von 96 - das obere Drittel |
+| Gold 54,1 s | 57 von 96 - gute Routenwahl, nicht perfekte |
+| Silber 62,8 s | 96 von 96, auch der komplett sichere Lauf (60,74 s) |
+| Bronze 82,4 s | ankommen genuegt |
+
+Vorher schafften mit Gold bei 61,3 s **alle 96** Kombinationen mindestens
+Gold, den sicheren Lauf eingeschlossen - eine Medaille, die jeder bekommt,
+sagt nichts. Der Testpilot bremst zudem vor jedem Wegpunkt ab; ein Mensch,
+der die Linie kennt, liegt unter diesen Zeiten.
 
 ## Bewegung
 
@@ -490,24 +500,92 @@ auffrass - die Route war damit *langsamer* als die Bruecke).
 
 | Gabel | sicher | Alternative | Anteil | Luftanteil sicher/alt |
 | --- | --- | --- | --- | --- |
-| Auftakt | 4,67 s | **3,72 s** irre | 79,7 % | 0,52 / 0,81 |
+| Auftakt | 4,67 s | **3,72 s** schnell | 79,7 % | 0,52 / 0,81 |
 | Sprungkette | 9,59 s | **7,90 s** schnell | 82,4 % | 0,41 / 0,80 |
-| Grosse Gabel | 10,62 s | **8,02 s** schnell | 75,5 % | 0,23 / 0,55 |
-| Grosse Gabel | 10,62 s | **6,86 s** irre | 64,6 % | 0,23 / 0,85 |
-| Wandschlucht | 8,66 s | **7,32 s** schnell | 84,5 % | 0,23 / 0,91 |
+| Grosse Gabel | 9,26 s | **7,59 s** schnell | 82,0 % | 0,34 / 0,84 |
+| Grosse Gabel | 9,26 s | **6,81 s** irre | 73,5 % | 0,34 / 0,88 |
+| Wandschlucht | 8,72 s | **7,36 s** schnell | 84,4 % | 0,22 / 0,90 |
 | Wasserfall | 6,83 s | **5,61 s** schnell | 82,1 % | 0,29 / 0,66 |
-| Ruinen | 8,28 s | **6,05 s** irre | 73,1 % | 0,27 / 0,76 |
+| Ruinen | 8,28 s | **6,04 s** irre | 72,9 % | 0,27 / 0,76 |
+
+Sollband: **schnell 80 bis 85 %, irre 65 bis 75 %.** Alle Gabeln liegen
+darin, bis auf den Auftakt mit 79,7 % - zwei Hundertstelsekunden daneben.
 
 Jede Gabel wird gegen denselben Anlauf gemessen: nur *eine* wird
 umgestellt, alles davor und dahinter bleibt sicher. Anders ist der
 Vergleich wertlos, denn ein Abschnitt, in den man mit Tempo 38 statt 26
 hereinkommt, ist schon deshalb schneller.
 
-Die Schilder sagen, was die Uhr sagt: was in 80 bis 90 % der Zeit laeuft,
-steht auf Gold; was darunter liegt, auf Rot. Die Wandschlucht und der
-Wasserfall sind deshalb von Rot auf Gold gewechselt - sie sind schnelle
-Wege, keine Expertenrouten, und ein rotes Schild haette etwas versprochen,
-das die Messung nicht deckt.
+Die Schilder sagen, was die Uhr sagt: was in 80 bis 85 % der Zeit laeuft,
+steht auf Gold; 65 bis 75 % steht auf Rot. Die Wandschlucht, der
+Wasserfall und der Auftakt sind deshalb von Rot auf Gold gewechselt - sie
+sind schnelle Wege, keine Expertenrouten, und ein rotes Schild haette
+etwas versprochen, das die Messung nicht deckt. Rot tragen nur noch zwei
+Wege, und beide loesen es ein: die Dash-Kette der grossen Gabel (73,5 %)
+und die obere Linie in den Ruinen (72,9 %).
+
+#### Die grosse Gabel: drei Stufen, nicht zwei
+
+Sie ist die einzige Gabel mit allen drei Wegen nebeneinander, und lange
+war sie die schwaechste: sicher 10,62 s, schnell 8,02 s (75,5 %), irre
+6,86 s (64,6 %) - die beiden Alternativen lagen 1,2 s auseinander, aber
+beide im falschen Band, und der Spieler las sie als "zwei Varianten von
+schnell" statt als zwei Stufen.
+
+Zwei Versuche schlugen dabei fehl, beide lehrreich:
+
+1. **Dem irren Weg einen Sturz schenken.** Der Zusammenfluss wurde acht
+   Meter tiefer gelegt, damit nur er ueber die Schwelle von 30 faellt
+   (Aufprall 35,8 gegen 27,7 und 22,6). Gemessen kehrte das die
+   Reihenfolge um: schnell 6,79 s, irre 6,90 s. Grund ist `SPEED_CAP`:
+   beide Alternativen haengen zu fast 90 % in der Luft und stehen dort
+   ohnehin am Deckel (der schnelle Weg kam mit 45,9 heraus). Eine
+   Rutschlandung kann nichts draufrechnen, was schon am Anschlag ist.
+   **Ein Sturz belohnt nur einen langsamen Weg; zwischen zwei schnellen
+   trennt er nicht.**
+2. **Den irren Weg weiter kuerzen.** Weniger, weiter auseinander liegende
+   Flaechen sparen Landungen, kosten aber mehr Flugzeit, als sie sparen -
+   und ab 30 m Luecke ist der Weg unpassierbar (sieben Stuerze). Sein
+   Boden liegt bei 6,81 s.
+
+Die Loesung lag beim sicheren Weg, und dafuer brauchte es einen Regler,
+den es vorher nicht gab. Die Spaltzahl ist ein Schalter (durchgehend
+12,28 s, ein Spalt 10,62 s, zwei Spalte 9,04 s), die Spaltbreite wirkt gar
+nicht (5, 8 und 12 m ergaben dreimal exakt 9,18 s). Stufenlos wird es
+erst, wenn die **Ideallinie auf einer durchgehenden, breiten Flaeche im
+Zickzack** laeuft: das verlaengert den Weg, ohne den Laeufer abheben zu
+lassen.
+
+| Amplitude | 0 m | 2 m | 3 m | 4 m | 8 m | 12 m | 16 m |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Zeit | 9,04 s | 9,26 s | 9,43 s | 9,59 s | 10,57 s | 11,21 s | 12,04 s |
+| Luftanteil | 0,35 | 0,34 | 0,34 | 0,34 | 0,26 | 0,24 | 0,23 |
+
+Der Luftanteil faellt dabei, statt zu steigen - genau umgekehrt zu
+versetzten Einzelflaechen, die den Laeufer an jeder Kante abheben lassen
+und deshalb SCHNELLER machen. Mit zwei Metern Amplitude steht die Gabel
+auf:
+
+| Weg | Zeit | Anteil | Luftanteil |
+| --- | --- | --- | --- |
+| **sicher** (gruen) | 9,26 s | 100 % | 0,34 |
+| **schnell** (gold) | 7,59 s | 82,0 % | 0,84 |
+| **irre** (rot) | 6,81 s | 73,5 % | 0,88 |
+
+`node tools/gabel-pruefen.js` faehrt sie unter jedem moeglichen Anlauf.
+Das ist die sinnvolle Form von "mehrfach messen": die Simulation ist
+deterministisch (Selbsttest, Abweichung 0 m), zweimal derselbe Lauf gibt
+zweimal dieselbe Zahl - was sich wirklich aendert, ist das Eingangstempo.
+
+| Anlauf | sicher | schnell | irre |
+| --- | --- | --- | --- |
+| sicher / sicher | 9,27 s | 7,59 s (81,9 %) | 6,81 s (73,5 %) |
+| schnell / sicher | 9,27 s | 7,59 s (81,9 %) | 6,81 s (73,5 %) |
+| sicher / schnell | 9,12 s | 7,57 s (83,0 %) | 6,72 s (73,7 %) |
+| schnell / schnell | 9,12 s | 7,57 s (83,0 %) | 6,72 s (73,7 %) |
+
+Die Reihenfolge gilt bei jedem Anlauf, sturzfrei, und die Anteile
+schwanken um hoechstens 1,1 Punkte.
 
 #### Alle 96 Kombinationen
 
@@ -516,8 +594,8 @@ das die Messung nicht deckt.
 
 | Routenwahl | Zeit |
 | --- | --- |
-| alles sicher | 61,97 s |
-| beste Kombination | **46,97 s** |
+| alles sicher | 60,74 s |
+| beste Kombination | **46,77 s** |
 
 Fuenfzehn Sekunden auf einen Lauf von einer Minute - und die schnellste
 Kombination ist genau die, die ueberall die Alternative nimmt. Jede
@@ -614,14 +692,10 @@ nicht bei null anfaengt.
   Partikel und Geist zugleich. Eine Aufteilung in eigene Einheiten waere
   sauberer, ist aber ein Umbau ohne gemessenen Nutzen - er wartet auf den
   Moment, in dem eine Aenderung daran tatsaechlich teuer wird.
-* **Die grosse Gabel liegt eine Stufe zu grosszuegig.** Gemessen 75,5 %
-  und 64,6 % statt 80 bis 90 % und 65 bis 80 %. Die Ursache ist bekannt
-  und nicht behebbar, ohne die Gabel schlechter zu machen: der sichere
-  Weg ist dort fast vollstaendig Boden (Luftanteil 0,23) und deshalb sehr
-  langsam. Zieht man einen zweiten Spalt hinein, ruecken beide
-  Alternativen auf 87 % und 84 % - dann sind sie aber untereinander nicht
-  mehr unterscheidbar, und das ist bei einer Gabel mit drei Wegen der
-  groessere Fehler. Der Abstand ist wichtiger als der Absolutwert.
+* **Der Auftakt liegt 0,3 Punkte unter seinem Band** (79,7 % statt 80 bis
+  85 %). Der Unterschied betraegt zwei Hundertstelsekunden auf 4,67 s und
+  ist mit den vorhandenen Reglern nicht feiner einstellbar - beide Aeste
+  dort sind schon so gebaut, wie sie sein sollen.
 
 ### Was automatisiert geprueft wird
 

@@ -1533,7 +1533,7 @@
 
     /* Die Gabel steht unmittelbar an der Kante. */
     b.routeSign(-9, 0, 9, SAFE);
-    b.routeSign(9, 0, 9, RISK);
+    b.routeSign(9, 0, 9, FAST);
 
     /* ------------------------------------------------------------------
        Beide Wege verlieren dieselben 14 Hoehenmeter. Der Unterschied ist,
@@ -1576,9 +1576,14 @@
     b.mark(-12, -12, 120);
     for (i = 0; i < 4; i++) b.tree(-44 + (i % 2) * 6, -6, 30 + i * 26, 0.7 + r() * 0.5, { kind: 'fir' });
 
-    /* --- RISKANT: gerade durch, schmal, und am Ende zehn Meter Sturz --- */
-    b.routeZone(0, RISK, 4, 0, 16, 12, 8, 12);
-    b.routeArch(0, -2, 16, 10, 6, RISK);
+    /* --- SCHNELL: gerade durch, schmal, und am Ende zehn Meter Sturz ---
+       Gold, nicht rot. Gemessen laeuft dieser Weg in 79,7 % der Zeit des
+       sicheren - das ist eine Gold-Zeit (Sollband 80 bis 85 %), keine
+       Expertenzeit (65 bis 75 %). Rot bleibt zwei Wegen vorbehalten, die
+       es auch einloesen: der Dash-Kette der grossen Gabel (73,5 %) und
+       der oberen Linie in den Ruinen (72,9 %). */
+    b.routeZone(0, FAST, 4, 0, 16, 12, 8, 12);
+    b.routeArch(0, -2, 16, 10, 6, FAST);
     b.plat(0, -2, 30, 11, 16, MAT.stone, { thickness: 1.6 });         /* 22 .. 38 */
     b.deco('box', 0, -12, 30, 7, 20, 10, MAT.rockDark);
     b.plat(0, -3, 62, 11, 16, MAT.stone, { thickness: 1.6 });         /* 54 .. 70 */
@@ -1590,10 +1595,10 @@
     b.gem(0, -2.4, 90, { hint: 'gerade Linie' });
     gemArc(b, 0, -2, 38, 0, -3, 54, 1, 'Luecke');
     gemArc(b, 0, -3, 70, 0, -4, 82, 1, 'Luecke');
-    b.routeMark(0, RISK, 0, -2, 30);
-    b.routeMark(0, RISK, 0, -3, 62);
-    b.routeMark(0, RISK, 0, -4, 90);
-    b.routeArch(0, -4, 97, 10, 5, RISK);
+    b.routeMark(0, FAST, 0, -2, 30);
+    b.routeMark(0, FAST, 0, -3, 62);
+    b.routeMark(0, FAST, 0, -4, 90);
+    b.routeArch(0, -4, 97, 10, 5, FAST);
 
     /* Zusammenfluss. Er liegt so weit hinten, dass zwischen der letzten
        schmalen Flaeche und ihm zwoelf Meter Luft sind - das ist der Sturz,
@@ -1727,7 +1732,7 @@
     /* --- GRUEN: durchgehender Boden mit Tempofeld. Kein Absturzrisiko,
        aber man kommt ohne Hoehe und ohne Ladungen am Ende an. --- */
     b.routeZone(2, SAFE, -13, 0, 30, 14, 8, 16);
-    b.routeArch(-13, -2, 34, 11, 6, SAFE);
+    b.routeArch(-14, -2, 34, 11, 6, SAFE);
     /* Ohne Tempofelder. Sie standen hier, um den sicheren Weg ertraeglich
        zu machen - und taten genau das Falsche: sie hoben sein Tempo
        kuenstlich auf 27 und 29 an und nahmen damit dem roten Weg den
@@ -1735,30 +1740,41 @@
        nichts riskiert, soll auch nichts geschenkt bekommen. Was er
        stattdessen bietet, ist unveraendert: durchgehender Boden, keine
        einzige Stelle, an der man faellt. */
-    /* Ein einziger Spalt von zehn Metern, und zwar mit Absicht.
-       Durchgehend gebaut war dieser Weg 12,28 s schnell - beide
-       Alternativen landeten dann bei 62 bis 64 %, also weit jenseits
-       dessen, was eine Gabel an Belohnung tragen soll. Ganz ohne Spalt
-       ist der Laeufer zu 85 % am Boden, mit Spalten ueberall zu 55 % in
-       der Luft; dazwischen gibt es nur diesen einen Regler. */
-    b.plat(-13, -2, 62, 21, 56, MAT.canyonDeck, { thickness: 2.0 });  /* 34 .. 90 */
-    b.mass(-13, -6, 62, 15, 30, 52, MAT.canyonDark);
-    b.plat(-13, -2, 124, 21, 48, MAT.canyonDeck, { thickness: 2.0 }); /* 100 .. 148 */
-    b.mass(-13, -6, 124, 15, 30, 44, MAT.canyonDark);
+    /* Zwei Spalte - und ihre ANZAHL ist der Regler, nicht ihre Breite.
+       Gemessen mit dem zweiten Spalt bei 5, 8 und 12 m: dreimal exakt
+       9,18 s. Es zaehlt allein, OB dort gesprungen werden muss. Dieser
+       Weg kennt deshalb nur Stufen: durchgehend 12,28 s, ein Spalt
+       10,62 s, zwei Spalte 9,1 s. Neun Komma eins ist die Stufe, auf der
+       die drei Wege als drei Stufen lesbar werden.
+
+       Den Rest macht der Verlauf der Ideallinie. Die Flaechen sind 26 m
+       breit, die Wegpunkte laufen darauf im Zickzack um zwei Meter - das
+       verlaengert den Weg von 280 auf 282 m und kostet 0,22 s, OHNE den
+       Laeufer abheben zu lassen (Luftanteil bleibt 0,34, Landungen
+       bleiben fuenf). Das ist der einzige stufenlose Regler, den dieser
+       Weg hat: versetzte Einzelflaechen heben ab und machen schneller,
+       ein Bogen auf EINER durchgehenden Flaeche macht wirklich langsamer.
+
+       Gemessene Kennlinie (Amplitude -> Zeit): 0 -> 9,04 s, 2 -> 9,26,
+       3 -> 9,43, 4 -> 9,59, 8 -> 10,57, 12 -> 11,21, 16 -> 12,04. */
+    b.plat(-14, -2, 62, 26, 56, MAT.canyonDeck, { thickness: 2.0 });  /* 34 .. 90 */
+    b.mass(-14, -6, 62, 14, 30, 52, MAT.canyonDark);
+    b.plat(-14, -2, 124, 26, 48, MAT.canyonDeck, { thickness: 2.0 }); /* 100 .. 148 */
+    b.mass(-14, -6, 124, 14, 30, 44, MAT.canyonDark);
     /* Bis an den Zusammenfluss heran. Vorher endete der sichere Weg bei
        z 188, der Zusammenfluss begann bei 227 - 39 m Luecke auf dem Weg,
        der keine verlangen darf. */
-    b.plat(-13, -2, 190, 21, 84, MAT.canyonDeck, { thickness: 2.0 }); /* 148 .. 232 */
-    b.mass(-13, -6, 190, 19, 30, 78, MAT.canyonDark);
-    b.routeMark(2, SAFE, -13, -2, 62);
-    b.routeMark(2, SAFE, -13, -2, 124);
-    b.routeMark(2, SAFE, -13, -2, 190);
-    b.mark(-13, -2, 62); b.mark(-13, -2, 124); b.mark(-13, -2, 176); b.mark(-13, -2, 216);
+    b.plat(-14, -2, 194, 26, 76, MAT.canyonDeck, { thickness: 2.0 }); /* 156 .. 232 */
+    b.mass(-14, -6, 194, 14, 30, 70, MAT.canyonDark);
+    b.routeMark(2, SAFE, -16, -2, 62);
+    b.routeMark(2, SAFE, -12, -2, 124);
+    b.routeMark(2, SAFE, -16, -2, 194);
+    b.mark(-16, -2, 62); b.mark(-12, -2, 124); b.mark(-16, -2, 178); b.mark(-12, -2, 216);
 
     /* --- GOLD: mittlere Absaetze, 28 m Abstand, 14 m Luecke --- */
     b.routeZone(2, FAST, 0, 0, 30, 12, 8, 16);
     b.routeArch(0, 4, 34, 10, 6, FAST);
-    chain(b, { n: 5, x: 0, ax: 2, y: 4, dy: 0, z: 50, step: 36, w: 15, d: 29,
+    chain(b, { n: 5, x: 0, ax: 2, y: 4, dy: 0, z: 50, step: 36, w: 15, d: 20,
                mat: MAT.sandstone, pillar: 30, pillarMat: MAT.canyonLight,
                fork: 2, route: FAST, gem: true, hint: 'Mittelweg' });
 
@@ -1807,7 +1823,7 @@
        Dieselbe Falle wie in der Wandschlucht, und dieselbe Antwort:
        riskante Wege steigen nirgends. */
     b.routeArch(11, 0, 30, 9, 5, RISK);
-    chain(b, { n: 6, x: 11, ax: 0, y: 0, dy: 0, z: 38, step: 34, w: 11, d: 16,
+    chain(b, { n: 5, x: 11, ax: 0, y: 0, dy: 0, z: 38, step: 40, w: 11, d: 16,
                mat: MAT.marble, pillar: 34, pillarMat: MAT.sandstoneWorn,
                fork: 2, route: RISK, gem: true, arcGem: 2, hint: 'Dash-Kette' });
     b.routeArch(11, 0, 198, 8, 5, RISK);
@@ -2465,19 +2481,27 @@
 
     /* Richtwert aus Streckenlaenge und Hoehenmetern, geeicht an allen 96
        Routenkombinationen: der Testpilot faehrt die sichere Linie sturzfrei
-       in 62,07 s und die beste Kombination in 46,77 s.
+       in 60,74 s, die beste Kombination in 46,77 s.
 
-       Damit liegt Platin (51,5) nur ueber die schnellen und riskanten Wege
-       drin, und Gold (61,3) ist knapp schneller als ein vollstaendig
-       sicherer Durchlauf - wer nirgends etwas wagt, bekommt Silber. Genau
-       so herum soll es sein: die Medaille misst die Routenwahl, nicht die
-       Ausdauer. */
+       Die Faktoren stehen so, dass die Medaille die ROUTENWAHL misst und
+       nicht die Ausdauer. Mit den vorigen Werten schafften alle 96
+       Kombinationen mindestens Gold, der komplett sichere Lauf
+       eingeschlossen - eine Medaille, die jeder bekommt, sagt nichts.
+
+       Jetzt, am Testpiloten ueber alle 96 Kombinationen gemessen:
+         Platin 51,5 s  erreichen 27 Kombinationen - das obere Drittel
+         Gold   54,1 s  erreichen 57 - gute Routenwahl, nicht perfekte
+         Silber 62,8 s  erreichen alle 96, auch der komplett sichere
+                        Lauf (60,74 s)
+         Bronze 82,4 s  ankommen genuegt
+       Der Testpilot bremst vor jedem Wegpunkt ab; ein Mensch, der die
+       Linie kennt, liegt darunter. */
     var base = pathLen / 36 + totalRise / 22;
     var medals = [
       { name: 'Platin', key: 'platin', time: Math.round(base * 1.00 * 10) / 10 },
-      { name: 'Gold', key: 'gold', time: Math.round(base * 1.19 * 10) / 10 },
-      { name: 'Silber', key: 'silber', time: Math.round(base * 1.45 * 10) / 10 },
-      { name: 'Bronze', key: 'bronze', time: Math.round(base * 1.90 * 10) / 10 }
+      { name: 'Gold', key: 'gold', time: Math.round(base * 1.05 * 10) / 10 },
+      { name: 'Silber', key: 'silber', time: Math.round(base * 1.22 * 10) / 10 },
+      { name: 'Bronze', key: 'bronze', time: Math.round(base * 1.60 * 10) / 10 }
     ];
 
     var level = {
