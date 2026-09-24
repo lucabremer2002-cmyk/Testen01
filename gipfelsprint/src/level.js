@@ -173,6 +173,12 @@
     /* Talboden weit unter dem Parcours - dunkel, damit die Welt nach unten
        hin schliesst statt ins Helle auszulaufen. */
     talboden: mat([0.17, 0.26, 0.22], [0.34, 0.48, 0.36], { pattern: 11, patternScale: 0.012 }),
+    /* Slalomtor. Es muss auf einen Blick als Hindernis lesbar sein - in
+       der ersten Fassung stand dort eine dunkle Platte ohne Struktur, die
+       aus der Entfernung wie ein Stueck Kulisse aussah. Schraege Streifen
+       sagen ueberall auf der Welt dasselbe: hier nicht durch. */
+    tor: mat([0.20, 0.17, 0.20], [0.98, 0.72, 0.16], { pattern: 9, patternScale: 0.26 }),
+    torKante: mat([1.0, 0.85, 0.25], [1.0, 1.0, 0.85], { emissive: 0.55 }),
     farNear: mat([0.22, 0.30, 0.44], [0.58, 0.72, 0.82], { pattern: 11, patternScale: 0.05 }),
     shadow: mat([0.02, 0.05, 0.09], null, { pattern: 7, alpha: 0.4 })
   };
@@ -1552,7 +1558,14 @@
      Millimeter Spielraum. Gemessen verlor der Laeufer damit viermal je
      Lauf mehr als vierzig Prozent Tempo an einer Torkante. Mit 58 Prozent
      bleibt eine schmale Mittelspur fuer den, der sie trifft, und der Rest
-     ist verzeihlich. */
+     ist verzeihlich.
+
+     Der Versuch, sie auf 54 Prozent zu verengen, ging nach hinten los:
+     vier Vollbremsungen statt drei und MEHR Leerlauf statt weniger. Der
+     Grund liegt beim Messwerkzeug, nicht beim Entwurf - der Testpilot
+     folgt Wegpunkten ohne Vorausschau und faehrt deshalb in Kanten, die
+     ein Mensch umfaehrt. Was er an Lenkarbeit anzeigt, ist damit eine
+     Untergrenze, kein Abbild des Spielgefuehls. */
   function slalom(b, o) {
     var pfad = [];
     var halb = o.breite / 2;               /* halbe Korridorbreite */
@@ -1578,10 +1591,13 @@
          Breite - der Spieler soll das Tor sehen, nicht den Koerper. */
       var innen = rechts ? -0.6 : 0.6;
       b.block(o.x + mitte + innen, o.y + h / 2, z, Math.max(1, breit - 1.2), h, t, null, {});
-      b.deco('box', o.x + mitte, o.y + h / 2, z, breit, h, t, o.mat || MAT.rockDark);
-      /* Ein Pfosten an der Durchfahrtskante macht sie lesbar. */
+      b.deco('box', o.x + mitte, o.y + h / 2, z, breit, h, t, o.mat || MAT.tor);
+      /* Ein leuchtender Pfosten an der Durchfahrtskante. Er ist das
+         eigentliche Signal: man faehrt nicht auf die Mauer zu, sondern am
+         Pfosten vorbei - und weil er leuchtet, sieht man ihn auch gegen
+         eine beschattete Wand. */
       b.deco('cylinder', o.x + (rechts ? bisX : vonX), o.y + h * 0.58, z,
-             1.5, h * 1.16, 1.5, MAT.metal);
+             1.6, h * 1.16, 1.6, MAT.torKante);
       var durch = rechts ? (halb - oeff / 2) : (-halb + oeff / 2);
       pfad.push([o.x + durch, o.y, z]);
       if (o.gem) b.gem(o.x + durch, o.y + 1.6, z, { hint: 'Ladung' });
@@ -1895,7 +1911,7 @@
        wieder vier leere Fenster am Stueck. */
     var gslalom = slalom(b, { n: 9, x: -14, breite: 26, oeffnung: 15, y: -2,
                               z0: 46, z1: 220, hoehe: 7, tiefe: 1.2,
-                              mat: MAT.canyonDark, gem: true });
+                              mat: MAT.tor, gem: true });
     for (i = 0; i < gslalom.length; i++) {
       b.mark(gslalom[i][0], gslalom[i][1], gslalom[i][2]);
       b.routeMark(2, SAFE, gslalom[i][0], gslalom[i][1], gslalom[i][2]);
@@ -2114,7 +2130,7 @@
        nichts). */
     var wslalom = slalom(b, { n: 7, x: 0, breite: 20, oeffnung: 12, y: -6,
                               z0: 48, z1: 204, hoehe: 7, tiefe: 1.2,
-                              mat: MAT.rockDark, gem: true });
+                              mat: MAT.tor, gem: true });
     /* Die Marken setzen die Ideallinie. Beide Eintraege sind noetig: der
        Spine (b.mark) fuehrt den sicheren Weg, routeMark nur die Zweige -
        im ersten Versuch stand der Slalom nur in routeMark, der Laeufer
@@ -2248,7 +2264,7 @@
     b.mass(-18, -10, 137, 12, 30, 58, MAT.rockDark);
     var fslalom = slalom(b, { n: 5, x: -18, breite: 18, oeffnung: 12, y: -6,
                               z0: 50, z1: 158, hoehe: 7, tiefe: 1.2,
-                              mat: MAT.rockDark, gem: true });
+                              mat: MAT.tor, gem: true });
     for (i = 0; i < fslalom.length; i++) {
       b.mark(fslalom[i][0], fslalom[i][1], fslalom[i][2]);
       b.routeMark(5, SAFE, fslalom[i][0], fslalom[i][1], fslalom[i][2]);
@@ -2339,7 +2355,7 @@
     }
     var rslalom = slalom(b, { n: 8, x: -16, breite: 28, oeffnung: 16, y: -6,
                               z0: 40, z1: 196, hoehe: 7, tiefe: 1.2,
-                              mat: MAT.sandstone, gem: true });
+                              mat: MAT.tor, gem: true });
     for (i = 0; i < rslalom.length; i++) {
       b.mark(rslalom[i][0], rslalom[i][1], rslalom[i][2]);
       b.routeMark(6, SAFE, rslalom[i][0], rslalom[i][1], rslalom[i][2]);

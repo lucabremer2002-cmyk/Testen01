@@ -60,6 +60,97 @@ CSS-Pixel gedeckelt - dreifache Pixeldichte kostet dort mehr Leistung als
 sie bringt. Faellt die Bildrate laenger unter 40, schaltet sich zusaetzlich
 Bloom ab.
 
+## Zwei Strecken
+
+Im Menue laesst sich umschalten; die Wahl ueberlebt das Neuladen.
+
+| | Kurzstrecke "Der Sturz" | Lange Strecke "Gipfelsprint" |
+| --- | --- | --- |
+| Dauer | 23 bis 26 s | 47 bis 69 s |
+| Abschnitte | 3 | 8 |
+| Abzweige | 2 | 6 |
+| Vorgabe | **ja** | nein |
+
+Die Kurzstrecke ist die Vorgabe, weil ein misslungener Lauf dort sofort
+zum naechsten einlaedt. Sie ist um die eine Mechanik gebaut, die dieses
+Movement von anderen unterscheidet: **Hoehe wird Tempo**. Wer mit
+gedrueckter Rutschtaste aufkommt, rechnet 62 Prozent seiner
+Aufprallgeschwindigkeit in Vortrieb um - ab sieben Metern Fall. Jeder
+Sturz bezahlt dort den naechsten Sprung.
+
+## Slalomstrecken: warum die sicheren Wege Tore haben
+
+Gemessen war der sichere Weg der langen Strecke lange das schlechteste am
+ganzen Projekt: **62 Prozent des Laufs ohne eine einzige Eingabe**, die
+laengste tote Strecke 5,5 Sekunden am Stueck. Beide Alternativrouten lagen
+bei 25 bis 27 Prozent. Und ausgerechnet den sicheren Weg nimmt ein
+Anfaenger zuerst.
+
+Die Ursache war ein Widerspruch aus der Routenarbeit: um die
+Zeithierarchie zu bekommen, waren die sicheren Wege flach, lueckenlos und
+gerade gebaut. Das ergibt verlaesslich langsame Wege - und damit per
+Konstruktion leere Korridore.
+
+Die Aufloesung ist **Lenken statt Springen**:
+
+* Sprungketten heben ab, und in der Luft zerfaellt Tempo mit 2,5 statt 7
+  Einheiten je Sekunde. Sie machen einen Weg also SCHNELLER.
+* Lenken haelt den Laeufer am Boden. Es ist die einzige Handlung, die
+  einen sicheren Weg beschaeftigt, ohne ihn schnell zu machen.
+
+Vier Slalomstrecken (Grosse Gabel, Wandschlucht, Wasserfall, Ruinen), je
+ein Tor alle 20 bis 30 Meter. Jedes Tor sperrt eine Seite des Korridors,
+die offene Seite wechselt - die Linie MUSS schwingen.
+
+| | vorher | nachher |
+| --- | --- | --- |
+| laengste Leere | 5,5 s | 2,0 s |
+| Leerlaufanteil | 62 % | 30 % |
+| sicherer Lauf | 60,7 s | 69,1 s |
+
+Zwei Zugestaendnisse an die Fairness stecken darin: der
+Kollisionskoerper ist an der Durchfahrtskante 1,2 m schmaler als die
+sichtbare Mauer (derselbe Kniff wie die Nachfrist an einer
+Absprungkante - was knapp aussieht, geht knapp durch), und die
+Durchfahrt misst 58 statt 50 Prozent der Korridorbreite.
+
+Vier Fehlschlaege auf dem Weg dorthin, alle im Code vermerkt: einzelne
+Nadeln links und rechts liessen die MITTE frei (null Grad Kursaenderung
+ueber die ganze Strecke); das Messwerkzeug zaehlte nur Spruenge und
+Dashes, hielt einen Slalom bei Tempo 40 also fuer genauso leer wie einen
+geraden Korridor; der Slalom stand nur in `routeMark`, der sichere Weg
+folgt aber dem Spine; und ein Rechenfehler machte bei jedem ZWEITEN Tor
+die Mauer so breit wie die Oeffnung sein sollte.
+
+## Rauschgrenze: wenn ein Sturz ueber den Deckel traegt
+
+Gemessen lag das Tempo im ganzen Lauf bei 36 bis 40 und beruehrte den
+Deckel von 46 genau zweimal - durchgehend schnell und deshalb ohne jede
+Dynamik. Eine Belohnung, die man nicht sieht, ist keine.
+
+Ab Aufprall 36 (rund zehn Meter Fall) steigt die Hoechstgeschwindigkeit
+fuer 1,6 s auf **56**. Sie ist ausschliesslich durch Koennen zu bekommen:
+man muss hoch gewesen sein UND die Rutschtaste im richtigen Moment
+halten. Danach faellt das Tempo normal zurueck - wer den Rausch nicht in
+Strecke umsetzt, verliert ihn.
+
+## Gemessene Reaktionszeiten
+
+`node tools/reaktion.js` - ein Schritt sind 8,3 ms.
+
+| | |
+| --- | --- |
+| erste Bewegung | 1 Schritt |
+| Sprung setzt ein | 1 Schritt |
+| Dash setzt ein | 1 Schritt |
+| Wende, Richtung kippt | 13 Schritte |
+| Sprungpuffer (Nachsicht) | 120 ms |
+| Nachfrist Kante (Nachsicht) | 100 ms |
+
+Die drei Kernaktionen antworten im naechsten Simulationsschritt. Puffer
+und Nachfrist sind keine Verzoegerung, sondern Fenster, in denen eine zu
+frueh oder zu spaet gedrueckte Taste trotzdem zaehlt - gross ist dort gut.
+
 ## Der Kreislauf
 
 Ein Lauf endet nur auf zwei Arten: im Ziel oder mit einem Sturz. Es gibt
@@ -629,6 +720,28 @@ auf x 11 lag, ging sie zufaellig daran vorbei; auf x 5 nicht mehr.
 gebaut wird, ist durchlaessig. Streudeko in Wegnaehe ist damit rein
 sichtbar. Ein Level darf aussehen, wie es will - einen Lauf beenden darf
 nur Geometrie, die jemand mit Absicht dorthin gesetzt hat.
+
+### Die Pruefwerkzeuge
+
+Alle messen ohne Rendering und sind in Sekunden durch. Ohne `MR_SATZ`
+messen sie die LANGE Strecke.
+
+| Aufruf | misst |
+| --- | --- |
+| `node tools/selftest.js` | Determinismus, Laufuhr, Bildratenunabhaengigkeit, Tunneln, Kosten je Bild |
+| `node tools/routen-alle.js` | alle 96 Routenkombinationen auf Durchlaufbarkeit |
+| `node tools/routen-lohnen.js` | Zeitvorteil je Abzweig gegen denselben Anlauf |
+| `node tools/spielgefuehl.js [wahl]` | Zeitleiste: Leerlauf, Tempo, Lenkarbeit, Vollbremsungen |
+| `node tools/reaktion.js` | Eingabeverzoegerung je Kernaktion |
+| `node tools/bestzeit.js` | Wiederspiel-Schleife: Bestzeit, Geist, laufender Rueckstand |
+| `node tools/gabel-pruefen.js` | die dreifache Gabel unter jedem Anlauf |
+| `MR_SATZ=sturz node tools/...` | dasselbe auf der Kurzstrecke |
+
+Was sie **nicht** koennen: sagen, ob das Spiel Spass macht. Der Testpilot
+folgt Wegpunkten ohne Vorausschau - er weicht nicht aus, sammelt nicht und
+waehlt keine Linie. Seine Lenkarbeit ist eine Untergrenze, seine
+Zusammenstoesse sind kein Beweis fuer Unfairness. Ein gruener Selbsttest
+heisst: die Technik funktioniert. Mehr nicht.
 
 ### Selbsttest: die technische Basislinie
 
