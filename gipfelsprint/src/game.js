@@ -1021,8 +1021,15 @@
       g.vignette = 0.42 + t * 0.26 + stoss * 0.20;
       /* Gemessen am Bild: 0,0022 bei Hoechsttempo war deutlich zu viel -
          die Anzeige bekam sichtbare Regenbogenraender. Ein Drittel davon
-         liest sich als Linse, nicht als Fehler. */
-      g.chroma = 0.0003 + t * 0.0008 + stoss * 0.0014;
+         liest sich als Linse, nicht als Fehler.
+
+         Auf Beruehrungsgeraeten bleibt er aus. Er ist die teuerste
+         Zutat des ganzen Durchgangs: vier zusaetzliche Texturabgriffe je
+         Bildpunkt, und zwar genau dann, wenn ohnehin viel los ist. Was
+         er beitraegt, ist ein Randeffekt - das ist auf einem Telefon die
+         erste Sache, die man streicht. Dieselbe Linie wie bei Schatten
+         (1024 statt 2048) und Gras (halbe Dichte). */
+      g.chroma = this.input.isTouch ? 0.0 : (0.0003 + t * 0.0008 + stoss * 0.0014);
       g.bloom = 0.46 + t * 0.14 + stoss * 0.18;
     }
   };
