@@ -25,9 +25,15 @@
      Spruenge, kein Jet. Das braucht bestzeit.js, um einen Rueckstand
      gegen den Geist zu ERZWINGEN - ein Wert nahe null sagt sonst nicht,
      ob die Messung stimmt oder ob nur nichts passiert ist. */
+  /* opts.ohneJet sperrt die Duese vollstaendig. Damit laesst sich die
+     wichtigste Zusage des Entwurfs PRUEFEN statt behaupten: der
+     Hauptweg muss ohne einen einzigen Zuendvorgang durchfahrbar sein.
+     Ein sicherer Weg, der den Jet braucht, ist kein sicherer Weg - und
+     ob er ihn braucht, sieht man nur, wenn man ihn wegnimmt. */
   function neu(g, opts) {
     return {
       bremse: !!(opts && opts.bremse),
+      ohneJet: !!(opts && opts.ohneJet),
       wi: 1, tode: 0, stuck: 0, lastZ: g.player.z, fest: false, steigt: false,
       cmd: { wishX: 0, wishZ: 0, slide: false, jet: false,
              jumpPressed: false, jumpHeld: false }
@@ -165,11 +171,14 @@
     var unterKante = p.y < tgt[1] + 1.5 && !federTraegt;
     var weitGenug = d2 <= p.speed * flugRest + 2;
 
-    if (!p.grounded && !below && !st.bremse) {
+    if (!p.grounded && !below && !st.bremse && !st.ohneJet) {
       var tankDa = p.tank > 0.1;
       if (unterKante) {
         if (p.jumps > 0 && p.vy < 2 && tgt[1] - p.y <= 4.0) {
-          /* Der Doppelsprung traegt 4,91 m und kostet nichts. */
+          /* Der Doppelsprung traegt 4,65 m und kostet nichts. Er hat
+             immer Vorrang: wer eine Stufe mit der Duese nimmt, die ein
+             Sprung schafft, steht zwei Stufen spaeter ohne Tank vor
+             einer, die sie wirklich braucht. */
           c.jumpPressed = true;
         } else if (tankDa) {
           c.jet = true;
@@ -189,6 +198,13 @@
           if (p.jumps > 0 && p.vy < 2) c.jumpPressed = true;
           else if (tankDa) c.jet = true;     /* Richtung bleibt stehen */
         }
+      }
+    } else if (st.ohneJet && !p.grounded && !below) {
+      /* Ohne Duese bleibt nur der Doppelsprung - und der muss dann auch
+         genommen werden, sonst faellt der Pilot in jede Luecke, die ein
+         Mensch mit ihm ueberwindet. */
+      if (p.jumps > 0 && p.vy < 2 && (p.y < tgt[1] + 1.5 || !weitGenug)) {
+        c.jumpPressed = true;
       }
     }
     if (p.grounded) st.steigt = false;

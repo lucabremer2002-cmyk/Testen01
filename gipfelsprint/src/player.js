@@ -42,8 +42,13 @@
     LOOK_SMOOTH: 20,
 
     /* Grundtempo. Es gibt keine Sprinttaste mehr - die Figur laeuft immer
-       so schnell sie kann, die Taste ist zum Rutschen da. */
-    RUN: 17.0,
+       so schnell sie kann, die Taste ist zum Rutschen da.
+
+       RUN ist zugleich die Obergrenze fuer den Jet. Das ist keine
+       Nebensache, sondern die Regel, aus der das ganze Spiel folgt: der
+       Jet macht nicht schneller, er macht den WEG kuerzer. Siehe
+       JET_TEMPO weiter unten. */
+    RUN: 20.0,
 
     ACCEL_GROUND: 200,
     ACCEL_AIR: 88,
@@ -99,12 +104,26 @@
        kann; der Testpilot verfehlte reihenweise Landungen. Die Geometrie
        ist auf 25 bis 40 ausgelegt, 46 ist die Spitze fuer einen grossen
        Sturz - nicht der Normalfall. */
-    SPEED_CAP: 46,
+    /* 27 statt 46 - und das ist die zweite Haelfte derselben
+       Entscheidung.
+
+       Solange der Jet auf Laufgeschwindigkeit gedeckelt ist, entscheidet
+       sich der Wert einer Abkuerzung an einem Verhaeltnis: wie schnell
+       man ohne Jet unterwegs ist, geteilt durch die Jetgeschwindigkeit.
+       Bei 46 gegen 20 muesste eine Abkuerzung auf 43 Prozent der Strecke
+       verkuerzen, um sich ueberhaupt zu lohnen - das gibt es in keinem
+       Level. Bei 27 gegen 20 genuegen 74 Prozent, und das ist ein Raum,
+       in dem man entwerfen kann.
+
+       Der zweite Grund ist die Lesbarkeit. Bei 46 m/s (166 km/h) blieben
+       auf einer 24-m-Plattform funf Zehntelsekunden - zu wenig, um zu
+       sehen, wohin man springt. Bei 27 sind es neun. */
+    SPEED_CAP: 27,
     /* Kurzzeitige Rauschgrenze nach einem grossen Sturz - siehe die
        Rutschlandung weiter unten. Aufprall 36 entspricht rund zehn
        Metern Fall; darunter bleibt alles beim Alten. */
     RAUSCH_MIN: 36,
-    RAUSCH_CAP: 56,
+    RAUSCH_CAP: 31,
     RAUSCH_ZEIT: 1.6,
     /* Erst ab dieser Aufprallgeschwindigkeit zaehlt es als Sturz - 30
        entspricht rund sieben Metern Fall.
@@ -147,7 +166,30 @@
        zu Stufen von 9 bis 16 Metern: genug Reserve, dass sie gelingen,
        zu wenig, dass man sie ueberfliegen koennte. */
     JET_SCHUB_V: 108,         /* senkrechter Schub - netto +48 gegen 64 Fall */
-    JET_MAX: 52,              /* Hoechsttempo unter Schub, ueber SPEED_CAP 46 */
+    /* ================================================================
+       DIE OBERGRENZE DES JETS - die wichtigste Zahl des Spiels
+       ================================================================
+
+       JET_TEMPO ist gleich RUN. Nicht ungefaehr, nicht knapp darueber:
+       gleich. Solange die Duese brennt, ist die Figur nie schneller als
+       ein Mensch, der einfach laeuft.
+
+       Das ist Absicht und der Kern des Entwurfs. Der Jet ist keine
+       Schubduese fuer dieselbe Strecke, sondern ein Werkzeug, um eine
+       ANDERE Strecke zu nehmen - ueber die Schlucht statt um sie herum,
+       durch die Luecke statt um die Ruine. Die Zeit spart, wer weniger
+       Meter faehrt, nicht wer dieselben Meter schneller faehrt.
+
+       Waere JET_TEMPO groesser als RUN, waere der Jet sofort wieder ein
+       Tempoknopf: man haelt ihn auf gerader Strecke gedrueckt und ist
+       schneller, ohne eine einzige Entscheidung getroffen zu haben. Das
+       Tempogefuehl kommt stattdessen aus Blickfeld, Flamme, Ton und
+       Kamera - siehe die Kamerarechnung ganz unten.
+
+       Durchgesetzt wird die Grenze in EINER Zeile, weiter unten im
+       Jet-Block:  "harte Deckelung" suchen. Sie greift jeden Schritt,
+       egal wie schnell die Figur hineinfliegt. */
+    JET_TEMPO: 20,            /* == RUN. Der Jet macht nie schneller. */
     JET_STEIG_MAX: 22,        /* so schnell steigt man hoechstens */
     JET_V_NEIGUNG: 0.10,      /* wie stark volles Steuerkreuz den Auftrieb nimmt */
     JET_QUERBREMSE: 1.4,      /* Tempoverlust je Sekunde, wenn man nicht lenkt */
@@ -172,8 +214,8 @@
     WALL_COYOTE: 0.14,
     WALL_MIN_SPEED: 7,
 
-    COYOTE: 0.10,
-    BUFFER: 0.12,
+    COYOTE: 0.16,
+    BUFFER: 0.20,
     TURN_RATE: 16
   };
 
@@ -418,8 +460,19 @@
           this.vz += jz * P.JET_SCHUB_H * schubH * dt;
           this.yaw = Math.atan2(jx, jz);
         }
+        /* --------------------------------------------- harte Deckelung
+           Hier und nur hier wird die Obergrenze durchgesetzt. Sie gilt in
+           JEDEM Simulationsschritt, in dem der Jet brennt, und sie gilt
+           unabhaengig davon, womit man hineinfliegt: wer mit Tempo 27 aus
+           einer Rutschlandung kommt und zuendet, ist im selben Schritt
+           auf 20 herunter. Der Jet gibt also nie Tempo, er nimmt
+           allenfalls welches - und genau deshalb ist die Frage "wo
+           zuende ich" eine echte Frage. */
         var jsp = Math.hypot(this.vx, this.vz);
-        if (jsp > P.JET_MAX) { this.vx *= P.JET_MAX / jsp; this.vz *= P.JET_MAX / jsp; }
+        if (jsp > P.JET_TEMPO) {
+          var k = P.JET_TEMPO / jsp;
+          this.vx *= k; this.vz *= k;
+        }
 
         /* Senkrecht - und hier steckt die eigentliche Entscheidung.
 
@@ -447,10 +500,12 @@
                              this.vy + P.JET_SCHUB_V * vertAnteil * dt);
         }
 
-        /* Der Zerfall weiter unten zieht alles ueber RUN herunter. Ohne
-           diese Ausnahme arbeitete er gegen den eigenen Schub. */
-        this.boostCap = P.JET_MAX;
-        this.boostTimer = Math.max(this.boostTimer, 0.08);
+        /* Frueher stand hier eine Ausnahme vom Tempozerfall, damit der
+           Jet ueber RUN hinaus beschleunigen konnte. Sie ist weg - sie
+           war genau das, was den Jet zum Tempoknopf gemacht hat. Ohne sie
+           zieht der gewoehnliche Zerfall die Figur nach dem Loslassen auf
+           Laufgeschwindigkeit, und es bleibt kein Schwung uebrig, mit dem
+           man schneller vorankaeme als zu Fuss. */
         /* Kein Ereignis je Schritt. Die Simulation laeuft mit 120 Hz, das
            waeren 120 Meldungen je Sekunde fuer einen Zustand, der ohnehin
            in jetAn steht - und bis zu acht Flammenstoesse in einem
@@ -876,6 +931,7 @@
       fov: 1.26,
       fovBase: 1.26,
       fovNow: 1.26,
+      jetGlut: 0,           /* gedaempfter Schubzustand, 0 .. 1 */
       fovPunch: 0,          /* kurzer Stoss beim Zuenden */
       landPunch: 0,         /* kurzes Einfedern bei harter Landung */
       pos: new Float32Array(3),
@@ -937,29 +993,40 @@
 
       /* Bei Tempo etwas weiter weg, beim Fallen hoeher und mit Blick nach unten. */
       var fall = M.clamp(-player.vy / 26, 0, 1);
-      /* Frueher stand hier DASH_SPEED. Die Konstante gibt es nicht mehr,
-         seit der Dash weg ist - die Rechnung waere NaN geworden und haette
-         das ganze Blickfeld mitgerissen. Bezug ist jetzt die normale
-         Hoechstgeschwindigkeit; was der Jet darueber hinaus gibt, kommt
-         als eigener Anteil dazu und ist damit als EXTRA zu sehen statt im
-         Tempo unterzugehen. */
       var fast = M.clamp((speed - P.RUN * 0.9) / (P.SPEED_CAP - P.RUN), 0, 1);
-      var schub = M.clamp((speed - P.SPEED_CAP) / (P.JET_MAX - P.SPEED_CAP), 0, 1);
+
+      /* ---------------------------------------------- Schub ist ein BILD
+         Frueher las diese Zeile das Tempo ueber der Hoechstgeschwindigkeit
+         ab. Das geht nicht mehr, und zwar bewusst nicht: der Jet ist auf
+         Laufgeschwindigkeit gedeckelt, er erzeugt also gar kein Tempo
+         mehr, das man ablesen koennte.
+
+         Der Eindruck von Schub muss deshalb vollstaendig aus der
+         Darstellung kommen - Blickfeld, Flamme, Ton, Kamera. Gelesen wird
+         der ZUSTAND, nicht die Geschwindigkeit, und er wird gedaempft,
+         damit das Bild nicht springt: beim Zuenden weitet es sich in
+         einer Zehntelsekunde, beim Loslassen braucht es drei. Dieses
+         Nachlaufen ist der ganze Trick - es fuehlt sich an wie Schwung,
+         der sich legt, obwohl kein Schwung da war. */
+      var schubZiel = player.jetAn ? 1 : 0;
+      this.jetGlut = instant ? schubZiel
+                             : M.damp(this.jetGlut || 0, schubZiel,
+                                      schubZiel > (this.jetGlut || 0) ? 11 : 3.2, dt);
+      var schub = this.jetGlut;
       /* Steigen und Fallen sind in einem senkrechten Level der halbe
          Inhalt. Die Kamera muss deshalb mitteilen, wohin es geht: beim
          Steigen rueckt der Blick nach oben, beim Fallen nach unten. Der
          Anteil ist bewusst klein und traege - eine Kamera, die dem
          Steigen voll folgt, ist genau die Sorte, von der schlecht wird. */
       var steigen = M.clamp(player.vy / 26, 0, 1);
-      var wantDist = this.dist + fast * 2.6 + fall * 1.4 + schub * 1.2;
+      var wantDist = this.dist + fast * 2.6 + fall * 1.4 + schub * 1.9;
       this.distNow = instant ? wantDist : M.damp(this.distNow, wantDist, 5, dt);
 
-      /* Blickfeld: leicht weiter beim Sprint, deutlich beim Dash. */
-      /* Tempo weitet das Sichtfeld: die Umgebung zieht sichtbar schneller
-         vorbei, ohne dass die Figur kleiner wird. Der Stoss beim Dash klingt
-         langsamer ab als vorher - bei 7 war er vorbei, bevor man ihn
-         bemerkt hat. */
-      var wantFov = this.fovBase + fast * 0.13 + (player.jetAn ? 0.11 : 0) + schub * 0.06;
+      /* Blickfeld. Tempo weitet es ein wenig, der Jet deutlich - und der
+         Jet-Anteil ist mit 0,20 der groesste Einzelposten im ganzen Bild.
+         Das ist kein Zufall: er traegt jetzt allein, was frueher die
+         Geschwindigkeit getragen hat. */
+      var wantFov = this.fovBase + fast * 0.11 + schub * 0.20;
       /* Beim Zuenden weitet sich das Bild schnell, beim Loslassen zieht es
          sich langsamer zusammen. Symmetrisch gedaempft fuehlte sich das
          Nachlassen wie ein zweiter Stoss an. */

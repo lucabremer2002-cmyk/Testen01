@@ -154,8 +154,8 @@
     /* Vorgabe ist der Turm - das senkrechte Level, um den Jet herum
        gebaut. Die beiden alten Strecken bleiben waehlbar, sie sind aber
        fuer den Dash entworfen und spielen sich mit dem Jet anders. */
-    try { this.satz = localStorage.getItem('mr_satz') || 'turm'; } catch (e) {}
-    if (['turm', 'lang', 'sturz'].indexOf(this.satz) < 0) this.satz = 'turm';
+    try { this.satz = localStorage.getItem('mr_satz') || 'tal'; } catch (e) {}
+    if (['tal', 'turm', 'lang', 'sturz'].indexOf(this.satz) < 0) this.satz = 'tal';
     if (!LevelMod.SETS || !LevelMod.SETS[this.satz]) this.satz = 'sturz';
     this.level = LevelMod.build({ grassScale: this.input.isTouch ? 0.5 : 1, satz: this.satz });
     this.player = root.MR.player.create(this.level);
@@ -289,6 +289,10 @@
        Strecke etwas anderes verspricht als das, was gleich kommt, ist
        schlimmer als gar keine. */
     var SATZ = {
+      tal:   { weiter: 'turm',
+               knopf: 'Das Tal \u2013 die Strecke (ca. 45 s)',
+               zeile: 'Ein Tal, zwei Abzweige, ein Ziel. Der Jet macht nicht schneller \u2013 ' +
+                      'er macht den Weg k\u00fcrzer.' },
       turm:  { weiter: 'lang',
                knopf: 'Turm \u2013 senkrecht (ca. 30 s)',
                zeile: 'Hundertdreissig Hoehenmeter, drei Aufstiege, ein Sturz. ' +
@@ -297,12 +301,12 @@
                knopf: 'Lange Strecke \u2013 Gipfelsprint (ca. 60 s)',
                zeile: 'Ein Lauf, eine Minute, keine Checkpoints. Sechs Abzweige \u2013 ' +
                       'der schwerste Weg ist jedes Mal der schnellste.' },
-      sturz: { weiter: 'turm',
+      sturz: { weiter: 'tal',
                knopf: 'Kurzstrecke \u2013 Der Sturz (ca. 25 s)',
                zeile: 'Ein Lauf, fuenfundzwanzig Sekunden, keine Checkpoints. ' +
                       'Jeder Sturz bezahlt den naechsten Sprung.' }
     };
-    var satz = SATZ[self.satz] || SATZ.turm;
+    var satz = SATZ[self.satz] || SATZ.tal;
     /* Der Untertitel versprach frueher fest "Sechs Abzweige" - das gilt
        fuer die lange Strecke. Eine Zeile, die etwas anderes verspricht
        als das, was gleich kommt, ist schlimmer als gar keine. */
@@ -1348,7 +1352,7 @@
         this.jetEmit -= n;
         if (n > 0) {
           var sp = Math.hypot(pj.vx, pj.vz);
-          var quer = Math.min(1, sp / TUNING.JET_MAX);
+          var quer = Math.min(1, sp / TUNING.JET_TEMPO);
           this.particles.burst(
             pj.x - (sp > 0.5 ? pj.vx / sp : 0) * 0.5,
             pj.y - 0.45,
@@ -1360,7 +1364,7 @@
               grav: -3, spread: 0.45
             });
         }
-        Audio.sfx.jetHalten(Math.min(1, Math.hypot(pj.vx, pj.vz) / TUNING.JET_MAX));
+        Audio.sfx.jetHalten(Math.min(1, Math.hypot(pj.vx, pj.vz) / TUNING.JET_TEMPO));
       } else { this.jetEmit = 0; }
     }
 
