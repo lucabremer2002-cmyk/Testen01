@@ -773,7 +773,11 @@
 
   /* Wegweiser in der Routenfarbe - die Abzweige sollen sichtbar sein. */
   var ROUTE_MAT = ['routeSafe', 'routeFast', 'routeInsane'];
-  var ROUTE_NAME = ['SICHER', 'SCHNELL', 'IRRE'];
+  /* Die Namen erscheinen auf den Wegweisern und im Ergebnis. "Schnell"
+     beschrieb frueher den zweiten Zweig - aber seit der Jet auf
+     Laufgeschwindigkeit gedeckelt ist, ist daran nichts schnell: er ist
+     KUERZER. Das Wort soll sagen, was man bekommt. */
+  var ROUTE_NAME = ['SICHER', 'ABKUERZUNG', 'IRRE'];
   B.routeSign = function (lx, ly, lz, branch, o) {
     o = o || {};
     var m = MAT[ROUTE_MAT[branch]];
@@ -3189,6 +3193,25 @@
      einziges Mal zu zuenden.
      =================================================================== */
 
+  /* SOCKEL SITZEN DICHT UNTER IHRER FLAECHE
+     ---------------------------------------
+     b.mass(x, y, z, b, h, t) setzt einen Block, dessen OBERKANTE bei y
+     liegt. Steht dort ein Wert vier bis sechs Meter unter der Plattform,
+     die Plattform ist aber nur zwei bis drei Meter dick, klafft eine
+     sichtbare Luecke - und die Flaeche schwebt.
+
+     Genau so war es an allen funfzehn handgeschriebenen Sockeln des
+     Tals. Im Spiel sah man Plattformen mit dunkler Unterseite frei in
+     der Luft haengen, mit einem Felsen darunter, der sie nicht
+     beruehrte. Aufgefallen ist es erst, als ich das Level zum ersten Mal
+     gerendert habe; gerechnet hatte alles gestimmt.
+
+     Die Oberkante liegt jetzt ueberall 1,5 m unter der Plattform, also
+     INNERHALB von ihr, und die Hoehe ist um denselben Betrag gewachsen -
+     der Sockel reicht also genauso tief wie vorher.
+
+     Die weg()-Funktion machte es von Anfang an richtig (y - 1.6). */
+
   /* FARBSPRACHE DES TALS
      --------------------
      Jede Zone hat EIN Bodenmaterial, und die Zone wechselt nur, wenn die
@@ -3277,7 +3300,7 @@
 
     /* Startwiese. Breit, damit man sich orientieren kann. */
     b.plat(0, 0, 10, 34, 30, MAT.meadowLush, { thickness: 2.8 });
-    b.mass(0, -4, 10, 30, 40, 26, MAT.rock);
+    b.mass(0, -1.5, 10, 30, 42, 26, MAT.rock);
     b.start = { x: b.toWorldX(0, 0), y: b.cursor.y + 0.1, z: b.toWorldZ(0, 0), yaw: b.cursor.yaw };
     b.mark(0, 0, 0);
     for (i = 0; i < 4; i++) b.tree(-15 + (i % 2) * 30, 0, 2 + i * 7, 1.1 + (i % 3) * 0.2, { kind: 'broad' });
@@ -3294,7 +3317,7 @@
        knapp. Die Landeflaeche ist zwanzig Meter tief; wer zu frueh
        springt, kommt trotzdem an. */
     b.plat(18, 6, 110, 26, 22, MAT.meadow, { thickness: 2.2 });
-    b.mass(18, 2, 110, 22, 34, 18, MAT.rock);
+    b.mass(18, 4.5, 110, 22, 36, 18, MAT.rock);
     b.mark(18, 6, 110);
     gemArc(b, 15, 5, 93, 18, 6, 99, 2, 'erster Sprung');
     b.arch(18, 6, 122, 16, 9, MAT.gold);
@@ -3326,7 +3349,7 @@
 
     /* Die Kante, von der aus man beides sieht: den Rand und die Mulde. */
     b.plat(0, 0, 16, 30, 26, MAT.meadow, { thickness: 2.4 });
-    b.mass(0, -4, 16, 26, 36, 22, MAT.rock);
+    b.mass(0, -1.5, 16, 26, 38, 22, MAT.rock);
     b.mark(0, 0, 16);
     for (i = 0; i < 2; i++) b.routeMark(0, i, 0, 0, 16);
     b.routeSign(-13, 0, 26, SAFE);
@@ -3388,7 +3411,7 @@
        war keine Abkuerzung, sondern eine Unmoeglichkeit, und das Werkzeug
        hat es sofort gemeldet. */
     b.plat(17, 3, 76, 26, 22, MAT.meadow, { thickness: 2.2 });
-    b.mass(17, -3, 76, 22, 34, 18, MAT.cliff);
+    b.mass(17, 1.5, 76, 22, 38, 18, MAT.cliff);
     b.routeMark(0, FAST, 17, 3, 76);
     landemarke(b, 17, 3, 68, FAST);
     gemArc(b, 13, 2, 38, 17, 3, 65, 4, 'ueber die Senke');
@@ -3405,7 +3428,7 @@
        Sekunden. Ein Spiel, das fuer einen misslungenen Versuch den
        ganzen Lauf nimmt, wird nicht zum zweiten Mal versucht. */
     b.plat(6, -22, 80, 64, 70, MAT.turfLush, { thickness: 3.0 });
-    b.mass(6, -28, 80, 58, 40, 64, MAT.rock);
+    b.mass(6, -23.5, 80, 58, 44, 64, MAT.rock);
     for (i = 0; i < 6; i++) {
       b.rock(-14 + i * 11, -22, 56 + i * 10, 1.6 + (i % 3) * 0.7, { kind: 'stack' });
       b.tree(20 - i * 8, -22, 70 + i * 9, 0.9 + (i % 2) * 0.3, { kind: 'fir' });
@@ -3422,7 +3445,7 @@
 
     /* Zusammenfluss: eine breite Terrasse, auf der beide Linien enden. */
     b.plat(2, 14, 182, 36, 28, MAT.meadow, { thickness: 2.6 });
-    b.mass(2, 8, 182, 32, 44, 24, MAT.rock);
+    b.mass(2, 12.5, 182, 32, 48, 24, MAT.rock);
     b.mark(2, 14, 182);
     for (i = 0; i < 2; i++) b.routeMark(0, i, 2, 14, 182);
     b.arch(2, 14, 196, 20, 10, MAT.gold);
@@ -3455,7 +3478,7 @@
        Spiel ihre Pfade aneinander und konnte nicht mehr unterscheiden,
        welche der beiden Abkuerzungen genommen wurde. */
     b.plat(0, 0, 14, 30, 26, MAT.sandstoneWorn, { thickness: 2.4 });
-    b.mass(0, -4, 14, 26, 34, 22, MAT.rock);
+    b.mass(0, -1.5, 14, 26, 36, 22, MAT.rock);
     b.mark(0, 0, 14);
     for (i = 0; i < 2; i++) b.routeMark(1, i, 0, 0, 14);
     b.routeSign(-12, 0, 24, SAFE);
@@ -3488,7 +3511,7 @@
     /* Die eine Stufe des Abschnitts: 2,8 m hoch, 11 m weit - beides
        unter der Fairnessgrenze von 3,25 und 13,6. */
     b.plat(0, 11.8, 152, 26, 22, MAT.sandstoneWorn, { thickness: 2.2 });
-    b.mass(0, 6, 152, 22, 34, 18, MAT.sandstoneWorn);
+    b.mass(0, 10.3, 152, 22, 38, 18, MAT.sandstoneWorn);
     b.mark(0, 11.8, 152);
     b.routeMark(1, SAFE, 0, 11.8, 152);
     gemArc(b, -2, 9, 142, 0, 11.8, 152, 2, 'eine Stufe');
@@ -3519,7 +3542,7 @@
     b.routeMark(1, FAST, 4, 13, 172);
 
     b.plat(2, 13, 176, 34, 28, MAT.sandstoneWorn, { thickness: 2.6 });
-    b.mass(2, 7, 176, 30, 40, 24, MAT.rock);
+    b.mass(2, 11.5, 176, 30, 44, 24, MAT.rock);
     b.mark(2, 13, 176);
     for (i = 0; i < 2; i++) b.routeMark(1, i, 2, 13, 176);
     b.arch(2, 13, 190, 20, 10, MAT.gold);
@@ -3561,7 +3584,7 @@
     for (i = 0; i < 4; i++) b.tree(-16 + i * 12, -5, 20 + i * 12, 1.0 + (i % 3) * 0.3, { kind: 'pine' });
 
     b.plat(0, -8, 76, 34, 24, MAT.scree, { thickness: 2.4 });
-    b.mass(0, -13, 76, 30, 36, 20, MAT.cliff);
+    b.mass(0, -9.5, 76, 30, 40, 20, MAT.cliff);
     b.mark(0, -8, 76);
     for (i = 0; i < 2; i++) b.routeMark(2, i, 0, -8, 76);
     b.routeSign(-15, -8, 84, SAFE);
@@ -3600,7 +3623,7 @@
     b.routeArch(15, -8, 90, 10, 7, FAST);
     b.routeMark(2, FAST, 14, -8, 84);
     b.plat(16, -9, 136, 28, 24, MAT.scree, { thickness: 2.4 });
-    b.mass(16, -14, 136, 24, 36, 20, MAT.cliff);
+    b.mass(16, -10.5, 136, 24, 40, 20, MAT.cliff);
     b.routeMark(2, FAST, 16, -9, 136);
     landemarke(b, 16, -9, 128, FAST);
     gemArc(b, 15, -8, 92, 16, -9, 124, 4, 'ueber die Schlucht');
@@ -3617,7 +3640,7 @@
        sah es aus wie ein Farbfehler. scree ist grauer Schutt, und genau
        das liegt unten in einer Schlucht. */
     b.plat(-14, -26, 132, 96, 86, MAT.scree, { thickness: 3.0 });
-    b.mass(-14, -32, 132, 90, 44, 78, MAT.rockDark);
+    b.mass(-14, -27.5, 132, 90, 48, 78, MAT.rockDark);
     for (i = 0; i < 7; i++) {
       b.rock(-30 + i * 10, -26, 100 + i * 9, 1.8 + (i % 3) * 0.8, { kind: 'shard' });
       if (i % 2) b.crystalCluster(-20 + i * 9, -26, 118 + i * 7, 1.0 + (i % 2) * 0.5);
@@ -3628,7 +3651,7 @@
 
     /* Zusammenfluss ueber der Schlucht. */
     b.plat(2, -12, 198, 34, 26, MAT.scree, { thickness: 2.6 });
-    b.mass(2, -17, 198, 30, 34, 22, MAT.cliff);
+    b.mass(2, -13.5, 198, 30, 38, 22, MAT.cliff);
     b.mark(2, -12, 198);
     for (i = 0; i < 2; i++) b.routeMark(2, i, 2, -12, 198);
     b.arch(2, -12, 210, 20, 10, MAT.gold);
@@ -3639,7 +3662,7 @@
        ab der die Rutschlandung greift. Wer haelt, steht unten auf 27
        statt auf 20 und faehrt die letzten hundert Meter am Anschlag. */
     b.plat(6, -26, 254, 36, 40, MAT.meadow, { thickness: 2.8 });
-    b.mass(6, -32, 254, 32, 40, 34, MAT.rock);
+    b.mass(6, -27.5, 254, 32, 44, 34, MAT.rock);
     b.mark(6, -26, 254);
     gemArc(b, 3, -13, 224, 6, -26, 240, 3, 'Rutschtaste halten');
 
@@ -3659,11 +3682,38 @@
     for (i = 0; i < 5; i++) b.column(-14 + (i % 2) * 30, -28, 286 + i * 11, 6, { mat: MAT.sandstoneWorn });
 
     b.plat(0, -30, 350, 34, 30, MAT.marble, { thickness: 2.6 });
-    b.mass(0, -36, 350, 30, 36, 26, MAT.rock);
+    b.mass(0, -31.5, 350, 30, 40, 26, MAT.rock);
     b.mark(0, -30, 350);
+
+    /* ================================================================
+       DAS ZIEL - und der Fehler, der es lange nicht gab
+       ================================================================
+
+       b.finish ist der Ausloeser, der finishRun() aufruft: Ergebnis,
+       Bestzeit, Medaille, Geistaufzeichnung. Ohne ihn ENDET DER LAUF
+       NIE. Man laeuft durch das Zieltor, die Uhr laeuft weiter, und es
+       passiert nichts.
+
+       Genau so war es hier. Das Tal hatte ein Zieltor (b.gate) und eine
+       Flagge, aber kein b.finish - das setzten nur die beiden aeltesten
+       Strecken. Ein Tor ist eine Zwischenzeit, kein Ziel; die beiden
+       sehen im Code gleich aus und tun voellig Verschiedenes.
+
+       Aufgefallen ist es nicht beim Rechnen und nicht beim Ansehen,
+       sondern erst, als ich fragte, warum der Testpilot nie den Zustand
+       'finish' erreicht. Ich hatte das vorher dem Pruefgeruest
+       zugeschrieben. Das war falsch - das Geruest hatte recht.
+
+       Der Radius ist 10 statt 8: man kommt hier mit Tempo 27 aus einem
+       Sturz an, und bei 27 m/s sind acht Meter drei Zehntelsekunden.
+       Wer seitlich versetzt ankommt, soll nicht daran vorbeifliegen. */
+    var pz = b.toWorld(0, -30, 360, [0, 0, 0]);
+    b.finish = { x: pz[0], y: pz[1], z: pz[2], yaw: b.cursor.yaw, r: 10.0 };
     b.arch(0, -30, 360, 22, 11, MAT.gold);
     b.deco('box', 0, -19.6, 360, 23, 1.4, 0.6, MAT.flag);
-    b.gate(0, -30, 360, { name: 'Ziel', w: 26 });
+    /* KEIN b.gate hier. Ein Tor ist eine Zwischenzeit, b.finish ist das
+       Ziel - beides an derselben Stelle ergibt im Ergebnis zwei
+       Abschnitte namens "Ziel", von denen der zweite 0,77 s dauert. */
 
     return { len: 370, rise: -30, turn: 0 };
   }
@@ -3978,10 +4028,15 @@
        Jetzt sind die Baender an den acht gemessenen Kombinationen
        geeicht, und jede Stufe entspricht genau einer Abkuerzung mehr:
 
-         Platin  44,7 s   alle drei Abkuerzungen   (gemessen 44,17)
-         Gold    48,7 s   zwei davon               (46,22 .. 48,89)
-         Silber  53,2 s   eine davon               (50,58 .. 53,17)
-         Bronze  59,9 s   ankommen genuegt         (55,55 .. 57,41)
+         Platin  45,8 s   alle drei Abkuerzungen   (gemessen 44,94)
+         Gold    50,3 s   zwei davon               (48,44 .. 49,66)
+         Silber  54,8 s   eine davon               (52,81 .. 53,93)
+         Bronze  61,1 s   ankommen genuegt         (57,77)
+
+       Die Zeiten sind am ECHTEN Zieldurchlauf gemessen, nicht am letzten
+       Tor - der Unterschied betraegt gut eine Sekunde. Mit den Baendern
+       vom letzten Tor gab eine Abkuerzung mal Bronze und mal Silber, je
+       nachdem welche; jetzt entspricht jede Stufe genau einer.
 
        Der sichere Weg bekommt also Bronze, und zwar sicher - auch mit
        gesperrter Duese. Wer eine Abkuerzung findet, steigt eine Stufe.
@@ -3991,10 +4046,10 @@
        Linie kennt, liegt darunter. */
     var base = pathLen / 25 + totalRise / 14;
     var medals = [
-      { name: 'Platin', key: 'platin', time: Math.round(base * 1.00 * 10) / 10 },
-      { name: 'Gold', key: 'gold', time: Math.round(base * 1.09 * 10) / 10 },
-      { name: 'Silber', key: 'silber', time: Math.round(base * 1.19 * 10) / 10 },
-      { name: 'Bronze', key: 'bronze', time: Math.round(base * 1.34 * 10) / 10 }
+      { name: 'Platin', key: 'platin', time: Math.round(base * 1.02 * 10) / 10 },
+      { name: 'Gold', key: 'gold', time: Math.round(base * 1.12 * 10) / 10 },
+      { name: 'Silber', key: 'silber', time: Math.round(base * 1.22 * 10) / 10 },
+      { name: 'Bronze', key: 'bronze', time: Math.round(base * 1.36 * 10) / 10 }
     ];
 
     var level = {
