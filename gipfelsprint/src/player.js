@@ -140,14 +140,27 @@
 
        Die Zahlen sind gemessen, nicht geraten - siehe tools/jet.js. */
     JET_SCHUB_H: 95,          /* waagerechter Schub, m/s^2 */
-    JET_SCHUB_V: 142,         /* senkrechter Schub - netto +78 gegen 64 Fall */
+    /* Schub und Tank haengen zusammen und sind gemeinsam gemessen. Mit
+       dem grossen Tank und dem alten Schub von 142 stieg der Jet 40,9 m
+       und flog 127 - damit ist jede Stufengeometrie belanglos, man
+       kommt ueberall hin. Bei 112 sind es 27,9 m und 99, und das passt
+       zu Stufen von 9 bis 16 Metern: genug Reserve, dass sie gelingen,
+       zu wenig, dass man sie ueberfliegen koennte. */
+    JET_SCHUB_V: 108,         /* senkrechter Schub - netto +48 gegen 64 Fall */
     JET_MAX: 52,              /* Hoechsttempo unter Schub, ueber SPEED_CAP 46 */
-    JET_STEIG_MAX: 34,        /* so schnell steigt man hoechstens */
-    JET_V_NEIGUNG: 0.28,      /* wie stark volles Steuerkreuz den Auftrieb nimmt */
+    JET_STEIG_MAX: 22,        /* so schnell steigt man hoechstens */
+    JET_V_NEIGUNG: 0.10,      /* wie stark volles Steuerkreuz den Auftrieb nimmt */
     JET_QUERBREMSE: 1.4,      /* Tempoverlust je Sekunde, wenn man nicht lenkt */
     JET_ABHEBEN: 7.0,         /* Stoss beim Zuenden am Boden */
-    TANK_VERBRAUCH: 1.60,     /* Anteil je Sekunde - voller Tank = 0,63 s */
-    TANK_NACHFUELL: 1.00,     /* Anteil je Sekunde - voll nach 1,3 s */
+    /* Der Tank reicht 1,05 s. Gemessen, nicht gesetzt: mit 0,63 s war
+       das senkrechte Level auf jeder Stufe auf Messers Schneide - der
+       Testpilot stand mit neun Prozent vor Stufen, die die Haelfte
+       brauchten, und stuerzte auf allen drei Wegen. Mit 1,05 s faehrt
+       der irre Weg sturzfrei durch. Die Sperre und das Nachfuellen sind
+       mitgewachsen, der Rhythmus bleibt also derselbe: schieben,
+       aufsetzen, laufen, wieder schieben. */
+    TANK_VERBRAUCH: 0.95,     /* Anteil je Sekunde - voller Tank = 1,05 s */
+    TANK_NACHFUELL: 0.72,     /* Anteil je Sekunde - voll nach 1,39 s */
     TANK_VERZUG: 0.30,        /* so lange nach dem Loslassen passiert nichts */
     TANK_MIN_START: 0.12,     /* darunter startet der Jet nicht neu */
     TANK_KRISTALL: 0.34,      /* soviel Tank gibt ein Kristall */
@@ -371,8 +384,7 @@
            ueberhaupt da ist, bringt immer noch nichts: erst vor, dann
            hoch kommt auf 59 m, reiner Vortrieb auf 58.
 
-           Die Neigung ist mit 0,28 bewusst SCHWACH - sie ist ein Wink,
-           kein Riegel. Zwei Gruende, beide gemessen.
+           Die Neigung ist mit 0,10 nur noch ein Wink, kein Riegel. Zwei Gruende, beide gemessen.
 
            Erstens die Fairness: bei 0,58 war halbes Steuerkreuz 23
            Prozent weiter als volles - ein Vorteil, den es nur am Gamepad
@@ -386,11 +398,17 @@
            Testpilot blieb an jeder schraegen Stufe drei Meter unter der
            Kante, gleich ob sie neun oder siebzehn Meter mass.
 
-           Begrenzt wird der Jet deshalb durch den TANK, nicht durch einen
-           zweiten Riegel: 0,63 Sekunden Schub, dann ist Schluss. Eine
-           Ressource, die der Spieler frei einteilt, ist eine
-           Entscheidung; zwei, die sich gegenseitig zuschnueren, sind nur
-           eine Bevormundung. */
+           Der Rest der Begruendung ist Rechnung: bei einer Neigung von
+           0,28 blieben mit gehaltenem Steuerkreuz netto 2,6 m/s^2
+           Steigbeschleunigung uebrig (112 mal 0,72 gegen 78 Schwerkraft).
+           Damit steigt nichts mehr in der kurzen Zeit, die ein Sprung
+           dauert, und jede schraege Stufe wurde unpassierbar. Bei 0,10
+           sind es 19 m/s^2 - der Jet hebt, egal wohin man lenkt.
+
+           Begrenzt wird er deshalb durch den TANK und nur durch ihn:
+           eine Sekunde Schub, dann ist Schluss. Eine Ressource, die der
+           Spieler frei einteilt, ist eine Entscheidung; zwei, die sich
+           gegenseitig zuschnueren, sind nur eine Bevormundung. */
         var quer = Math.exp(-P.JET_QUERBREMSE * (1 - schubH) * dt);
         this.vx *= quer; this.vz *= quer;
 

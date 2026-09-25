@@ -937,7 +937,15 @@
       var gate = lvl.gates[i];
       if (gate.passed) continue;
       var cdx = p.x - gate.x, cdz = p.z - gate.z;
-      if (Math.abs(p.y - gate.y) > 7) continue;
+      /* Senkrechte Toleranz: 14 m, nicht 7.
+
+         Die sieben stammen aus dem waagerechten Level, wo man die Tore
+         zu Fuss durchlief. Im Turm kommt man FLIEGEND an - der irre Weg
+         ueberquert den Zusammenfluss gemessen zehn Meter ueber der
+         Flaeche - und ein Tor, das nur die Langsamen erwischt, misst die
+         falsche Sache: der Lauf galt dann als unvollstaendig, obwohl er
+         der schnellste war. */
+      if (Math.abs(p.y - gate.y) > 14) continue;
       if (cdx * cdx + cdz * cdz > gate.w * gate.w) continue;
       gate.passed = true;
       gate.flash = 1;

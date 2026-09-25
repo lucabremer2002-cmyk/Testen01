@@ -145,7 +145,24 @@
     var flugRest = p.vy > 0
       ? (p.vy / 64 + Math.sqrt(Math.max(0, p.y - tgt[1] + p.vy * p.vy / 128) / 32))
       : Math.sqrt(Math.max(0, p.y - tgt[1]) / 32);
-    var unterKante = p.y < tgt[1] + 1.5;
+    /* "Unter der Kante" heisst: ich komme mit dem, was ich habe, nicht
+       hinauf. Der reine Hoehenvergleich genuegt dafuer nicht - eine
+       Sprungfeder schleudert die Figur mit Tempo 30 los, und wer dann
+       trotzdem zuendet, verbrennt einen Tank fuer Hoehe, die er schon
+       hat. Auf dem sicheren Weg, der ohne Treibstoff auskommen SOLL,
+       stand der Pilot damit nach elf von einundzwanzig Stufen mit neun
+       Prozent da.
+
+       Die Scheitelrechnung darf den Schub aber NUR im Federfall
+       unterdruecken, nirgends sonst. Als sie allgemein galt, hoerte der
+       Pilot ueberall zu frueh auf und blieb unter jeder Kante - das war
+       vier Anlaeufe lang der Fehler. Im Schwebezustand ist sie
+       verlaesslich, weil dort die schwache Schwerkraft (42) gilt und
+       dieser Zustand der Figur gehoert, nicht der Steuerung. */
+    var T2 = root.MR.player.TUNING;
+    var federTraegt = p.floatUp && p.vy > 0 &&
+                      p.y + p.vy * p.vy / (2 * T2.GRAV_HOLD) >= tgt[1] + 1.0;
+    var unterKante = p.y < tgt[1] + 1.5 && !federTraegt;
     var weitGenug = d2 <= p.speed * flugRest + 2;
 
     if (!p.grounded && !below && !st.bremse) {
