@@ -3189,6 +3189,45 @@
      einziges Mal zu zuenden.
      =================================================================== */
 
+  /* FARBSPRACHE DES TALS
+     --------------------
+     Jede Zone hat EIN Bodenmaterial, und die Zone wechselt nur, wenn die
+     Landschaft wechselt:
+
+       Wiese und Senke   meadow / turfLush   gruen
+       Ruine             sandstoneWorn       warmer Sandstein
+       Schlucht          scree / plankPale   grauer Schutt, helles Holz
+
+     Vorher lagen einundzwanzig Materialien ueber vier Abschnitten
+     verteilt, und von oben sah die Strecke aus wie ein Flickenteppich:
+     gruen, orange, grau, tuerkis, alle paar Meter ein Wechsel. Eine
+     Landschaft, in der jede Flaeche anders aussieht, hat keine Form -
+     und wo alles auffaellt, faellt nichts auf. Genau das aber muessen
+     die Leuchtfeuer koennen.
+
+     Die Abkuerzungsziele bekommen deshalb KEINE eigene Farbe. Sie sehen
+     aus wie ihre Umgebung; markiert werden sie allein durch das
+     Leuchtfeuer. */
+
+  /* Ein Leuchtfeuer auf dem Ziel einer Abkuerzung.
+
+     Der Spieler steht an der Kante und soll SEHEN, wohin die Duese ihn
+     traegt - nicht raten. Zwei leuchtende Saeulen in der Routenfarbe und
+     ein Bogen darueber: das liest sich auf achtzig Meter Entfernung noch
+     als "da drueben ist die Landung", waehrend eine blosse Flaeche in der
+     Ferne wie Landschaft aussieht.
+
+     Ohne dieses Zeichen war die Abkuerzung eine Sache fuer den, der das
+     Level schon kennt. Genau das soll sie nicht sein: der erste Lauf
+     soll die Entscheidung ANBIETEN, nicht verstecken. */
+  function landemarke(b, lx, ly, lz, branch) {
+    var m = MAT[['routeSafe', 'routeFast', 'routeInsane'][branch]];
+    b.deco('cylinder', lx - 7, ly + 4.5, lz, 1.3, 9, 1.3, m);
+    b.deco('cylinder', lx + 7, ly + 4.5, lz, 1.3, 9, 1.3, m);
+    b.deco('box', lx, ly + 9.4, lz, 16, 0.9, 1.3, m);
+    b.deco('crystal', lx, ly + 11.4, lz, 2.2, 3.0, 2.2, m);
+  }
+
   /* Ein durchgehender Weg aus ueberlappenden Flaechen entlang einer
      Kurve. Das ist das Rueckgrat der sicheren Route: die Flaechen
      beruehren sich, es gibt nichts zu springen, man laeuft.
@@ -3318,7 +3357,7 @@
        Flaechen ist der steilste Schritt 2,8 m - dieselbe Kurve, dieselbe
        Landschaft, nur feiner aufgeloest. */
     weg(b, { n: 16, x0: -12, x1: 0, bogen: -58, y0: -2, y1: 12, kuppe: -10,
-             z0: 44, z1: 166, breite: 20, tiefe: 18, mat: MAT.meadowDry,
+             z0: 44, z1: 166, breite: 20, tiefe: 18, mat: MAT.meadow,
              sockel: 30, route: SAFE });
     gemLine(b, { n: 7, x: -40, seit: 9, y: -7, z0: 58, z1: 152, hint: 'Randweg' });
     /* Auf dem Randweg ist SONST nichts zu tun. Gemessen dauert er
@@ -3348,16 +3387,17 @@
        Landeflaeche auf z=122 und damit einundachtzig Meter weit weg; das
        war keine Abkuerzung, sondern eine Unmoeglichkeit, und das Werkzeug
        hat es sofort gemeldet. */
-    b.plat(17, 3, 76, 26, 22, MAT.stone, { thickness: 2.2 });
+    b.plat(17, 3, 76, 26, 22, MAT.meadow, { thickness: 2.2 });
     b.mass(17, -3, 76, 22, 34, 18, MAT.cliff);
     b.routeMark(0, FAST, 17, 3, 76);
+    landemarke(b, 17, 3, 68, FAST);
     gemArc(b, 13, 2, 38, 17, 3, 65, 4, 'ueber die Senke');
     /* Von der Landeflaeche fuehrt ein kurzer, durchgehender Weg zum
        Zusammenfluss. Die Abkuerzung ist damit Flug PLUS Laufstrecke -
        zusammen rund 180 m gegen 460 m auf dem Randweg. Gespart wird
        Weg, nicht Zeit je Meter. */
     weg(b, { n: 6, x0: 17, x1: 4, bogen: 6, y0: 3, y1: 13, z0: 90, z1: 170,
-             breite: 18, tiefe: 17, mat: MAT.stone, sockel: 26,
+             breite: 18, tiefe: 17, mat: MAT.meadow, sockel: 26,
              route: FAST, mark: false });
 
     /* Der Muldenboden. Er ist FANGNETZ, nicht Abgrund: wer die
@@ -3438,16 +3478,16 @@
        waren beide vorher gleich lang - die Abkuerzung war sogar zwei
        Meter LAENGER als der sichere Weg. */
     weg(b, { n: 9, x0: -8, x1: -2, bogen: -56, y0: 0, y1: 9, kuppe: 4,
-             z0: 46, z1: 134, breite: 20, tiefe: 17, mat: MAT.stone, sockel: 22,
+             z0: 46, z1: 134, breite: 20, tiefe: 17, mat: MAT.sandstoneWorn, sockel: 22,
              sockelMat: MAT.sandstoneWorn, fork: 1, route: SAFE });
     gemLine(b, { n: 7, x: -38, seit: 8, y: 1, z0: 58, z1: 126, hint: 'durch den Hof' });
     for (i = 0; i < 5; i++) {
       b.column(-48 + i * 8, 0, 60 + i * 16, 9 + (i % 3) * 3, { mat: MAT.sandstoneWorn });
-      b.deco('box', -26 - i * 4, 1.4, 66 + i * 14, 7, 2.8, 5, MAT.stone);
+      b.deco('box', -26 - i * 4, 1.4, 66 + i * 14, 7, 2.8, 5, MAT.sandstone);
     }
     /* Die eine Stufe des Abschnitts: 2,8 m hoch, 11 m weit - beides
        unter der Fairnessgrenze von 3,25 und 13,6. */
-    b.plat(0, 11.8, 152, 26, 22, MAT.stone, { thickness: 2.2 });
+    b.plat(0, 11.8, 152, 26, 22, MAT.sandstoneWorn, { thickness: 2.2 });
     b.mass(0, 6, 152, 22, 34, 18, MAT.sandstoneWorn);
     b.mark(0, 11.8, 152);
     b.routeMark(1, SAFE, 0, 11.8, 152);
@@ -3467,6 +3507,7 @@
        Steigflug endete unter der Mauerkrone. Der Jet fliegt seit der
        Deckelung nur noch 20 m/s; er braucht die Strecke, um Hoehe zu
        machen. */
+    landemarke(b, 26, 12, 72, FAST);
     gemArc(b, 14, 1, 32, 25, 12, 66, 5, 'ueber die Mauer');
     weg(b, { n: 4, x0: 26, x1: 26, y0: 12, y1: 12, z0: 76, z1: 140,
              breite: 9, tiefe: 22, mat: MAT.templeTrim, dick: 1.2,
@@ -3477,7 +3518,7 @@
     b.routeMark(1, FAST, 18, 12, 156);
     b.routeMark(1, FAST, 4, 13, 172);
 
-    b.plat(2, 13, 176, 34, 28, MAT.stone, { thickness: 2.6 });
+    b.plat(2, 13, 176, 34, 28, MAT.sandstoneWorn, { thickness: 2.6 });
     b.mass(2, 7, 176, 30, 40, 24, MAT.rock);
     b.mark(2, 13, 176);
     for (i = 0; i < 2; i++) b.routeMark(1, i, 2, 13, 176);
@@ -3538,7 +3579,7 @@
        gewinnen, sonst ist es keine Herausforderung, sondern eine
        Schikane. */
     weg(b, { n: 12, x0: -13, x1: -2, bogen: -60, y0: -9, y1: -12,
-             z0: 96, z1: 186, breite: 13, tiefe: 15, mat: MAT.plank, dick: 1.1,
+             z0: 96, z1: 186, breite: 13, tiefe: 15, mat: MAT.plankPale, dick: 1.1,
              fork: 2, route: SAFE });
     /* Gelaender und Pfeiler - eine Bruecke muss als Bruecke zu erkennen
        sein, sonst sieht sie aus wie schwebende Bretter. */
@@ -3558,9 +3599,10 @@
     b.routeZone(2, FAST, 15, -8, 88, 14, 8, 12);
     b.routeArch(15, -8, 90, 10, 7, FAST);
     b.routeMark(2, FAST, 14, -8, 84);
-    b.plat(16, -9, 136, 28, 24, MAT.cliffWarm, { thickness: 2.4 });
+    b.plat(16, -9, 136, 28, 24, MAT.scree, { thickness: 2.4 });
     b.mass(16, -14, 136, 24, 36, 20, MAT.cliff);
     b.routeMark(2, FAST, 16, -9, 136);
+    landemarke(b, 16, -9, 128, FAST);
     gemArc(b, 15, -8, 92, 16, -9, 124, 4, 'ueber die Schlucht');
     weg(b, { n: 4, x0: 16, x1: 2, y0: -9, y1: -12, z0: 150, z1: 186,
              breite: 20, tiefe: 17, mat: MAT.scree, sockel: 24,
@@ -3570,8 +3612,12 @@
        Achtzehn Meter unter der Kante. Wer die Abkuerzung verfehlt, landet
        hier, laeuft nach vorn und steigt ueber eine Rampe wieder heraus -
        vier Sekunden Verlust. Die Kristalle unten sind der Trostpreis. */
-    b.plat(-14, -26, 132, 96, 86, MAT.caveRock, { thickness: 3.0 });
-    b.mass(-14, -32, 132, 90, 40, 78, MAT.rockDark);
+    /* Der Boden war caveRock - ein tiefviolettes Material, das fuer eine
+       Kristallhoehle gedacht ist. In einer Schlucht unter freiem Himmel
+       sah es aus wie ein Farbfehler. scree ist grauer Schutt, und genau
+       das liegt unten in einer Schlucht. */
+    b.plat(-14, -26, 132, 96, 86, MAT.scree, { thickness: 3.0 });
+    b.mass(-14, -32, 132, 90, 44, 78, MAT.rockDark);
     for (i = 0; i < 7; i++) {
       b.rock(-30 + i * 10, -26, 100 + i * 9, 1.8 + (i % 3) * 0.8, { kind: 'shard' });
       if (i % 2) b.crystalCluster(-20 + i * 9, -26, 118 + i * 7, 1.0 + (i % 2) * 0.5);
@@ -3709,10 +3755,21 @@
   /* Jede Zone bekommt ihren Hang. Die Zonen der Kurzstrecke ('Kante',
      'Abgrund') fehlten hier und fielen auf MAT.cliff zurueck - deshalb
      stand der Prototyp in einer einzigen strukturlosen Flaeche. */
+  /* Das Gelaende neben der Strecke sucht sein Material ueber den
+     ZONENNAMEN. Steht eine Zone nicht in dieser Tabelle, bekommt sie
+     MAT.cliff - blauviolett, fuer eine Felsschlucht gedacht.
+
+     Genau das ist den vier Zonen des Tals passiert: Aufbruch, Senke und
+     Ruine standen nicht hier, und die Haenge eines gruenen Tals waren
+     deshalb blau. Von oben dominierten sie das ganze Bild. Eine
+     Nachschlagetabelle mit stillem Notfallwert ist ein Fehler, der nicht
+     auffaellt, bis man hinsieht. */
   var HILL_MAT = {
+    'Aufbruch': MAT.hangGruen, 'Senke': MAT.hangGruen,
+    'Ruine': MAT.hangWarm, 'Schlucht': MAT.hangFels,
     'Start': MAT.hangGruen, 'Auftakt': MAT.hangGruen, 'Kante': MAT.hangGruen,
     'Kette': MAT.hangGruen, 'Wald': MAT.hangGruen,
-    'Canyon': MAT.hangWarm, 'Schlucht': MAT.hangWarm, 'Abfahrt': MAT.hangWarm,
+    'Canyon': MAT.hangWarm, 'Abfahrt': MAT.hangWarm,
     'Abgrund': MAT.hangWarm, 'Ruinen': MAT.hangWarm, 'Tempel': MAT.hangWarm,
     'Bergschlucht': MAT.hangFels, 'Engstelle': MAT.hangFels,
     'Wasserfall': MAT.hangFels, 'Kristallhoehle': MAT.crystalRock,
@@ -3909,32 +3966,35 @@
     backdrop(b, bounds);
     b.farMode = false;
 
-    /* Richtwert aus Streckenlaenge und Hoehenmetern, geeicht an allen 96
-       Routenkombinationen: der Testpilot faehrt die sichere Linie sturzfrei
-       in 60,74 s, die beste Kombination in 46,77 s.
+    /* Die Medaillen messen die ROUTENWAHL, nicht die Ausdauer.
 
-       Die Faktoren stehen so, dass die Medaille die ROUTENWAHL misst und
-       nicht die Ausdauer. Mit den vorigen Werten schafften alle 96
-       Kombinationen mindestens Gold, der komplett sichere Lauf
-       eingeschlossen - eine Medaille, die jeder bekommt, sagt nichts.
+       Der Divisor 36 stammte aus der Zeit, als das Hoechsttempo 46 war.
+       Seit der Deckelung sind es 27, und der alte Richtwert ergab Gold
+       bei 32,6 s und Platin bei 31,0 - bei einer schnellsten gemessenen
+       Kombination von 44,17 s. Beide Medaillen waren also unerreichbar,
+       und eine Medaille, die niemand bekommen kann, ist schlimmer als
+       keine: sie sagt dem Spieler, dass er es nie richtig macht.
 
-       Jetzt, am Testpiloten ueber alle 96 Kombinationen gemessen:
-         Platin 51,5 s  erreichen 27 Kombinationen - das obere Drittel
-         Gold   54,1 s  erreichen 57 - gute Routenwahl, nicht perfekte
-         Silber 71,3 s  erreichen alle 96, auch der komplett sichere
-                        Lauf - der dauert seit den Slalomstrecken 68,7 s
-                        statt 60,7, und mit dem alten Faktor 1,22 waere
-                        ausgerechnet der vorsichtige Durchlauf auf Bronze
-                        gefallen. Ankommen ohne Risiko ist Silber wert.
-         Bronze 82,4 s  ankommen genuegt
+       Jetzt sind die Baender an den acht gemessenen Kombinationen
+       geeicht, und jede Stufe entspricht genau einer Abkuerzung mehr:
+
+         Platin  44,7 s   alle drei Abkuerzungen   (gemessen 44,17)
+         Gold    48,7 s   zwei davon               (46,22 .. 48,89)
+         Silber  53,2 s   eine davon               (50,58 .. 53,17)
+         Bronze  59,9 s   ankommen genuegt         (55,55 .. 57,41)
+
+       Der sichere Weg bekommt also Bronze, und zwar sicher - auch mit
+       gesperrter Duese. Wer eine Abkuerzung findet, steigt eine Stufe.
+       Das ist der Grund, den Lauf ein zweites Mal zu fahren.
+
        Der Testpilot bremst vor jedem Wegpunkt ab; ein Mensch, der die
        Linie kennt, liegt darunter. */
-    var base = pathLen / 36 + totalRise / 22;
+    var base = pathLen / 25 + totalRise / 14;
     var medals = [
       { name: 'Platin', key: 'platin', time: Math.round(base * 1.00 * 10) / 10 },
-      { name: 'Gold', key: 'gold', time: Math.round(base * 1.05 * 10) / 10 },
-      { name: 'Silber', key: 'silber', time: Math.round(base * 1.36 * 10) / 10 },
-      { name: 'Bronze', key: 'bronze', time: Math.round(base * 1.60 * 10) / 10 }
+      { name: 'Gold', key: 'gold', time: Math.round(base * 1.09 * 10) / 10 },
+      { name: 'Silber', key: 'silber', time: Math.round(base * 1.19 * 10) / 10 },
+      { name: 'Bronze', key: 'bronze', time: Math.round(base * 1.34 * 10) / 10 }
     ];
 
     var level = {
