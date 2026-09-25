@@ -70,7 +70,7 @@ const KANN = [
 
   function pruefe(name, pfad) {
     console.log('\n' + name + '  (' + pfad.length + ' Punkte)');
-    let schlimm = 0, eng = 0;
+    let schlimm = 0, eng = 0, gesamt = 0, hoehe = 0;
     for (let i = 1; i < pfad.length; i++) {
       const a = pfad[i-1].p, c = pfad[i].p;
       const fa = pfad[i-1].f, fc = pfad[i].f;
@@ -84,6 +84,17 @@ const KANN = [
         luft -= Math.abs(ux) * fa.hx + Math.abs(uz) * fa.hz;
         luft -= Math.abs(ux) * fc.hx + Math.abs(uz) * fc.hz;
       }
+      /* Weglaenge und Steigung aufsummieren.
+
+         Diese zwei Zahlen beantworten die Frage, die der Testpilot
+         allein nicht beantworten kann: WARUM ein Weg schneller ist. Als
+         die drei Aufstiege der grossen Gabel mit 450, 424 und 433 m
+         gemessen wurden, war klar, dass ihre Zeiten nicht auseinander
+         liegen KOENNEN - es gibt keinen strukturellen Unterschied, den
+         eine Zeit abbilden koennte. Ohne diese Summe haette ich
+         stattdessen weiter an den Stufen gedreht. */
+      gesamt += Math.hypot(weit, hoch);
+      if (hoch > 0) hoehe += hoch;
       const braucht = luftBedarf(hoch);
       /* Nur Steigstufen brauchen Luft. Beim Hinunterspringen duerfen
          sich die Flaechen ueberlappen - dort ist die Frage nicht, ob
@@ -107,6 +118,8 @@ const KANN = [
     if (schlimm) console.log('   ' + schlimm + ' Stufe(n) ausserhalb der Reichweite');
     if (eng) console.log('   ' + eng + ' Stufe(n) mit zu wenig Luft - die Figur fliegt unter die Kante');
     if (!schlimm && !eng) console.log('   alle Stufen passen: Reichweite und Luft');
+    console.log('   Weglaenge ' + gesamt.toFixed(0) + ' m, davon ' +
+                hoehe.toFixed(0) + ' m Steigung');
   }
 
   pruefe('Wirbelsaeule (sicherer Pfad)', R.spine);
