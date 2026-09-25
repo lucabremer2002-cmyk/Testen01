@@ -182,6 +182,38 @@ html, body {
 }
 .ability.used { transform: scale(.9); }
 
+/* Der Tank ist ein STAND, keine Ladung: er laeuft beim Halten sichtbar
+   leer und fuellt sich wieder. Deshalb eine Saeule, die von unten steigt,
+   und keine Zahl - man muss ihn waehrend des Flugs mit einem Seitenblick
+   lesen koennen, ohne zu zaehlen. */
+.ability--tank { position: relative; overflow: hidden; opacity: 1; }
+.ability--tank > span { position: relative; z-index: 2; opacity: .9; }
+.tank__fill {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 100%;
+  background: linear-gradient(to top, rgba(158, 245, 255, .85), rgba(110, 200, 255, .35));
+  /* Nicht animiert. Der Tank AENDERT sich waehrend des Fluges - eine
+     Uebergangszeit wuerde die Anzeige der Wahrheit hinterherlaufen
+     lassen, und genau in dem Moment zaehlt sie. */
+  z-index: 1;
+}
+.ability--tank.burning {
+  box-shadow: inset 0 0 0 2px #ffd48a, 0 0 26px rgba(255, 190, 110, .55);
+}
+.ability--tank.burning .tank__fill {
+  background: linear-gradient(to top, rgba(255, 196, 120, .95), rgba(255, 130, 80, .45));
+}
+.ability--tank.low { animation: tankWarn .34s steps(2, end) infinite; }
+.ability--tank.used { opacity: .5; }
+@keyframes tankWarn {
+  0%   { box-shadow: inset 0 0 0 2px rgba(255, 110, 110, .9); }
+  100% { box-shadow: inset 0 0 0 2px rgba(255, 110, 110, .25); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ability--tank.low { animation: none; box-shadow: inset 0 0 0 2px rgba(255, 110, 110, .8); }
+}
+
 .toasts {
   position: absolute;
   left: 50%;
@@ -757,7 +789,7 @@ body.touch .controls { display: none; }
   border-radius: 50%;
 }
 .tbtn--jump svg { width: 42px; height: 42px; fill: currentColor; }
-.tbtn--dash {
+.tbtn--jet {
   width: 76px;
   height: 76px;
   border-radius: 50%;
@@ -766,6 +798,12 @@ body.touch .controls { display: none; }
 }
 .tbtn.ready { box-shadow: inset 0 0 0 2.5px var(--plat), 0 0 20px rgba(158, 245, 255, .3); }
 .tbtn.used { opacity: .4; box-shadow: inset 0 0 0 2.5px rgba(255, 255, 255, .2); }
+/* Der Tankstand am Rand des Daumenknopfs - am Telefon ist kein Platz fuer
+   eine zweite Anzeige, also traegt der Knopf sie selbst. */
+.tbtn--jet {
+  background-image: linear-gradient(to top,
+    rgba(255, 190, 110, .45) var(--tank, 100%), rgba(255, 255, 255, 0) var(--tank, 100%));
+}
 
 .tbtn--small {
   position: absolute;
@@ -889,7 +927,7 @@ body.touch .flow { width: clamp(92px, 20vw, 150px); }
   }
   body.touch .flow, body.touch .speedo { width: clamp(90px, 42vw, 170px); }
   .tbtn--jump { width: 86px; height: 86px; }
-  .tbtn--dash { width: 68px; height: 68px; }
+  .tbtn--jet { width: 68px; height: 68px; }
   /* Neben Uhr und Kristallen ist kein Platz mehr fuer die beiden Knoepfe
      oben rechts: die Kristallanzeige rutscht unter die Uhr. */
   body.touch .hud__top { display: block; padding-right: 118px; }

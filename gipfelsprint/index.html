@@ -42,7 +42,10 @@
     </div>
     <div class="abilities">
       <div class="ability" id="abJump"><span>2×</span></div>
-      <div class="ability" id="abDash"><span>DASH</span></div>
+      <div class="ability ability--tank" id="abJet">
+        <i id="tankFill" class="tank__fill"></i>
+        <span>Jet</span>
+      </div>
     </div>
   </div>
 
@@ -50,7 +53,7 @@
   <div id="touchUI" hidden>
     <div id="stick" class="stick"><i id="stickKnob"></i></div>
     <div class="touch__right">
-      <button id="tBtnDash" class="tbtn tbtn--dash" aria-label="Dash">DASH</button>
+      <button id="tBtnJet" class="tbtn tbtn--jet" aria-label="Jet-Schub">JET</button>
       <button id="tBtnJump" class="tbtn tbtn--jump" aria-label="Sprung">
         <svg viewBox="0 0 24 24"><path d="M12 3 L20 13 H15 V21 H9 V13 H4 Z"/></svg>
       </button>
@@ -86,7 +89,8 @@
           <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Laufen</li>
           <li><kbd>Leertaste</kbd> Sprung / Doppelsprung</li>
           <li><kbd>Shift</kbd> Rutschen (halten) &ndash; macht Fallhoehe zu Tempo</li>
-          <li><kbd>Strg</kbd> / <kbd>E</kbd> / Maustaste Dash</li>
+          <li><kbd>Strg</kbd> / <kbd>E</kbd> / Maustaste <b>Jet halten</b> &ndash; ohne
+            Richtung steigt er, mit Richtung schiebt er</li>
         </ul>
       </div>
       <div class="controls__col">
@@ -101,7 +105,7 @@
     </div>
     <p class="hint">Ein Sturz beendet den Lauf &ndash; du bist sofort wieder am Start.</p>
     <p class="hint hint--touch">Am Handy: links ziehen zum Laufen, rechts wischen fuer die Kamera,
-      rechte Knoepfe fuer Sprung und Dash. Ganz durchgedrueckter Schiebeknopf sprintet.</p>
+      rechte Knoepfe fuer Sprung und Jet (halten). Ganz durchgedrueckter Schiebeknopf rutscht.</p>
   </div>
 </div>
 

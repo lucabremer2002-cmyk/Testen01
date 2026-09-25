@@ -17,6 +17,9 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
   if (SATZ) await page.addInitScript(s => { try { localStorage.setItem('mr_satz', s); } catch (e) {} }, SATZ);
   await page.goto('http://127.0.0.1:8123/index.html', { waitUntil: 'load' });
   await page.waitForFunction(() => !!window.GAME, null, { timeout: 30000 });
+  /* Der Testpilot kommt aus tools/pilot.js - einmal geschrieben, von
+     allen Werkzeugen benutzt. */
+  await page.addScriptTag({ path: require('path').join(__dirname, 'pilot.js') });
   await page.waitForTimeout(400);
   const R = await page.evaluate((WAHL) => {
     const g = window.GAME, P = window.MR.physics, hit = P.makeHit(), F = 1 / 120;
@@ -52,8 +55,7 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
     g.resetRun(true); g.state = 'run'; g.runTime = 0;
     const p = g.player;
     const tode = [];
-    let wi = 1, deaths = 0, stuck = 0, lastZ = p.z;
-    const cmd = { wishX: 0, wishZ: 0, slide: false, dash: false, jumpPressed: false, jumpHeld: false };
+    const st = window.PILOT.neu(g);
     const splits = [];
     let gesehen = 0;
     let accDist = 0, accAir = 0, accN = 0, accSum = 0, accMax = 0, accLand = 0;
@@ -61,46 +63,7 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
     let pxo = p.x, pyo = p.y, pzo = p.z;
 
     for (let i = 0; i < 120 * 200; i++) {
-      const tgt = wps[Math.min(wi, wps.length - 1)];
-      const dx = tgt[0] - p.x, dz = tgt[2] - p.z, d2 = Math.hypot(dx, dz);
-      if (d2 < 5 && Math.abs(tgt[1] - p.y) < 7) { if (wi < wps.length - 1) wi++; }
-      const ux = dx / (d2 || 1), uz = dz / (d2 || 1);
-      const along = p.vx * ux + p.vz * uz;
-      const latX = p.vx - ux * along, latZ = p.vz - uz * along;
-      const lead = p.grounded ? 0.10 : 0.32;
-      const aX = dx - latX * lead, aZ = dz - latZ * lead;
-      const aL = Math.hypot(aX, aZ) || 1;
-      cmd.wishX = aX / aL; cmd.wishZ = aZ / aL;
-      const ahead = P.raycast(lvl.world, p.x + cmd.wishX*2.4, p.y-0.4, p.z + cmd.wishZ*2.4, 0,-1,0, 3.2, hit);
-      const below = P.raycast(lvl.world, p.x, p.y-0.4, p.z, 0,-1,0, 4.0, hit);
-      cmd.slide = (!p.grounded && p.vy < -4) || (p.grounded && p.speed > 19);
-      cmd.jumpPressed = false; cmd.dash = false;
-      cmd.jumpHeld = d2 > p.speed * 0.52;
-      if (p.grounded && (!ahead || (tgt[1]-p.y > 1.5 && d2 < 10) || (p.speed < 5 && i > 60))) {
-        cmd.jumpPressed = true;
-        if (d2 > 18 && p.dashCharge > 0) cmd.dash = true;
-      } else if (!p.grounded && p.coyote <= 0 && p.wallCoyote > 0 && !below) {
-        /* ------------------------------------------------- Wandsprung
-           Der Spieler beruehrt eine Wand und ist in der Luft. Der
-           Wandsprung hat im Spieler Vorrang vor dem Doppelsprung, es
-           genuegt also, im Nachfristfenster zu druecken. Ohne diesen
-           Zweig presste der Pilot beim Aufsteigen an der Wand nie
-           Sprung - die Bedingung darunter verlangt vy < -1 - und die
-           Wandschlucht war damit fuer ihn unpassierbar.
-           Er zielt dabei zum naechsten Wegpunkt: die Eingabe zieht im
-           Spieler die neue Richtung, ohne das Tempo zu aendern. */
-        cmd.jumpPressed = true;
-        if (d2 > 24 && p.dashCharge > 0) cmd.dash = true;
-      } else if (!p.grounded && p.vy < -1 && !below && p.jumps > 0 && tgt[1] > p.y - 3) {
-        /* Der Doppelsprung wird nur genommen, wenn das Ziel nicht deutlich
-           tiefer liegt. Vorher sprang der Pilot ueber jeder Luecke nach,
-           auch wenn er fallen sollte - er segelte dann fuenfzehn Meter
-           ueber dem Zusammenfluss hinweg und holte sich das Tempo aus der
-           Landung nie ab. Ein Spieler tut das nicht. */
-        cmd.jumpPressed = true;
-      }
-      else if (!p.grounded && p.vy < -5 && !below && p.jumps === 0 && p.dashCharge > 0) cmd.dash = true;
-
+      const cmd = window.PILOT.schritt(g, st, wps);
       g.runTime += F;
       g.fixedStep(F, cmd);
       accDist += Math.hypot(p.x-pxo, p.y-pyo, p.z-pzo);
@@ -116,29 +79,30 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
       if (offen > gesehen) {
         gesehen = offen;
         splits.push({ tor: lvl.gates[gesehen-1].name, t: +g.runTime.toFixed(2),
-                      tempo: +p.speed.toFixed(1), dash: p.dashCharge, kristalle: g.gems,
+                      tempo: +p.speed.toFixed(1), tank: +p.tank.toFixed(2), kristalle: g.gems,
                       weg: +accDist.toFixed(0), schnitt: +(accSum/Math.max(1,accN)).toFixed(1),
                       spitze: +accMax.toFixed(1), luft: +(accAir/Math.max(1,accN)).toFixed(2),
                       land: accLand });
         accDist=0; accAir=0; accN=0; accSum=0; accMax=0; accLand=0;
       }
-      if (g.state === 'finish') break;
-      if (g.state !== 'run') {
-        deaths++;
-        tode.push('t=' + g.runTime.toFixed(2) + '  pos ' + p.x.toFixed(0) + ',' + p.y.toFixed(0) + ',' + p.z.toFixed(0) + '  wp' + wi + ' -> ' + JSON.stringify(wps[Math.min(wi,wps.length-1)].map(v=>+v.toFixed(0))));
-        if (deaths > 6) break;
-        g.startRun(true); g.state = 'run'; g.runTime = splits.length ? splits[splits.length-1].t : 0;
-        wi = 1;
-      }
-      if (Math.abs(p.z - lastZ) < 0.05) stuck++; else { stuck = 0; lastZ = p.z; }
-      if (stuck > 120 * 12) { tode.push('FEST t=' + g.runTime.toFixed(2) + '  pos ' + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ',' + p.z.toFixed(1) + '  v=' + p.speed.toFixed(1) + '  grounded=' + p.grounded + '  wp' + wi + ' -> ' + JSON.stringify(wps[Math.min(wi,wps.length-1)].map(v=>+v.toFixed(0)))); break; }
+      const wp = wps[Math.min(st.wi, wps.length-1)];
+      const ort = p.x.toFixed(0) + ',' + p.y.toFixed(0) + ',' + p.z.toFixed(0) +
+                  '  wp' + st.wi + ' -> ' + JSON.stringify(wp.map(v=>+v.toFixed(0)));
+      const z = window.PILOT.nachlauf(g, st, F);
+      if (z === 'sturz') {
+        tode.push('t=' + g.runTime.toFixed(2) + '  pos ' + ort);
+        g.runTime = splits.length ? splits[splits.length-1].t : 0;
+      } else if (z === 'fest') {
+        tode.push('FEST t=' + g.runTime.toFixed(2) + '  pos ' + ort +
+                  '  v=' + p.speed.toFixed(1) + '  grounded=' + p.grounded); break;
+      } else if (z === 'fertig' || z === 'tot') break;
     }
     splits.push({ tor: 'ZIEL', t: +g.runTime.toFixed(2), tempo: +p.speed.toFixed(1),
-                  dash: p.dashCharge, kristalle: g.gems,
+                  tank: +p.tank.toFixed(2), kristalle: g.gems,
                   weg: +accDist.toFixed(0), schnitt: +(accSum/Math.max(1,accN)).toFixed(1),
                   spitze: +accMax.toFixed(1), luft: +(accAir/Math.max(1,accN)).toFixed(2),
                   land: accLand });
-    return { zustand: g.state, deaths, splits, tode };
+    return { zustand: g.state, deaths: st.tode, splits, tode };
   }, WAHL);
 
   const lbl = ['S','F','I'];

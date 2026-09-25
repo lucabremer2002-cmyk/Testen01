@@ -13,6 +13,9 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
   await page.addInitScript(() => { try { localStorage.setItem('mr_satz', 'lang'); } catch (e) {} });
   await page.goto('http://127.0.0.1:8123/index.html', { waitUntil: 'load' });
   await page.waitForFunction(() => !!window.GAME, null, { timeout: 30000 });
+  /* Der Testpilot kommt aus tools/pilot.js - einmal geschrieben, von
+     allen Werkzeugen benutzt. */
+  await page.addScriptTag({ path: require('path').join(__dirname, 'pilot.js') });
 
   const ANLAEUFE = [[0,0],[2,0],[0,1],[2,1]];
   const ZWEIGE = [0,1,2];
@@ -39,29 +42,11 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
         from = to + 1;
       }
       g.resetRun(true); g.state='run'; g.runTime=0;
+      const st = window.PILOT.neu(g);
       const p = g.player;
-      let wi=1, tode=0, gesehen=0, tGabelAn=null, tGabelAus=null, eintritt=null, austritt=null, luftN=0, n=0;
-      const cmd={wishX:0,wishZ:0,slide:false,dash:false,jumpPressed:false,jumpHeld:false};
+      let gesehen=0, tGabelAn=null, tGabelAus=null, eintritt=null, austritt=null, luftN=0, n=0;
       for (let i=0;i<120*130;i++){
-        const tgt=wps[Math.min(wi,wps.length-1)];
-        const dx=tgt[0]-p.x, dz=tgt[2]-p.z, d2=Math.hypot(dx,dz);
-        if(d2<5 && Math.abs(tgt[1]-p.y)<7){ if(wi<wps.length-1) wi++; }
-        const ux=dx/(d2||1), uz=dz/(d2||1);
-        const along=p.vx*ux+p.vz*uz;
-        const latX=p.vx-ux*along, latZ=p.vz-uz*along;
-        const lead=p.grounded?0.10:0.32;
-        const aX=dx-latX*lead, aZ=dz-latZ*lead, aL=Math.hypot(aX,aZ)||1;
-        cmd.wishX=aX/aL; cmd.wishZ=aZ/aL;
-        const ahead=P.raycast(lvl.world,p.x+cmd.wishX*2.4,p.y-0.4,p.z+cmd.wishZ*2.4,0,-1,0,3.2,hit);
-        const below=P.raycast(lvl.world,p.x,p.y-0.4,p.z,0,-1,0,4.0,hit);
-        cmd.slide=(!p.grounded&&p.vy<-4)||(p.grounded&&p.speed>19);
-        cmd.jumpPressed=false; cmd.dash=false;
-        cmd.jumpHeld=d2>p.speed*0.52;
-        if(p.grounded&&(!ahead||(tgt[1]-p.y>1.5&&d2<10)||(p.speed<5&&i>60))){cmd.jumpPressed=true; if(d2>18&&p.dashCharge>0)cmd.dash=true;}
-        else if(!p.grounded&&p.coyote<=0&&p.wallCoyote>0&&!below){cmd.jumpPressed=true; if(d2>24&&p.dashCharge>0)cmd.dash=true;}
-        else if(!p.grounded&&p.vy<-1&&!below&&p.jumps>0&&tgt[1]>p.y-3){cmd.jumpPressed=true;}
-        else if(!p.grounded&&p.vy<-5&&!below&&p.jumps===0&&p.dashCharge>0)cmd.dash=true;
-        g.runTime+=F; g.fixedStep(F,cmd);
+        g.runTime+=F; g.fixedStep(F, window.PILOT.schritt(g, st, wps));
         if (tGabelAn !== null && tGabelAus === null) { n++; if(!p.grounded) luftN++; }
         let offen=0; for(let k=0;k<lvl.gates.length;k++) if(lvl.gates[k].passed) offen++;
         if (offen > gesehen) {
@@ -69,10 +54,10 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
           if (gesehen === 2) { tGabelAn = g.runTime; eintritt = p.speed; }
           if (gesehen === 3) { tGabelAus = g.runTime; austritt = p.speed; }
         }
-        if(g.state==='finish') break;
-        if(g.state!=='run'){ tode++; if(tode>6) break; g.startRun(true); g.state='run'; wi=1; }
+        const z = window.PILOT.nachlauf(g, st, F);
+        if (z === 'fertig' || z === 'tot' || z === 'fest') break;
       }
-      out.push({ anlauf: w[0]+''+w[1], zweig: w[2], tode,
+      out.push({ anlauf: w[0]+''+w[1], zweig: w[2], tode: st.tode,
                  t: (tGabelAn!==null&&tGabelAus!==null) ? +(tGabelAus-tGabelAn).toFixed(2) : null,
                  ein: eintritt!==null?+eintritt.toFixed(1):null,
                  aus: austritt!==null?+austritt.toFixed(1):null,

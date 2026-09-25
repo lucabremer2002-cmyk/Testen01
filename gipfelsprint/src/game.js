@@ -151,7 +151,11 @@
        Die lange Strecke bleibt einen Knopfdruck entfernt - aber der erste
        Eindruck soll der bessere sein. */
     this.satz = 'sturz';
-    try { this.satz = localStorage.getItem('mr_satz') || 'sturz'; } catch (e) {}
+    /* Vorgabe ist der Turm - das senkrechte Level, um den Jet herum
+       gebaut. Die beiden alten Strecken bleiben waehlbar, sie sind aber
+       fuer den Dash entworfen und spielen sich mit dem Jet anders. */
+    try { this.satz = localStorage.getItem('mr_satz') || 'turm'; } catch (e) {}
+    if (['turm', 'lang', 'sturz'].indexOf(this.satz) < 0) this.satz = 'turm';
     if (!LevelMod.SETS || !LevelMod.SETS[this.satz]) this.satz = 'sturz';
     this.level = LevelMod.build({ grassScale: this.input.isTouch ? 0.5 : 1, satz: this.satz });
     this.player = root.MR.player.create(this.level);
@@ -284,19 +288,32 @@
        lange Strecke, die Kurzstrecke hat zwei. Eine Zeile, die je nach
        Strecke etwas anderes verspricht als das, was gleich kommt, ist
        schlimmer als gar keine. */
+    var SATZ = {
+      turm:  { weiter: 'lang',
+               knopf: 'Turm \u2013 senkrecht (ca. 30 s)',
+               zeile: 'Hundertdreissig Hoehenmeter, drei Aufstiege, ein Sturz. ' +
+                      'Wer den Jet beherrscht, nimmt weniger Stufen.' },
+      lang:  { weiter: 'sturz',
+               knopf: 'Lange Strecke \u2013 Gipfelsprint (ca. 60 s)',
+               zeile: 'Ein Lauf, eine Minute, keine Checkpoints. Sechs Abzweige \u2013 ' +
+                      'der schwerste Weg ist jedes Mal der schnellste.' },
+      sturz: { weiter: 'turm',
+               knopf: 'Kurzstrecke \u2013 Der Sturz (ca. 25 s)',
+               zeile: 'Ein Lauf, fuenfundzwanzig Sekunden, keine Checkpoints. ' +
+                      'Jeder Sturz bezahlt den naechsten Sprung.' }
+    };
+    var satz = SATZ[self.satz] || SATZ.turm;
+    /* Der Untertitel versprach frueher fest "Sechs Abzweige" - das gilt
+       fuer die lange Strecke. Eine Zeile, die etwas anderes verspricht
+       als das, was gleich kommt, ist schlimmer als gar keine. */
     var tag = $('tagline');
-    if (tag) {
-      tag.textContent = self.satz === 'sturz'
-        ? 'Ein Lauf, fuenfundzwanzig Sekunden, keine Checkpoints. Jeder Sturz bezahlt den naechsten Sprung.'
-        : 'Ein Lauf, eine Minute, keine Checkpoints. Sechs Abzweige \u2013 der schwerste Weg ist jedes Mal der schnellste.';
-    }
+    if (tag) tag.textContent = satz.zeile;
     var btnSatz = $('btnSatz');
     if (btnSatz) {
-      btnSatz.textContent = self.satz === 'sturz'
-        ? 'Lange Strecke \u2013 Gipfelsprint (ca. 60 s)'
-        : 'Kurzstrecke \u2013 Der Sturz (ca. 25 s)';
+      /* Der Knopf nennt die NAECHSTE Strecke, nicht die aktuelle. */
+      btnSatz.textContent = SATZ[satz.weiter].knopf;
       btnSatz.addEventListener('click', function () {
-        try { localStorage.setItem('mr_satz', self.satz === 'sturz' ? 'lang' : 'sturz'); } catch (e) {}
+        try { localStorage.setItem('mr_satz', satz.weiter); } catch (e) {}
         location.reload();
       });
     }
@@ -403,9 +420,9 @@
     press($('tBtnJump'),
       function () { Audio.unlock(); self.input.setVirtual('jump', true); },
       function () { self.input.setVirtual('jump', false); });
-    press($('tBtnDash'),
-      function () { Audio.unlock(); self.input.setVirtual('dash', true); },
-      function () { self.input.setVirtual('dash', false); });
+    press($('tBtnJet'),
+      function () { Audio.unlock(); self.input.setVirtual('jet', true); },
+      function () { self.input.setVirtual('jet', false); });
     press($('tBtnRestart'), function () { self.startRun(true); });
     press($('tBtnPause'), function () { self.setPaused(self.state !== 'pause'); });
 
@@ -530,7 +547,7 @@
     /* Gemerkte Tastendruecke gehoeren nicht ueber einen Neustart hinweg
        uebernommen - sonst springt die Figur beim Start von selbst. */
     this.pendJump = false;
-    this.pendDash = false;
+    this.pendJet = false;
     this.runTime = 0;
     this.gems = 0;
     this.splits = [];
@@ -614,6 +631,9 @@
     /* Nur so lange, dass der Treffer noch zu sehen ist. Wer hundertmal
        stirbt, wartet sonst Minuten. */
     this.dyingTimer = 0.18;
+    /* Die Duese laeuft als Dauerschleife. Wer stirbt, waehrend er sie
+       haelt, hoerte sie sonst ueber den ganzen Neustart weiter. */
+    Audio.sfx.jetStop();
     Audio.sfx.hit();
     this.cam.shake = 0.7;
     var f = $('flash');
@@ -722,7 +742,7 @@
 
   /* ---------------------------------------------------- Flow und Tricks */
 
-  var FLOW_GAIN = { crystal: 0.15, trick: 0.2, dash: 0.05, djump: 0.04, stomp: 0.12, gate: 0.3 };
+  var FLOW_GAIN = { crystal: 0.15, trick: 0.2, jet: 0.05, djump: 0.04, stomp: 0.12, gate: 0.3 };
 
   Game.prototype.addFlow = function (amount, points) {
     var before = this.flowLevel;
@@ -789,14 +809,18 @@
         this.particles.ring(p.x, p.y - 0.6, p.z, 14, 0.8, 4.5, [0.55, 0.9, 1.0], 0.24, 0.4);
         this.addFlow(FLOW_GAIN.djump, 20);
         this.airActions++;
-      } else if (ev === 'dash') {
-        Audio.sfx.dash();
-        this.cam.shake = 0.16;
-        this.cam.fovPunch = 0.22;
-        this.particles.burst(p.x, p.y, p.z, 14, { speed: 2.5, up: 0.5, life: 0.4, size: 0.3, color: [0.7, 0.95, 1.0], grav: -2, spread: 0.7 });
-        this.addFlow(FLOW_GAIN.dash, 30);
+      } else if (ev === 'jetstart') {
+        Audio.sfx.jetStart();
+        this.cam.shake = 0.13;
+        this.cam.fovPunch = 0.26;
+        this.particles.burst(p.x, p.y, p.z, 16, { speed: 3.2, up: -1.5, life: 0.35, size: 0.34, color: [0.8, 0.95, 1.0], grav: -2, spread: 0.7 });
+        this.addFlow(FLOW_GAIN.jet, 30);
         this.airActions++;
         if (this.airActions >= 3) this.award('Luftkombo', 'pink', 220);
+      } else if (ev === 'jetstop') {
+        Audio.sfx.jetStop();
+      } else if (ev === 'tankleer') {
+        Audio.sfx.tankLeer();
       } else if (ev === 'land' || ev === 'land_hard') {
         Audio.sfx.land(ev === 'land_hard');
         this.cam.landPunch = ev === 'land_hard' ? 0.55 : 0.2;
@@ -854,7 +878,7 @@
         e.squash = 1;
         p.vy = 15;
         p.jumps = 1;
-        p.dashCharge = 1;
+        p.tank = Math.max(p.tank, 0.5);
         Audio.sfx.stomp();
         this.cam.shake = 0.2;
         this.addFlow(FLOW_GAIN.stomp, 80);
@@ -873,10 +897,10 @@
       if (gx * gx + gy * gy + gz * gz > 3.4 * 3.4) continue;
       g.taken = true;
       this.gems++;
-      /* Ein Kristall ist eine Dash-Ladung. Damit sind Kristalle Treibstoff
-         fuer die Abkuerzungen statt einer Zahl in der Anzeige - und es
-         lohnt sich, fuer sie vom sicheren Weg abzuweichen. */
-      p.giveDash(1);
+      /* Ein Kristall ist Treibstoff. Damit sind Kristalle keine Zahl in
+         der Anzeige, sondern das, was die naechste Zuendung bezahlt - und
+         es lohnt sich, fuer sie vom sicheren Weg abzuweichen. */
+      p.tankFuellen();
       this.chain = this.chainTimer > 0 ? this.chain + 1 : 1;
       this.chainTimer = 2.6;
       if (this.chain > this.bestChainThisRun) this.bestChainThisRun = this.chain;
@@ -1007,18 +1031,26 @@
     $('flowMult').textContent = 'x' + (1 + this.flowLevel * 0.5).toFixed(1);
     $('hud').className = 'hud flow--l' + this.flowLevel;
     var jumpReady = p.jumps > 0 || p.grounded;
-    /* Der Dash hat keine Abklingzeit mehr, sondern einen Vorrat von drei
-       Ladungen. Landen gibt eine zurueck, jeder Kristall eine dazu. */
-    var dashReady = p.dashCharge > 0;
+    /* Der Tank ist der Treibstoff des Jets: er laeuft beim Halten leer
+       und fuellt sich nach einer kurzen Sperre wieder. Deshalb zeigt die
+       Leiste einen STAND, keine Ladungen - der Spieler muss waehrend des
+       Flugs sehen koennen, wie viel noch da ist, nicht hinterher zaehlen.
+       Startbereit heisst hier: ueber der Mindestmenge zum Zuenden. */
+    var tank = p.tank;
+    var tankBereit = tank > 0.12;
     $('abJump').className = 'ability' + (jumpReady ? ' ready' : ' used');
-    $('abDash').className = 'ability' + (dashReady ? ' ready' : ' used');
-    $('abDash').firstChild.textContent = p.dashCharge > 1 ? 'DASH ' + p.dashCharge : 'DASH';
+    var ab = $('abJet');
+    ab.className = 'ability ability--tank' +
+      (p.jetAn ? ' burning' : (tankBereit ? ' ready' : ' used')) +
+      (!p.jetAn && tank < 0.3 ? ' low' : '');
+    $('tankFill').style.height = (tank * 100).toFixed(1) + '%';
     if (this.input.isTouch) {
-      var bj = $('tBtnJump'), bd = $('tBtnDash');
+      var bj = $('tBtnJump'), bd = $('tBtnJet');
       bj.classList.toggle('ready', jumpReady);
       bj.classList.toggle('used', !jumpReady);
-      bd.classList.toggle('ready', dashReady);
-      bd.classList.toggle('used', !dashReady);
+      bd.classList.toggle('ready', tankBereit);
+      bd.classList.toggle('used', !tankBereit);
+      bd.style.setProperty('--tank', (tank * 100).toFixed(0) + '%');
     }
     $('speedlines').className = 'speedlines' + (p.speed > 26 ? ' on' : '');
 
@@ -1081,7 +1113,8 @@
       'v         ' + p.vx.toFixed(2) + '  ' + p.vy.toFixed(2) + '  ' + p.vz.toFixed(2) + '\n' +
       'Boden     ' + (p.grounded ? 'ja' : 'nein') + '   Luftzeit ' + p.airTime.toFixed(2) + ' s\n' +
       'Spruenge  ' + p.jumps + '   Coyote ' + p.coyote.toFixed(3) + '   Puffer ' + p.buffer.toFixed(3) + '\n' +
-      'Dash      ' + p.dashCharge + '/' + TUNING.DASH_MAX + '   laeuft ' + p.dashTimer.toFixed(3) + '\n' +
+      'Tank      ' + (p.tank * 100).toFixed(0) + ' %   ' + (p.jetAn ? 'brennt ' + p.jetZeit.toFixed(2) + ' s' : 'aus') +
+      '   Sperre ' + Math.max(0, p.tankVerzug).toFixed(2) + '\n' +
       'Rutschen  ' + (p.sliding ? 'ja' : 'nein') + '   Ermuedung ' + p.slideTime.toFixed(2) + ' s\n' +
       'Wand      ' + p.wallCoyote.toFixed(3) + '   Normale ' + p.wallNX.toFixed(2) + ' ' + p.wallNZ.toFixed(2) + '\n' +
       'Kamera    Gier ' + c.yaw.toFixed(2) + '   Neigung ' + c.pitch.toFixed(2) + '   Abstand ' + c.distNow.toFixed(1) + '\n' +
@@ -1203,7 +1236,7 @@
     this.fps = this.fps * 0.92 + (1 / Math.max(dtReal, 0.001)) * 0.08;
 
     var input = this.input;
-    var cmd = { wishX: 0, wishZ: 0, sprint: false, dash: false, jumpPressed: false, jumpHeld: false };
+    var cmd = { wishX: 0, wishZ: 0, sprint: false, jet: false, jumpPressed: false, jumpHeld: false };
     var playing = this.state === 'run' || this.state === 'countdown' || this.state === 'dying';
 
     if (this.state === 'countdown') {
@@ -1256,11 +1289,20 @@
          in den Befehl geschrieben, war er weg, bevor ihn jemand gelesen
          hat - gemessen jeder sechste Sprung bei 144 Hz und jeder vierte
          bei 165 Hz. */
-      if (input.hit('dash')) this.pendDash = true;
       if (input.hit('jump')) this.pendJump = true;
-      cmd.dash = !!this.pendDash;
       cmd.jumpPressed = !!this.pendJump;
       cmd.jumpHeld = input.down('jump');
+      /* Der Jet ist ein HALTE-Befehl, kein Druck. Er wird deshalb nicht
+         gemerkt und verbraucht wie der Sprung, sondern jedes Bild frisch
+         gelesen: solange die Taste unten ist, brennt die Duese.
+
+         Der gemerkte Druck bleibt trotzdem daneben stehen, und zwar nur
+         fuer den Grenzfall: ein Antippen, das kuerzer ist als ein
+         Simulationsschritt, faellt bei 144 Hz sonst komplett zwischen die
+         Schritte. Mit ihm bekommt auch der kuerzeste Tipp genau einen
+         Schritt Schub - genug, dass Flamme und Ton zuenden. */
+      if (input.hit('jet')) this.pendJet = true;
+      cmd.jet = input.down('jet') || !!this.pendJet;
     }
 
     if (playing || this.state === 'finish') {
@@ -1273,12 +1315,45 @@
         this.fixedStep(FIXED, cmd);
         /* Erst hier gilt der Druck als verbraucht. */
         if (cmd.jumpPressed) this.pendJump = false;
-        if (cmd.dash) this.pendDash = false;
+        this.pendJet = false;
         cmd.jumpPressed = false;
-        cmd.dash = false;
       }
       if (steps >= 8) this.accumulator = 0;
       this.particles.update(dtReal);
+
+      /* ----------------------------------------------- Die Flamme
+         Der Schub ist ein ZUSTAND, kein Ereignis. Er wird deshalb hier je
+         BILD gezeichnet und nicht je Simulationsschritt: bei 120 Hz
+         Simulation waeren das bis zu acht Flammenstoesse in einem
+         einzigen Bild, also achtmal so viel Rauch auf langsamen Geraeten
+         wie auf schnellen. Die Rate haengt an dtReal und sieht damit auf
+         jedem Bildschirm gleich aus.
+
+         Die Flamme zeigt auch, WOHIN die Duese schiebt: bei vollem
+         Steuerkreuz nach hinten, ohne Steuerkreuz nach unten. Damit ist
+         die Aufteilung von Auftrieb und Vortrieb nicht nur eine Zahl im
+         Code, sondern am Bild abzulesen. */
+      var pj = this.player;
+      if (pj.jetAn && this.state === 'run') {
+        this.jetEmit = (this.jetEmit || 0) + dtReal * 90;
+        var n = Math.floor(this.jetEmit);
+        this.jetEmit -= n;
+        if (n > 0) {
+          var sp = Math.hypot(pj.vx, pj.vz);
+          var quer = Math.min(1, sp / TUNING.JET_MAX);
+          this.particles.burst(
+            pj.x - (sp > 0.5 ? pj.vx / sp : 0) * 0.5,
+            pj.y - 0.45,
+            pj.z - (sp > 0.5 ? pj.vz / sp : 0) * 0.5,
+            n, {
+              speed: 2.2 + quer * 3.0, up: -2.4 * (1 - quer * 0.6),
+              life: 0.22, size: 0.3,
+              color: pj.tank > 0.25 ? [1.0, 0.72, 0.34] : [1.0, 0.42, 0.3],
+              grav: -3, spread: 0.45
+            });
+        }
+        Audio.sfx.jetHalten(Math.min(1, Math.hypot(pj.vx, pj.vz) / TUNING.JET_MAX));
+      } else { this.jetEmit = 0; }
     }
 
     /* Live-Rueckstand gegen den Geist */

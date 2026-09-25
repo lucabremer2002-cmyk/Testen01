@@ -46,7 +46,7 @@ const GRENZEN = {
     /* --- Eingabeskript, gleich fuer alle Laeufe --- */
     const skript = i => ({
       wishX: Math.sin(i * F * 0.7) * 0.6, wishZ: 1,
-      slide: (i % 240) < 140, dash: (i % 300) === 60,
+      slide: (i % 240) < 140, jet: (i % 300) > 60 && (i % 300) < 120,
       jumpPressed: (i % 90) === 0, jumpHeld: (i % 90) < 30
     });
     function lauf(n) {
@@ -135,7 +135,7 @@ const GRENZEN = {
         g.level.world = w;
         p.spawnAt({ x: 0, y: 500.2, z: 0, yaw: 0 });
         p.grounded = true;
-        const cmd = { wishX: 0, wishZ: 1, slide: false, dash: false, jumpPressed: false, jumpHeld: false };
+        const cmd = { wishX: 0, wishZ: 1, slide: false, jet: false, jumpPressed: false, jumpHeld: false };
         for (let i = 0; i < 240; i++) { p.vz = v; p.vx = 0; p.step(F, cmd); if (p.z > 45) break; }
         if (p.z > 42) durch++;
       }
@@ -145,7 +145,7 @@ const GRENZEN = {
 
     /* 4 Kosten je Bild */
     g.startRun(true); g.state = 'run';
-    const cmd = { wishX: 0, wishZ: 1, slide: true, dash: false, jumpPressed: false, jumpHeld: false };
+    const cmd = { wishX: 0, wishZ: 1, slide: true, jet: false, jumpPressed: false, jumpHeld: false };
     function zeit(fn, n) { fn(); fn(); const t0 = performance.now();
       for (let i = 0; i < n; i++) fn(); return (performance.now() - t0) / n; }
     ergebnis.sim_ms = zeit(() => g.fixedStep(F, cmd), 600);

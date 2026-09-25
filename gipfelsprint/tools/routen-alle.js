@@ -19,6 +19,9 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
   if (SATZ) await page.addInitScript(s => { try { localStorage.setItem('mr_satz', s); } catch (e) {} }, SATZ);
   await page.goto('http://127.0.0.1:8123/index.html', { waitUntil: 'load' });
   await page.waitForFunction(() => !!window.GAME, null, { timeout: 30000 });
+  /* Der Testpilot kommt aus tools/pilot.js - einmal geschrieben, von
+     allen Werkzeugen benutzt. */
+  await page.addScriptTag({ path: require('path').join(__dirname, 'pilot.js') });
   const ZW = [[0,1],[0,1],[0,1,2],[0],[0,1],[0,1],[0,2]];
   const alle = [];
   (function rek(i, acc) {
@@ -44,35 +47,17 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
         from = to + 1;
       }
       g.resetRun(true); g.state='run'; g.runTime=0;
-      const p = g.player;
-      let wi=1, tode=0, stuck=0, lastZ=p.z, fest=false;
-      const cmd={wishX:0,wishZ:0,slide:false,dash:false,jumpPressed:false,jumpHeld:false};
+      const st = window.PILOT.neu(g);
+      let fest = false, fertig = false;
       for (let i=0;i<120*130;i++){
-        const tgt=wps[Math.min(wi,wps.length-1)];
-        const dx=tgt[0]-p.x, dz=tgt[2]-p.z, d2=Math.hypot(dx,dz);
-        if(d2<5 && Math.abs(tgt[1]-p.y)<7){ if(wi<wps.length-1) wi++; }
-        const ux=dx/(d2||1), uz=dz/(d2||1);
-        const along=p.vx*ux+p.vz*uz;
-        const latX=p.vx-ux*along, latZ=p.vz-uz*along;
-        const lead=p.grounded?0.10:0.32;
-        const aX=dx-latX*lead, aZ=dz-latZ*lead, aL=Math.hypot(aX,aZ)||1;
-        cmd.wishX=aX/aL; cmd.wishZ=aZ/aL;
-        const ahead=P.raycast(lvl.world,p.x+cmd.wishX*2.4,p.y-0.4,p.z+cmd.wishZ*2.4,0,-1,0,3.2,hit);
-        const below=P.raycast(lvl.world,p.x,p.y-0.4,p.z,0,-1,0,4.0,hit);
-        cmd.slide=(!p.grounded&&p.vy<-4)||(p.grounded&&p.speed>19);
-        cmd.jumpPressed=false; cmd.dash=false;
-        cmd.jumpHeld=d2>p.speed*0.52;
-        if(p.grounded&&(!ahead||(tgt[1]-p.y>1.5&&d2<10)||(p.speed<5&&i>60))){cmd.jumpPressed=true; if(d2>18&&p.dashCharge>0)cmd.dash=true;}
-        else if(!p.grounded&&p.coyote<=0&&p.wallCoyote>0&&!below){cmd.jumpPressed=true; if(d2>24&&p.dashCharge>0)cmd.dash=true;}
-        else if(!p.grounded&&p.vy<-1&&!below&&p.jumps>0&&tgt[1]>p.y-3){cmd.jumpPressed=true;}
-        else if(!p.grounded&&p.vy<-5&&!below&&p.jumps===0&&p.dashCharge>0)cmd.dash=true;
-        g.runTime+=F; g.fixedStep(F,cmd);
-        if(g.state==='finish') break;
-        if(g.state!=='run'){ tode++; if(tode>6) break; g.startRun(true); g.state='run'; wi=1; }
-        if(Math.abs(p.z-lastZ)<0.05) stuck++; else {stuck=0; lastZ=p.z;}
-        if(stuck>120*10){ fest=true; break; }
+        g.runTime += F;
+        g.fixedStep(F, window.PILOT.schritt(g, st, wps));
+        const z = window.PILOT.nachlauf(g, st, F);
+        if (z === 'fertig') { fertig = true; break; }
+        if (z === 'tot') break;
+        if (z === 'fest') { fest = true; break; }
       }
-      out.push({ w: WAHL.join(''), ok: g.state==='finish', t: +g.runTime.toFixed(2), tode, fest });
+      out.push({ w: WAHL.join(''), ok: g.state==='finish', t: +g.runTime.toFixed(2), tode: st.tode, fest });
     }
     return out;
   }, alle);

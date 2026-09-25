@@ -2703,7 +2703,379 @@
     return { len: 210, rise: -16, turn: 0 };
   }
 
+
+  /* ===================================================================
+     DER TURM - das senkrechte Level
+     ===================================================================
+
+     Das bisherige Level lag auf einer Ebene: Hoehenunterschiede von zwei
+     bis vier Metern, und alles, was zaehlte, war Vortrieb. Der Jet kann
+     aber etwas, das der Dash nicht konnte - er traegt nach OBEN. Ein
+     Level, das das nicht verlangt, verschenkt die ganze Mechanik.
+
+     Die drei Wege stehen deshalb NICHT nebeneinander, sondern
+     uebereinander, und ihre Stufenhoehen sind keine Erfindung. Sie sind
+     genau die drei gemessenen Reichweiten des Movements:
+
+       Doppelsprung, ohne Treibstoff      4,91 m   -> SICHER,  Stufen 4,5 m
+       Jet kurz angetippt (0,35 s)        9,30 m   -> SCHNELL, Stufen 8,5 m
+       Jet, voller Tank, ohne Steuerkreuz 27,10 m  -> IRRE,    Stufen 24 m
+
+     Damit entscheidet nicht Mut ueber den Weg, sondern Beherrschung: wer
+     den Jet nur kennt, nimmt SCHNELL; wer weiss, dass ein voller Tank
+     ohne Steuerkreuz siebenundzwanzig Meter steigt, nimmt IRRE. Und weil
+     dieselbe Hoehe auf allen drei Wegen zu ueberwinden ist, braucht der
+     sichere Weg fuenfmal so viele Stufen wie der irre - der Zeitvorteil
+     entsteht aus der STUFENZAHL, nicht aus einem geschenkten Tempo.
+
+     Der Tank fuellt sich in 1,3 s. Eine irre Stufe dauert gut eine halbe
+     Sekunde. Wer also nur steigt und wartet, verliert seinen Vorsprung
+     ans Nachtanken - deshalb liegen die Kristalle im Schacht. Sie sind
+     kein Punktestand, sie sind der Unterschied zwischen Warten und
+     Weiterfliegen.
+
+     Am Ende wird die ganze Hoehe wieder ausgegeben. Das Spiel hat seit
+     jeher eine Kernregel - Fallhoehe wird zu Tempo, wer rutschend landet
+     - und ein Level, das nur steigt, loest dieses Versprechen nie ein.
+     Der Gipfel ist deshalb kein Ziel, sondern eine Kante.
+     =================================================================== */
+
+  /* ------------------------------------------------------ 1 - Der Schacht
+     Lehrabschnitt, aber ohne Text: die drei Stufenhoehen kommen einmal
+     hintereinander vor, jede eine Stufe hoeher als die vorige Faehigkeit
+     traegt. Wer die naechste nicht schafft, sieht sofort warum - die
+     Kante ist ueber ihm, nicht hinter ihm. */
+  function t1Schacht(b) {
+    b.zone('Schacht', 70, 240, {
+      fogCol: [0.74, 0.86, 1.0], fogDensity: 0.0012,
+      zenith: [0.05, 0.40, 0.96], horizon: [0.99, 0.88, 0.74],
+      skyCol: [0.44, 0.76, 1.0], groundCol: [0.30, 0.46, 0.26],
+      sunCol: [1.16, 1.06, 0.86], ambient: 'pollen'
+    });
+    var i;
+
+    /* Startplateau am Fuss des Turms. Kurz - der Blick soll nach oben
+       gehen, nicht nach vorn. */
+    b.plat(0, 0, 6, 20, 22, MAT.meadowLush, { thickness: 2.6 });      /* -5 .. 17 */
+    b.mass(0, -4, 6, 18, 40, 18, MAT.rock);
+    b.start = { x: b.toWorldX(0, 0), y: b.cursor.y + 0.1, z: b.toWorldZ(0, 0), yaw: b.cursor.yaw };
+    b.mark(0, 0, 0);
+
+    /* Stufe 1: +4,2 m auf 22 m Entfernung. Ein gehaltener Sprung steigt
+       2,8 m, mit Doppelsprung 4,91 und traegt dabei 18 m - das geht also
+       OHNE Treibstoff. Die erste Stufe soll nichts beweisen, sie soll den
+       Blick heben. */
+    b.plat(0, 4.2, 30, 17, 18, MAT.stone, { thickness: 1.8 });        /* 21 .. 39 */
+    b.mass(0, 0, 30, 15, 26, 15, MAT.cliff);
+    b.mark(0, 4.2, 30);
+    gemArc(b, 0, 0, 17, 0, 4.2, 21, 2, 'Doppelsprung');
+
+    /* Stufe 2: +9 m auf 24 m. Der Doppelsprung steigt 4,91 - hier fehlen
+       vier Meter, und die gibt nur der Jet. Ein kurzer Tipp von 0,35 s
+       traegt gemessen 9,3 m. Das ist die erste Stelle im Spiel, an der
+       man die Taste HALTEN muss statt sie zu druecken. */
+    b.plat(0, 13.2, 72, 18, 20, MAT.stone, { thickness: 1.8 });       /* 62 .. 82 */
+    b.mass(0, 9, 72, 15, 26, 16, MAT.cliff);
+    b.mark(0, 13.2, 72);
+    for (i = 0; i < 4; i++) b.gem(0, 7.5 + i * 2.0, 44 + i * 5.5, { hint: 'Jet halten' });
+
+    /* Stufe 3: +17 m auf 42 m. Ein Tipp traegt 9,3 - das ist die Haelfte.
+       Gebraucht wird der ganze Tank UND ein Richtungswechsel waehrend des
+       Schubs: erst ohne Steuerkreuz steigen, dann mit Steuerkreuz nach
+       vorn. Gemessen traegt das 17,1 m hoch und 45 m weit, waehrend
+       reines Steigen nur 4 m weit kommt und reiner Vortrieb nur 8,5 m
+       hoch. Wer das begriffen hat, hat den Jet begriffen; alles Weitere
+       im Level ist Anwendung.
+
+       Die Stufe misst +9 m auf 34 m. Drei Entwuerfe davor standen 17, 15
+       und 12 - alle drei scheiterten gemessen, und zwar aus demselben
+       Grund: der gehaltene Vorwaertsflug traegt zwar 14,9 m in der
+       Messung, aber die Steiggrenze deckelt dabei auf 20,4 m/s, und aus
+       einem laufenden Sprung heraus kommen davon nur rund neun an. Der
+       Messwert ist eine Obergrenze, kein Betriebswert - das ist der
+       Unterschied, an dem ich dreimal vorbeigelaufen bin.
+
+       Diese Stufe soll ohnehin nur EINE Sache lehren: die Taste halten.
+       Das Loslassen ist das Kennzeichen des irren Weges und gehoert
+       dorthin, nicht in den Lehrabschnitt.
+
+       Die Kristalle liegen auf der Flugkurve und zeigen die Linie. */
+    b.plat(0, 22.2, 106, 20, 24, MAT.marble, { thickness: 2.0 });     /* 94 .. 118 */
+    b.mass(0, 17, 106, 17, 40, 20, MAT.sandstone);
+    b.mark(0, 22.2, 106);
+    for (i = 0; i < 5; i++) {
+      var t = (i + 1) / 6;
+      b.gem(0, 13.2 + 11 * Math.sin(t * 1.2), 82 + 13 * t + 5 * t * t,
+            { hint: 'Jet halten' });
+    }
+    b.column(-14, 13.2, 88, 24, { mat: MAT.sandstoneWorn });
+    b.column(14, 13.2, 94, 24, { mat: MAT.sandstoneWorn });
+
+    /* Absatz vor der Gabel - hier tankt man auf, und man SIEHT die drei
+       Aufstiege, bevor man sich entscheidet. */
+    /* Der Absatz liegt 18 m hinter der Steigstufe, nicht 30. Direkt nach
+       einem Steigflug ist der Tank leer - eine weite Luecke an genau
+       dieser Stelle verlangt Treibstoff, den es gerade nicht gibt. Der
+       Testpilot starb dort siebenmal, und zwar zu Recht. */
+    /* Sieben Meter Luecke, 3,8 m hoeher. Im Entwurf davor UEBERLAPPTEN
+       die beiden Flaechen um fuenf Meter - es gab also gar keine Luecke,
+       sondern eine 3,8 m hohe Wand mitten im Anlauf, und der Laeufer
+       rannte dagegen. Ein Hindernis, das aussieht wie ein Weg, ist der
+       aergerlichste Fehler, den ein Level machen kann. */
+    b.plat(0, 26, 136, 26, 26, MAT.marble, { thickness: 2.2 });       /* 123 .. 149 */
+    b.mass(0, 21, 136, 22, 40, 22, MAT.sandstone);
+    b.mark(0, 26, 136);
+    gemLine(b, { n: 4, x: 0, seit: 5, y: 26, z0: 128, z1: 144, hint: 'Tank' });
+    b.arch(0, 26, 147, 14, 8, MAT.gold);
+    b.gate(0, 26, 147, { name: 'Schacht' });
+
+    return { len: 149, rise: 26, turn: 0 };
+  }
+
+  /* ------------------------------------------------------- 2 - Die Tuerme
+     Die grosse Gabel, und sie fuehrt nicht nach links oder rechts,
+     sondern unterschiedlich STEIL nach oben. Alle drei Wege ueberwinden
+     dieselben 95 Hoehenmeter und muenden auf derselben Flaeche; sie
+     unterscheiden sich nur darin, in wie vielen Stufen.
+
+     Die Stufenhoehen sind keine Erfindung, sondern die drei gemessenen
+     Reichweiten des Movements:
+
+       Doppelsprung, ohne Treibstoff        4,91 m hoch, 18 m weit
+       Jet kurz angetippt (0,35 s)          9,30 m hoch
+       voller Tank, erst hoch, dann vor    17,10 m hoch, 45 m weit
+
+     Damit entscheidet nicht Mut ueber den Weg, sondern Koennen. Und weil
+     dieselbe Hoehe auf allen drei Wegen zu ueberwinden ist, braucht der
+     sichere Weg dreimal so viele Stufen wie der irre - der Zeitvorteil
+     entsteht aus der STUFENZAHL, nicht aus geschenktem Tempo.
+
+     Alle drei Wege legen dieselbe Strecke nach VORN zurueck. Der sichere
+     schlaegt dafuer weite Boegen zur Seite, denn seine einundzwanzig
+     Stufen passen nicht auf dieselbe Gerade wie die sechs des irren. Der
+     Umweg ist also nicht aufgesetzt, er ist die Folge der Stufenzahl.
+
+     Ein Zweig ersetzt beim Abfahren den GANZEN Abschnittspfad - die
+     Wegpunkte jedes Zweigs muessen deshalb vom Abschnittsanfang bis zum
+     Zusammenfluss reichen. */
+  function t2Tuerme(b) {
+    b.zone('Tuerme', 130, 280, {
+      fogCol: [0.70, 0.80, 0.98], fogDensity: 0.0011,
+      zenith: [0.04, 0.34, 0.92], horizon: [1.0, 0.86, 0.70],
+      skyCol: [0.40, 0.70, 1.0], groundCol: [0.26, 0.40, 0.24],
+      sunCol: [1.20, 1.08, 0.84], ambient: 'pollen'
+    });
+    var i, j;
+
+    /* Gemeinsamer Anlauf: eine Flaeche, von der aus man alle drei
+       Aufstiege SIEHT. Die Entscheidung faellt hier, nicht unterwegs. */
+    /* Die Gabelflaeche ist breit, weil sie drei getrennte Ausgaenge hat.
+       Im Entwurf davor waren es 28 m und alle drei Wege verliessen sie
+       nahe der Mitte - der irre Weg stieg dann direkt unter die erste
+       Flaeche des schnellen und schlug mit Tempo 25 gegen deren
+       Unterseite. Drei Wege brauchen drei Spuren, von Anfang an. */
+    b.plat(0, 0, 14, 64, 26, MAT.canyonDeck, { thickness: 2.4 });     /* 1 .. 27 */
+    b.mass(0, -5, 14, 58, 44, 22, MAT.canyon);
+    b.mark(0, 0, 14);
+    b.routeSign(-24, 0, 24, SAFE);
+    b.routeSign(0, 0, 25, FAST);
+    b.routeSign(24, 0, 24, RISK);
+
+    /* Ein Weg je Zeile. Die Zahlen sind das ganze Kapitel:
+
+         n      Stufen
+         dy     Hoehe je Stufe - siehe Reichweitentabelle oben
+         bogen  seitlicher Ausschlag in Metern
+         drehung  wie viele halbe Boegen ueber den ganzen Aufstieg
+
+       zSpan ist fuer alle gleich: die Wege enden an derselben Stelle. */
+    /* zAb ist die Flaeche, auf der die Gabel steht - NICHT der Anfang des
+       Aufstiegs. Im ersten Entwurf stand hier 34, waehrend die Gabel bei
+       14 lag: die erste Stufe war damit 55 m lang und alle folgenden 38.
+       Der Testpilot starb an ihr und an keiner anderen, auf jedem Zweig. */
+    /* zAb ist die HINTERKANTE der Gabelflaeche, nicht ihre Mitte. Lag er
+       auf der Mitte, stand die erste Stufe des schnellen Weges sechs
+       Meter hinter der Kante - also mitten in der Flaeche. */
+    var zSpan = 215, zAb = 27, hoehe = 95;
+    /* Der Ausschlag ist EIN weiter Bogen, keine Schwingung.
+
+       Im ersten Entwurf schlug der sichere Weg vier Halbboegen - also
+       zweimal hin und her. Gemessen kam der Laeufer damit mit Tempo 3 an
+       der naechsten Kante an: er musste bei jeder einzelnen Stufe hart
+       gegenlenken und kam nie ins Laufen. Dieselbe Umwegstrecke als ein
+       einziger weiter Bogen kostet genauso viel Meter, laesst sich aber
+       durchlaufen. Der Umweg soll Zeit kosten, nicht Tempo vernichten. */
+    var WEGE = [
+      /*        n   Stufe   Weite   verlangt                     Reserve
+         SICHER  27  3,52 m  11,0 m  Doppelsprung 4,91 / 18,6 m   28 % / 41 %
+         SCHNELL 12  7,92 m  20,3 m  Jet-Tipp     9,30 / 24 m     15 % / 15 %
+         IRRE     6 15,83 m  38,5 m  hoch->vor   17,10 / 45 m      7 % / 14 %
+
+         Jede Stufe liegt UNTER der gemessenen Reichweite, nicht auf ihr.
+         Zwei Entwuerfe davor rechneten mit dem Maximum - 4,52 m Stufe bei
+         4,91 m Doppelsprung - und der Testpilot blieb jedes Mal knapp
+         darunter haengen. Was theoretisch genau reicht, trifft im Spiel
+         niemand. */
+      /* Der sichere Weg klettert mit SPRUNGFEDERN, nicht mit der Duese.
+
+         Der Entwurf davor nahm siebenundzwanzig Stufen von 3,5 m, die
+         der Doppelsprung gerade so schafft. Zwei Dinge sprachen dagegen.
+         Rechnerisch: bei 215 m Strecke liegen die Stufen 8 m auseinander,
+         die Flaechen sind aber 15 m tief - sie ueberlappten sich, es gab
+         also gar keine Luecken, sondern eine Treppe aus Waenden.
+         Spielerisch: siebenundzwanzig gleiche Hopser sind kein Weg, das
+         ist eine Strafe.
+
+         Eine Feder gibt Tempo 30 nach oben, also 10,7 m Hoehe - umsonst
+         und ohne Koennen. Der Preis ist die Zeit: man steigt gut eine
+         halbe Sekunde und faellt ebenso lange, und in dieser Sekunde tut
+         man nichts. Genau das soll der sichere Weg sein: er verlangt
+         nichts und er dauert. */
+      { br: SAFE, n: 10, start: -24, bogen: -46, mat: MAT.stone,
+        breite: 17, tiefe: 16, gemJede: 2, feder: 30 },
+      { br: FAST, n: 12, start: 0, bogen: 14, mat: MAT.marble,
+        breite: 15, tiefe: 15, gemJede: 2 },
+      { br: RISK, n: 6, start: 24, bogen: 36, mat: MAT.crystalRock,
+        breite: 14, tiefe: 14, gemJede: 1 }
+    ];
+
+    for (j = 0; j < WEGE.length; j++) {
+      var W = WEGE[j];
+      b.routeZone(0, W.br, W.start, 0, 26, 14, 8, 10);
+      b.routeArch(W.start, 0, 25, 9, 6, W.br);
+      b.routeMark(0, W.br, W.start, 0, 24);
+      var vorX = W.start, vorY = 0, vorZ = 24;
+      for (i = 1; i <= W.n; i++) {
+        var t = i / W.n;
+        /* Der Weg beginnt auf seiner eigenen Spur und laeuft erst zum
+           Schluss wieder zur Mitte - cos hoch zwei geht bei t=1 sauber
+           auf null. Der Bogen obendrauf ist der Umweg, der die vielen
+           kleinen Stufen ueberhaupt unterbringt. */
+        var ab = Math.cos(t * Math.PI / 2); ab = ab * ab;
+        var x = W.start * ab + Math.sin(t * Math.PI) * W.bogen;
+        var y = hoehe * t;
+        var z = zAb + zSpan * t;
+        b.plat(x, y, z, W.breite, W.tiefe, W.mat, { thickness: 1.5 });
+        /* Die Feder steht an der HINTERKANTE der Flaeche: man laeuft
+           ueber sie hinweg in Laufrichtung und wird beim Verlassen
+           hochgeschossen. Stuende sie in der Mitte, traefe man sie beim
+           Landen und wuerde sofort wieder hochgeworfen, ohne je Fuss zu
+           fassen. */
+        if (W.feder) b.bouncePad(x, y + 0.2, z + W.tiefe * 0.34, { power: W.feder, r: 3.0 });
+        /* Ein Pfeiler unter jeder Flaeche. Ohne ihn schweben die Stufen im
+           Nichts und man kann die Hoehe nicht schaetzen - in einem
+           senkrechten Level ist das der wichtigste Anhaltspunkt ueberhaupt. */
+        b.deco('box', x, y - 7, z, W.breite * 0.5, 13, W.tiefe * 0.5,
+               W.br === SAFE ? MAT.sandstoneWorn : MAT.sandstone);
+        b.routeMark(0, W.br, x, y, z);
+        /* Der sichere Weg IST die Wirbelsaeule: wer sich nicht
+           entscheidet, laeuft ihn. Ohne diese Marken bestand der
+           Hauptpfad im ganzen Gabelabschnitt aus zwei Punkten mit 252 m
+           Abstand, und jede Streckenrechnung log entsprechend. */
+        if (W.br === SAFE) b.mark(x, y, z);
+        /* Kristalle IM Anflug, nicht auf der Flaeche. Wer sie will, muss
+           die Linie treffen; wer sie mitnimmt, hat auf der naechsten Stufe
+           wieder Tank. Auf dem irren Weg ist das der Unterschied zwischen
+           Durchfliegen und Warten. */
+        if (i % W.gemJede === 0) {
+          for (var k = 1; k <= (W.br === RISK ? 3 : 1); k++) {
+            var u = k / ((W.br === RISK ? 3 : 1) + 1);
+            b.gem(vorX + (x - vorX) * u,
+                  vorY + (y - vorY) * Math.sin(u * 1.4) + 2.4,
+                  vorZ + (z - vorZ) * u,
+                  { hint: W.br === RISK ? 'Tank im Steigflug' : 'Tank' });
+          }
+        }
+        vorX = x; vorY = y; vorZ = z;
+      }
+      b.routeMark(0, W.br, 0, hoehe + 1, zAb + zSpan + 24);
+    }
+
+    /* ---------- Zusammenfluss ------------------------------------------
+       Alle drei Wege enden auf derselben Flaeche in 96 m Hoehe. Kein Weg
+       bekommt hier Tempo geschenkt - wer schneller ist, ist es, weil er
+       weniger Stufen gebraucht hat. */
+    b.plat(0, hoehe + 1, zAb + zSpan + 24, 34, 32, MAT.canyonDeck, { thickness: 2.6 });
+    b.mass(0, hoehe - 5, zAb + zSpan + 24, 30, 50, 28, MAT.canyon);
+    b.mark(0, hoehe + 1, zAb + zSpan + 24);
+    b.arch(0, hoehe + 1, zAb + zSpan + 38, 16, 9, MAT.gold);
+    b.gate(0, hoehe + 1, zAb + zSpan + 38, { name: 'Die Tuerme' });
+
+    return { len: zAb + zSpan + 40, rise: hoehe + 1, turn: 0 };
+  }
+
+  /* -------------------------------------------------------- 3 - Der Gipfel
+     Hier wird die Hoehe wieder ausgegeben.
+
+     Das Spiel hat eine Kernregel, die aelter ist als der Jet: wer mit
+     gedrueckter Rutschtaste aufkommt, rechnet 62 Prozent seiner
+     Fallgeschwindigkeit in Vortrieb um - ab einem Aufprall von 30, also
+     rund sieben Metern Fall. Ein Level, das nur steigt, loest dieses
+     Versprechen nie ein und laesst seine eigene beste Mechanik liegen.
+
+     Also: eine letzte kurze Kletterei auf den Gipfel, und dann ein Sturz
+     von 38 m. Aufprall 70 - weit ueber der Grenze, und mit Rutschlandung
+     steht man augenblicklich am Deckel. Die letzten Meter sind der
+     schnellste Abschnitt des ganzen Laufs, und man hat sie sich
+     erklettert. */
+  function t3Gipfel(b) {
+    b.zone('Gipfel', 60, 220, {
+      fogCol: [0.80, 0.88, 1.0], fogDensity: 0.0010,
+      zenith: [0.03, 0.28, 0.88], horizon: [1.0, 0.84, 0.72],
+      skyCol: [0.38, 0.66, 1.0], groundCol: [0.62, 0.68, 0.72],
+      sunCol: [1.24, 1.10, 0.86], ambient: 'snow'
+    });
+    var i;
+
+    /* Zwei letzte Stufen - kurz, damit der Gipfel nicht zur Pflicht wird. */
+    b.plat(0, 10, 26, 16, 16, MAT.snow, { thickness: 1.8 });          /* 18 .. 34 */
+    b.mass(0, 5, 26, 13, 30, 13, MAT.cliff);
+    b.mark(0, 10, 26);
+    b.gem(0, 6, 18, { hint: 'Tank' });
+
+    b.plat(0, 20, 48, 20, 20, MAT.snowDeep, { thickness: 2.2 });      /* 38 .. 58 */
+    b.mass(0, 14, 48, 17, 34, 17, MAT.cliff);
+    b.mark(0, 20, 48);
+    b.column(-12, 20, 50, 9, { mat: MAT.iceSolid });
+    b.column(12, 20, 50, 9, { mat: MAT.iceSolid });
+    b.arch(0, 20, 58, 15, 8, MAT.gold);
+
+    /* Die Kante. Von hier geht es nur noch hinunter. */
+    b.deco('box', 0, 21.4, 57, 19, 0.7, 0.5, MAT.flag);
+
+    /* Der Sturz: 38 m auf eine lange Rampe. Aufprall 70, mit
+       Rutschlandung bleiben 43 Tempo stehen - die Bestmarke des ganzen
+       Laufs, und sie kostet keine Eingabe ausser der gehaltenen Taste.
+       Die Kristalle im Bogen zeigen die Linie und erinnern daran. */
+    b.plat(0, -18, 104, 34, 54, MAT.stone, { thickness: 2.8 });       /* 77 .. 131 */
+    b.mass(0, -24, 104, 30, 46, 46, MAT.cliff);
+    b.mark(0, -18, 104);
+    gemArc(b, 0, 20, 58, 0, -18, 80, 4, 'Rutschtaste halten');
+
+    /* Abfahrt. Breit und ohne Hindernis - nach dem Aufstieg soll der
+       Schluss nicht noch einmal etwas verlangen, sondern die Belohnung
+       auszahlen. Zwei Tore nur als Blickfuehrung. */
+    for (i = 0; i < 3; i++) {
+      b.plat(0, -22 - i * 4, 150 + i * 38, 26, 30, MAT.stone, { thickness: 2.0 });
+      b.mass(0, -28 - i * 4, 150 + i * 38, 22, 40, 26, MAT.cliff);
+      b.mark(0, -22 - i * 4, 150 + i * 38);
+      b.column(-15, -22 - i * 4, 150 + i * 38, 7, { mat: MAT.sandstoneWorn });
+      b.column(15, -22 - i * 4, 150 + i * 38, 7, { mat: MAT.sandstoneWorn });
+    }
+    gemLine(b, { n: 8, x: 0, seit: 6, y: -26, z0: 140, z1: 220, hint: 'Linie' });
+
+    b.plat(0, -34, 254, 32, 34, MAT.marble, { thickness: 2.6 });      /* 237 .. 271 */
+    b.mass(0, -40, 254, 28, 40, 30, MAT.canyon);
+    b.mark(0, -34, 254);
+    b.arch(0, -34, 262, 20, 10, MAT.gold);
+    b.deco('box', 0, -24.4, 262, 21, 1.4, 0.6, MAT.flag);
+    b.gate(0, -34, 262, { name: 'Ziel' });
+
+    return { len: 272, rise: -34, turn: 0 };
+  }
+
   root.MR.level.SETS = {
+    turm: [t1Schacht, t2Tuerme, t3Gipfel],
     lang: [s1Auftakt, s2Sprungkette, s3Gabel, s4Tempo, s5Wand, s6Wasserfall, s7Ruinen, s8Ziel],
     sturz: [k1Absprung, k2Sprung, k3Zielhang]
   };

@@ -124,9 +124,33 @@
        Landen gibt eine Ladung zurueck, jeder Kristall gibt eine dazu. Damit
        sind Kristalle zum ersten Mal ein Teil des Spiels und nicht nur eine
        Zahl in der Anzeige. */
-    DASH_SPEED: 38,
-    DASH_TIME: 0.16,
-    DASH_MAX: 3,
+    /* =================================================== JET-SCHUB
+       Der Dash war ein Impuls: 0,16 s lang Tempo 38, drei Ladungen, und
+       danach war er weg. Ein Jet ist etwas anderes - man haelt ihn, er
+       schiebt, solange Treibstoff da ist, und er hebt.
+
+       Der Vertikalanteil ist der eigentliche Punkt. Ein waagerechter
+       Schub haette nur den Dash verlaengert; erst der Auftrieb macht aus
+       der Faehigkeit ein Werkzeug fuer HOEHE, und darauf ist das
+       vertikale Level gebaut.
+
+       JET_SCHUB_V liegt ueber der Fallbeschleunigung (GRAV_DOWN 64), also
+       bleibt netto Auftrieb. JET_STEIG_MAX deckelt ihn: ohne Deckel waere
+       es Fliegen, mit Deckel ist es ein Sprung, den man verlaengern kann.
+
+       Die Zahlen sind gemessen, nicht geraten - siehe tools/jet.js. */
+    JET_SCHUB_H: 95,          /* waagerechter Schub, m/s^2 */
+    JET_SCHUB_V: 142,         /* senkrechter Schub - netto +78 gegen 64 Fall */
+    JET_MAX: 52,              /* Hoechsttempo unter Schub, ueber SPEED_CAP 46 */
+    JET_STEIG_MAX: 34,        /* so schnell steigt man hoechstens */
+    JET_V_NEIGUNG: 0.28,      /* wie stark volles Steuerkreuz den Auftrieb nimmt */
+    JET_QUERBREMSE: 1.4,      /* Tempoverlust je Sekunde, wenn man nicht lenkt */
+    JET_ABHEBEN: 7.0,         /* Stoss beim Zuenden am Boden */
+    TANK_VERBRAUCH: 1.60,     /* Anteil je Sekunde - voller Tank = 0,63 s */
+    TANK_NACHFUELL: 1.00,     /* Anteil je Sekunde - voll nach 1,3 s */
+    TANK_VERZUG: 0.30,        /* so lange nach dem Loslassen passiert nichts */
+    TANK_MIN_START: 0.12,     /* darunter startet der Jet nicht neu */
+    TANK_KRISTALL: 0.34,      /* soviel Tank gibt ein Kristall */
 
     /* Wandsprung: haelt das Tempo und lenkt es um, statt es zu stoppen. */
     WALL_JUMP_V: 14.5,
@@ -170,8 +194,10 @@
       coyote: 0,
       buffer: 0,
       jumps: 2,
-      dashCharge: 1,
-      dashTimer: 0,
+      tank: 1,                  /* Treibstoff, 0 bis 1 */
+      tankVerzug: 0,            /* Wartezeit bis zum Nachfuellen */
+      jetAn: false,             /* lief der Jet im letzten Schritt? */
+      jetZeit: 0,               /* wie lange am Stueck - fuer Effekte */
       dashCooldown: 0,
       sliding: false,
       slideTime: 0,
@@ -209,8 +235,10 @@
       this.coyote = 0;
       this.buffer = 0;
       this.jumps = 2;
-      this.dashCharge = 1;
-      this.dashTimer = 0;
+      this.tank = 1;
+      this.tankVerzug = 0;
+      this.jetAn = false;
+      this.jetZeit = 0;
       this.dashCooldown = 0;
       this.sliding = false;
       this.slideTime = 0;
@@ -273,25 +301,155 @@
 
       var targetSpeed = P.RUN * (wishLen > 0.01 ? Math.min(1, wishLen) : 0);
 
-      /* ------------------------------------------------------------ Dash */
-      if (cmd.dash && this.dashTimer <= 0 && this.dashCharge > 0) {
-        var dx2 = wishLen > 0.05 ? wishX / wishLen : Math.sin(this.yaw);
-        var dz2 = wishLen > 0.05 ? wishZ / wishLen : Math.cos(this.yaw);
-        this.dashDirX = dx2;
-        this.dashDirZ = dz2;
-        this.dashTimer = P.DASH_TIME;
-        this.dashCharge--;
-        this.vy = Math.max(this.vy, 0);
-        this.yaw = Math.atan2(dx2, dz2);
-        ev.push('dash');
+      /* ======================================================= JET-SCHUB
+         Gehalten, nicht gedrueckt. `cmd.jet` ist ein Zustand, kein
+         Ereignis - das ist der ganze Unterschied zum alten Dash.
+
+         TANK_MIN_START verhindert das Stottern: mit einem fast leeren
+         Tank laesst sich der Jet nicht neu zuenden, ein laufender Schub
+         darf ihn aber bis auf null aufbrauchen. Ohne diese Schwelle
+         konnte man durch Klopfen auf die Taste endlos kleine Schuebe
+         herausholen, und der Tank waere bedeutungslos gewesen. */
+      var jetWunsch = !!(cmd.jet !== undefined ? cmd.jet : cmd.dash);
+      var jetLaeuft = jetWunsch && this.tank > (this.jetAn ? 0 : P.TANK_MIN_START);
+
+      if (jetLaeuft) {
+        if (!this.jetAn) {
+          this.jetAn = true; this.jetZeit = 0;
+          /* Abhebestoss. Ohne ihn hob der Jet vom Boden ueberhaupt nicht
+             ab: der Schub baut je Schritt nur 0,9 m/s Steigen auf, das
+             bleibt innerhalb der Bodentoleranz und wird wieder auf null
+             gesetzt - gemessene Steighoehe 0,5 m, obwohl rechnerisch
+             viereinhalb Meter drinstecken. Ein Sprung funktioniert, weil
+             er 15,5 in einem Schlag setzt. Der Jet bekommt denselben
+             Kniff, nur kleiner: gerade genug, um den Boden zu verlassen,
+             danach traegt der Dauerschub. */
+          if (this.grounded || this.coyote > 0) {
+            this.vy = Math.max(this.vy, P.JET_ABHEBEN);
+            this.coyote = 0;
+          }
+          ev.push('jetstart');
+        }
+        this.jetZeit += dt;
+        this.tank = Math.max(0, this.tank - P.TANK_VERBRAUCH * dt);
+        this.tankVerzug = P.TANK_VERZUG;
+
+        /* Waagerecht: beschleunigen, nicht setzen. Ein gesetztes Tempo
+           faehlt sich nach Teleport an; eine Beschleunigung laesst sich
+           lenken, und genau das war die Vorgabe. */
+        /* Waagerechter Schub NUR bei Richtungseingabe. Vorher schob der
+           Jet immer in Blickrichtung, auch mit losgelassenem Steuerkreuz -
+           damit war "nur steigen" unmoeglich, und ein Steigtest mass in
+           Wahrheit einen Vorwaertsschub ueber flachen Boden (gemessene
+           Steighoehe 0,5 m).
+
+           Jetzt entscheidet die Hand: Steuerkreuz los = reiner Auftrieb,
+           Steuerkreuz gedrueckt = Vortrieb in diese Richtung. Das ist die
+           Trennung, auf der das vertikale Level steht. */
+        var schubH = M.clamp(wishLen, 0, 1);
+
+        /* Wer nicht lenkt, verliert Tempo.
+
+           Ohne diese Zeilen war halbes Steuerkreuz die beste Strategie:
+           gemessen 95 m Weite gegen 34 m bei vollem Schub, weil viel
+           Auftrieb lange Flugzeit bedeutet und das Anlauftempo in der
+           Luft fast nicht verfaellt. Man sammelte Hoehe, ohne fuer das
+           Tempo zu bezahlen. Am Keyboard gibt es aber nur 0 oder 1 - der
+           Trick waere also ein reiner Gamepad-Vorteil gewesen, und das
+           ist kein Koennen.
+
+           Jetzt bremst die Duese quer zu ihrer Richtung: zeigt sie nach
+           unten, schiebt nichts mehr nach vorn und das Tempo faellt. Man
+           kann Hoehe oder Weite kaufen, nie beides mit derselben
+           Tankfuellung.
+
+           Die Staerke ist gemessen und nicht gewaehlt. Bei 4,4 je Sekunde
+           blieben nach einem vollen Steigflug 6 Prozent des Anlauftempos
+           uebrig - in einem senkrechten Level, in dem man staendig
+           steigt, lief man damit die ganze Strecke im Schritt. Bei 1,4
+           sind es 41 Prozent, und der Trick, gegen den die Bremse
+           ueberhaupt da ist, bringt immer noch nichts: erst vor, dann
+           hoch kommt auf 59 m, reiner Vortrieb auf 58.
+
+           Die Neigung ist mit 0,28 bewusst SCHWACH - sie ist ein Wink,
+           kein Riegel. Zwei Gruende, beide gemessen.
+
+           Erstens die Fairness: bei 0,58 war halbes Steuerkreuz 23
+           Prozent weiter als volles - ein Vorteil, den es nur am Gamepad
+           gibt, denn die Tastatur kennt nur 0 und 1. Bei 0,28 ist der
+           Unterschied ein Prozent, also Rauschen.
+
+           Zweitens, und wichtiger: eine starke Neigung deckelt das
+           Steigen mit gehaltenem Steuerkreuz auf 20,4 m/s. Damit wird
+           SCHRAEGES Fliegen - Hoehe und Weite zugleich - praktisch
+           unmoeglich, und genau darauf beruht ein senkrechtes Level. Der
+           Testpilot blieb an jeder schraegen Stufe drei Meter unter der
+           Kante, gleich ob sie neun oder siebzehn Meter mass.
+
+           Begrenzt wird der Jet deshalb durch den TANK, nicht durch einen
+           zweiten Riegel: 0,63 Sekunden Schub, dann ist Schluss. Eine
+           Ressource, die der Spieler frei einteilt, ist eine
+           Entscheidung; zwei, die sich gegenseitig zuschnueren, sind nur
+           eine Bevormundung. */
+        var quer = Math.exp(-P.JET_QUERBREMSE * (1 - schubH) * dt);
+        this.vx *= quer; this.vz *= quer;
+
+        if (schubH > 0.05) {
+          var jx = wishX / wishLen, jz = wishZ / wishLen;
+          this.vx += jx * P.JET_SCHUB_H * schubH * dt;
+          this.vz += jz * P.JET_SCHUB_H * schubH * dt;
+          this.yaw = Math.atan2(jx, jz);
+        }
+        var jsp = Math.hypot(this.vx, this.vz);
+        if (jsp > P.JET_MAX) { this.vx *= P.JET_MAX / jsp; this.vz *= P.JET_MAX / jsp; }
+
+        /* Senkrecht - und hier steckt die eigentliche Entscheidung.
+
+           Der erste Ansatz liess den Auftrieb mit der ZEIT abklingen.
+           Gemessen fuehrte das in eine Sackgasse: mit starker Kippkurve
+           blieben 3,2 m Steighoehe (unbrauchbar fuer ein vertikales
+           Level), ohne sie 28 m Steigen, aber 133 m Sprungweite (die
+           groesste Luecke im Spiel misst 48). Reichweite und Hoehe hingen
+           beide am selben Regler, weil man mit gedruecktem Steuerkreuz
+           BEIDES voll bekam.
+
+           Jetzt teilt die RICHTUNG den Schub auf, nicht die Uhr:
+
+             Steuerkreuz los      -> voller Auftrieb, man steigt
+             Steuerkreuz halb     -> Schraege, beides zur Haelfte
+             Steuerkreuz voll     -> Vortrieb, kaum Auftrieb
+
+           Der Spieler zielt den Jet also selbst, und er kann Hoehe und
+           Weite nicht gleichzeitig maximal haben. Das ist die
+           Entscheidung, die das Koennen ausmacht - und sie liegt in der
+           Hand, nicht in einem Zeitgeber. */
+        var vertAnteil = 1 - P.JET_V_NEIGUNG * schubH;
+        if (this.vy < P.JET_STEIG_MAX * vertAnteil) {
+          this.vy = Math.min(P.JET_STEIG_MAX * vertAnteil,
+                             this.vy + P.JET_SCHUB_V * vertAnteil * dt);
+        }
+
+        /* Der Zerfall weiter unten zieht alles ueber RUN herunter. Ohne
+           diese Ausnahme arbeitete er gegen den eigenen Schub. */
+        this.boostCap = P.JET_MAX;
+        this.boostTimer = Math.max(this.boostTimer, 0.08);
+        /* Kein Ereignis je Schritt. Die Simulation laeuft mit 120 Hz, das
+           waeren 120 Meldungen je Sekunde fuer einen Zustand, der ohnehin
+           in jetAn steht - und bis zu acht Flammenstoesse in einem
+           einzigen Bild. Was dauernd brennt, liest die Anzeige direkt aus
+           jetAn ab; gemeldet werden nur Zuenden und Verloeschen. */
+        if (this.tank <= 0) { ev.push('tankleer'); }
+      } else {
+        if (this.jetAn) { this.jetAn = false; ev.push('jetstop'); }
+        if (this.tankVerzug > 0) this.tankVerzug -= dt;
+        else if (this.tank < 1) this.tank = Math.min(1, this.tank + P.TANK_NACHFUELL * dt);
       }
 
-      if (this.dashTimer > 0) {
-        this.dashTimer -= dt;
-        this.vx = this.dashDirX * P.DASH_SPEED;
-        this.vz = this.dashDirZ * P.DASH_SPEED;
-        this.vy = 0;                 /* waagerechter Schub, kein Absacken */
-      } else {
+      /* Der Laufcode stand frueher im else-Zweig des Dash. Der Jet
+         ersetzt den Dash nicht, er laeuft ZUSAETZLICH - man kann
+         waehrend des Schubs weiter lenken. Deshalb hier nur noch ein
+         Block ohne Bedingung. */
+      {
         /* ------------------------------------------------- Laufen / Lenken */
         var accel = this.sliding ? P.ACCEL_SLIDE : (this.grounded ? P.ACCEL_GROUND : P.ACCEL_AIR);
         if (wishLen > 0.01) {
@@ -359,14 +517,12 @@
             this.vz = mz / ml * wsp;
           }
           this.vy = P.WALL_JUMP_V;
-          this.dashTimer = 0;
           this.wallCoyote = 0;
           this.buffer = 0;
           this.jumps = 1;
           this.squash = 1.32;
           ev.push('walljump');
         } else if (this.grounded || this.coyote > 0) {
-          this.dashTimer = 0;          /* Sprung bricht den Dash ab, Tempo bleibt */
           this.vy = P.JUMP_V;
           this.vx += this.platVX * 0.85;
           this.vz += this.platVZ * 0.85;
@@ -395,7 +551,6 @@
           }
           ev.push('jump');
         } else if (this.jumps > 0) {
-          this.dashTimer = 0;
           this.vy = P.DJUMP_V;
           this.jumps = 0;
           this.buffer = 0;
@@ -409,14 +564,18 @@
         }
       }
 
-      /* -------------------------------------------------------- Schwerkraft */
-      if (this.dashTimer <= 0) {
-        var grav;
-        if (this.vy > 0) grav = (cmd.jumpHeld || this.floatUp) ? P.GRAV_HOLD : P.GRAV_UP;
-        else { grav = P.GRAV_DOWN; this.floatUp = false; }
-        this.vy -= grav * dt;
-        if (this.vy < -P.MAX_FALL) this.vy = -P.MAX_FALL;
-      }
+      /* -------------------------------------------------------- Schwerkraft
+
+         Sie wirkt auch unter Schub. Der Dash setzte sie frueher aus, der
+         Jet nicht: JET_SCHUB_V ist mit 142 gegen die 64 der Schwerkraft
+         gerechnet, netto also +78. Wer die Duese aussetzen laesst, nimmt
+         dem Fallen sein Gewicht - und ohne Gewicht fuehlt sich kein
+         Steigen nach Leistung an. */
+      var grav;
+      if (this.vy > 0) grav = (cmd.jumpHeld || this.floatUp) ? P.GRAV_HOLD : P.GRAV_UP;
+      else { grav = P.GRAV_DOWN; this.floatUp = false; }
+      this.vy -= grav * dt;
+      if (this.vy < -P.MAX_FALL) this.vy = -P.MAX_FALL;
 
       /* ------------------------------------------------ Bewegung + Kollision */
       var wasGrounded = this.grounded;
@@ -442,7 +601,7 @@
             this.vy = c.power;
             this.floatUp = true;   /* volle Hoehe, auch ohne gehaltene Taste */
             this.jumps = 1;
-            this.dashCharge = 1;
+            this.tank = Math.max(this.tank, 0.5);
             this.squash = 1.5;
             grounded = false;
             ground = null;
@@ -477,7 +636,6 @@
         this.coyote = P.COYOTE;
         this.jumps = 2;
         this.wallCoyote = 0;
-        if (this.dashCharge < 1) this.dashCharge = 1;
         if (!wasGrounded) {
           this.squash = Math.max(0.55, 1 - Math.min(0.45, landing / 60));
           /* ------------------------------------------- Hoehe wird Tempo
@@ -547,10 +705,14 @@
       return ev;
     };
 
-    /* Ein Kristall gibt eine Dash-Ladung. Damit sind Kristalle keine Zahl
-       mehr, sondern der Treibstoff fuer die Abkuerzungen. */
-    p.giveDash = function (n) {
-      this.dashCharge = Math.min(P.DASH_MAX, this.dashCharge + (n || 1));
+    /* Ein Kristall ist Treibstoff. Damit sind Kristalle keine Zahl mehr,
+       sondern das, was die Abkuerzung ueberhaupt bezahlt: wer sie
+       mitnimmt, kann frueher wieder zuenden. Ein Kristall fuellt einen
+       Drittel-Tank und setzt die Sperrzeit zurueck, sonst laege die
+       Belohnung 0,3 s in der Zukunft und waere im Flug nicht zu spueren. */
+    p.tankFuellen = function (anteil) {
+      this.tank = Math.min(1, this.tank + (anteil || P.TANK_KRISTALL));
+      this.tankVerzug = 0;
     };
 
     /* Figur zeichnen: ein paar Grundkoerper mit Lauf- und Sprungpose.
@@ -595,7 +757,7 @@
          steigen, fallen, Dash. Ohne das sieht jede Lage gleich aus und die
          Figur wirkt wie eine Puppe an einem Faden. */
       var sp01 = Math.min(1, this.speed / 30);          /* 0 .. 1 Tempo */
-      var dashing = this.dashTimer > 0 ? 1 : 0;
+      var dashing = this.jetAn ? 1 : 0;
       var rising = !this.grounded && this.vy > 1 ? 1 : 0;
       var falling = !this.grounded && this.vy < -1 ? Math.min(1, -this.vy / 22) : 0;
       var idle = this.grounded ? 1 - Math.min(1, this.speed / 3.5) : 0;
@@ -696,7 +858,7 @@
       fov: 1.26,
       fovBase: 1.26,
       fovNow: 1.26,
-      fovPunch: 0,          /* kurzer Stoss beim Dash */
+      fovPunch: 0,          /* kurzer Stoss beim Zuenden */
       landPunch: 0,         /* kurzes Einfedern bei harter Landung */
       pos: new Float32Array(3),
       look: new Float32Array(3),
@@ -757,8 +919,21 @@
 
       /* Bei Tempo etwas weiter weg, beim Fallen hoeher und mit Blick nach unten. */
       var fall = M.clamp(-player.vy / 26, 0, 1);
-      var fast = M.clamp((speed - P.RUN * 0.9) / (P.DASH_SPEED - P.RUN), 0, 1);
-      var wantDist = this.dist + fast * 2.6 + fall * 1.4;
+      /* Frueher stand hier DASH_SPEED. Die Konstante gibt es nicht mehr,
+         seit der Dash weg ist - die Rechnung waere NaN geworden und haette
+         das ganze Blickfeld mitgerissen. Bezug ist jetzt die normale
+         Hoechstgeschwindigkeit; was der Jet darueber hinaus gibt, kommt
+         als eigener Anteil dazu und ist damit als EXTRA zu sehen statt im
+         Tempo unterzugehen. */
+      var fast = M.clamp((speed - P.RUN * 0.9) / (P.SPEED_CAP - P.RUN), 0, 1);
+      var schub = M.clamp((speed - P.SPEED_CAP) / (P.JET_MAX - P.SPEED_CAP), 0, 1);
+      /* Steigen und Fallen sind in einem senkrechten Level der halbe
+         Inhalt. Die Kamera muss deshalb mitteilen, wohin es geht: beim
+         Steigen rueckt der Blick nach oben, beim Fallen nach unten. Der
+         Anteil ist bewusst klein und traege - eine Kamera, die dem
+         Steigen voll folgt, ist genau die Sorte, von der schlecht wird. */
+      var steigen = M.clamp(player.vy / 26, 0, 1);
+      var wantDist = this.dist + fast * 2.6 + fall * 1.4 + schub * 1.2;
       this.distNow = instant ? wantDist : M.damp(this.distNow, wantDist, 5, dt);
 
       /* Blickfeld: leicht weiter beim Sprint, deutlich beim Dash. */
@@ -766,8 +941,12 @@
          vorbei, ohne dass die Figur kleiner wird. Der Stoss beim Dash klingt
          langsamer ab als vorher - bei 7 war er vorbei, bevor man ihn
          bemerkt hat. */
-      var wantFov = this.fovBase + fast * 0.13;
-      this.fovNow = instant ? wantFov : M.damp(this.fovNow, wantFov, 6, dt);
+      var wantFov = this.fovBase + fast * 0.13 + (player.jetAn ? 0.11 : 0) + schub * 0.06;
+      /* Beim Zuenden weitet sich das Bild schnell, beim Loslassen zieht es
+         sich langsamer zusammen. Symmetrisch gedaempft fuehlte sich das
+         Nachlassen wie ein zweiter Stoss an. */
+      var fovRate = wantFov > this.fovNow ? 9 : 4.5;
+      this.fovNow = instant ? wantFov : M.damp(this.fovNow, wantFov, fovRate, dt);
       this.fovPunch = M.damp(this.fovPunch, 0, 5.2, dt);
       this.fov = this.fovNow + this.fovPunch;
       this.landPunch = M.damp(this.landPunch, 0, 11, dt);
@@ -787,7 +966,7 @@
       var leadX = M.clamp(player.vx * (0.10 + fast * 0.16), -7.0, 7.0);
       var leadZ = M.clamp(player.vz * (0.10 + fast * 0.16), -7.0, 7.0);
       var tx = player.x + M.clamp(player.vx * 0.05, -1.2, 1.2);
-      var ty = player.y + 0.75 + fall * 1.15 - this.landPunch * 0.7;
+      var ty = player.y + 0.75 + fall * 1.15 + steigen * 0.9 - this.landPunch * 0.7;
       var tz = player.z + M.clamp(player.vz * 0.05, -1.2, 1.2);
       var k = instant ? 1 : 1 - Math.exp(-18 * dt);
       /* Senkrecht wird in der Luft traeger gefolgt, damit die Kamera nicht
@@ -798,7 +977,7 @@
       this.target[1] += (ty - this.target[1]) * ky;
       this.target[2] += (tz - this.target[2]) * k;
 
-      var pitch = this.pitch + fall * 0.12;
+      var pitch = this.pitch + fall * 0.12 - steigen * 0.16;
       var cp = Math.cos(pitch), sp = Math.sin(pitch);
       var dirX = Math.sin(this.yaw) * cp, dirZ = Math.cos(this.yaw) * cp, dirY = -sp;
 

@@ -25,6 +25,9 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
   if (SATZ) await page.addInitScript(s => { try { localStorage.setItem('mr_satz', s); } catch (e) {} }, SATZ);
   await page.goto('http://127.0.0.1:8123/index.html', { waitUntil: 'load' });
   await page.waitForFunction(() => !!window.GAME, null, { timeout: 30000 });
+  /* Der Testpilot kommt aus tools/pilot.js - einmal geschrieben, von
+     allen Werkzeugen benutzt. */
+  await page.addScriptTag({ path: require('path').join(__dirname, 'pilot.js') });
 
   const R = await page.evaluate((WAHL) => {
     const g = window.GAME, P = window.MR.physics, hit = P.makeHit(), F = 1/120;
@@ -45,47 +48,33 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
 
     g.resetRun(true); g.state='run'; g.runTime=0;
     const p = g.player;
-    const cmd={wishX:0,wishZ:0,slide:false,dash:false,jumpPressed:false,jumpHeld:false};
-    let wi=1, tode=0, gesehen=0;
+    const st = window.PILOT.neu(g);
+    let gesehen=0;
     const takt = [];                 /* je halbe Sekunde ein Eintrag */
     let fenster = null;
     const gemZeiten = [], torZeiten = [];
-    let dashSummeMax = 0, n = 0;
+    let tankSummeVoll = 0, n = 0;
     const histTempo = [], bremsungen = [];
     let kursAlt = null;
 
     /* `lenk` ist die Kursaenderung in Grad je Fenster.
 
        Diese Groesse fehlte, und ihr Fehlen hat mich in die Irre gefuehrt:
-       das Werkzeug zaehlte nur Spruenge und Dashes, also galt ein Slalom
+       das Werkzeug zaehlte nur Spruenge und Schuebe, also galt ein Slalom
        bei Tempo 40 als genauso leer wie ein gerader Korridor. Lenken ist
        aber eine Handlung - und auf einem sicheren Weg ist es sogar die
        einzige, die Tempo kostet statt es zu schenken. */
     function neuesFenster(t){ return { t: t, ereignisse: [], tempoMin: 1e9, tempoMax: 0, luft: 0, n: 0,
-                                       eingaben: 0, dashVoll: 0, lenk: 0 }; }
+                                       eingaben: 0, tankVoll: 0, lenk: 0 }; }
     fenster = neuesFenster(0);
 
     for (let i=0;i<120*150;i++){
-      const tgt=wps[Math.min(wi,wps.length-1)];
-      const dx=tgt[0]-p.x, dz=tgt[2]-p.z, d2=Math.hypot(dx,dz);
-      if(d2<5 && Math.abs(tgt[1]-p.y)<7){ if(wi<wps.length-1) wi++; }
-      const ux=dx/(d2||1), uz=dz/(d2||1);
-      const along=p.vx*ux+p.vz*uz;
-      const latX=p.vx-ux*along, latZ=p.vz-uz*along;
-      const lead=p.grounded?0.10:0.32;
-      const aX=dx-latX*lead, aZ=dz-latZ*lead, aL=Math.hypot(aX,aZ)||1;
-      cmd.wishX=aX/aL; cmd.wishZ=aZ/aL;
-      const ahead=P.raycast(lvl.world,p.x+cmd.wishX*2.4,p.y-0.4,p.z+cmd.wishZ*2.4,0,-1,0,3.2,hit);
-      const below=P.raycast(lvl.world,p.x,p.y-0.4,p.z,0,-1,0,4.0,hit);
-      cmd.slide=(!p.grounded&&p.vy<-4)||(p.grounded&&p.speed>19);
-      cmd.jumpPressed=false; cmd.dash=false;
-      cmd.jumpHeld=d2>p.speed*0.52;
-      if(p.grounded&&(!ahead||(tgt[1]-p.y>1.5&&d2<10)||(p.speed<5&&i>60))){cmd.jumpPressed=true; if(d2>18&&p.dashCharge>0)cmd.dash=true;}
-      else if(!p.grounded&&p.coyote<=0&&p.wallCoyote>0&&!below){cmd.jumpPressed=true; if(d2>24&&p.dashCharge>0)cmd.dash=true;}
-      else if(!p.grounded&&p.vy<-1&&!below&&p.jumps>0&&tgt[1]>p.y-3){cmd.jumpPressed=true;}
-      else if(!p.grounded&&p.vy<-5&&!below&&p.jumps===0&&p.dashCharge>0)cmd.dash=true;
-
-      if (cmd.jumpPressed || cmd.dash) fenster.eingaben++;
+      const cmd = window.PILOT.schritt(g, st, wps);
+      /* Eine Eingabe ist alles, was der Spieler aktiv tut. Der Jet zaehlt
+         nur beim ZUENDEN, nicht in jedem Schritt des Haltens - sonst
+         stuende ein einziger Schub mit 76 Eingaben in der Statistik und
+         jede Strecke saehe beschaeftigt aus. */
+      if (cmd.jumpPressed || (cmd.jet && !p.jetAn)) fenster.eingaben++;
       g.runTime += F;
       g.fixedStep(F, cmd);
       /* fixedStep leert p.events zu Beginn und fuellt sie waehrend des
@@ -121,23 +110,23 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
       if (!p.grounded) fenster.luft++;
       if (p.speed < fenster.tempoMin) fenster.tempoMin = p.speed;
       if (p.speed > fenster.tempoMax) fenster.tempoMax = p.speed;
-      if (p.dashCharge >= 3) fenster.dashVoll++;
-      dashSummeMax += (p.dashCharge >= 3) ? 1 : 0;
-      if (Array.isArray(evs)) for (const e of evs) if (['jump','doublejump','dash','walljump','slideland','bounce','boost'].indexOf(e) >= 0) fenster.ereignisse.push(e);
+      if (p.tank > 0.95) fenster.tankVoll++;
+      tankSummeVoll += (p.tank > 0.95) ? 1 : 0;
+      if (Array.isArray(evs)) for (const e of evs) if (['jump','doublejump','jetstart','walljump','slideland','bounce','boost'].indexOf(e) >= 0) fenster.ereignisse.push(e);
 
       let offen=0; for(let k=0;k<lvl.gates.length;k++) if(lvl.gates[k].passed) offen++;
       if (offen > gesehen) { gesehen = offen; torZeiten.push({ t:+g.runTime.toFixed(2), name: lvl.gates[gesehen-1].name }); fenster.ereignisse.push('TOR'); }
 
       if (g.runTime - fenster.t >= 0.5) { takt.push(fenster); fenster = neuesFenster(g.runTime); }
-      if (g.state==='finish') break;
-      if (g.state!=='run'){ tode++; if(tode>6) break; g.startRun(true); g.state='run'; wi=1; }
+      const z = window.PILOT.nachlauf(g, st, F);
+      if (z === 'fertig' || z === 'tot' || z === 'fest') break;
     }
     takt.push(fenster);
-    return { zustand:g.state, tode, zeit:+g.runTime.toFixed(2), takt, torZeiten, bremsungen,
-             dashVollAnteil: +(dashSummeMax/Math.max(1,n)).toFixed(2), kristalle: g.gems, kristalleGesamt: lvl.gemTotal || 0 };
+    return { zustand:g.state, tode: st.tode, zeit:+g.runTime.toFixed(2), takt, torZeiten, bremsungen,
+             tankVollAnteil: +(tankSummeVoll/Math.max(1,n)).toFixed(2), kristalle: g.gems, kristalleGesamt: lvl.gemTotal || 0 };
   }, WAHL);
 
-  const KUERZEL = { jump:'S', doublejump:'D', dash:'>', walljump:'W', slideland:'L', bounce:'B', boost:'T', TOR:'|' };
+  const KUERZEL = { jump:'S', doublejump:'D', jetstart:'^', walljump:'W', slideland:'L', bounce:'B', boost:'T', TOR:'|' };
   console.log('Routenwahl ' + WAHL.join('') + '   ' + R.zustand + '   ' + R.zeit + ' s   Stuerze ' + R.tode +
               '   Kristalle ' + R.kristalle);
   console.log('');
@@ -158,15 +147,15 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
   });
   console.log('');
   console.log('Laengste Strecke ohne Handlung: ' + leerMax.toFixed(1) + ' s (ab ' + leerBesteStart.toFixed(1) + ' s)');
-  console.log('  (Handlung = Sprung, Dash, Landung ODER mehr als 6 Grad Kursaenderung je halbe Sekunde)');
+  console.log('  (Handlung = Sprung, Jet, Landung ODER mehr als 6 Grad Kursaenderung je halbe Sekunde)');
   console.log('Anteil Leerlauf am ganzen Lauf: ' + (leerN / R.zeit * 100).toFixed(0) + ' %');
-  console.log('Dash-Vorrat voll (3/3):         ' + (R.dashVollAnteil*100).toFixed(0) + ' % der Zeit');
+  console.log('Tank voll (ungenutzt):          ' + (R.tankVollAnteil*100).toFixed(0) + ' % der Zeit');
   /* Aufeinanderfolgende Meldungen gehoeren zum selben Ereignis. */
   const gefiltert = R.bremsungen.filter((b,i,a) => i === 0 || b.t - a[i-1].t > 0.4);
   console.log('Vollbremsungen (>40 % Verlust):  ' + gefiltert.length);
   gefiltert.forEach(b => console.log('    bei ' + b.t.toFixed(1) + ' s   Tempo ' + b.von + ' -> ' + b.auf +
     '   Ort ' + b.x + ',' + b.y + ',' + b.z));
   console.log('');
-  console.log('Legende  S Sprung  D Doppelsprung  > Dash  W Wandsprung  L Rutschlandung  T Tempofeld  | Tor');
+  console.log('Legende  S Sprung  D Doppelsprung  ^ Jet  W Wandsprung  L Rutschlandung  T Tempofeld  | Tor');
   await b.close();
 })();

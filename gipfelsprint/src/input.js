@@ -27,7 +27,7 @@
       moveId: null, ox: 0, oy: 0, mx: 0, my: 0,
       lookId: null, lx: 0, ly: 0, dx: 0, dy: 0
     };
-    var virt = { jump: false, dash: false, jumpPressed: false, dashPressed: false };
+    var virt = { jump: false, jet: false, jumpPressed: false, jetPressed: false };
 
     var MAP = {
       forward: ['KeyW', 'ArrowUp'],
@@ -35,7 +35,7 @@
       left: ['KeyA'],
       right: ['KeyD'],
       jump: ['Space'],
-      dash: ['ControlLeft', 'ControlRight', 'KeyE', 'KeyJ'],
+      jet: ['ControlLeft', 'ControlRight', 'KeyE', 'KeyJ'],
       sprint: ['ShiftLeft', 'ShiftRight'],
       camLeft: ['ArrowLeft', 'KeyQ'],
       camRight: ['ArrowRight'],
@@ -253,10 +253,10 @@
         var gp = pollPad();
         if (gp) {
           if (action === 'jump' && gp.buttons[0] && gp.buttons[0].pressed) return true;
-          if (action === 'dash' && ((gp.buttons[2] && gp.buttons[2].pressed) || (gp.buttons[7] && gp.buttons[7].pressed))) return true;
+          if (action === 'jet' && ((gp.buttons[2] && gp.buttons[2].pressed) || (gp.buttons[7] && gp.buttons[7].pressed))) return true;
           if (action === 'sprint' && gp.buttons[6] && gp.buttons[6].pressed) return true;
         }
-        if (action === 'dash' && keys.Mouse0 && mouse.locked) return true;
+        if (action === 'jet' && keys.Mouse0 && mouse.locked) return true;
         return false;
       },
 
@@ -265,10 +265,10 @@
         if (virt[action + 'Pressed']) return true;
         var list = MAP[action] || [];
         for (var i = 0; i < list.length; i++) if (pressed[list[i]]) return true;
-        if (action === 'dash' && pressed.Mouse0 && mouse.locked) return true;
+        if (action === 'jet' && pressed.Mouse0 && mouse.locked) return true;
         var gp = pollPad();
         if (gp) {
-          var idx = action === 'jump' ? 0 : (action === 'dash' ? 2 : -1);
+          var idx = action === 'jump' ? 0 : (action === 'jet' ? 2 : -1);
           if (idx >= 0 && gp.buttons[idx] && gp.buttons[idx].pressed && !padPrev[idx]) return true;
         }
         return false;
@@ -278,7 +278,7 @@
       endFrame: function () {
         for (var k in pressed) pressed[k] = false;
         virt.jumpPressed = false;
-        virt.dashPressed = false;
+        virt.jetPressed = false;
         mouse.dx = 0;
         mouse.dy = 0;
         stick.dx = 0;

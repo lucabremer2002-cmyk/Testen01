@@ -25,29 +25,29 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
       p.spawnAt({ x:0, y:0.2, z:0, yaw:0 });
       p.grounded = true;
     }
-    const leer = { wishX:0, wishZ:0, slide:false, dash:false, jumpPressed:false, jumpHeld:false };
+    const leer = { wishX:0, wishZ:0, slide:false, jet:false, jumpPressed:false, jumpHeld:false };
 
     /* 1 Anlaufen aus dem Stand */
     frischeWelt();
     let n = 0;
-    for (let i=0;i<240;i++){ p.step(F, { wishX:0, wishZ:1, slide:false, dash:false, jumpPressed:false, jumpHeld:true });
+    for (let i=0;i<240;i++){ p.step(F, { wishX:0, wishZ:1, slide:false, jet:false, jumpPressed:false, jumpHeld:true });
       if (p.speed > 0.5 && !n) n = i + 1;
       if (p.speed > 16.0) { out.push({ was:'Anlaufen bis Tempo 16', schritte:i+1, ms:+((i+1)/120*1000).toFixed(1) }); break; } }
     out.push({ was:'erste Bewegung', schritte:n, ms:+(n/120*1000).toFixed(1) });
 
     /* 2 Sprung: erster Schritt mit vy > 0 */
     frischeWelt();
-    for (let i=0;i<60;i++) p.step(F, { wishX:0, wishZ:1, slide:false, dash:false, jumpPressed:false, jumpHeld:false });
+    for (let i=0;i<60;i++) p.step(F, { wishX:0, wishZ:1, slide:false, jet:false, jumpPressed:false, jumpHeld:false });
     let js = 0;
     for (let i=0;i<40;i++){
-      p.step(F, { wishX:0, wishZ:1, slide:false, dash:false, jumpPressed:i===0, jumpHeld:true });
+      p.step(F, { wishX:0, wishZ:1, slide:false, jet:false, jumpPressed:i===0, jumpHeld:true });
       if (p.vy > 0.1) { js = i + 1; break; }
     }
     out.push({ was:'Sprung setzt ein', schritte:js, ms:+(js/120*1000).toFixed(1) });
 
     /* 3 Dash: erster Schritt mit deutlichem Tempozuwachs */
     frischeWelt();
-    for (let i=0;i<60;i++) p.step(F, { wishX:0, wishZ:1, slide:false, dash:false, jumpPressed:false, jumpHeld:false });
+    for (let i=0;i<60;i++) p.step(F, { wishX:0, wishZ:1, slide:false, jet:false, jumpPressed:false, jumpHeld:false });
     const vor = p.speed;
     let ds = 0;
     for (let i=0;i<40;i++){
@@ -58,11 +58,11 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
 
     /* 4 Richtungswechsel: von +z auf -z, bis die Bewegung kippt */
     frischeWelt();
-    for (let i=0;i<240;i++) p.step(F, { wishX:0, wishZ:1, slide:false, dash:false, jumpPressed:false, jumpHeld:false });
+    for (let i=0;i<240;i++) p.step(F, { wishX:0, wishZ:1, slide:false, jet:false, jumpPressed:false, jumpHeld:false });
     const vz0 = p.vz;
     let ws = 0, wsHalb = 0;
     for (let i=0;i<240;i++){
-      p.step(F, { wishX:0, wishZ:-1, slide:false, dash:false, jumpPressed:false, jumpHeld:false });
+      p.step(F, { wishX:0, wishZ:-1, slide:false, jet:false, jumpPressed:false, jumpHeld:false });
       if (!wsHalb && p.vz < vz0 * 0.5) wsHalb = i + 1;
       if (p.vz < 0) { ws = i + 1; break; }
     }

@@ -16,6 +16,7 @@
   var nextNoteTime = 0;
   var tempo = 132;
   var noiseBuf = null;
+  var jet = null;               /* laufende Duesenschleife */
 
   function ensure() {
     if (ctx) return ctx;
@@ -109,9 +110,47 @@
       tone({ type: 'triangle', freq: 620, to: 1080, dur: 0.18, vol: 0.28, glide: 'exp' });
       noise({ freq: 2400, to: 4200, dur: 0.16, vol: 0.12, q: 0.8 });
     },
-    dash: function () {
-      noise({ freq: 700, to: 3200, dur: 0.26, vol: 0.22, q: 0.7 });
-      tone({ type: 'sawtooth', freq: 180, to: 520, dur: 0.2, vol: 0.14, filter: 1600, glide: 'exp' });
+    /* Der Jet wird GEHALTEN, also braucht er einen Dauerton. Ein
+       Einzelgeraeusch wie beim alten Dash haette nur den Moment des
+       Zuendens vertont und den ganzen Flug danach stumm gelassen - man
+       haette nicht gehoert, ob die Duese noch brennt. Deshalb laeuft hier
+       eine Rauschschleife, deren Bandfilter mit dem Tempo mitgeht: leise
+       und dumpf beim Schweben, hell und laut im Vollschub. */
+    jetStart: function () {
+      if (!ensure() || muted) return;
+      if (jet) sfx.jetStop();
+      var t0 = ctx.currentTime;
+      var src = ctx.createBufferSource();
+      src.buffer = noiseBuf; src.loop = true;
+      var bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 0.9;
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.3, t0 + 0.05);
+      src.connect(bp); bp.connect(g); g.connect(sfxGain);
+      src.start(t0);
+      jet = { src: src, bp: bp, g: g };
+      /* Der Zuendstoss obendrauf, damit der Start einen Koerper hat. */
+      tone({ type: 'sawtooth', freq: 150, to: 480, dur: 0.22, vol: 0.16, filter: 1400, glide: 'exp' });
+    },
+    jetHalten: function (kraft) {
+      if (!jet || !ctx) return;
+      var t = ctx.currentTime;
+      jet.bp.frequency.setTargetAtTime(700 + kraft * 2600, t, 0.08);
+      jet.g.gain.setTargetAtTime(0.16 + kraft * 0.2, t, 0.08);
+    },
+    jetStop: function () {
+      if (!jet || !ctx) return;
+      var j = jet; jet = null;
+      var t0 = ctx.currentTime;
+      j.g.gain.cancelScheduledValues(t0);
+      j.g.gain.setValueAtTime(Math.max(0.0001, j.g.gain.value), t0);
+      j.g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+      j.src.stop(t0 + 0.2);
+    },
+    /* Der Tank ist fast leer - ein kurzes Stottern als Warnung. */
+    tankLeer: function () {
+      noise({ freq: 380, to: 160, dur: 0.14, vol: 0.16, q: 1.4 });
     },
     land: function (hard) {
       noise({ type: 'lowpass', freq: hard ? 420 : 300, to: 120, dur: hard ? 0.16 : 0.1, vol: hard ? 0.24 : 0.12 });
