@@ -3304,10 +3304,23 @@
        Eine Abkuerzung ist nur dann eine Entscheidung, wenn sie sich
        deutlich lohnt; sonst ist sie Verzierung. Jetzt sind es 320 gegen
        204, also ein gutes Drittel. */
-    weg(b, { n: 11, x0: -12, x1: 0, bogen: -74, y0: -2, y1: 2, kuppe: -5,
-             z0: 44, z1: 196, breite: 20, tiefe: 18, mat: MAT.meadowDry,
+    /* Der Randweg faellt zwoelf Meter in die Senke hinein und steigt am
+       Ende auf vierzehn hinaus. Vorher waren es fuenf und zwei - das war
+       Landschaft auf dem Papier und eine Ebene im Spiel. Gemessen hatte
+       die ganze Strecke neunzehn Meter Hoehenbereich auf siebenhundert
+       Metern Laenge; jetzt sind es siebzig. Die Stufen bleiben dabei
+       klein: vierzehn Meter auf elf Flaechen sind 1,3 m je Schritt, weit
+       unter der Fairnessgrenze von 3,25. */
+    /* Sechzehn Flaechen und nicht elf. Eine Sinus-Mulde mit Nettoanstieg
+       ist am ENDE am steilsten: bei elf Flaechen stieg der letzte Schritt
+       um 4,8 m, also weit ueber die Fairnessgrenze von 3,25. Das
+       Werkzeug hat genau diese vier Schritte gemeldet. Mit sechzehn
+       Flaechen ist der steilste Schritt 2,8 m - dieselbe Kurve, dieselbe
+       Landschaft, nur feiner aufgeloest. */
+    weg(b, { n: 16, x0: -12, x1: 0, bogen: -58, y0: -2, y1: 12, kuppe: -10,
+             z0: 44, z1: 166, breite: 20, tiefe: 18, mat: MAT.meadowDry,
              sockel: 30, route: SAFE });
-    gemLine(b, { n: 8, x: -48, seit: 9, y: -4, z0: 60, z1: 180, hint: 'Randweg' });
+    gemLine(b, { n: 7, x: -40, seit: 9, y: -7, z0: 58, z1: 152, hint: 'Randweg' });
     /* Auf dem Randweg ist SONST nichts zu tun. Gemessen dauert er
        knapp fuenfzehn Sekunden, und fuenfzehn Sekunden ohne eine
        Handlung sind der sicherste Weg, einen Spieler zu verlieren. Die
@@ -3315,8 +3328,8 @@
        lenken. Sie sind schmal, sie toeten nicht, und wer sie streift,
        verliert ein paar Prozent Tempo statt den Lauf. */
     for (i = 0; i < 6; i++) {
-      var sx = -30 - Math.sin(i / 6 * Math.PI) * 38 + (i % 2 ? 7 : -7);
-      felsnadel(b, sx, -4, 66 + i * 20, 2.2, 9, MAT.rock);
+      var sx = -26 - Math.sin(i / 6 * Math.PI) * 30 + (i % 2 ? 7 : -7);
+      felsnadel(b, sx, -9 + i * 1.8, 62 + i * 16, 2.2, 9, MAT.rock);
     }
 
     /* --- ABKUERZUNG: quer ueber die Mulde.
@@ -3335,15 +3348,15 @@
        Landeflaeche auf z=122 und damit einundachtzig Meter weit weg; das
        war keine Abkuerzung, sondern eine Unmoeglichkeit, und das Werkzeug
        hat es sofort gemeldet. */
-    b.plat(17, 1, 76, 26, 22, MAT.stone, { thickness: 2.2 });
+    b.plat(17, 3, 76, 26, 22, MAT.stone, { thickness: 2.2 });
     b.mass(17, -3, 76, 22, 34, 18, MAT.cliff);
-    b.routeMark(0, FAST, 17, 1, 76);
-    gemArc(b, 13, 1, 38, 17, 1, 65, 4, 'ueber die Senke');
+    b.routeMark(0, FAST, 17, 3, 76);
+    gemArc(b, 13, 2, 38, 17, 3, 65, 4, 'ueber die Senke');
     /* Von der Landeflaeche fuehrt ein kurzer, durchgehender Weg zum
        Zusammenfluss. Die Abkuerzung ist damit Flug PLUS Laufstrecke -
        zusammen rund 180 m gegen 460 m auf dem Randweg. Gespart wird
        Weg, nicht Zeit je Meter. */
-    weg(b, { n: 6, x0: 17, x1: 4, bogen: 6, y0: 1, y1: 2, z0: 90, z1: 200,
+    weg(b, { n: 6, x0: 17, x1: 4, bogen: 6, y0: 3, y1: 13, z0: 90, z1: 170,
              breite: 18, tiefe: 17, mat: MAT.stone, sockel: 26,
              route: FAST, mark: false });
 
@@ -3351,27 +3364,31 @@
        Abkuerzung verfehlt, landet hier, laeuft heraus und verliert drei
        Sekunden. Ein Spiel, das fuer einen misslungenen Versuch den
        ganzen Lauf nimmt, wird nicht zum zweiten Mal versucht. */
-    b.plat(6, -16, 84, 64, 78, MAT.turfLush, { thickness: 3.0 });
-    b.mass(6, -22, 84, 58, 40, 70, MAT.rock);
+    b.plat(6, -22, 80, 64, 70, MAT.turfLush, { thickness: 3.0 });
+    b.mass(6, -28, 80, 58, 40, 64, MAT.rock);
     for (i = 0; i < 6; i++) {
-      b.rock(-14 + i * 11, -16, 56 + i * 10, 1.6 + (i % 3) * 0.7, { kind: 'stack' });
-      b.tree(20 - i * 8, -16, 70 + i * 9, 0.9 + (i % 2) * 0.3, { kind: 'fir' });
+      b.rock(-14 + i * 11, -22, 56 + i * 10, 1.6 + (i % 3) * 0.7, { kind: 'stack' });
+      b.tree(20 - i * 8, -22, 70 + i * 9, 0.9 + (i % 2) * 0.3, { kind: 'fir' });
     }
-    gemLine(b, { n: 5, x: 6, seit: 9, y: -16, z0: 62, z1: 108, hint: 'Muldenboden' });
+    gemLine(b, { n: 5, x: 6, seit: 9, y: -22, z0: 62, z1: 108, hint: 'Muldenboden' });
     /* Von unten fuehrt eine flache Rampe zurueck auf den Rand - der
        Fehlschlag kostet Zeit, aber er ist nie eine Sackgasse. */
-    weg(b, { n: 6, x0: 6, x1: 2, y0: -14, y1: 2, z0: 128, z1: 190,
+    /* Die Rampe aus der Mulde heraus: zwoelf Flaechen von je knapp drei
+       Metern Anstieg. Wer die Abkuerzung verfehlt, verliert Zeit und
+       kommt trotzdem an - das ist der Unterschied zwischen einer
+       Abkuerzung und einer Falle. */
+    weg(b, { n: 13, x0: 6, x1: 2, y0: -20, y1: 12, z0: 110, z1: 164,
              breite: 22, tiefe: 16, mat: MAT.turf, sockel: 24, mark: false });
 
     /* Zusammenfluss: eine breite Terrasse, auf der beide Linien enden. */
-    b.plat(2, 2, 212, 36, 28, MAT.meadow, { thickness: 2.6 });
-    b.mass(2, -3, 212, 32, 40, 24, MAT.rock);
-    b.mark(2, 2, 212);
-    for (i = 0; i < 2; i++) b.routeMark(0, i, 2, 2, 212);
-    b.arch(2, 2, 226, 20, 10, MAT.gold);
-    b.gate(2, 2, 226, { name: 'Senke', w: 24 });
+    b.plat(2, 14, 182, 36, 28, MAT.meadow, { thickness: 2.6 });
+    b.mass(2, 8, 182, 32, 44, 24, MAT.rock);
+    b.mark(2, 14, 182);
+    for (i = 0; i < 2; i++) b.routeMark(0, i, 2, 14, 182);
+    b.arch(2, 14, 196, 20, 10, MAT.gold);
+    b.gate(2, 14, 196, { name: 'Senke', w: 24 });
 
-    return { len: 228, rise: 2, turn: 30 };
+    return { len: 198, rise: 14, turn: 30 };
   }
 
   /* ------------------------------------------------------- 3 - Ruine
@@ -3406,9 +3423,9 @@
 
     /* Die Aussenmauer. Sie ist das, was die beiden Wege trennt - und sie
        ist SICHTBAR: man sieht von unten, dass oben etwas liegt. */
-    for (i = 0; i < 7; i++) {
-      b.block(26, 5.5, 50 + i * 24, 5, 11, 20, MAT.sandstone, {});
-      b.deco('box', 26, 11.6, 50 + i * 24, 6.4, 1.2, 21, MAT.templeTrim);
+    for (i = 0; i < 6; i++) {
+      b.block(26, 5.5, 46 + i * 22, 5, 11, 20, MAT.sandstone, {});
+      b.deco('box', 26, 11.6, 46 + i * 22, 6.4, 1.2, 21, MAT.templeTrim);
     }
 
     /* --- SICHER: durch das Tor und um den Hof.
@@ -3420,21 +3437,21 @@
        sonst ist die Mauerroute nur anders und nicht kuerzer. Gemessen
        waren beide vorher gleich lang - die Abkuerzung war sogar zwei
        Meter LAENGER als der sichere Weg. */
-    weg(b, { n: 11, x0: -8, x1: -2, bogen: -72, y0: 0, y1: 3, z0: 46, z1: 158,
-             breite: 20, tiefe: 17, mat: MAT.stone, sockel: 22,
+    weg(b, { n: 9, x0: -8, x1: -2, bogen: -56, y0: 0, y1: 9, kuppe: 4,
+             z0: 46, z1: 134, breite: 20, tiefe: 17, mat: MAT.stone, sockel: 22,
              sockelMat: MAT.sandstoneWorn, fork: 1, route: SAFE });
-    gemLine(b, { n: 8, x: -46, seit: 8, y: 1, z0: 60, z1: 150, hint: 'durch den Hof' });
+    gemLine(b, { n: 7, x: -38, seit: 8, y: 1, z0: 58, z1: 126, hint: 'durch den Hof' });
     for (i = 0; i < 5; i++) {
-      b.column(-58 + i * 9, 0, 64 + i * 20, 9 + (i % 3) * 3, { mat: MAT.sandstoneWorn });
-      b.deco('box', -30 - i * 4, 1.4, 70 + i * 18, 7, 2.8, 5, MAT.stone);
+      b.column(-48 + i * 8, 0, 60 + i * 16, 9 + (i % 3) * 3, { mat: MAT.sandstoneWorn });
+      b.deco('box', -26 - i * 4, 1.4, 66 + i * 14, 7, 2.8, 5, MAT.stone);
     }
     /* Die eine Stufe des Abschnitts: 2,8 m hoch, 11 m weit - beides
        unter der Fairnessgrenze von 3,25 und 13,6. */
-    b.plat(0, 5.8, 178, 26, 22, MAT.stone, { thickness: 2.2 });
-    b.mass(0, 1, 178, 22, 30, 18, MAT.sandstoneWorn);
-    b.mark(0, 5.8, 178);
-    b.routeMark(1, SAFE, 0, 5.8, 178);
-    gemArc(b, -2, 3, 167, 0, 5.8, 178, 2, 'eine Stufe');
+    b.plat(0, 11.8, 152, 26, 22, MAT.stone, { thickness: 2.2 });
+    b.mass(0, 6, 152, 22, 34, 18, MAT.sandstoneWorn);
+    b.mark(0, 11.8, 152);
+    b.routeMark(1, SAFE, 0, 11.8, 152);
+    gemArc(b, -2, 9, 142, 0, 11.8, 152, 2, 'eine Stufe');
 
     /* --- ABKUERZUNG: ueber die Mauer.
        Zwoelf Meter hoch - ein voller Tank traegt zweiundzwanzig. Oben laeuft man den Mauerkamm entlang und
@@ -3451,92 +3468,162 @@
        Deckelung nur noch 20 m/s; er braucht die Strecke, um Hoehe zu
        machen. */
     gemArc(b, 14, 1, 32, 25, 12, 66, 5, 'ueber die Mauer');
-    weg(b, { n: 4, x0: 26, x1: 26, y0: 12, y1: 12, z0: 76, z1: 152,
+    weg(b, { n: 4, x0: 26, x1: 26, y0: 12, y1: 12, z0: 76, z1: 140,
              breite: 9, tiefe: 22, mat: MAT.templeTrim, dick: 1.2,
              fork: 1, route: FAST, mark: false });
-    gemLine(b, { n: 4, x: 26, seit: 2.4, y: 12, z0: 84, z1: 146, hint: 'Mauerkamm' });
+    gemLine(b, { n: 4, x: 26, seit: 2.4, y: 12, z0: 84, z1: 136, hint: 'Mauerkamm' });
     /* Vom Kamm faellt man auf den Zusammenfluss - zehn Meter Sturz, und
        wer rutschend landet, nimmt sie als Tempo mit. */
-    b.routeMark(1, FAST, 20, 7, 172);
-    b.routeMark(1, FAST, 4, 6, 196);
+    b.routeMark(1, FAST, 18, 12, 156);
+    b.routeMark(1, FAST, 4, 13, 172);
 
-    b.plat(2, 6, 200, 34, 28, MAT.stone, { thickness: 2.6 });
-    b.mass(2, 1, 200, 30, 36, 24, MAT.rock);
-    b.mark(2, 6, 200);
-    for (i = 0; i < 2; i++) b.routeMark(1, i, 2, 6, 200);
-    b.arch(2, 6, 214, 20, 10, MAT.gold);
-    b.gate(2, 6, 214, { name: 'Ruine', w: 24 });
+    b.plat(2, 13, 176, 34, 28, MAT.stone, { thickness: 2.6 });
+    b.mass(2, 7, 176, 30, 40, 24, MAT.rock);
+    b.mark(2, 13, 176);
+    for (i = 0; i < 2; i++) b.routeMark(1, i, 2, 13, 176);
+    b.arch(2, 13, 190, 20, 10, MAT.gold);
+    b.gate(2, 13, 190, { name: 'Ruine', w: 24 });
 
-    return { len: 216, rise: 6, turn: -26 };
+    return { len: 192, rise: 13, turn: -26 };
   }
 
-  /* ------------------------------------------------------ 4 - Abfahrt
-     Der Schluss zahlt aus, statt noch einmal zu pruefen.
+  /* ----------------------------------------------------- 4 - Schlucht
+     Der letzte Abschnitt, und hier steht die schwerste Entscheidung des
+     Laufs - das ist Absicht. Eine Strecke, die am Anfang am haertesten
+     ist, verliert den Spieler, bevor er sie kennt; eine, die zum Schluss
+     etwas verlangt, gibt ihm einen Grund, sie noch einmal zu fahren.
 
-     Das Tal faellt ueber achtzehn Meter zum Ziel, in einem weiten Bogen
-     nach rechts. Ein Sturz von neun Metern liegt auf der Linie: wer die
-     Rutschtaste haelt, nimmt Fallhoehe als Tempo mit und ist die letzten
-     hundert Meter am Anschlag. Das ist die aelteste Regel des Spiels,
-     und sie steht hier bewusst am Ende - als Belohnung, nicht als
-     Huerde. */
-  function v4Abfahrt(b) {
-    b.zone('Abfahrt', 90, 260, {
-      fogCol: [0.82, 0.90, 1.0], fogDensity: 0.0011,
+       SICHER      eine Bruecke, die weit nach links ausholt
+       ABKUERZUNG  vierunddreissig Meter quer darueber
+
+     Wer die Abkuerzung verfehlt, faellt in die Schlucht - und die ist
+     KEIN Abgrund. Unten liegt Boden, von dort fuehrt eine Rampe wieder
+     heraus. Der Fehlschlag kostet vier Sekunden, nicht den Lauf. Das ist
+     die Regel des ganzen Levels: verlieren darf man Zeit, nicht den
+     Versuch.
+
+     Danach zahlt die Strecke aus: ein Sturz von vierzehn Metern auf die
+     Zielgerade, und wer die Rutschtaste haelt, nimmt ihn als Tempo mit. */
+  function v4Schlucht(b) {
+    b.zone('Schlucht', 100, 280, {
+      fogCol: [0.80, 0.89, 1.0], fogDensity: 0.0012,
       zenith: [0.05, 0.40, 0.95], horizon: [1.0, 0.86, 0.72],
-      skyCol: [0.45, 0.76, 1.0], groundCol: [0.34, 0.52, 0.28],
+      skyCol: [0.45, 0.76, 1.0], groundCol: [0.34, 0.50, 0.30],
       sunCol: [1.20, 1.08, 0.86], ambient: 'pollen'
     });
     var i;
 
-    /* Ein breiter, fallender Bogen nach rechts. Nichts zu springen. */
-    weg(b, { n: 6, x0: 0, x1: 20, bogen: 11, y0: -1, y1: -7, z0: 16, z1: 86,
+    /* Anflug: ein kurzer Abstieg vom Ruinenplateau auf die Schluchtkante.
+       Von hier sieht man beides - die Bruecke links, die Kante gegenueber. */
+    weg(b, { n: 4, x0: 0, x1: -4, y0: -1, y1: -8, z0: 16, z1: 62,
              breite: 24, tiefe: 19, mat: MAT.meadow, sockel: 28 });
-    gemLine(b, { n: 7, x: 11, seit: 7, y: -4, z0: 26, z1: 80, hint: 'Abfahrt' });
-    for (i = 0; i < 5; i++) b.tree(-10 + i * 12, -4, 22 + i * 13, 1.0 + (i % 3) * 0.3, { kind: 'pine' });
+    for (i = 0; i < 4; i++) b.tree(-16 + i * 12, -5, 20 + i * 12, 1.0 + (i % 3) * 0.3, { kind: 'pine' });
 
-    /* Der Sturz: neun Meter auf eine lange Rampe. Aufprall 34 - ueber der
-       Schwelle von 30, ab der die Rutschlandung greift. Wer haelt, steht
-       unten auf 27 statt auf 20. Wer nicht haelt, landet trotzdem. */
-    b.plat(22, -16, 118, 34, 38, MAT.stone, { thickness: 2.8 });
-    b.mass(22, -22, 118, 30, 40, 32, MAT.cliff);
-    b.mark(22, -16, 118);
-    gemArc(b, 21, -7, 96, 22, -16, 108, 3, 'Rutschtaste halten');
+    b.plat(0, -8, 76, 34, 24, MAT.scree, { thickness: 2.4 });
+    b.mass(0, -13, 76, 30, 36, 20, MAT.cliff);
+    b.mark(0, -8, 76);
+    for (i = 0; i < 2; i++) b.routeMark(2, i, 0, -8, 76);
+    b.routeSign(-15, -8, 84, SAFE);
+    b.routeSign(15, -8, 84, FAST);
+
+    /* --- SICHER: die Bruecke.
+       Sie holt vierzig Meter nach links aus, weil sie die Schlucht an
+       ihrer schmalsten Stelle quert - so wie eine echte Bruecke gebaut
+       waere. Schmal, aber begehbar: dreizehn Meter breit, keine Luecke. */
+    b.routeZone(2, SAFE, -15, -8, 88, 14, 8, 12);
+    /* Der Bruecken-Bogen misst 60 m und nicht 40. Gemessen sparte die
+       Schlucht-Abkuerzung mit dem kleineren Bogen nur 2,4 s - sie war
+       damit die SCHWERSTE Abkuerzung des Levels und zugleich die am
+       wenigsten lohnende. Wer das Schwerste wagt, muss am meisten
+       gewinnen, sonst ist es keine Herausforderung, sondern eine
+       Schikane. */
+    weg(b, { n: 12, x0: -13, x1: -2, bogen: -60, y0: -9, y1: -12,
+             z0: 96, z1: 186, breite: 13, tiefe: 15, mat: MAT.plank, dick: 1.1,
+             fork: 2, route: SAFE });
+    /* Gelaender und Pfeiler - eine Bruecke muss als Bruecke zu erkennen
+       sein, sonst sieht sie aus wie schwebende Bretter. */
+    for (i = 0; i <= 12; i++) {
+      var bt = i / 12;
+      var bx = -13 + 11 * bt - 60 * Math.sin(bt * Math.PI);
+      var by = -9 - 3 * bt, bz = 96 + 90 * bt;
+      b.deco('box', bx - 6.4, by + 1.3, bz, 0.5, 2.6, 15, MAT.beam);
+      b.deco('box', bx + 6.4, by + 1.3, bz, 0.5, 2.6, 15, MAT.beam);
+      if (i % 3 === 0) b.deco('box', bx, by - 9, bz, 2.2, 18, 2.2, MAT.bark);
+    }
+    gemLine(b, { n: 8, x: -34, seit: 4, y: -9, z0: 106, z1: 176, hint: 'die Bruecke' });
+
+    /* --- ABKUERZUNG: quer hinueber.
+       Vierunddreissig Meter Luft - ein voller Tank traegt siebenundvierzig.
+       Die Landung ist ein breiter Felsvorsprung, kein Band. */
+    b.routeZone(2, FAST, 15, -8, 88, 14, 8, 12);
+    b.routeArch(15, -8, 90, 10, 7, FAST);
+    b.routeMark(2, FAST, 14, -8, 84);
+    b.plat(16, -9, 136, 28, 24, MAT.cliffWarm, { thickness: 2.4 });
+    b.mass(16, -14, 136, 24, 36, 20, MAT.cliff);
+    b.routeMark(2, FAST, 16, -9, 136);
+    gemArc(b, 15, -8, 92, 16, -9, 124, 4, 'ueber die Schlucht');
+    weg(b, { n: 4, x0: 16, x1: 2, y0: -9, y1: -12, z0: 150, z1: 186,
+             breite: 20, tiefe: 17, mat: MAT.scree, sockel: 24,
+             fork: 2, route: FAST, mark: false });
+
+    /* --- Der Schluchtboden: ein Fangnetz mit Ausgang.
+       Achtzehn Meter unter der Kante. Wer die Abkuerzung verfehlt, landet
+       hier, laeuft nach vorn und steigt ueber eine Rampe wieder heraus -
+       vier Sekunden Verlust. Die Kristalle unten sind der Trostpreis. */
+    b.plat(-14, -26, 132, 96, 86, MAT.caveRock, { thickness: 3.0 });
+    b.mass(-14, -32, 132, 90, 40, 78, MAT.rockDark);
+    for (i = 0; i < 7; i++) {
+      b.rock(-30 + i * 10, -26, 100 + i * 9, 1.8 + (i % 3) * 0.8, { kind: 'shard' });
+      if (i % 2) b.crystalCluster(-20 + i * 9, -26, 118 + i * 7, 1.0 + (i % 2) * 0.5);
+    }
+    gemLine(b, { n: 5, x: -4, seit: 11, y: -26, z0: 108, z1: 156, hint: 'Schluchtboden' });
+    weg(b, { n: 9, x0: -2, x1: 2, y0: -25, y1: -12, z0: 158, z1: 200,
+             breite: 22, tiefe: 15, mat: MAT.scree, sockel: 22, mark: false });
+
+    /* Zusammenfluss ueber der Schlucht. */
+    b.plat(2, -12, 198, 34, 26, MAT.scree, { thickness: 2.6 });
+    b.mass(2, -17, 198, 30, 34, 22, MAT.cliff);
+    b.mark(2, -12, 198);
+    for (i = 0; i < 2; i++) b.routeMark(2, i, 2, -12, 198);
+    b.arch(2, -12, 210, 20, 10, MAT.gold);
+    b.gate(2, -12, 210, { name: 'Schlucht', w: 26 });
+
+    /* --- Der Sturz und die Zielgerade.
+       Vierzehn Meter Fall, Aufprall 42 - weit ueber der Schwelle von 30,
+       ab der die Rutschlandung greift. Wer haelt, steht unten auf 27
+       statt auf 20 und faehrt die letzten hundert Meter am Anschlag. */
+    b.plat(6, -26, 254, 36, 40, MAT.meadow, { thickness: 2.8 });
+    b.mass(6, -32, 254, 32, 40, 34, MAT.rock);
+    b.mark(6, -26, 254);
+    gemArc(b, 3, -13, 224, 6, -26, 240, 3, 'Rutschtaste halten');
 
     /* --- Der Horst: eine Koennensprobe, die NICHTS kostet.
-       Ein Felsband dreizehn Meter ueber der Abfahrt, erreichbar nur mit
-       einem Steigflug. Oben liegen sechs Kristalle.
+       Ein Felsband dreizehn Meter ueber der Zielgeraden, nur mit einem
+       Steigflug erreichbar. Oben liegen sechs Kristalle. Es ist keine
+       Gabel und kein Abzweig - es ist ein Angebot. Wer es verfehlt,
+       faellt zurueck auf die Gerade und laeuft weiter. */
+    b.plat(-14, -13, 276, 16, 24, MAT.crystalRock, { thickness: 1.6 });
+    b.deco('box', -14, -20, 276, 8, 14, 12, MAT.cliff);
+    for (i = 0; i < 6; i++) b.gem(-14, -11, 267 + i * 4, { hint: 'der Horst' });
+    b.column(-22, -13, 267, 5, { mat: MAT.crystalGlow });
+    b.column(-6, -13, 285, 5, { mat: MAT.crystalGlow });
 
-       Es ist keine Gabel und kein Abzweig - es ist ein Angebot. Wer es
-       verfehlt, faellt zurueck auf die Abfahrt und laeuft weiter; wer es
-       trifft, kommt mit vollem Tank und einem kleinen Sturz zurueck, der
-       sich als Tempo auszahlt. So sieht eine schwere Stelle aus, die
-       niemanden aussperrt - und deshalb steht sie am Schluss, wo die
-       Strecke sonst nur noch belohnt. */
-    b.plat(0, -3, 140, 16, 26, MAT.crystalRock, { thickness: 1.6 });
-    b.deco('box', 0, -10, 140, 8, 14, 12, MAT.cliff);
-    for (i = 0; i < 6; i++) b.gem(0, -1, 130 + i * 4, { hint: 'der Horst' });
-    b.column(-8, -3, 130, 5, { mat: MAT.crystalGlow });
-    b.column(8, -3, 150, 5, { mat: MAT.crystalGlow });
+    weg(b, { n: 4, x0: 6, x1: 0, bogen: 8, y0: -27, y1: -29, z0: 282, z1: 330,
+             breite: 30, tiefe: 20, mat: MAT.meadowLush, sockel: 26 });
+    for (i = 0; i < 5; i++) b.column(-14 + (i % 2) * 30, -28, 286 + i * 11, 6, { mat: MAT.sandstoneWorn });
 
-    /* Auslauf ins Ziel: breit, gerade, schnell. */
-    weg(b, { n: 4, x0: 20, x1: 8, bogen: 7, y0: -17, y1: -19, z0: 142, z1: 196,
-             breite: 28, tiefe: 20, mat: MAT.meadowLush, sockel: 26 });
-    for (i = 0; i < 5; i++) {
-      b.column(-6 + (i % 2) * 28, -18, 146 + i * 12, 6, { mat: MAT.sandstoneWorn });
-    }
+    b.plat(0, -30, 350, 34, 30, MAT.marble, { thickness: 2.6 });
+    b.mass(0, -36, 350, 30, 36, 26, MAT.rock);
+    b.mark(0, -30, 350);
+    b.arch(0, -30, 360, 22, 11, MAT.gold);
+    b.deco('box', 0, -19.6, 360, 23, 1.4, 0.6, MAT.flag);
+    b.gate(0, -30, 360, { name: 'Ziel', w: 26 });
 
-    b.plat(8, -19, 214, 32, 30, MAT.marble, { thickness: 2.6 });
-    b.mass(8, -25, 214, 28, 36, 26, MAT.rock);
-    b.mark(8, -19, 214);
-    b.arch(8, -19, 224, 22, 11, MAT.gold);
-    b.deco('box', 8, -8.6, 224, 23, 1.4, 0.6, MAT.flag);
-    b.gate(8, -19, 224, { name: 'Ziel', w: 26 });
-
-    return { len: 234, rise: -19, turn: 0 };
+    return { len: 370, rise: -30, turn: 0 };
   }
 
   root.MR.level.SETS = {
-    tal: [v1Aufbruch, v2Senke, v3Ruine, v4Abfahrt],
+    tal: [v1Aufbruch, v2Senke, v3Ruine, v4Schlucht],
     turm: [t1Schacht, t2Tuerme, t3Gipfel],
     lang: [s1Auftakt, s2Sprungkette, s3Gabel, s4Tempo, s5Wand, s6Wasserfall, s7Ruinen, s8Ziel],
     sturz: [k1Absprung, k2Sprung, k3Zielhang]

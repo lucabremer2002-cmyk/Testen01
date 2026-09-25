@@ -113,11 +113,24 @@ const SICHER_WEIT = 19.5 * 0.7;
          Hoehe, die die Physik von selbst uebersteigt (STEP_HEIGHT). */
       if (luft <= 0.01 && hoch <= 0.62) { gelaufen++; continue; }
 
+      /* Ein Schritt nach UNTEN traegt weiter als einer nach oben, und
+         zwar erheblich: wer vierzehn Meter faellt, ist 0,66 s laenger in
+         der Luft und kommt bei Tempo 20 dreizehn Meter weiter. Die
+         Reichweite waechst also mit der Fallhoehe.
+
+         Ohne diese Zeile meldete das Werkzeug den Schlusssturz des
+         Levels als zu schwer - einen Sprung, den man gar nicht
+         verfehlen kann, weil unten eine vierzig Meter tiefe Flaeche
+         liegt. Eine Pruefung, die Falschmeldungen erzeugt, gewoehnt
+         einem das Hinsehen ab. */
+      const fallBonus = hoch < 0 ? 20 * Math.sqrt(2 * (-hoch) / 64) : 0;
+
       let kann = null;
       for (const K of KANN) {
-        if (hoch <= K.hoch * 0.85 && luft <= K.weit * 0.85) { kann = K; break; }
+        if (hoch <= K.hoch * 0.85 && luft <= (K.weit + fallBonus) * 0.85) { kann = K; break; }
       }
-      const zuHart = istSicher && (hoch > SICHER_HOCH || luft > SICHER_WEIT);
+      const zuHart = istSicher &&
+                     (hoch > SICHER_HOCH || luft > SICHER_WEIT + fallBonus);
       if (zuHart) hart++;
       if (!kann) schlimm++;
 

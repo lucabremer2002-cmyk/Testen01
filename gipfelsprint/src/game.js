@@ -288,39 +288,26 @@
        lange Strecke, die Kurzstrecke hat zwei. Eine Zeile, die je nach
        Strecke etwas anderes verspricht als das, was gleich kommt, ist
        schlimmer als gar keine. */
-    var SATZ = {
-      tal:   { weiter: 'turm',
-               knopf: 'Das Tal \u2013 die Strecke (ca. 45 s)',
-               zeile: 'Ein Tal, zwei Abzweige, ein Ziel. Der Jet macht nicht schneller \u2013 ' +
-                      'er macht den Weg k\u00fcrzer.' },
-      turm:  { weiter: 'lang',
-               knopf: 'Turm \u2013 senkrecht (ca. 30 s)',
-               zeile: 'Hundertdreissig Hoehenmeter, drei Aufstiege, ein Sturz. ' +
-                      'Wer den Jet beherrscht, nimmt weniger Stufen.' },
-      lang:  { weiter: 'sturz',
-               knopf: 'Lange Strecke \u2013 Gipfelsprint (ca. 60 s)',
-               zeile: 'Ein Lauf, eine Minute, keine Checkpoints. Sechs Abzweige \u2013 ' +
-                      'der schwerste Weg ist jedes Mal der schnellste.' },
-      sturz: { weiter: 'tal',
-               knopf: 'Kurzstrecke \u2013 Der Sturz (ca. 25 s)',
-               zeile: 'Ein Lauf, fuenfundzwanzig Sekunden, keine Checkpoints. ' +
-                      'Jeder Sturz bezahlt den naechsten Sprung.' }
-    };
-    var satz = SATZ[self.satz] || SATZ.tal;
-    /* Der Untertitel versprach frueher fest "Sechs Abzweige" - das gilt
-       fuer die lange Strecke. Eine Zeile, die etwas anderes verspricht
-       als das, was gleich kommt, ist schlimmer als gar keine. */
+    /* Das Menue bietet nur an, was auch spielbar ist.
+
+       Die drei aelteren Strecken - Turm, Gipfelsprint, Der Sturz - stehen
+       weiter im Code, aber sie sind fuer ein Movement gebaut, das es nicht
+       mehr gibt: Grundtempo 17, Hoechsttempo 46, und den Dash statt der
+       Duese. Unter den heutigen Werten meldet tools/stufen.js im Turm 34
+       und in der Kurzstrecke 13 Stellen, die kein Sprung mehr erreicht.
+
+       Sie stehen deshalb nicht mehr zur Auswahl. Ein Menuepunkt, der in
+       eine unspielbare Strecke fuehrt, ist schlimmer als ein Menue mit
+       einem Punkt - er sieht nach Auswahl aus und ist eine Sackgasse.
+       Wer sie sehen will, setzt localStorage['mr_satz'] von Hand. */
     var tag = $('tagline');
-    if (tag) tag.textContent = satz.zeile;
-    var btnSatz = $('btnSatz');
-    if (btnSatz) {
-      /* Der Knopf nennt die NAECHSTE Strecke, nicht die aktuelle. */
-      btnSatz.textContent = SATZ[satz.weiter].knopf;
-      btnSatz.addEventListener('click', function () {
-        try { localStorage.setItem('mr_satz', satz.weiter); } catch (e) {}
-        location.reload();
-      });
+    if (tag) {
+      tag.textContent = 'Ein Tal, drei Abzweige, ein Ziel. Der Jet macht nicht schneller \u2013 ' +
+                        'er macht den Weg k\u00fcrzer.';
     }
+    var btnSatz = $('btnSatz');
+    if (btnSatz) btnSatz.hidden = true;
+
     $('btnStart').addEventListener('click', function () {
       Audio.unlock();
       if (self.input.isTouch && !document.fullscreenElement && self.fullscreenAllowed()) self.toggleFullscreen();
