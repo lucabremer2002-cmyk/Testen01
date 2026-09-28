@@ -102,7 +102,10 @@
     /* --- Wald: sattes Blattgruen, kein Graubraun --- */
     forestFloor: mat([0.28, 0.21, 0.15], [0.15, 0.44, 0.16], { pattern: 5, patternScale: 0.7 }),
     moss: mat([0.20, 0.35, 0.13], [0.20, 0.58, 0.20], { pattern: 5, patternScale: 1.1 }),
-    bark: mat([0.42, 0.21, 0.12], [0.64, 0.35, 0.18], { pattern: 2, patternScale: 1.4 }),
+    /* Rinde kam im Bild bei 182/99/45 heraus - das ist Orange, nicht
+       Holz. Die Brueckenpfeiler der Schlucht sind 18 m hoch und standen
+       als leuchtende Balken im Vordergrund. */
+    bark: mat([0.36, 0.23, 0.15], [0.53, 0.36, 0.23], { pattern: 2, patternScale: 1.4 }),
     barkPale: mat([0.80, 0.71, 0.58], [1.0, 0.99, 0.91], { pattern: 2, patternScale: 1.8 }),
     barkDark: mat([0.26, 0.11, 0.16], [0.41, 0.22, 0.27], { pattern: 2, patternScale: 1.2 }),
     leafDark: mat([0.03, 0.33, 0.19], [0.13, 0.76, 0.32], { pattern: 5, patternScale: 1.0 }),
@@ -148,7 +151,7 @@
     cliff: mat([0.27, 0.28, 0.34], [0.51, 0.52, 0.58], { pattern: 3, patternScale: 0.26 }),
     cliffWarm: mat([0.52, 0.26, 0.13], [0.88, 0.57, 0.31], { pattern: 3, patternScale: 0.35 }),
     rock: mat([0.32, 0.32, 0.37], [0.57, 0.57, 0.61], { pattern: 3, patternScale: 0.45 }),
-    rockDark: mat([0.18, 0.18, 0.23], [0.33, 0.34, 0.39], { pattern: 3, patternScale: 0.5 }),
+    rockDark: mat([0.23, 0.23, 0.27], [0.41, 0.42, 0.46], { pattern: 3, patternScale: 0.5 }),
     /* Schutt war heller als frischer Schnee (Deckel 0,81/0,76/0,88) und
        dazu violett. Grosse Schuttflaechen standen als leere weisse
        Platten im Bild. Jetzt neutrales Mittelgrau. */
@@ -258,10 +261,17 @@
        sie sahen aus wie Loecher, nicht wie Wege. Gleiche Familie, leicht
        anderer Ton: das Gelaende bleibt eine Spur heller, damit die
        begehbare Flaeche sich noch abhebt. */
-    hangGruen: mat([0.26, 0.37, 0.19], [0.34, 0.60, 0.29], { pattern: 11, patternScale: 0.045 }),
-    hangFels: mat([0.27, 0.25, 0.30], [0.62, 0.60, 0.66], { pattern: 11, patternScale: 0.040 }),
-    hangWarm: mat([0.44, 0.24, 0.14], [0.86, 0.58, 0.30], { pattern: 11, patternScale: 0.042 }),
-    hangSchnee: mat([0.46, 0.58, 0.80], [0.98, 0.99, 1.0], { pattern: 11, patternScale: 0.05 }),
+    hangGruen: mat([0.26, 0.37, 0.19], [0.34, 0.60, 0.29], { pattern: 11, patternScale: 0.088 }),
+    /* Der Fels-Hang war heller als die Wiese daneben und blaeulich -
+       am Rand der Ruine standen dadurch grosse hellgraue Polster, die
+       sich als Wolken auf dem Boden lasen. Fels ist dunkler als Gras. */
+    /* Zusaetzlich eine Spur WARM statt neutral: das Umgebungslicht ist
+       himmelblau, und auf einem neutralen Grau schlaegt es voll durch -
+       gemessen kam der Hang bei 74/102/130 heraus, also deutlich blau.
+       Ein warmer Grundton faengt das ab. */
+    hangFels: mat([0.27, 0.25, 0.24], [0.47, 0.44, 0.41], { pattern: 11, patternScale: 0.082 }),
+    hangWarm: mat([0.38, 0.26, 0.17], [0.60, 0.48, 0.32], { pattern: 11, patternScale: 0.085 }),
+    hangSchnee: mat([0.46, 0.58, 0.80], [0.98, 0.99, 1.0], { pattern: 11, patternScale: 0.09 }),
     /* Talboden weit unter dem Parcours - dunkel, damit die Welt nach unten
        hin schliesst statt ins Helle auszulaufen. */
     talboden: mat([0.17, 0.26, 0.22], [0.34, 0.48, 0.36], { pattern: 11, patternScale: 0.012 }),
@@ -612,9 +622,27 @@
     return c;
   };
 
-  /* Felssockel unter einer Plattform, damit nichts in der Luft haengt. */
+  /* Felssockel unter einer Plattform, damit nichts in der Luft haengt.
+
+     Der Sockel war EINE Trommel: `pillar` ist ein siebenseitiges Rohr mit
+     flachem Deckel. Bei den grossen Sockeln (bis 48 m hoch, 32 m breit)
+     stand im Bild eine glatte graue Platte am Horizont, die niemand als
+     Fels las - beim Start war sie der auffaelligste Fremdkoerper der
+     ganzen Szene. Drei Felskoerper an den Flanken brechen die Silhouette
+     und den Deckel; sie kosten je Sockel drei Koerper und wuerfeln aus
+     dem Zierstrom, koennen den Spielverlauf also nicht verschieben. */
   Builder.prototype.mass = function (lx, ly, lz, w, h, d, material, yaw) {
-    this.deco('pillar', lx, ly - h / 2, lz, w * 1.02, h, d * 1.02, material || MAT.cliff, [0, yaw || 0, 0]);
+    var m = material || MAT.cliff;
+    var z2 = this.zier;
+    this.deco('pillar', lx, ly - h / 2, lz, w * 1.02, h, d * 1.02, m, [0, yaw || 0, 0]);
+    for (var i = 0; i < 3; i++) {
+      var a = (yaw || 0) + i * 2.09 + z2() * 0.9;
+      var fw = w * (0.28 + z2() * 0.24);
+      var fh = h * (0.14 + z2() * 0.22);
+      this.deco(ROCK_MESHES[Math.floor(z2() * 3) % 3],
+        lx + Math.cos(a) * w * 0.44, ly - h * (0.12 + z2() * 0.46), lz + Math.sin(a) * d * 0.44,
+        fw, fh, fw * 0.86, m, [(z2() - 0.5) * 0.22, z2() * 6.28, (z2() - 0.5) * 0.22]);
+    }
     this.block(lx, ly - h / 2, lz, w * 0.8, h, d * 0.8, null, { noCollide: true, yaw: yaw || 0 });
   };
 
@@ -3545,7 +3573,7 @@
 
     /* Startwiese. Breit, damit man sich orientieren kann. */
     b.plat(0, 0, 10, 34, 30, MAT.meadowLush, { thickness: 2.8 });
-    b.mass(0, -1.5, 10, 30, 42, 26, MAT.rock);
+    b.mass(0, -1.5, 10, 30, 42, 26, MAT.erde);
     b.start = { x: b.toWorldX(0, 0), y: b.cursor.y + 0.1, z: b.toWorldZ(0, 0), yaw: b.cursor.yaw };
     b.mark(0, 0, 0);
     for (i = 0; i < 4; i++) b.tree(-15 + (i % 2) * 30, 0, 2 + i * 7, 1.1 + (i % 3) * 0.2, { kind: 'broad' });
@@ -3555,14 +3583,31 @@
     weg(b, { n: 5, x0: 0, x1: 14, bogen: 8, y0: 0, y1: 5, z0: 28, z1: 84,
              breite: 21, tiefe: 18, mat: MAT.meadow, sockel: 26, sockelMat: MAT.erde });
     gemLine(b, { n: 6, x: 9, seit: 5, y: 5, z0: 34, z1: 80, hint: 'der Weg' });
-    for (i = 0; i < 4; i++) b.rock(-4 + i * 12, 4, 34 + i * 14, 1.4 + (i % 3) * 0.6, { kind: 'slab' });
+    /* Vier Steinplatten am Wegrand.
+
+       Sie standen auf FESTER Hoehe y=4, waehrend der Weg von 0 auf 5
+       steigt und dabei nach rechts schwingt. Die vorderen schwebten
+       dadurch dreieinhalb Meter ueber der Wiese, und weil sie flach und
+       grau sind, standen sie im Bild als blasse Platten am Horizont -
+       beim Start der auffaelligste Fremdkoerper der ganzen Szene.
+
+       Jetzt folgen sie der Bahn des Weges (dieselbe Formel wie in
+       `weg`), liegen abwechselnd links und rechts am Rand und stecken
+       ein Stueck in der Narbe. Art und Zahl der Wuerfe bleiben gleich -
+       an der Streudeko dahinter verschiebt sich nichts. */
+    for (i = 0; i < 4; i++) {
+      var ft = 0.18 + i * 0.24;
+      var fs = 1.4 + (i % 3) * 0.6;
+      b.rock(14 * ft + 8 * Math.sin(ft * Math.PI) + (i % 2 ? 8.5 : -8.5),
+             5 * ft - 0.35 * fs, 28 + 56 * ft, fs, { kind: 'slab' });
+    }
 
     /* Die erste Luecke des Spiels: neun Meter. Ein Sprung traegt
        dreizehn, ein Doppelsprung neunzehn - es ist also nicht einmal
        knapp. Die Landeflaeche ist zwanzig Meter tief; wer zu frueh
        springt, kommt trotzdem an. */
     b.plat(18, 6, 110, 26, 22, MAT.meadow, { thickness: 2.2 });
-    b.mass(18, 4.5, 110, 22, 36, 18, MAT.rock);
+    b.mass(18, 4.5, 110, 22, 36, 18, MAT.erde);
     b.mark(18, 6, 110);
     gemArc(b, 15, 5, 93, 18, 6, 99, 2, 'erster Sprung');
     b.arch(18, 6, 122, 16, 9, MAT.gold);
@@ -3594,7 +3639,7 @@
 
     /* Die Kante, von der aus man beides sieht: den Rand und die Mulde. */
     b.plat(0, 0, 16, 30, 26, MAT.meadow, { thickness: 2.4 });
-    b.mass(0, -1.5, 16, 26, 38, 22, MAT.rock);
+    b.mass(0, -1.5, 16, 26, 38, 22, MAT.erde);
     b.mark(0, 0, 16);
     for (i = 0; i < 2; i++) b.routeMark(0, i, 0, 0, 16);
     b.routeSign(-13, 0, 26, SAFE);
@@ -3656,7 +3701,7 @@
        war keine Abkuerzung, sondern eine Unmoeglichkeit, und das Werkzeug
        hat es sofort gemeldet. */
     b.plat(17, 3, 76, 26, 22, MAT.meadow, { thickness: 2.2 });
-    b.mass(17, 1.5, 76, 22, 38, 18, MAT.cliff);
+    b.mass(17, 1.5, 76, 22, 38, 18, MAT.erde);
     b.routeMark(0, FAST, 17, 3, 76);
     landemarke(b, 17, 3, 68, FAST);
     gemArc(b, 13, 2, 38, 17, 3, 65, 4, 'ueber die Senke');
@@ -3673,7 +3718,7 @@
        Sekunden. Ein Spiel, das fuer einen misslungenen Versuch den
        ganzen Lauf nimmt, wird nicht zum zweiten Mal versucht. */
     b.plat(6, -22, 80, 64, 70, MAT.turfLush, { thickness: 3.0 });
-    b.mass(6, -23.5, 80, 58, 44, 64, MAT.rock);
+    b.mass(6, -23.5, 80, 58, 44, 64, MAT.erde);
     for (i = 0; i < 6; i++) {
       b.rock(-14 + i * 11, -22, 56 + i * 10, 1.6 + (i % 3) * 0.7, { kind: 'stack' });
       b.tree(20 - i * 8, -22, 70 + i * 9, 0.9 + (i % 2) * 0.3, { kind: 'fir' });
@@ -3691,7 +3736,7 @@
 
     /* Zusammenfluss: eine breite Terrasse, auf der beide Linien enden. */
     b.plat(2, 14, 182, 36, 28, MAT.meadow, { thickness: 2.6 });
-    b.mass(2, 12.5, 182, 32, 48, 24, MAT.rock);
+    b.mass(2, 12.5, 182, 32, 48, 24, MAT.erde);
     b.mark(2, 14, 182);
     for (i = 0; i < 2; i++) b.routeMark(0, i, 2, 14, 182);
     b.arch(2, 14, 196, 20, 10, MAT.gold);
@@ -3724,7 +3769,7 @@
        Spiel ihre Pfade aneinander und konnte nicht mehr unterscheiden,
        welche der beiden Abkuerzungen genommen wurde. */
     b.plat(0, 0, 14, 30, 26, MAT.sandstoneWorn, { thickness: 2.4 });
-    b.mass(0, -1.5, 14, 26, 36, 22, MAT.rock);
+    b.mass(0, -1.5, 14, 26, 36, 22, MAT.sandstoneWorn);
     b.mark(0, 0, 14);
     for (i = 0; i < 2; i++) b.routeMark(1, i, 0, 0, 14);
     b.routeSign(-12, 0, 24, SAFE);
@@ -3777,11 +3822,11 @@
        kostet jetzt gut drei Sekunden. */
     weg(b, { n: 7, x0: 36, x1: 34, bogen: 5, y0: -6, y1: -4,
              z0: 40, z1: 148, breite: 22, tiefe: 18, mat: MAT.erde,
-             sockel: 26, sockelMat: MAT.rock, mark: false });
+             sockel: 26, sockelMat: MAT.sandstoneWorn, mark: false });
     for (i = 0; i < 5; i++) b.rock(30 + (i % 2) * 12, -5, 50 + i * 22, 1.5 + (i % 3) * 0.7, { kind: 'slab' });
     weg(b, { n: 6, x0: 34, x1: 6, y0: -4, y1: 12, z0: 150, z1: 178,
              breite: 20, tiefe: 16, mat: MAT.dirt, sockel: 24,
-             sockelMat: MAT.rock, mark: false });
+             sockelMat: MAT.sandstoneWorn, mark: false });
 
     /* --- ABKUERZUNG: ueber die Mauer.
        Zwoelf Meter hoch - ein voller Tank traegt zweiundzwanzig. Oben laeuft man den Mauerkamm entlang und
@@ -3809,7 +3854,7 @@
     b.routeMark(1, FAST, 4, 13, 172);
 
     b.plat(2, 13, 176, 34, 28, MAT.sandstoneWorn, { thickness: 2.6 });
-    b.mass(2, 11.5, 176, 30, 44, 24, MAT.rock);
+    b.mass(2, 11.5, 176, 30, 44, 24, MAT.sandstoneWorn);
     b.mark(2, 13, 176);
     for (i = 0; i < 2; i++) b.routeMark(1, i, 2, 13, 176);
     b.arch(2, 13, 190, 20, 10, MAT.gold);
@@ -4126,6 +4171,11 @@
     'Gipfel': MAT.hangSchnee
   };
 
+  /* Die drei Felskoerper. `ROCK_MESHES` steht im ersten Modul und ist
+     hier nicht sichtbar - beide Teile von level.js sind eigene
+     Funktionsbereiche. */
+  var HUEGEL_FELS = ['rock', 'rock2', 'rock3'];
+
   /* Gelaende neben der Strecke: Haenge, Kuppen und Streudeko je Zone. */
   function terrain(b, spine, zones, bounds) {
     var r = M.rng(90210);
@@ -4191,6 +4241,44 @@
             cur[2] + nz * side * (off + width * 0.35),
             width * 0.7, width * (0.3 + r() * 0.3), width * 0.65,
             HILL_MAT[zone.name] || MAT.cliff, [0, r() * 6.28, 0]);
+        }
+        /* Zwei Beulen auf der Flanke. Ein Huegel war bisher EINE glatte
+           Kugel - aus jeder Entfernung als Kugel erkennbar, und die Kuppe
+           las sich als lackierte Flaeche. Zwei ueberlappende Ballen auf
+           der Flanke geben ihr eine Grat- und eine Muldenseite, und das
+           Licht zeichnet sie. Aus dem Zierstrom, damit sich nichts am
+           Spielverlauf verschiebt. */
+        var hx = cur[0] + nx * side * off, hy = cur[1] - down, hz2 = cur[2] + nz * side * off;
+        var hmat = HILL_MAT[zone.name] || MAT.cliff;
+        for (var bp = 0; bp < 2; bp++) {
+          var ba = b.zier() * 6.28, bd2 = width * (0.22 + b.zier() * 0.40);
+          var bw = width * (0.36 + b.zier() * 0.32);
+          b.deco('blob', hx + Math.cos(ba) * bd2, hy + width * (0.01 + b.zier() * 0.11),
+            hz2 + Math.sin(ba) * bd2,
+            bw, bw * (0.30 + b.zier() * 0.24), bw * (0.82 + b.zier() * 0.3),
+            hmat, [(b.zier() - 0.5) * 0.12, b.zier() * 6.28, (b.zier() - 0.5) * 0.12]);
+        }
+        /* Felsrippen auf der Kuppe. Die Huegel waren geglaettete Kugeln:
+           aus jeder Entfernung als Kugel zu erkennen, und am Rand der
+           Ruine standen dadurch grosse graublaue Polster, die sich als
+           Wolken auf dem Boden lasen. Die Rippen sind derselbe Stein wie
+           der Hang; sie geben ihm eine Kante, an der das Licht bricht.
+
+           NUR auf Steinhaengen. Der erste Versuch setzte sie auch auf die
+           Wiesenhuegel - im Bild standen dort kantige GRUENE Splitter, und
+           eine Wiese mit Splittern sieht kaputter aus als eine glatte.
+           Ein Grashang bekommt stattdessen zwei halb eingegrabene
+           Findlinge: gleiche Wirkung, richtige Sprache. */
+        var fels = (hmat !== MAT.hangGruen);
+        for (var rb = 0; rb < (fels ? 3 : 2); rb++) {
+          var ra = b.zier() * 6.28, rd = width * (0.10 + b.zier() * 0.34);
+          var rw = width * (fels ? 0.16 + b.zier() * 0.20 : 0.05 + b.zier() * 0.05);
+          b.deco(HUEGEL_FELS[Math.floor(b.zier() * 3) % 3],
+            hx + Math.cos(ra) * rd,
+            hy + width * (fels ? 0.12 + b.zier() * 0.14 : 0.13 + b.zier() * 0.08),
+            hz2 + Math.sin(ra) * rd,
+            rw, rw * (0.34 + b.zier() * 0.40), rw * (0.7 + b.zier() * 0.5),
+            fels ? hmat : MAT.rock, [(b.zier() - 0.5) * 0.4, b.zier() * 6.28, (b.zier() - 0.5) * 0.4]);
         }
 
         /* Kuppe der Kulisse bekommt passende Deko - EIN Objekt je
