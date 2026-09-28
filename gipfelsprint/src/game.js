@@ -59,7 +59,12 @@
     this.grav = new Float32Array(max);
     this.mesh = [];
     this._m = new Float32Array(16);
-    this._mat = { color: [0, 0, 0], accent: [0, 0, 0], emissive: 0.5, pattern: 0, patternScale: 1, alpha: 1 };
+    /* Eigenleuchten 0,5 hiess: JEDES Partikel leuchtet halb von selbst.
+       Fuer Kristallfunken ist das richtig, fuer aufgewirbelten Staub
+       nicht - im Durchlauf lagen hinter der Figur weisse Vierecke in der
+       Luft, die wie Papierschnipsel aussahen. 0,26 laesst Funken noch
+       funkeln und macht aus Staub wieder Staub. */
+    this._mat = { color: [0, 0, 0], accent: [0, 0, 0], emissive: 0.26, pattern: 0, patternScale: 1, alpha: 1 };
   }
 
   Particles.prototype.spawn = function (x, y, z, vx, vy, vz, life, size, col, grav, mesh) {
@@ -1163,7 +1168,7 @@
       var hot = this.flowLevel >= 2;
       ps.spawn(p.x + p.vx * back * 0.7, p.y - 0.82, p.z + p.vz * back * 0.7,
         (Math.random() - 0.5) * 2 - p.vx * 0.06, 1.4 + Math.random(), (Math.random() - 0.5) * 2 - p.vz * 0.06,
-        0.38, 0.26, hot ? [0.75, 0.55, 1.0] : [0.88, 0.84, 0.74], -7, 'box');
+        0.38, 0.22, hot ? [0.72, 0.54, 0.96] : [0.74, 0.69, 0.58], -7, 'box');
     }
 
     /* Tempospur bei hohem Tempo */

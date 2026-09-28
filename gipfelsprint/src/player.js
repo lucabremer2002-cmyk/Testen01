@@ -890,11 +890,22 @@
       put('cylinder', 0.21, headY + 0.30, -0.16, 0.045, 0.30, 0.045, MAT_BODY2, ant * 0.6);
       put('sphere', 0.21 + ant * 0.16, headY + 0.47, -0.17, 0.13, 0.13, 0.13, MAT_GLOW);
 
-      /* Schal weht mit dem Tempo */
+      /* Schal weht mit dem Tempo.
+
+         Er tat bisher das Gegenteil: die Neigung ging mit dem Tempo von
+         -0,7 auf -1,2 rad, der Schal stellte sich also immer STEILER,
+         je schneller die Figur lief. Dazu wuchs er auf 1,72 m Laenge -
+         so lang wie die Figur hoch ist. Von hinten, und von hinten sieht
+         man die Figur die ganze Zeit, stand damit ein rosa Brett
+         senkrecht auf ihrem Ruecken.
+
+         Ein Schal haengt im Stand und wird vom Fahrtwind waagerecht nach
+         hinten gezogen. Die Neigung laeuft jetzt in diese Richtung, und
+         er bleibt kuerzer als die Figur. */
       var flap = Math.sin(t * 14) * 0.1 + Math.min(0.9, this.speed / 30);
       put('blob', 0, (1.44 + bob) * sq, 0.02, 0.70 * st, 0.24, 0.58 * st, MAT_SCARF);
-      put('box', 0, (1.30 + bob) * sq, -0.36 - flap * 0.45, 0.26, 0.16, 0.55 + flap * 1.3, MAT_SCARF, -0.7 - flap * 0.5);
-      put('box', -0.16, (1.26 + bob) * sq, -0.30 - flap * 0.3, 0.18, 0.13, 0.40 + flap * 0.9, MAT_SCARF, -0.6 - flap * 0.4);
+      put('box', 0, (1.34 + bob) * sq, -0.34 - flap * 0.52, 0.30, 0.13, 0.48 + flap * 0.74, MAT_SCARF, -0.78 + flap * 0.64);
+      put('box', -0.16, (1.28 + bob) * sq, -0.28 - flap * 0.38, 0.21, 0.11, 0.36 + flap * 0.52, MAT_SCARF, -0.66 + flap * 0.52);
 
       /* Landering: seit es echten Sonnenschatten gibt, ist der Fleck unter
          der Figur kein Schatten mehr, sondern nur noch die Anzeige, wo man

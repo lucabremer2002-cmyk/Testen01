@@ -232,7 +232,10 @@
     lantern: mat([1.0, 0.88, 0.40], [1.0, 1.0, 0.86], { emissive: 1.1 }),
     metal: mat([0.34, 0.36, 0.50], [0.57, 0.61, 0.78]),
     rope: mat([0.58, 0.40, 0.20], [0.76, 0.57, 0.29]),
-    cloud: mat([0.95, 0.97, 1.0], [1.0, 1.0, 1.0], { emissive: 0.14 }),
+    /* Wolken bekamen im Dunst denselben Graustich wie alles andere
+       und lagen als graue Flecken im Himmel. Mehr Eigenleuchten
+       haelt sie weiss - eine Wolke IST die hellste Flaeche im Bild. */
+    cloud: mat([0.95, 0.97, 1.0], [1.0, 1.0, 1.0], { emissive: 0.42 }),
     shaft: mat([1.0, 0.96, 0.80], [1.0, 1.0, 0.94], { emissive: 1.0, alpha: 0.055 }),
     mist: mat([0.86, 0.95, 1.0], [1.0, 1.0, 1.0], { emissive: 0.25, alpha: 0.10 }),
     /* Drei Tiefenlagen statt einer. Reale Luftperspektive staffelt
@@ -1128,13 +1131,19 @@
 
     if (kind === 'broad' || kind === 'autumn') {
       var cw = (4.6 + r() * 2.2) * s;
-      crown(this, topX, topY + cw * 0.34, topZ, cw, 5, false);
+      /* Die Krone sass auf 0,34 der eigenen Breite ueber dem Stammende.
+         Rechnerisch ueberlappte sie den Stamm - im Bild aber nicht: die
+         Kronenballen sind Felskoerper, also unregelmaessige Huellen, die
+         ihren Rahmen unten nicht ausfuellen. Der Baum SCHWEBTE, mit
+         sichtbarer Luft zwischen Stamm und Krone. Tiefer angesetzt, und
+         der Stamm steckt ein Stueck darin. */
+      crown(this, topX, topY + cw * 0.18, topZ, cw, 5, false);
     } else if (kind === 'birch') {
       for (var b = 0; b < 3; b++) {
         this.deco('cylinder', lx, ly + (2.4 + b * 1.6) * s, lz, tw * 1.3, 0.12 * s, tw * 1.3, MAT.barkDark, [tilt, spin, 0]);
       }
       var bw = (3.0 + r() * 1.2) * s;
-      crown(this, topX, topY + bw * 0.4, topZ, bw, 4, false);
+      crown(this, topX, topY + bw * 0.22, topZ, bw, 4, false);
     } else {
       /* Nadelbaum: gestapelte Kegel, oben schmaler */
       /* Nadelbaum: gestapelte Kegel, aber jede Etage gedreht, verschoben und
@@ -4227,14 +4236,21 @@
       var nx = dz / l, nz = -dx / l;
       var cur = spine[k];
       var zone = nearestZone(zones, cur[0], cur[2]);
+      var huegel = [null, null];   /* links / rechts, fuer die Deko danach */
 
       for (var side = -1; side <= 1; side += 2) {
         var width = 26 + r() * 34;
         var off = width * 0.5 + 12 + r() * 14;
         var down = 12 + r() * 20;
         b.cursor.x = 0; b.cursor.y = 0; b.cursor.z = 0; b.cursor.yaw = 0;
+        /* Die Masse des Huegels steht jetzt in Variablen, weil die Deko
+           darauf sie braucht - siehe weiter unten. Reihenfolge und Zahl
+           der Wuerfe sind unveraendert. */
+        var hBreit = width * (1.0 + r() * 0.5);
+        var hHoch = width * (0.34 + r() * 0.30);
+        var hTief = width * (0.9 + r() * 0.6);
         b.deco('blob', cur[0] + nx * side * off, cur[1] - down, cur[2] + nz * side * off,
-          width * (1.0 + r() * 0.5), width * (0.34 + r() * 0.30), width * (0.9 + r() * 0.6),
+          hBreit, hHoch, hTief,
           HILL_MAT[zone.name] || MAT.cliff, [(r() - 0.5) * 0.18, r() * 6.28, (r() - 0.5) * 0.18]);
         if (r() > 0.55) {
           b.deco('blob', cur[0] + nx * side * (off + width * 0.35), cur[1] - down - width * 0.1,
@@ -4250,6 +4266,10 @@
            Spielverlauf verschiebt. */
         var hx = cur[0] + nx * side * off, hy = cur[1] - down, hz2 = cur[2] + nz * side * off;
         var hmat = HILL_MAT[zone.name] || MAT.cliff;
+        /* Die Kuppe merken - das Kleinzeug am Weg braucht sie, um auf dem
+           Boden zu stehen statt darueber. */
+        huegel[side > 0 ? 1 : 0] = { x: hx, y: hy, z: hz2,
+          rx: hBreit * 0.5, rz: hTief * 0.5, h: hHoch };
         for (var bp = 0; bp < 2; bp++) {
           var ba = b.zier() * 6.28, bd2 = width * (0.22 + b.zier() * 0.40);
           var bw = width * (0.36 + b.zier() * 0.32);
@@ -4267,17 +4287,26 @@
            NUR auf Steinhaengen. Der erste Versuch setzte sie auch auf die
            Wiesenhuegel - im Bild standen dort kantige GRUENE Splitter, und
            eine Wiese mit Splittern sieht kaputter aus als eine glatte.
-           Ein Grashang bekommt stattdessen zwei halb eingegrabene
-           Findlinge: gleiche Wirkung, richtige Sprache. */
+           Der zweite Versuch legte statt dessen zwei helle Findlinge auf
+           jede Wiesenkuppe: bei 67 Streckenpunkten und zwei Seiten waren
+           das 268 flache Platten, die im Bild wie Kieselstreu ueber den
+           Haengen lagen. Jetzt EINER je Kuppe, dafuer groesser.
+
+           Und die Hoehe kommt aus der Kuppe statt aus einer Faustformel -
+           derselbe Fehler wie bei der Streudeko, dieselbe Rechnung. */
         var fels = (hmat !== MAT.hangGruen);
-        for (var rb = 0; rb < (fels ? 3 : 2); rb++) {
-          var ra = b.zier() * 6.28, rd = width * (0.10 + b.zier() * 0.34);
-          var rw = width * (fels ? 0.16 + b.zier() * 0.20 : 0.05 + b.zier() * 0.05);
+        for (var rb = 0; rb < (fels ? 3 : 1); rb++) {
+          var ra = b.zier() * 6.28, rd = width * (0.10 + b.zier() * 0.30);
+          var rw = width * (fels ? 0.16 + b.zier() * 0.20 : 0.09 + b.zier() * 0.07);
+          var rdx = Math.cos(ra) * rd, rdz = Math.sin(ra) * rd;
+          var rIn = Math.max(0.04, 1 - (rdx * rdx) / (hBreit * hBreit * 0.25)
+                                     - (rdz * rdz) / (hTief * hTief * 0.25));
+          var rh = rw * (0.34 + b.zier() * 0.40);
           b.deco(HUEGEL_FELS[Math.floor(b.zier() * 3) % 3],
-            hx + Math.cos(ra) * rd,
-            hy + width * (fels ? 0.12 + b.zier() * 0.14 : 0.13 + b.zier() * 0.08),
-            hz2 + Math.sin(ra) * rd,
-            rw, rw * (0.34 + b.zier() * 0.40), rw * (0.7 + b.zier() * 0.5),
+            hx + rdx,
+            hy + hHoch * 0.5 * Math.sqrt(rIn) - rh * 0.30,
+            hz2 + rdz,
+            rw, rh, rw * (0.7 + b.zier() * 0.5),
             fels ? hmat : MAT.rock, [(b.zier() - 0.5) * 0.4, b.zier() * 6.28, (b.zier() - 0.5) * 0.4]);
         }
 
@@ -4286,12 +4315,28 @@
            Objekten standen rund 350 Einzelteile auf den Kuppen; sie
            heben sich gegenseitig auf und ergeben Rauschen statt
            Landschaft. */
+        /* Die Hoehe kam aus einer Faustformel: Huegelmitte plus 0,35 bis
+           0,55 mal Huegelbreite. Die Kuppe liegt aber nur 0,17 bis 0,32
+           Breiten ueber der Mitte - der Baum stand also regelmaessig
+           mehrere Meter UEBER dem Huegel. Im Bild schwebten Baeume und
+           Felsen frei in der Luft, Stamm und Wurzeln ohne Boden darunter.
+           Das ist der augenfaelligste Fehler des ganzen Levels gewesen,
+           und er stand seit dem ersten Tag da.
+
+           Ein Ballen ist ein Ellipsoid; seine Oberflaeche laesst sich an
+           jeder Stelle ausrechnen. Genau das passiert jetzt - und der
+           dritte Wurf, der vorher die Hoehe streute, setzt das Objekt
+           statt dessen ein Stueck IN den Hang. */
         for (var q = 0; q < 1; q++) {
-          var ox = cur[0] + nx * side * (off - width * 0.3 + (r() - 0.5) * width * 0.5);
-          var oz = cur[2] + nz * side * (off - width * 0.3 + (r() - 0.5) * width * 0.5);
-          var oy = cur[1] - down + width * (0.35 + r() * 0.2);
+          var seit = (r() - 0.5) * width * 0.45;
+          var ox = cur[0] + nx * side * (off + seit);
+          var oz = cur[2] + nz * side * (off + seit);
+          var ddx = ox - (cur[0] + nx * side * off), ddz = oz - (cur[2] + nz * side * off);
+          var rx = hBreit * 0.5, rz = hTief * 0.5;
+          var innen = Math.max(0.04, 1 - (ddx * ddx) / (rx * rx) - (ddz * ddz) / (rz * rz));
+          var oy = cur[1] - down + hHoch * 0.5 * Math.sqrt(innen) - 0.3 - r() * 0.6;
           b.ghost = true;
-          scatter(b, zone.name, ox, Math.min(oy, cur[1] + 2), oz, r);
+          scatter(b, zone.name, ox, Math.min(oy, cur[1] + 6), oz, r);
           b.ghost = false;
         }
       }
@@ -4302,11 +4347,33 @@
          genau dort, wo der Spieler laeuft und hinsieht. Jetzt eines,
          und erst ab 15 m. Der Weg bleibt frei, die Landschaft trotzdem
          bewohnt - das ist der Unterschied zwischen voll und reich. */
+      /* Die Hoehe war `cur[1] - 0.4`, also vierzig Zentimeter unter der
+         STRECKE. Neben der Strecke liegt aber der Hang, und der liegt
+         zwoelf bis zweiunddreissig Meter tiefer. Die Baeume und Felsen
+         am Wegrand standen deshalb frei in der Luft - mit Stamm, Wurzeln
+         und Schlagschatten, aber ohne Boden. Im Durchlauf war das der
+         auffaelligste Fehler ueberhaupt, und er stand von Anfang an da.
+
+         Jetzt wird die Oberflaeche der Kuppe an dieser Stelle gerechnet.
+         Liegt dort gar kein Hang, wird nichts gesetzt: lieber eine leere
+         Stelle als ein schwebender Baum. Das kostet keine Zufallszahl,
+         die der Spielverlauf braucht - das Gelaende wird nach allen
+         Abschnitten gebaut, und alles hier ist `ghost`, also ohne
+         Kollision. */
       b.ghost = true;
       if (k % 2 === 0) {
         var sgn = r() > 0.5 ? 1 : -1;
-        scatter(b, zone.name, cur[0] + nx * sgn * (15 + r() * 11), cur[1] - 0.4,
-          cur[2] + nz * sgn * (15 + r() * 11), r);
+        var weit = 15 + r() * 11;
+        var px2 = cur[0] + nx * sgn * weit, pz2 = cur[2] + nz * sgn * weit;
+        var H = huegel[sgn > 0 ? 1 : 0];
+        if (H) {
+          var dx2 = px2 - H.x, dz2 = pz2 - H.z;
+          var inn = 1 - (dx2 * dx2) / (H.rx * H.rx) - (dz2 * dz2) / (H.rz * H.rz);
+          if (inn > 0.03) {
+            var gy = Math.min(H.y + H.h * 0.5 * Math.sqrt(inn) - 0.4, cur[1] + 4);
+            scatter(b, zone.name, px2, gy, pz2, r);
+          }
+        }
       }
       b.ghost = false;
     }
@@ -4439,11 +4506,30 @@
          jeden Massstab. */
       var cd = span * (0.55 + r() * 0.8);
       var cxp = cx + Math.cos(ca) * cd, czp = cz + Math.sin(ca) * cd;
-      var cy = bounds.minY + 70 + r() * (bounds.maxY - bounds.minY + 120);
-      var s = 7 + r() * 12;
-      for (var q2 = 0; q2 < 4; q2++) {
-        b.deco('blob', cxp + (r() - 0.5) * s * 1.8, cy + (r() - 0.5) * s * 0.3, czp + (r() - 0.5) * s * 1.2,
-          s * (0.8 + r() * 0.8), s * (0.45 + r() * 0.2), s * (0.7 + r() * 0.5), MAT.cloud);
+      /* Die Wolken begannen 70 m ueber dem TIEFSTEN Punkt der Welt - und
+         der liegt 61 m unter dem Start. Sie hingen damit ab y=9, also auf
+         Augenhoehe der Figur: im Durchlauf lagen blasse graue Schwaden
+         hinter den Huegeln auf dem Boden. Der erste Anlauf (Hoehe ueber
+         dem HOECHSTEN Punkt statt dem tiefsten) war noch zu wenig: auf
+         siebenhundert Metern Entfernung stand eine Wolke in sechzig
+         Metern Hoehe immer noch dicht ueber dem Horizont.
+
+         Und die Form war falsch. Vier Ballen mit 1,8 Radien Streuung
+         lassen in der Mitte ein LOCH - im Bild hing dort ein grauer
+         Kranz wie eine Brezel. Eine Wolke ist eine liegende, flache,
+         durchgehende Masse: fuenf ueberlappende Ballen in einer Reihe,
+         flach gedrueckt, zu den Enden hin kleiner. */
+      var cy = bounds.maxY + 140 + r() * 260;
+      var s = 16 + r() * 26;
+      for (var q2 = 0; q2 < 5; q2++) {
+        var ab = Math.abs(q2 - 2);
+        b.deco('blob',
+          cxp + (q2 - 2) * s * 0.42 + (r() - 0.5) * s * 0.18,
+          cy + (r() - 0.5) * s * 0.10,
+          czp + (r() - 0.5) * s * 0.30,
+          s * (0.92 - ab * 0.19) * (0.9 + r() * 0.25),
+          s * 0.34 * (0.8 + r() * 0.4),
+          s * (0.72 - ab * 0.10), MAT.cloud);
       }
     }
   }
