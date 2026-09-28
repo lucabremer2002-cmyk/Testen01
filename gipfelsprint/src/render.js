@@ -316,27 +316,43 @@
        vergleicht selbst (COMPARE_REF_TO_TEXTURE), jede Probe ist dadurch
        bereits bilinear gefiltert - neun davon ergeben einen ruhigen Rand.
        Am Kartenrand wird ausgeblendet, sonst gaebe es dort eine Kante. */
+    'const vec2 PD[12] = vec2[12](',
+    '  vec2(-0.326,-0.406), vec2(-0.840,-0.074), vec2(-0.696, 0.457),',
+    '  vec2(-0.203, 0.621), vec2( 0.962,-0.195), vec2( 0.473,-0.480),',
+    '  vec2( 0.519, 0.767), vec2( 0.185,-0.893), vec2( 0.507, 0.064),',
+    '  vec2( 0.896, 0.412), vec2(-0.322,-0.933), vec2(-0.792,-0.598));',
     'float sunShadow(vec3 w, vec3 n, float ndl){',
     '  if (uShadowOn < 0.5) return 1.0;',
     /* Versatz entlang der Normalen statt einer grossen Tiefenverschiebung:
        eine reine Tiefenverschiebung loest den Schatten sichtbar vom Fuss
        des Objekts. Der Versatz betraegt knapp zwei Texel der Karte in
        Weltmass und faellt damit nie auf. */
-    '  w += n * uShadowWorld * (2.4 - 1.4 * ndl);',
+    '  w += n * uShadowWorld * (3.6 - 2.0 * ndl);',
     '  vec4 lp = uLightVP * vec4(w, 1.0);',
     '  vec3 q = lp.xyz / lp.w * 0.5 + 0.5;',
     '  if (q.z > 1.0) return 1.0;',
     '  vec2 d = abs(q.xy - 0.5);',
     '  float edge = 1.0 - smoothstep(0.40, 0.50, max(d.x, d.y));',
     '  if (edge <= 0.001) return 1.0;',
-    '  q.z -= mix(0.0009, 0.0003, ndl);',
+    '  q.z -= mix(0.0014, 0.0004, ndl);',
+    /* Zwoelf Proben auf einem Poisson-Ring statt neun auf einem 3x3-Raster.
+       Der Grund ist die Breite, nicht die Zahl: ein 3x3-Raster deckt bei
+       2048er Karte und 46 m Umkreis ganze 0,13 m ab - der Schattenrand war
+       damit haarscharf, und harte Raender sind das sicherste Zeichen fuer
+       ein unfertiges Bild. Der Ring deckt 0,32 m ab. Damit die zwoelf
+       Proben nicht als Ring sichtbar werden, wird der Kranz pro Bildpunkt
+       um einen zufaelligen Winkel gedreht - das verteilt den Fehler als
+       feines Rauschen, das im Korn der Nachbearbeitung untergeht. */
+    '  float ang = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;',
+    '  vec2 rot = vec2(cos(ang), sin(ang));',
+    '  float rad = uShadowTexel * 3.6;',
     '  float sum = 0.0;',
-    '  for (int y = -1; y <= 1; y++) {',
-    '    for (int x = -1; x <= 1; x++) {',
-    '      sum += texture(uShadow, vec3(q.xy + vec2(float(x), float(y)) * uShadowTexel, q.z));',
-    '    }',
+    '  for (int i = 0; i < 12; i++) {',
+    '    vec2 o = PD[i];',
+    '    vec2 d2 = vec2(o.x * rot.x - o.y * rot.y, o.x * rot.y + o.y * rot.x);',
+    '    sum += texture(uShadow, vec3(q.xy + d2 * rad, q.z));',
     '  }',
-    '  return mix(1.0, sum / 9.0, edge);',
+    '  return mix(1.0, sum / 12.0, edge);',
     '}',
 
     'float hash21(vec2 p){',
@@ -434,18 +450,47 @@
     /* Gegenlicht haelt abgewandte Flaechen lesbar statt schwarz. */
     '  float fill = max(dot(N, normalize(vec3(-L.x, 0.25, -L.z))), 0.0);',
     '  float sh = sunShadow(vW, N, ndl);',
+    /* Schattenboden. Gemessen mit tools/pixel.js: beschattetes Gras kam
+       bei Luma 35 heraus, besonntes bei 115 - ein Verhaeltnis von 0,30.
+       Der Renderer rechnet ohne Gammakorrektur, die Zahlen gehen also
+       direkt als Bildschirmwerte hinaus; 0,30 im Bildschirmwert sind
+       perceptuell rund 0,07 - also praktisch schwarz. Genau das war auf
+       den Bildern zu sehen.
+       Der Boden nimmt der SCHATTENKARTE dreissig Prozent ihrer Wirkung,
+       nicht der Beleuchtung: Flaechen, die von der Sonne wegzeigen
+       (ndl = 0), bleiben unveraendert dunkel. Die Form der Geometrie
+       bleibt also erhalten, nur der geworfene Schatten frisst kein Loch
+       mehr ins Bild. */
+    '  float shLicht = 0.12 + 0.88 * sh;',
     /* Im Schatten faellt nur das Sonnenlicht weg, das Umgebungslicht
        bekommt einen kuehlen Einschlag - das trennt Licht und Schatten
        farblich, statt nur dunkler zu werden. */
     /* Der Einschlag im Schatten war zu blau und zu dunkel: enge Schluchten,
        die ganz im Schatten liegen, wurden unlesbar. Etwas mehr
        Umgebungslicht und ein schwaecherer Farbstich. */
-    '  vec3 shadeTint = mix(uSkyCol * 1.02 + 0.10, vec3(1.0), sh);',
+    /* Der Einschlag war ein MULTIPLIKATOR aus der Himmelsfarbe
+       (0,57 / 0,77 / 1,04). Im Schatten wurde Rot damit auf 57 % gedrueckt
+       und Blau auf 104 % angehoben - gruenes Gras lag im Schatten bei
+       einem Fuenftel seiner Helligkeit und kippte ins Blauschwarze. Auf
+       den Bildern waren das die schwarzen Baender quer ueber die Wiese.
+       Jetzt ein milder kuehler Stich mit nahezu gleicher Helligkeit
+       (Luma 0,95): der Schatten bleibt kuehl, aber er bleibt Gras. */
+    '  vec3 shadeTint = mix(vec3(0.90, 0.96, 1.07), vec3(1.0), sh);',
     /* Das Fuelllicht lag bei 0,54 und damit so hoch, dass beschattete und
        besonnte Flaechen fast gleich hell waren - es gab kein Licht und
        keinen Schatten, nur Helligkeit. Weniger Umgebung, mehr Sonne:
        dasselbe Modell, aber mit Richtung. */
-    '  vec3 col = base * (amb * 0.38 * shadeTint + uSunCol * ndl * 1.52 * sh + uSunCol * fill * 0.16);',
+    /* Umgebungslicht 0,38 -> 0,44 und Gegenlicht 0,16 -> 0,26. Beides
+       zielt auf dieselbe Stelle: Flaechen, die von der Sonne wegzeigen,
+       waren fast schwarz. Sie sollen dunkler sein als besonnte, aber
+       lesbar bleiben - sonst verliert jede Form ihre Tiefe und das Bild
+       zerfaellt in helle Deckel und schwarze Kanten. */
+    /* Umgebung 0,44 -> 0,58, Sonne 1,52 -> 1,34. Das Verhaeltnis von
+       besonnt zu beschattet lag bei 4,5:1 - ein Wert fuer eine Wueste um
+       die Mittagszeit, nicht fuer ein Spiel, in dem man den Boden unter
+       einer Plattform noch erkennen muss. Jetzt 2,2:1: Licht und Schatten
+       bleiben klar getrennt, aber der Schatten hat noch Farbe. */
+    '  vec3 col = base * (amb * 0.58 * shadeTint + uSunCol * ndl * 1.34 * shLicht + uSunCol * fill * 0.26);',
 
     /* Glanz fuer Wasser und Kristall */
     '  if (pat == 4 || pat == 6) {',
@@ -653,18 +698,26 @@
        laufen die Neonfarben ins Weisse. */
     '  float lum = dot(c, vec3(0.299, 0.587, 0.114));',
     '  float sat = clamp(length(c - vec3(lum)) * 1.7, 0.0, 1.0);',
-    '  c = mix(vec3(lum), c, mix(1.42, 1.10, sat));',
+    /* Der Aufschlag lag bei 42 % auf blasse Stellen. Er war gegen den
+       Dunst gedacht, traf aber alles: Himmel, Gras, Tore. Das Ergebnis
+       war eine Bonbonpalette. 15 % reichen, um dem Dunst entgegen-
+       zuwirken, ohne dass Farben anfangen zu leuchten. */
+    '  c = mix(vec3(lum), c, mix(1.15, 1.02, sat));',
 
     /* Schwarzpunkt. Hier lag der Grund, warum das Bild nach Prototyp
        aussah: der letzte Schritt war frueher pow(c, 0.92), also eine
        Aufhellung. Zusammen mit dem Dunst lag alles im oberen Drittel des
        Helligkeitsbereichs - es gab nirgends ein Schwarz, und ohne Tiefen
        wirkt jedes Modell flach. */
-    '  c = max(c - 0.050, 0.0) / (1.0 - 0.050);',
+    /* 0,050 zusammen mit der S-Kurve darunter hat die Tiefen zugedrueckt:
+       was im Bild schon bei 0,22 lag (beschattetes Gras), kam bei 0,18
+       heraus und danach nochmal steiler. 0,032 setzt weiterhin ein echtes
+       Schwarz, ohne den ganzen unteren Bereich mitzunehmen. */
+    '  c = max(c - 0.032, 0.0) / (1.0 - 0.032);',
 
     /* S-Kurve: Tiefen satter, Lichter strahlender. */
     '  vec3 t = clamp(c, 0.0, 1.0);',
-    '  c = mix(c, t * t * (3.0 - 2.0 * t), 0.30);',
+    '  c = mix(c, t * t * (3.0 - 2.0 * t), 0.20);',
 
     /* Farbteilung: Tiefen kuehl, Lichter warm - der Griff, der ein Bild
        nach Film aussehen laesst, fuer zwei Mischungen. */
@@ -1065,7 +1118,19 @@
          Die Schatten werden lang und legen sich quer ueber die Flaechen,
          Kanten bekommen Licht und Gegenlicht, und die Szene hat eine
          Richtung. Das ist der billigste Griff mit der groessten Wirkung. */
-      sunDir: [0.62, 0.36, 0.52],
+      /* Die Sonne steht HINTER dem Spieler, nicht vor ihm.
+
+         Die Strecke laeuft nach +z, die Kamera blickt nach +z, und die
+         Stirnseiten aller Terrassen zeigen deshalb nach -z. Mit einer
+         Sonne bei z=+0,52 lagen sie ausnahmslos im Schatten: im Bild
+         ergab das unter jeder Plattform ein schwarzes Band, und die
+         Landschaft sah aus wie gestapelte Pappe. Dazu blickte man
+         staendig ins Gegenlicht.
+
+         Bei z=-0,62 trifft das Sonnenlicht genau diese Stirnseiten. Die
+         Hoehe bleibt flach (25 Grad) - flaches Licht zeichnet Kanten,
+         hohes Licht macht alles gleich hell. */
+      sunDir: [0.50, 0.40, -0.62],
       sunCol: [1.05, 0.96, 0.80],
       skyCol: [0.46, 0.66, 0.92],
       groundCol: [0.30, 0.28, 0.22],
@@ -1178,7 +1243,7 @@
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, fbo.scene.tex);
       gl.uniform1i(thresh.u.uTex, 0);
-      gl.uniform1f(thresh.u.uThreshold, 0.80);
+      gl.uniform1f(thresh.u.uThreshold, 0.94);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
       gl.useProgram(blur.prog);
@@ -1216,7 +1281,10 @@
     };
 
     /* Vorgabewerte; das Spiel schreibt sie je Bild um. */
-    gfx.grade = { bloom: 0.46, vignette: 0.42, chroma: 0.0 };
+    /* Bloom 0,46 -> 0,32. Bei Schwelle 0,80 leuchtet die halbe Wiese
+       mit, nicht nur die Lampen - der Schimmer ueber allem war ein
+       grosser Teil des Neoneindrucks. */
+    gfx.grade = { bloom: 0.32, vignette: 0.36, chroma: 0.0 };
 
     return gfx;
   }

@@ -1066,7 +1066,7 @@
       var g = this.gfx.grade;
       var t = M.clamp((p.speed - 20) / (TUNING.SPEED_CAP - 20), 0, 1);
       var stoss = M.clamp(this.cam.fovPunch * 2.2, 0, 1);
-      g.vignette = 0.42 + t * 0.26 + stoss * 0.20;
+      g.vignette = 0.36 + t * 0.24 + stoss * 0.18;
       /* Gemessen am Bild: 0,0022 bei Hoechsttempo war deutlich zu viel -
          die Anzeige bekam sichtbare Regenbogenraender. Ein Drittel davon
          liest sich als Linse, nicht als Fehler.
@@ -1078,7 +1078,7 @@
          erste Sache, die man streicht. Dieselbe Linie wie bei Schatten
          (1024 statt 2048) und Gras (halbe Dichte). */
       g.chroma = this.input.isTouch ? 0.0 : (0.0003 + t * 0.0008 + stoss * 0.0014);
-      g.bloom = 0.46 + t * 0.14 + stoss * 0.18;
+      g.bloom = 0.32 + t * 0.14 + stoss * 0.18;
     }
   };
 
