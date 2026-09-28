@@ -3516,6 +3516,27 @@
     b.routeMark(1, SAFE, 0, 11.8, 152);
     gemArc(b, -2, 9, 142, 0, 11.8, 152, 2, 'eine Stufe');
 
+    /* --- Das Vorfeld: Boden AUSSERHALB der Mauer.
+
+       Ohne ihn war die Ruine die einzige Abkuerzung des Levels, deren
+       Fehlschlag toedlich war - gemessen sieben Stuerze hintereinander,
+       waehrend Senke und Schlucht null ergaben. Wer den Mauersprung
+       verfehlte, fiel ins Nichts, weil der sichere Weg nach LINKS
+       ausholt und rechts der Mauer schlicht nichts lag.
+
+       Das widerspricht der Regel, auf der das ganze Level beruht:
+       verlieren darf man Zeit, nicht den Versuch. Jetzt liegt dort ein
+       Streifen rauher Boden sechs Meter tiefer, und von seinem Ende
+       fuehrt eine Rampe zum Zusammenfluss. Ein misslungener Mauersprung
+       kostet jetzt gut drei Sekunden. */
+    weg(b, { n: 7, x0: 36, x1: 34, bogen: 5, y0: -6, y1: -4,
+             z0: 40, z1: 148, breite: 22, tiefe: 18, mat: MAT.dirt,
+             sockel: 26, sockelMat: MAT.rock, mark: false });
+    for (i = 0; i < 5; i++) b.rock(30 + (i % 2) * 12, -5, 50 + i * 22, 1.5 + (i % 3) * 0.7, { kind: 'slab' });
+    weg(b, { n: 6, x0: 34, x1: 6, y0: -4, y1: 12, z0: 150, z1: 178,
+             breite: 20, tiefe: 16, mat: MAT.dirt, sockel: 24,
+             sockelMat: MAT.rock, mark: false });
+
     /* --- ABKUERZUNG: ueber die Mauer.
        Zwoelf Meter hoch - ein voller Tank traegt zweiundzwanzig. Oben laeuft man den Mauerkamm entlang und
        spart den ganzen Hofbogen. */
