@@ -4103,15 +4103,60 @@
     /* Absturzgrenze: 24 Einheiten unter dem naechstgelegenen Streckenpunkt.
        Es gibt keine Checkpoints - wer darunter faellt, hat den Lauf beendet. */
     level._floorHint = 0;
+    /* ================================================================
+       DIE TODESEBENE
+       ================================================================
+
+       Frueher: der naechste Routenpunkt minus feste 24 Meter.
+
+       Das geht so lange gut, wie neben der Strecke nichts liegt. Sobald
+       eine Strecke ABSICHTLICH tiefe Flaechen hat - einen Muldenboden,
+       einen Schluchtboden, ein Vorfeld unter einer Mauer - kann ein
+       fester Abstand nicht wissen, dass dort Boden ist. Gemessen lagen
+       elf Rasterfelder des Muldenbodens UNTER der Todesebene: der
+       Muldenboden liegt 24 m unter seinem Rand, die Ebene ebenfalls. Wer
+       dort landete, starb im Stehen - ausgerechnet auf der Flaeche, die
+       einen misslungenen Sprung auffangen soll.
+
+       Jetzt wird die Ebene beim Bauen aus der wirklichen Geometrie
+       abgeleitet: fuer jeden Routenpunkt die TIEFSTE begehbare Flaeche
+       im Umkreis, und acht Meter darunter. Damit ist sie nie ueber
+       einem Boden, auf dem man stehen kann, und bleibt dort flach, wo
+       nichts liegt - das Fallen dauert also weiterhin knapp eine
+       Sekunde und nicht fuenf.
+
+       Gerechnet wird das EINMAL beim Bauen, nicht je Schritt. */
+    (function () {
+      var sp = level.spine, alle = b.world.all;
+      var UMKREIS = 95 * 95, MARGE = 8;
+      level._floorY = [];
+      for (var i = 0; i < sp.length; i++) {
+        var tiefste = sp[i][1] - 24;
+        for (var k = 0; k < alle.length; k++) {
+          var c = alle[k];
+          if (c.noCollide || c.trigger) continue;
+          var dx = c.x - sp[i][0], dz = c.z - sp[i][2];
+          if (dx * dx + dz * dz > UMKREIS) continue;
+          var oben = c.y + c.hy;
+          /* Der Weltboden und aehnliche Riesenplatten zaehlen nicht -
+             sie liegen ueberall und wuerden die Ebene nach unten
+             ziehen, wo gar kein spielbarer Boden ist. */
+          if (c.hx > 140 || c.hz > 140) continue;
+          if (oben - MARGE < tiefste) tiefste = oben - MARGE;
+        }
+        level._floorY.push(tiefste);
+      }
+    })();
+
     level.floorAt = function (x, z) {
-      var sp = this.spine, best = this._floorHint, bd = 1e18;
+      var sp = this.spine, best = this._floorHint || 0, bd = 1e18;
       for (var i = 0; i < sp.length; i++) {
         var dx = sp[i][0] - x, dz = sp[i][2] - z;
         var d = dx * dx + dz * dz;
         if (d < bd) { bd = d; best = i; }
       }
       this._floorHint = best;
-      return sp[best][1] - 24;
+      return this._floorY[best];
     };
 
     level.reset = function () {
