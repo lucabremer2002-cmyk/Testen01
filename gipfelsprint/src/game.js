@@ -139,6 +139,9 @@
     /* Auf Beruehrungsgeraeten eine kleinere Schattenkarte: 2048 kostet dort
        spuerbar mehr, als der feinere Rand bringt. */
     if (this.gfx.shadowQuality) this.gfx.shadowQuality(this.input.isTouch ? 1024 : 2048);
+    /* Und dort auch der feste Schattenradius statt des abstandsabhaengigen:
+       der kostet zwoelf zusaetzliche Abgriffe je Bildpunkt. */
+    this.gfx.weicherSchatten = !this.input.isTouch;
     /* Auf Beruehrungsgeraeten weniger Halme: Gras ist der mit Abstand
        groesste Posten an Instanzen und wird zweimal gezeichnet (Bild und
        Schattenkarte). */

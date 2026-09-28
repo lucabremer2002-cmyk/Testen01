@@ -309,7 +309,7 @@
     'uniform float uTime, uFogDensity;',
     'uniform mat4 uLightVP;',
     'uniform highp sampler2DShadow uShadow;',
-    'uniform float uShadowTexel, uShadowOn, uShadowWorld;',
+    'uniform float uShadowTexel, uShadowOn, uShadowWorld, uShadowSpanne, uSchattenFein;',
     'out vec4 outColor;',
 
     /* Weicher Schatten: neun Proben ueber die Schattenkarte. Die Karte
@@ -339,20 +339,80 @@
        Der Grund ist die Breite, nicht die Zahl: ein 3x3-Raster deckt bei
        2048er Karte und 46 m Umkreis ganze 0,13 m ab - der Schattenrand war
        damit haarscharf, und harte Raender sind das sicherste Zeichen fuer
-       ein unfertiges Bild. Der Ring deckt 0,32 m ab. Damit die zwoelf
-       Proben nicht als Ring sichtbar werden, wird der Kranz pro Bildpunkt
-       um einen zufaelligen Winkel gedreht - das verteilt den Fehler als
-       feines Rauschen, das im Korn der Nachbearbeitung untergeht. */
+       ein unfertiges Bild. Damit die zwoelf Proben nicht als Ring sichtbar
+       werden, wird der Kranz pro Bildpunkt um einen zufaelligen Winkel
+       gedreht - das verteilt den Fehler als feines Rauschen, das im Korn
+       der Nachbearbeitung untergeht. */
     '  float ang = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;',
     '  vec2 rot = vec2(cos(ang), sin(ang));',
-    '  float rad = uShadowTexel * 3.6;',
+    '  float proUv = uShadowTexel / uShadowWorld;',   /* UV je Meter */
+
+    /* ------------------------------------------------- Halbschatten
+       Ein FESTER Radius ist immer der falsche: derselbe Wert, der den
+       Schatten unter den Fuessen der Figur noch scharf haelt, laesst den
+       Schatten einer zwanzig Meter hohen Terrasse als harte Kante quer
+       ueber die Wiese laufen. In Wirklichkeit waechst der Halbschatten
+       mit dem ABSTAND zwischen Werfer und Boden - deshalb ist der Schatten
+       eines Blattes am Boden weich und der einer Hand knapp darueber
+       scharf.
+
+       Wie weit steht der Werfer ueber diesem Punkt? Der Vergleichsabtaster
+       gibt die Tiefe nicht heraus, nur "davor / dahinter". Also wird ein
+       Stueck in Richtung Sonne abgeschritten: weil das Licht orthografisch
+       projiziert, aendert eine Bewegung GENAU entlang der Lichtrichtung nur
+       die Tiefe und nicht die Stelle auf der Karte - ein Schritt von t
+       Metern ist damit schlicht q.z minus t durch die Tiefenspanne, ohne
+       jede Matrix. Der erste Schritt, an dem der Punkt frei liegt, liegt
+       etwa auf Hoehe des Werfers.
+
+       Abgeschritten wird an ZWEI Stellen (hier und dreissig Zentimeter
+       daneben) und die groessere Luecke gilt. Sonst bliebe der aeussere
+       Rand des Halbschattens hart: dort liegt die Mitte schon frei, und
+       der Punkt wuerde sich fuer scharf halten, waehrend einen halben
+       Meter weiter innen noch der Werfer steht.
+
+       (Der naheliegende Weg - die rohe Tiefe ueber ein zweites
+       Abtastobjekt ohne Vergleich lesen - war schon gebaut und hat auf
+       dieser Grafikkarte nicht funktioniert: der Abgriff lieferte
+       konstant denselben Wert, und der Schatten verschwand komplett. Das
+       Abschreiten braucht keine zweite Bindung und ist definiert.) */
+    /* Auf Beruehrungsgeraeten bleibt der feste Radius: das Abschreiten und
+       der zweite Ring kosten zusammen zwoelf zusaetzliche Abgriffe je
+       Bildpunkt, und das ist genau die Zutat, die man auf einem Telefon
+       als erstes streicht - dieselbe Linie wie bei der Kartengroesse
+       (1024 statt 2048), dem Gras und der Randfehlfarbe. */
+    '  float rad = uShadowTexel * 4.5;',
+    '  float teiler = 12.0;',
+    '  if (uSchattenFein > 0.5) {',
+    '    vec2 versatz = rot * (0.30 * proUv);',
+    '    float lueckeM = 20.0;',
+    '    for (int i = 0; i < 3; i++) {',
+    '      float t = 2.6 * exp2(float(i) * 1.43);',
+    '      float zz = q.z - t / uShadowSpanne;',
+    '      if (texture(uShadow, vec3(q.xy, zz)) > 0.5 &&',
+    '          texture(uShadow, vec3(q.xy + versatz, zz)) > 0.5) { lueckeM = t; break; }',
+    '    }',
+    '    rad = clamp(0.09 + lueckeM * 0.045, 0.09, 0.40) * proUv;',
+    '    teiler = 18.0;',
+    '  }',
+    /* Achtzehn Proben statt zwoelf, auf zwei Ringen. Der Grund ist das
+       Rauschen: der Kranz wird pro Bildpunkt gedreht, und zwoelf Proben
+       ueber einen 80 cm breiten Halbschatten ergeben im Uebergang
+       sichtbares Griesel. Ein zweiter Ring auf halbem Radius deckt die
+       Mitte ab, wo ein einzelner Ring nichts abtastet. */
     '  float sum = 0.0;',
     '  for (int i = 0; i < 12; i++) {',
     '    vec2 o = PD[i];',
     '    vec2 d2 = vec2(o.x * rot.x - o.y * rot.y, o.x * rot.y + o.y * rot.x);',
     '    sum += texture(uShadow, vec3(q.xy + d2 * rad, q.z));',
     '  }',
-    '  return mix(1.0, sum / 12.0, edge);',
+    '  for (int i = 0; i < 6; i++) {',
+    '    if (teiler < 18.0) break;',
+    '    vec2 o = PD[i * 2] * 0.52;',
+    '    vec2 d3 = vec2(o.x * rot.y + o.y * rot.x, o.y * rot.y - o.x * rot.x);',
+    '    sum += texture(uShadow, vec3(q.xy + d3 * rad, q.z));',
+    '  }',
+    '  return mix(1.0, sum / teiler, edge);',
     '}',
 
     'float hash21(vec2 p){',
@@ -1014,6 +1074,9 @@
       shadowMap = size > 0 ? makeShadowMap(size) : null;
     };
     gfx.shadowQuality(2048);
+    /* Halbschatten, der mit dem Abstand waechst. Das Spiel schaltet ihn
+       auf Beruehrungsgeraeten ab. */
+    gfx.weicherSchatten = true;
 
     function buildLightMatrix() {
       var d = env.sunDir;
@@ -1211,6 +1274,13 @@
         gl.uniformMatrix4fv(main.u.uLightVP, false, lightVP);
         gl.uniform1f(main.u.uShadowTexel, 1 / shadowMap.size);
         gl.uniform1f(main.u.uShadowWorld, 2 * focus.r / shadowMap.size);
+        /* Tiefenspanne des Lichtkastens in Metern. Die Projektion ist
+           orthografisch, die Tiefe also linear - ein Unterschied in q.z
+           mal dieser Spanne ergibt direkt Meter. Genau das braucht die
+           Blockersuche, um aus "wie viel weiter vorn" ein "wie viele
+           Meter darueber" zu machen. */
+        gl.uniform1f(main.u.uShadowSpanne, focus.r * 3.6 - 1.0);
+        gl.uniform1f(main.u.uSchattenFein, gfx.weicherSchatten ? 1 : 0);
         gl.activeTexture(gl.TEXTURE2);
         gl.bindTexture(gl.TEXTURE_2D, shadowMap.tex);
         gl.uniform1i(main.u.uShadow, 2);
