@@ -808,19 +808,27 @@
       var fx = Math.sin(yaw), fz = Math.cos(yaw);
       var rx = Math.cos(yaw), rz = -Math.sin(yaw);
       var alpha = opts && opts.alpha !== undefined ? opts.alpha : 1;
-      var body = opts && opts.mat ? opts.mat : MAT_BODY;
+      /* `opts.mat` faerbt den GEIST. Vorher traf es nur den Rumpf: Schal,
+         Zierteile, Auge und Antenne behielten ihre eigenen Farben und
+         wurden nur durchsichtig gezeichnet. Im Bild stand damit eine
+         halbdurchsichtige Figur mit rosa Schal und leuchtender Antenne
+         auf der Wiese - im Durchlauf habe ich sie erst fuer einen Gegner
+         gehalten. Ein Geist muss EIN Ton sein, sonst ist er keiner. */
+      var geist = opts && opts.mat ? opts.mat : null;
+      var body = geist || MAT_BODY;
 
       function put(mesh, ox, oy, oz, sx, sy, sz, material, pitch, roll) {
+        var mm = geist || material;
         var wx = bx + rx * ox + fx * oz;
         var wz = bz + rz * ox + fz * oz;
         m4.compose(m, wx, footY + oy, wz, (pitch || 0) + lean, yaw, roll || 0, sx, sy, sz);
         if (alpha < 1) {
           glass.add(mesh, m, {
-            color: material.color, accent: material.accent, emissive: material.emissive,
+            color: mm.color, accent: mm.accent, emissive: mm.emissive,
             pattern: 0, patternScale: 1, alpha: alpha
           });
         } else {
-          batch.add(mesh, m, material);
+          batch.add(mesh, m, mm);
         }
       }
 

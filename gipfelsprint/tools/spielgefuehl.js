@@ -21,7 +21,7 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
      Vorgabe des Spiels ist, massen sie sonst stillschweigend die falsche
      Strecke - routen-alle.js rechnete 96 Kombinationen auf einem Level
      mit zwei Gabeln aus und meldete trotzdem "sauber". */
-  const SATZ = process.env.MR_SATZ || 'lang';
+  const SATZ = process.env.MR_SATZ || 'tal';
   if (SATZ) await page.addInitScript(s => { try { localStorage.setItem('mr_satz', s); } catch (e) {} }, SATZ);
   await page.goto('http://127.0.0.1:8123/index.html', { waitUntil: 'load' });
   await page.waitForFunction(() => !!window.GAME, null, { timeout: 30000 });

@@ -21,7 +21,7 @@
  * Aufruf: node tools/stufen.js
  */
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
-const SATZ = process.env.MR_SATZ || 'turm';
+const SATZ = process.env.MR_SATZ || 'tal';
 
 /* Was eine Technik traegt. Die Weite gilt fuer den Anlauf, den man auf
    dem jeweiligen Weg realistisch hat - auf dem sicheren Weg laeuft man,
@@ -46,23 +46,68 @@ const SICHER_WEIT = 19.5 * 0.7;
   await page.waitForFunction(() => !!window.GAME, null, { timeout: 30000 });
   const R = await page.evaluate(() => {
     const lvl = window.GAME.level;
-    /* Zu jedem Wegpunkt die Flaeche suchen, auf der er liegt - ihre
-       Ausdehnung entscheidet, wie viel LUFT zwischen zwei Stufen
-       bleibt. Genau daran ist der Entwurf viermal gescheitert: die
-       Mitten lagen weit auseinander, die Kanten nicht. */
-    function flaeche(pt) {
+
+    /* Wie breit ist die Luecke zwischen zwei Wegpunkten WIRKLICH?
+
+       Erster Ansatz: zu jedem Punkt die Flaeche suchen, auf der er
+       liegt, und von der Mittenentfernung die halben Ausdehnungen
+       abziehen. Das ist richtig gedacht und in der Umsetzung falsch
+       gewesen: gesucht wurde die KLEINSTE Flaeche unter dem Punkt. Auf
+       einem Weg aus zwanzig Meter breiten Platten liegen aber auch
+       Zierquader, Saeulenstuempfe und Kisten - und die gewannen. Das
+       Werkzeug meldete daraufhin auf dem sicheren Weg siebzehn zu
+       schwere Stellen, waehrend der Testpilot denselben Weg ohne Duese
+       und ohne einen Sturz durchlief. Eine Pruefung, die einer
+       nachweislich funktionierenden Strecke widerspricht, gewoehnt
+       einem das Hinsehen ab.
+
+       Jetzt wird die Strecke dazwischen ABGETASTET: alle anderthalb
+       Meter eine Probe, ob dort Boden auf passender Hoehe liegt. Die
+       gemeldete Luecke ist die laengste zusammenhaengende Strecke ohne
+       Boden. Das kann kein Zierquader mehr verfaelschen, und es misst
+       genau das, was der Spieler ueberspringen muss. */
+    function bodenAuf(x, z, yRef) {
       let best = null;
       for (const c of lvl.world.all) {
         if (c.noCollide || c.trigger) continue;
-        if (Math.abs(c.y + c.hy - pt[1]) > 1.6) continue;
-        if (Math.abs(c.x - pt[0]) > c.hx + 1 || Math.abs(c.z - pt[2]) > c.hz + 1) continue;
-        if (!best || c.hx * c.hz < best.hx * best.hz) best = c;
+        if (Math.abs(c.x - x) > c.hx || Math.abs(c.z - z) > c.hz) continue;
+        const top = c.y + c.hy;
+        if (top > yRef + 2.5 || top < yRef - 9) continue;
+        if (best === null || top > best) best = top;
       }
-      return best ? { x: best.x, z: best.z, hx: best.hx, hz: best.hz } : null;
+      return best;
     }
-    const out = { spine: lvl.spine.map(p => ({ p: p, f: flaeche(p) })), routen: {} };
+
+    function luecke(a, c) {
+      const weit = Math.hypot(c[0] - a[0], c[2] - a[2]);
+      if (weit < 0.5) return 0;
+      const n = Math.max(2, Math.ceil(weit / 1.5));
+      let lauf = 0, groesste = 0;
+      /* Die Enden selbst nicht mitzaehlen - dort steht man. */
+      for (let i = 1; i < n; i++) {
+        const t = i / n;
+        const px = a[0] + (c[0] - a[0]) * t;
+        const pz = a[2] + (c[2] - a[2]) * t;
+        const py = a[1] + (c[1] - a[1]) * t;
+        if (bodenAuf(px, pz, py) === null) {
+          lauf += weit / n;
+          if (lauf > groesste) groesste = lauf;
+        } else lauf = 0;
+      }
+      return groesste;
+    }
+
+    function messe(pfad) {
+      const o = [];
+      for (let i = 0; i < pfad.length; i++) {
+        o.push({ p: pfad[i], luft: i === 0 ? 0 : luecke(pfad[i - 1], pfad[i]) });
+      }
+      return o;
+    }
+
+    const out = { spine: messe(lvl.spine), routen: {} };
     const rp = lvl.routePaths || {};
-    for (const k in rp) out.routen[k] = rp[k].map(p => ({ p: p, f: flaeche(p) }));
+    for (const k in rp) out.routen[k] = messe(rp[k]);
     return out;
   });
 
@@ -85,29 +130,17 @@ const SICHER_WEIT = 19.5 * 0.7;
     console.log('\n' + name + '  (' + pfad.length + ' Punkte)' +
                 (istSicher ? '   [SICHERE ROUTE - Grenze ' + SICHER_HOCH.toFixed(2) +
                              ' m hoch / ' + SICHER_WEIT.toFixed(1) + ' m weit]' : ''));
-    let schlimm = 0, eng = 0, hart = 0, gesamt = 0, hoehe = 0, gelaufen = 0;
+    let schlimm = 0, eng = 0, eng2 = 0, hart = 0, gesamt = 0, hoehe = 0, gelaufen = 0;
     for (let i = 1; i < pfad.length; i++) {
       const a = pfad[i-1].p, c = pfad[i].p;
-      const fa = pfad[i-1].f, fc = pfad[i].f;
       const weit = Math.hypot(c[0]-a[0], c[2]-a[2]);
       const hoch = c[1] - a[1];
       gesamt += Math.hypot(weit, hoch);
       if (hoch > 0) hoehe += hoch;
 
-      /* LUFT ist die Luecke zwischen den Flaechen, nicht der Abstand
-         ihrer Mittelpunkte. Beruehren sie sich, ist die Luft negativ -
-         dann gibt es nichts zu springen, man LAEUFT. Diese Unterscheidung
-         ist der ganze Sinn des Werkzeugs: ein durchgehender Weg aus
-         ueberlappenden Flaechen sah vorher aus wie eine Kette von
-         Zwanzig-Meter-Spruengen, weil nur die Mittenabstaende gemessen
-         wurden. */
-      let luft = weit;
-      if (fa && fc && weit > 0.01) {
-        const ux = (c[0]-a[0]) / weit, uz = (c[2]-a[2]) / weit;
-        luft -= Math.abs(ux) * fa.hx + Math.abs(uz) * fa.hz;
-        luft -= Math.abs(ux) * fc.hx + Math.abs(uz) * fc.hz;
-      }
-      luft = Math.max(0, luft);
+      /* LUFT ist die abgetastete Luecke ohne Boden (siehe oben), nicht
+         der Abstand der Mittelpunkte. */
+      const luft = pfad[i].luft;
 
       /* Begehbar: keine Luecke, und die Stufe ist niedriger als die
          Hoehe, die die Physik von selbst uebersteigt (STEP_HEIGHT). */
@@ -125,14 +158,26 @@ const SICHER_WEIT = 19.5 * 0.7;
          einem das Hinsehen ab. */
       const fallBonus = hoch < 0 ? 20 * Math.sqrt(2 * (-hoch) / 64) : 0;
 
-      let kann = null;
+      /* Zwei Stufen: was mit fuenfzehn Prozent Reserve geht, und was
+         ueberhaupt geht. Dazwischen liegt "knapp" - das ist kein Fehler,
+         sondern die Waehrung der Abkuerzungen. Vorher meldete das
+         Werkzeug beides als "KEINE TECHNIK REICHT", und die beiden
+         Abkuerzungen, die der Testpilot zuverlaessig fliegt, standen
+         als rote Ausrufezeichen im Bericht. */
+      let kann = null, knapp = null;
       for (const K of KANN) {
         if (hoch <= K.hoch * 0.85 && luft <= (K.weit + fallBonus) * 0.85) { kann = K; break; }
+      }
+      if (!kann) {
+        for (const K of KANN) {
+          if (hoch <= K.hoch && luft <= K.weit + fallBonus) { knapp = K; break; }
+        }
       }
       const zuHart = istSicher &&
                      (hoch > SICHER_HOCH || luft > SICHER_WEIT + fallBonus);
       if (zuHart) hart++;
-      if (!kann) schlimm++;
+      if (!kann && !knapp) schlimm++;
+      if (!kann && knapp) eng2++;
 
       /* Nur ein Steigflug mit der Duese braucht Anlaufluft - ein Sprung
          folgt einer Wurfparabel und ist mit Hoehe und Weite beschrieben. */
@@ -140,19 +185,22 @@ const SICHER_WEIT = 19.5 * 0.7;
       const zuEng = braucht > 0 && luft < braucht - 0.5;
       if (zuEng) eng++;
 
-      const marke = !kann ? ' !!' : (zuHart ? ' ##' : (zuEng ? ' ><' : '   '));
+      const marke = (!kann && !knapp) ? ' !!' : (knapp ? ' ~~' : (zuHart ? ' ##' : (zuEng ? ' ><' : '   ')));
       if (!kann || zuHart || zuEng) {
+        const reserve = knapp ? Math.round((1 - luft / (knapp.weit + fallBonus)) * 100) : 0;
         console.log(marke + ' Stufe ' + String(i).padStart(2) + ': ' +
           luft.toFixed(1).padStart(6) + ' m Luft, ' + hoch.toFixed(1).padStart(6) + ' m hoch' +
           (braucht ? '  (braucht ' + braucht.toFixed(0) + ' m Anlauf)' : '') + '   ' +
-          (kann ? kann.name : 'KEINE TECHNIK REICHT'));
+          (kann ? kann.name : (knapp ? knapp.name + ' - knapp, ' + reserve + ' % Reserve'
+                                     : 'KEINE TECHNIK REICHT')));
       }
     }
     console.log('   ' + gelaufen + ' von ' + (pfad.length - 1) + ' Uebergaengen sind begehbar (kein Sprung)');
     if (hart) console.log('   ' + hart + ' Stelle(n) ZU SCHWER fuer die sichere Route (ueber 70 %)');
     if (schlimm) console.log('   ' + schlimm + ' Stelle(n) ausserhalb jeder Reichweite');
+    if (eng2) console.log('   ' + eng2 + ' Stelle(n) KNAPP - gehen, aber ohne die 15 % Reserve');
     if (eng) console.log('   ' + eng + ' Steigflug(e) mit zu wenig Anlauf');
-    if (!schlimm && !eng && !hart) console.log('   alles passt: Reichweite, Anlauf, Fairness');
+    if (!schlimm && !eng && !hart && !eng2) console.log('   alles passt: Reichweite, Anlauf, Fairness');
     console.log('   Weglaenge ' + gesamt.toFixed(0) + ' m, davon ' +
                 hoehe.toFixed(0) + ' m Steigung');
   }

@@ -414,9 +414,11 @@
        der Kante. Das ist dieselbe Idee wie die Grasnarbe, nur in Stein:
        die Flaeche endet sichtbar, statt einfach aufzuhoeren. */
     if (!turf) {
+      var holz = (m === MAT.plank || m === MAT.plankPale);
       var simsMat = (m === MAT.scree) ? MAT.rockDark
                   : (m === MAT.sandstoneWorn || m === MAT.sandstone) ? MAT.templeTrim
-                  : (m === MAT.marble) ? MAT.gold : MAT.rock;
+                  : (m === MAT.marble) ? MAT.gold
+                  : holz ? MAT.beam : MAT.rock;
       this.deco('box', lx, ly - 0.22, lz, w + 0.7, 0.30, d + 0.7, simsMat);
       /* Verfaerbungen und lose Platten AUF der Flaeche. Ein Sims allein
          rettet eine 40 m breite Steinplatte nicht: in der Mitte bleibt
@@ -426,7 +428,8 @@
       var fleckMat = (m === MAT.scree) ? MAT.rockDark
                    : (m === MAT.sandstone) ? MAT.sandstoneWorn
                    : (m === MAT.sandstoneWorn) ? MAT.erde
-                   : (m === MAT.marble) ? MAT.stone : MAT.rockDark;
+                   : (m === MAT.marble) ? MAT.stone
+                   : holz ? MAT.plank : MAT.rockDark;
       /* Erster Versuch waren flache Ballen als Verfaerbung. Gemessen am
          Bild war das falsch: ein plattgedrueckter Ballen hat einen fast
          senkrechten Rand, der Rand bekommt keine Sonne, und im Bild lagen
@@ -434,7 +437,11 @@
          Platten erfuellen denselben Zweck (die Flaeche ist nicht mehr
          leer), werfen aber einen Schatten statt eines Lochs. */
       var z2 = this.zier;
-      var platten = 3 + Math.floor(z2() * 3);
+      /* Auf einer Holzbruecke liegen keine Findlinge. Im Durchlauf lagen
+         auf den Planken der Schlucht graue Felsbrocken - Schutt gehoert
+         auf Schutt, nicht auf Bohlen. Holz bekommt statt dessen nur den
+         Sims und die Kantenstuecke. */
+      var platten = holz ? 0 : 3 + Math.floor(z2() * 3);
       for (var pI3 = 0; pI3 < platten; pI3++) {
         var qx = (z2() - 0.5) * w * 0.8, qz = (z2() - 0.5) * d * 0.8;
         var qs = 0.7 + z2() * 1.1;
@@ -1859,6 +1866,33 @@
      Ideallinie, sammelt man sie, ohne etwas zu tun. Im Wechsel daneben
      verlangen sie genau das, was ein sicherer Weg verlangen darf:
      lenken, nicht springen. */
+  /* Kristalle AUF einem Weg statt auf einer geraden Linie daneben.
+
+     `gemLine` setzt sie auf eine Gerade mit festem x - das passt, solange
+     der Weg gerade ist. Die langen Wege des Tals schwingen aber um bis zu
+     sechzig Meter aus, und gemessen (tools/kristalle.js) lagen die
+     Kristalle des Randwegs 12 bis 31 m neben dem Randweg, die der
+     Bruecke 14 bis 27 m neben der Bruecke. Wer den sicheren Weg lief,
+     sammelte neun von achtundsechzig - nicht weil die Kristalle woanders
+     liegen SOLLTEN, sondern weil ihre Koordinaten von Hand gesetzt waren
+     und die Wege sich seither bewegt haben.
+
+     `weg` gibt seine Punkte zurueck. Genau die werden hier benutzt: so
+     koennen Weg und Kristalle nicht mehr auseinanderlaufen. */
+  function gemAufWeg(b, pts, n, seit, hint) {
+    for (var i = 0; i < n; i++) {
+      var t = (i + 0.5) / n * (pts.length - 1);
+      var k = Math.min(pts.length - 2, Math.floor(t)), f = t - k;
+      var a = pts[k], c = pts[k + 1];
+      var x = a[0] + (c[0] - a[0]) * f;
+      var y = a[1] + (c[1] - a[1]) * f;
+      var z = a[2] + (c[2] - a[2]) * f;
+      var dx = c[0] - a[0], dz = c[2] - a[2], l = Math.hypot(dx, dz) || 1;
+      var s = (i % 2 ? 1 : -1) * seit;
+      b.gem(x - (dz / l) * s, y + 1.7, z + (dx / l) * s, { hint: hint });
+    }
+  }
+
   function gemLine(b, o) {
     for (var i = 0; i < o.n; i++) {
       var t = o.n === 1 ? 0 : i / (o.n - 1);
@@ -3589,9 +3623,9 @@
 
     /* Ein durchgehender Weg, der nach rechts schwingt und leicht steigt.
        Kein Sprung noetig - er ist zum Laufenlernen da. */
-    weg(b, { n: 5, x0: 0, x1: 14, bogen: 8, y0: 0, y1: 5, z0: 28, z1: 84,
+    var auftaktPts = weg(b, { n: 5, x0: 0, x1: 14, bogen: 8, y0: 0, y1: 5, z0: 28, z1: 84,
              breite: 21, tiefe: 18, mat: MAT.meadow, sockel: 26, sockelMat: MAT.erde });
-    gemLine(b, { n: 6, x: 9, seit: 5, y: 5, z0: 34, z1: 80, hint: 'der Weg' });
+    gemAufWeg(b, auftaktPts, 6, 2.5, 'der Weg');
     /* Vier Steinplatten am Wegrand.
 
        Sie standen auf FESTER Hoehe y=4, waehrend der Weg von 0 auf 5
@@ -3678,19 +3712,42 @@
        Werkzeug hat genau diese vier Schritte gemeldet. Mit sechzehn
        Flaechen ist der steilste Schritt 2,8 m - dieselbe Kurve, dieselbe
        Landschaft, nur feiner aufgeloest. */
-    weg(b, { n: 16, x0: -12, x1: 0, bogen: -58, y0: -2, y1: 12, kuppe: -10,
+    var randPts = weg(b, { n: 16, x0: -12, x1: 0, bogen: -58, y0: -2, y1: 12, kuppe: -10,
              z0: 44, z1: 166, breite: 20, tiefe: 18, mat: MAT.meadow,
              sockel: 30, sockelMat: MAT.erde, route: SAFE });
-    gemLine(b, { n: 7, x: -40, seit: 9, y: -7, z0: 58, z1: 152, hint: 'Randweg' });
+    gemAufWeg(b, randPts, 7, 2.5, 'Randweg');
     /* Auf dem Randweg ist SONST nichts zu tun. Gemessen dauert er
        knapp fuenfzehn Sekunden, und fuenfzehn Sekunden ohne eine
        Handlung sind der sicherste Weg, einen Spieler zu verlieren. Die
        Felsnadeln zwingen zu etwas, das ein sicherer Weg verlangen darf:
        lenken. Sie sind schmal, sie toeten nicht, und wer sie streift,
        verliert ein paar Prozent Tempo statt den Lauf. */
+    /* Die Nadeln standen auf einer EIGENEN Formel: eine Sinuskurve mit
+       dreissig Metern Ausschlag, waehrend der Weg mit achtundfuenfzig
+       schwingt, dazu eine lineare Hoehe statt der Kuppe. Beide Kurven
+       hatten nichts miteinander zu tun, und gemessen (tools/nadeln.js)
+       kam dabei heraus:
+
+         zwei Nadeln standen 13 m NEBEN dem Weg, also in der Luft -
+           Sperrkoerper im Nichts, die ein fliegender Spieler trifft,
+         zwei standen mit 1,2 und 2,0 m Abstand praktisch AUF der
+           Ideallinie - kein Slalom, sondern eine Wand in der Spur,
+         nur zwei lagen so, wie der Entwurf es meinte.
+
+       Im Durchlauf war das die Stelle, an der das Tempo elfmal von 20
+       auf 5 bis 9 fiel. Jetzt stehen sie auf dem Weg, abwechselnd links
+       und rechts, versetzt entlang der ECHTEN Bahn und ihrer Normalen -
+       dieselben Zahlen wie im `weg`-Aufruf darueber, damit sie nicht
+       wieder auseinanderlaufen koennen. */
     for (i = 0; i < 6; i++) {
-      var sx = -26 - Math.sin(i / 6 * Math.PI) * 30 + (i % 2 ? 7 : -7);
-      felsnadel(b, sx, -9 + i * 1.8, 62 + i * 16, 2.2, 7, MAT.erde);
+      var nt = 0.14 + i * 0.13;
+      var nzz = 44 + 122 * nt;
+      var nxx = -12 + 12 * nt - 58 * Math.sin(nt * Math.PI);
+      var nyy = -2 + 14 * nt - 10 * Math.sin(nt * Math.PI);
+      var tgx = 12 - 58 * Math.PI * Math.cos(nt * Math.PI), tgz = 122;
+      var tgl = Math.hypot(tgx, tgz) || 1;
+      var seite = (i % 2 ? 1 : -1) * 4.0;
+      felsnadel(b, nxx - (tgz / tgl) * seite, nyy, nzz + (tgx / tgl) * seite, 2.2, 7, MAT.erde);
     }
 
     /* --- ABKUERZUNG: quer ueber die Mulde.
@@ -3800,10 +3857,10 @@
        sonst ist die Mauerroute nur anders und nicht kuerzer. Gemessen
        waren beide vorher gleich lang - die Abkuerzung war sogar zwei
        Meter LAENGER als der sichere Weg. */
-    weg(b, { n: 9, x0: -8, x1: -2, bogen: -56, y0: 0, y1: 9, kuppe: 4,
+    var hofPts = weg(b, { n: 9, x0: -8, x1: -2, bogen: -56, y0: 0, y1: 9, kuppe: 4,
              z0: 46, z1: 134, breite: 20, tiefe: 17, mat: MAT.sandstoneWorn, sockel: 22,
              sockelMat: MAT.sandstoneWorn, fork: 1, route: SAFE });
-    gemLine(b, { n: 7, x: -38, seit: 8, y: 1, z0: 58, z1: 126, hint: 'durch den Hof' });
+    gemAufWeg(b, hofPts, 7, 2.5, 'durch den Hof');
     for (i = 0; i < 5; i++) {
       b.column(-48 + i * 8, 0, 60 + i * 16, 9 + (i % 3) * 3, { mat: MAT.sandstoneWorn });
       b.deco('box', -26 - i * 4, 1.4, 66 + i * 14, 7, 2.8, 5, MAT.sandstone);
@@ -3922,7 +3979,7 @@
        wenigsten lohnende. Wer das Schwerste wagt, muss am meisten
        gewinnen, sonst ist es keine Herausforderung, sondern eine
        Schikane. */
-    weg(b, { n: 12, x0: -13, x1: -2, bogen: -60, y0: -9, y1: -12,
+    var brueckePts = weg(b, { n: 12, x0: -13, x1: -2, bogen: -60, y0: -9, y1: -12,
              z0: 96, z1: 186, breite: 13, tiefe: 15, mat: MAT.plankPale, dick: 0.8,
              fork: 2, route: SAFE });
     /* Gelaender und Pfeiler - eine Bruecke muss als Bruecke zu erkennen
@@ -3935,7 +3992,7 @@
       b.deco('box', bx + 6.4, by + 1.3, bz, 0.5, 2.6, 15, MAT.beam);
       if (i % 3 === 0) b.deco('box', bx, by - 9, bz, 2.2, 18, 2.2, MAT.bark);
     }
-    gemLine(b, { n: 8, x: -34, seit: 4, y: -9, z0: 106, z1: 176, hint: 'die Bruecke' });
+    gemAufWeg(b, brueckePts, 8, 2.2, 'die Bruecke');
 
     /* --- ABKUERZUNG: quer hinueber.
        Vierunddreissig Meter Luft - ein voller Tank traegt siebenundvierzig.
@@ -4802,11 +4859,16 @@
         if (g2.taken) continue;
         var spin = t * 2.2 + g2.spin;
         var bob = Math.sin(t * 2.0 + g2.spin) * 0.22;
-        m4.compose(TMP, g2.x, g2.y + bob + 0.42, g2.z, 0, spin, 0, 1.0, 1.1, 1.0);
+        /* Der Kristall war mit Hof 2,4 m breit und ueber 1,7 m hoch, also
+           so gross wie die Figur. Seit die Kristalle auf der Laufspur
+           liegen statt daneben, steht er damit im Bild wie ein Moebel.
+           Drei Viertel: aus 30 m noch klar zu sehen, im Vorbeilaufen
+           nicht mehr im Weg. */
+        m4.compose(TMP, g2.x, g2.y + bob + 0.34, g2.z, 0, spin, 0, 0.78, 0.86, 0.78);
         batch.add('crystal', TMP, MAT.gem);
-        m4.compose(TMP, g2.x, g2.y + bob - 0.36, g2.z, Math.PI, spin, 0, 1.0, 0.8, 1.0);
+        m4.compose(TMP, g2.x, g2.y + bob - 0.28, g2.z, Math.PI, spin, 0, 0.78, 0.62, 0.78);
         batch.add('crystal', TMP, MAT.gem);
-        m4.compose(TMP, g2.x, g2.y + bob, g2.z, Math.PI / 2, spin * 0.6, 0, 2.4, 2.4, 2.4);
+        m4.compose(TMP, g2.x, g2.y + bob, g2.z, Math.PI / 2, spin * 0.6, 0, 1.85, 1.85, 1.85);
         glass.add('torus', TMP, {
           color: MAT.gem.color, accent: MAT.gem.accent, emissive: 1,
           pattern: 0, patternScale: 1, alpha: 0.35
