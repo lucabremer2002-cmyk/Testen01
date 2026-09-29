@@ -81,6 +81,8 @@
 
     CE.crew.weekly(s, rng, res.derived, report);
     CE.rivals.weekly(s, rng, res.derived, report);
+    CE.commission.weekly(s, rng, res.derived, report, res.entry.book);
+    CE.city.weekly(s, rng, res.derived, report);
 
     for (var k in s.districts) if (s.districts[k].open) CE.ops.refreshOffers(s, rng, k);
     CE.crew.refreshRecruits(s, rng);

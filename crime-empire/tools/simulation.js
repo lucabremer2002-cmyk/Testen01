@@ -15,7 +15,7 @@
 'use strict';
 const path = require('path');
 const base = path.join(__dirname, '..', 'src');
-['util', 'data', 'state', 'crew', 'ops', 'empire', 'economy', 'rivals', 'events', 'progress', 'save', 'sim']
+['util', 'data', 'state', 'crew', 'ops', 'empire', 'economy', 'rivals', 'city', 'commission', 'people', 'events', 'progress', 'save', 'sim']
   .forEach(m => require(path.join(base, m + '.js')));
 
 const { util: U, state: St, data: D, sim: Sim, ops: Ops, crew: Crew, empire: Emp } = globalThis.CE;

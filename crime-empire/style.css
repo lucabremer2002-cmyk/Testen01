@@ -253,7 +253,12 @@ body.calm *, body.calm *::before, body.calm *::after {
 .nav__gap { flex: 1; }
 .nav__note { padding: 10px 12px; color: var(--ink3); font-size: .7rem; line-height: 1.45; border-top: 1px solid var(--line); }
 
-.view { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; padding: 20px 24px 40px; outline: none; }
+.view {
+  flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; outline: none;
+  /* Unten Platz fuer die Meldungsspur - sonst endet die letzte Karte
+     genau dort, wo die Meldungen liegen. */
+  padding: 20px 24px 116px;
+}
 .view > * { animation: rise 260ms cubic-bezier(.2,.7,.3,1) both; }
 @keyframes rise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
 
@@ -595,30 +600,96 @@ body.calm *, body.calm *::before, body.calm *::after {
 .opt__h { font-size: .74rem; color: var(--ink3); font-variant-numeric: tabular-nums; text-align: right; }
 .opt__k { width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--line2); display: grid; place-items: center; font-size: .64rem; color: var(--ink3); flex: none; }
 
-/* Meldungen */
-.toasts { position: fixed; right: 18px; bottom: 54px; z-index: 80; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: none; }
-.toast {
-  display: flex; align-items: center; gap: 10px; padding: 10px 15px;
-  border-radius: var(--r); border: 1px solid var(--line2);
-  background: linear-gradient(160deg, #1b1d27, #131420); box-shadow: var(--shadow);
-  font-size: .85rem; max-width: 360px;
-  animation: toastIn 260ms cubic-bezier(.2,.8,.3,1) both;
+/* ---------------------------------------------------------- Meldungen
+
+   Die Meldungen lagen frueher rechts ueber dem Inhalt und deckten im
+   Spaetspiel die halbe Uebersicht zu - auf jedem Bildschirmfoto waren
+   vier Kaesten ueber der Auftragsliste zu sehen. Jetzt gilt:
+
+     - hoechstens drei gleichzeitig, schmaler, kuerzer sichtbar
+     - gleichartige Meldungen derselben Sekunde werden zusammengefasst
+     - der Inhalt bekommt unten Platz, damit nichts Wichtiges darunter
+       verschwindet
+     - was wirklich zaehlt, kommt nicht als Meldung, sondern als Banner
+*/
+.toasts {
+  position: fixed; right: 16px; bottom: 40px; z-index: 80;
+  display: flex; flex-direction: column; gap: 6px; align-items: flex-end;
+  pointer-events: none; width: min(320px, 38vw);
 }
-.toast.out { animation: toastOut 240ms ease-in both; }
-@keyframes toastIn { from { opacity: 0; transform: translateX(22px); } }
-@keyframes toastOut { to { opacity: 0; transform: translateX(22px); } }
+.toast {
+  display: flex; align-items: flex-start; gap: 9px; padding: 8px 12px;
+  border-radius: var(--r); border: 1px solid var(--line2);
+  background: linear-gradient(160deg, rgba(27,29,39,.94), rgba(19,20,32,.94));
+  backdrop-filter: blur(3px);
+  box-shadow: 0 10px 30px rgba(0,0,0,.55);
+  font-size: .8rem; line-height: 1.35; width: 100%;
+  opacity: .93;
+  animation: toastIn 220ms cubic-bezier(.2,.8,.3,1) both;
+}
+.toast.out { animation: toastOut 200ms ease-in both; }
+@keyframes toastIn { from { opacity: 0; transform: translateX(18px) scale(.97); } }
+@keyframes toastOut { to { opacity: 0; transform: translateX(18px); } }
 .toast--good { border-left: 3px solid var(--green); }
 .toast--bad { border-left: 3px solid var(--red); }
 .toast--warn { border-left: 3px solid var(--amber); }
 .toast--gold { border-left: 3px solid var(--gold); }
 .toast b { color: var(--ink); }
+.toast__n {
+  flex: none; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 99px;
+  background: rgba(255,255,255,.12); color: var(--ink2);
+  font-size: .64rem; font-weight: 700; display: grid; place-items: center;
+}
+
+/* ------------------------------------------------------------- Banner
+
+   Fuer das, was den Spieler wirklich angeht: Rangaufstieg, Razzia, eine
+   neue Phase der Ermittlung. Mittig oben, unuebersehbar, und es
+   verdeckt keinen Inhalt, weil es nach wenigen Sekunden verschwindet.
+*/
+.banners {
+  position: fixed; top: 112px; left: 50%; transform: translateX(-50%);
+  z-index: 85; display: flex; flex-direction: column; gap: 8px;
+  align-items: center; pointer-events: none; width: min(640px, 92vw);
+}
+.banner {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  padding: 13px 20px; border-radius: var(--r-lg);
+  background: linear-gradient(140deg, rgba(30,26,18,.97), rgba(16,17,24,.97));
+  border: 1px solid rgba(212,175,90,.4);
+  box-shadow: 0 16px 48px rgba(0,0,0,.7), 0 0 40px -14px rgba(212,175,90,.5);
+  backdrop-filter: blur(6px);
+  animation: bannerIn 380ms cubic-bezier(.2,.8,.3,1) both;
+}
+.banner.out { animation: bannerOut 300ms ease-in both; }
+@keyframes bannerIn { from { opacity: 0; transform: translateY(-18px) scale(.97); } }
+@keyframes bannerOut { to { opacity: 0; transform: translateY(-12px); } }
+.banner__ico { width: 34px; height: 34px; flex: none; color: var(--gold); }
+.banner__ico svg { width: 100%; height: 100%; }
+/* Beide als Block - als Inline-Spans klebten Titel und Text aneinander
+   ("ACHIEVEMENTMillionaire"). */
+.banner__t {
+  display: block;
+  font-family: var(--disp); font-size: 1.02rem; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--gold-b); line-height: 1.2;
+}
+.banner__s { display: block; font-size: .85rem; color: var(--ink); margin-top: 3px; line-height: 1.4; }
+.banner > span:last-child { flex: 1; min-width: 0; }
+.banner--bad { border-color: rgba(224,65,65,.45); box-shadow: 0 16px 48px rgba(0,0,0,.7), 0 0 40px -14px rgba(224,65,65,.5); }
+.banner--bad .banner__ico { color: var(--red); }
+.banner--bad .banner__t { color: #ff8f8f; }
+.banner--warn { border-color: rgba(234,166,64,.45); }
+.banner--warn .banner__ico, .banner--warn .banner__t { color: var(--amber); }
 
 /* Laufband */
 .ticker {
   flex: none; height: 30px; display: flex; align-items: center; gap: 10px;
   padding: 0 16px; background: #0a0b0f; border-top: 1px solid var(--line);
   font-size: .76rem; color: var(--ink3); overflow: hidden; white-space: nowrap;
+  cursor: pointer; transition: background var(--t), color var(--t);
 }
+.ticker:hover { background: #101219; color: var(--ink2); }
+.ticker__more { margin-left: auto; color: var(--ink3); font-size: .7rem; flex: none; }
 .ticker b { color: var(--gold); font-weight: 600; }
 .ticker__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex: none; animation: blink 2.4s infinite; }
 @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }

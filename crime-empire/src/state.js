@@ -53,6 +53,8 @@
       log: [],                /* Ereignisprotokoll, neuestes zuerst */
       ledger: [],             /* Wochenabrechnungen, neueste zuerst */
       history: [],            /* {week, cash, income, expense, heat, rep, infl} */
+      commission: null,       /* Bundesermittlung, siehe commission.js */
+      people: {},             /* wiederkehrende Figuren, siehe people.js */
       event: null,            /* offene Entscheidung */
       eventSeen: {},          /* wie oft ein Ereignis schon kam */
       pending: [],            /* geplante Nachwirkungen: {day, kind, ...} */
@@ -83,11 +85,16 @@
       s.rivals.push({
         id: r.id, cash: r.cash, strength: r.strength, infl: infl,
         relation: 0, allied: false, truceUntil: -1, biz: Math.max(2, Math.round(r.strength / 18)),
-        lastAct: '', heat: 0
+        lastAct: '', heat: 0,
+        /* Jeder hat von Anfang an etwas vor. Ohne das stand auf der
+           Rivalenkarte in der ersten Woche kein Ziel - als haetten sie
+           auf den Spieler gewartet. */
+        goal: { kind: 'district', target: Object.keys(r.home)[0] || 'oldtown', since: 0, progress: 0 }
       });
     });
 
     D.ORG_UPGRADES.forEach(function (u) { s.org[u.id] = 0; });
+    s.commission = CE.commission ? CE.commission.fresh() : null;
 
     /* Der Spieler selbst steht in der Mannschaft. Das ist kein Trick der
        Anzeige: er laesst sich auf Auftraege schicken, sammelt Erfahrung und
@@ -112,7 +119,10 @@
     var lvl = b.level - 1;
     var mul = D.UPGRADE.income[lvl];
 
-    var gross = def.income * mul * dist.econ;
+    /* Der Zustand des Bezirks wirkt auf alles, was dort verdient wird -
+       ein Bezirk im Ausnahmezustand traegt ein Drittel weniger. */
+    var lage = CE.city ? CE.city.econOf(s, b.district) : 1;
+    var gross = def.income * mul * dist.econ * lage;
     var upkeep = def.upkeep * D.UPGRADE.upkeep[lvl] * (0.85 + dist.econ * 0.15);
 
     /* Personal: jeder zugewiesene Kopf bringt Prozente nach Rolle und
@@ -165,6 +175,7 @@
       heat *= (1 + heatBonus / 4);
       heat *= Math.max(0.25, 1 - (s.org.lookouts || 0) * 0.14);
       heat *= Math.max(0.5, 1 - (dd.mine / 100) * 0.30);   /* eigenes Gebiet deckt */
+      heat *= CE.city ? CE.city.heatOf(s, b.district) : 1;
     }
 
     var infl = def.infl * D.UPGRADE.infl[lvl];
@@ -300,6 +311,16 @@
     d.heatDecay += 1.3 + (s.rep / 100) * 0.8;
     if (s.heat > 60) d.heatDecay += (s.heat - 60) * 0.03;     /* Aufmerksamkeit ebbt ab */
     d.heatNet = d.heatGain - d.heatDecay;
+
+    /* Die Kommission kostet Ertrag, solange ein Fall laeuft. Getrennt
+       von der Hitze ausgewiesen, damit man beide auseinanderhalten kann. */
+    d.caseCut = CE.commission ? CE.commission.incomeCut(s) : 0;
+    d.casePhase = CE.commission ? CE.commission.phase(s) : null;
+    if (d.caseCut > 0) {
+      d.caseLoss = d.grossIncome * d.caseCut;
+      d.grossIncome -= d.caseLoss;
+      d.net = d.grossIncome - d.expenses;
+    } else d.caseLoss = 0;
 
     /* Hitzefolgen auf das Einkommen - immer sichtbar, nie stumm. */
     d.heatPenalty = heatPenalty(s.heat);

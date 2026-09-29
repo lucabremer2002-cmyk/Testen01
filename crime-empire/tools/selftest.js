@@ -190,13 +190,30 @@ function firstOpenIdx(ev) {
       CE.crew.refreshRecruits(probe, rngP, 8);
       for (let i = 0; i < 4 && probe.recruits.length; i++) CE.crew.hire(probe, probe.recruits[0].id);
       probe.rivals.forEach((r, i) => { r.relation = i % 2 ? 30 : -35; r.infl.oldtown = 20; });
+      /* Die Bundesermittlung gehoert zum Spaetspiel und ist Bedingung
+         fuer einen Teil der Geschichten. Ohne sie blieb die halbe
+         Kessler-Reihe ungeprueft. */
+      probe.commission = CE.commission.fresh();
+      probe.commission.open = true;
+      probe.commission.strength = 45;
 
       const seen = new Set(), noWayOut = new Set();
       let checked = 0;
       for (let i = 0; i < 3000; i++) {
         probe.day++;
-        probe.cash = 90000;                    /* Geldmangel soll nicht alles sperren */
+        probe.cash = 200000;                   /* Geldmangel soll nicht alles sperren */
         probe.heat = 20 + (i % 70);
+        probe.rep = 20 + (i % 75);
+        /* Die Geschichten der wiederkehrenden Figuren haengen an
+           Vertrauen. Ohne Schwankung bleiben die spaeten Abschnitte
+           ungeprueft - und genau dort stecken die Verzweigungen. */
+        if (CE.people) {
+          for (const cast of CE.people.CAST) {
+            const pp = CE.people.get(probe, cast.id);
+            if (i % 130 === 0) { pp.stage = 0; pp.trust = 0; pp.done = false; pp.flags = {}; }
+            else if (i % 65 === 0) pp.trust = ((i / 65) % 2) ? 45 : -45;
+          }
+        }
         /* Die Mannschaft muss beide Zustaende durchlaufen: leer, damit
            die Ereignisse mit Platzbedarf greifen, und voll, damit die
            Ereignisse mit Mannschaftsbedarf greifen. Wurde sie nur
@@ -221,12 +238,12 @@ function firstOpenIdx(ev) {
         probe.event = null;
       }
       out.notes.eventsProbed = checked;
-      out.notes.eventKindsSeen = seen.size + '/' + CE.events.EVENTS.length;
+      out.notes.eventKindsSeen = seen.size + '/' + CE.events.alle().length;
       if (checked < 40) fail('the event probe barely fired (' + checked + ') - it is not testing anything');
       /* Jedes Ereignis im Katalog muss unter irgendwelchen Bedingungen
          erreichbar sein - was nie kommt, ist toter Inhalt. */
-      if (seen.size < CE.events.EVENTS.length) {
-        const missed = CE.events.EVENTS.map(e => e.id).filter(id => !seen.has(id));
+      if (seen.size < CE.events.alle().length) {
+        const missed = CE.events.alle().map(e => e.id).filter(id => !seen.has(id));
         fail('events that never fired in 3000 days: ' + missed.join(', '));
       }
       if (noWayOut.size) fail('events with every option locked (soft-lock): ' + [...noWayOut].join(', '));
@@ -298,6 +315,35 @@ function firstOpenIdx(ev) {
       }
     }
     document.querySelectorAll('.navbtn[data-act]').forEach(n => seenActs.add(n.getAttribute('data-act')));
+
+    /* --- 6b. Sichtbarkeit der grossen Bausteine ---------------------
+       Eine Funktion, die ein Panel baut, aber nirgends aufgerufen wird,
+       faellt in keinem Test auf: kein Fehler, nur ein unsichtbares
+       Feature. Genau das war mit dem Figuren-Panel passiert. Deshalb
+       wird jetzt geprueft, dass die Bausteine im fertigen Bildschirm
+       wirklich auftauchen. */
+    {
+      const probe2 = St.newGame({ seed: 5150 });
+      CE.sim.bootstrap(probe2);
+      probe2.cash = 2000000; probe2.rep = 80;
+      CE.empire.openDistrict(probe2, 'industrial');
+      ['diner', 'market', 'club'].forEach(b => CE.empire.buy(probe2, 'oldtown', b));
+      CE.people.bump(probe2, 'kessler', 30, 2);
+      probe2.commission.open = true;
+      probe2.commission.strength = 55;
+      probe2.districts.oldtown.state = 'booming';
+
+      const sichtbar = (schirm, muster, was) => {
+        const html = CE.ui.render(schirm, probe2, St.derive(probe2));
+        if (!muster.test(html)) fail('"' + was + '" does not appear on the ' + schirm + ' screen');
+      };
+      sichtbar('rivals', /Kessler/, 'recurring characters');
+      sichtbar('rivals', /Current aim/, 'rival goals');
+      sichtbar('org', /Case strength/, 'the federal case');
+      sichtbar('org', /Burn the Records/, 'case counterplay');
+      sichtbar('city', /Booming/i, 'district states');
+      sichtbar('overview', /Federal case|federal/i, 'the case on the overview');
+    }
 
     const missing = [...seenActs].filter(a => typeof window.CRIME.actions[a] !== 'function');
     if (missing.length) fail('dead buttons, no handler for: ' + missing.join(', '));

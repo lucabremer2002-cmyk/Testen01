@@ -322,7 +322,32 @@
     { id: 'untouchable', name: 'Untouchable', desc: 'Survive a raid attempt with nothing lost.',
       check: function (s) { return !!s.flags.survivedRaid; } },
     { id: 'legend', name: 'Underworld Legend', desc: 'Reach the highest rank.',
-      check: function (s, d) { return d.rank >= 5; } }
+      check: function (s, d) { return d.rank >= 5; } },
+
+    /* --- Spaetspiel -------------------------------------------------
+       Ziele fuer die Zeit nach der Stadt. Ohne sie endete das Spiel mit
+       dem Sieg und lief nur noch weiter. */
+    { id: 'case_closed', name: 'Case Closed', desc: 'Beat a federal case back to nothing after it reached the grand jury.',
+      check: function (s) { return !!(s.flags && s.flags.caseBeaten); } },
+    { id: 'model_citizen', name: 'Model Citizen', desc: 'Have all six districts booming at the same time.',
+      check: function (s) {
+        var n = 0;
+        for (var k in s.districts) { if (s.districts[k].open && s.districts[k].state === 'booming') n++; }
+        return n >= 6;
+      } },
+    { id: 'old_friends', name: 'Old Friends', desc: 'Finish someone\u2019s story with their trust above 50.',
+      check: function (s) {
+        if (!s.people) return false;
+        for (var k in s.people) { if (s.people[k].done && s.people[k].trust > 50) return true; }
+        return false;
+      } },
+    { id: 'untouchable_two', name: 'Nothing Sticks', desc: 'Survive a federal indictment and rebuild to full control.',
+      check: function (s, d) {
+        if (!s.flags || !s.flags.indicted) return false;
+        var n = 0;
+        for (var k in s.districts) if (s.districts[k].open && s.districts[k].mine >= 60) n++;
+        return n >= 6;
+      } }
   ];
 
   /* ------------------------------------------------------- Operationen

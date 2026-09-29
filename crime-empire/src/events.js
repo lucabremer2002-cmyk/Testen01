@@ -739,6 +739,18 @@
 
   /* ------------------------------------------------------- Auswahl */
 
+  /* Der Gesamtkatalog: allgemeine Ereignisse plus die Geschichten der
+     wiederkehrenden Figuren. Beide laufen durch dieselbe gewichtete
+     Auswahl mit Abklingzeit - eine Geschichte ist kein Sonderfall,
+     sie hat nur eine engere Bedingung. */
+  var alleCache = null;
+  function alle() {
+    if (!alleCache) {
+      alleCache = EVENTS.concat(CE.people ? CE.people.stories(fx, later) : []);
+    }
+    return alleCache;
+  }
+
   function context(s, rng) {
     var d = St.derive(s);
     var paid = s.crew.filter(function (c) { return !c.player; });
@@ -767,8 +779,9 @@
   function draw(s, rng) {
     var c = context(s, rng);
     var pool = [];
-    for (var i = 0; i < EVENTS.length; i++) {
-      var e = EVENTS[i];
+    var katalog = alle();
+    for (var i = 0; i < katalog.length; i++) {
+      var e = katalog[i];
       var seen = s.eventSeen[e.id];
       if (seen && s.day - seen.last < (e.cool || 6) * 7) continue;
       if (e.when && !e.when(s, c)) continue;
@@ -892,5 +905,6 @@
     return null;
   }
 
-  CE.events = { draw: draw, markSeen: markSeen, resolvePending: resolvePending, EVENTS: EVENTS, fx: fx };
+  CE.events = { draw: draw, markSeen: markSeen, resolvePending: resolvePending,
+    EVENTS: EVENTS, alle: alle, fx: fx };
 })(typeof window !== 'undefined' ? window : globalThis);

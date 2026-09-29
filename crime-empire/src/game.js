@@ -34,22 +34,84 @@
 
   /* ------------------------------------------------------- Meldungen */
 
+  /* ------------------------------------------------------ Meldungen
+
+     Drei Wege, je nach Gewicht:
+
+       toast()   Beilaeufiges. Klein, rechts unten, verschwindet schnell,
+                 und gleichartige Meldungen derselben Sekunde werden zu
+                 einer zusammengezogen ("3x Auftrag abgeschlossen").
+       banner()  Was den Spieler wirklich angeht - Rangaufstieg, Razzia,
+                 eine neue Phase der Ermittlung. Mittig oben, gross.
+       Protokoll Alles landet ohnehin unter "Events".
+
+     Vorher war alles ein Toast, vier Stueck gleichzeitig, rechts ueber
+     dem Inhalt. Auf jedem Bildschirmfoto verdeckten sie die halbe
+     Uebersicht - und Wichtiges sah aus wie Beilaeufiges.
+  */
+  var toastVerlauf = [];
+
   function toast(text, kind, big) {
+    if (big) { banner(text, kind); return; }
     var box = $('toasts');
-    /* Hoechstens vier gleichzeitig. Bei einem Rangaufstieg mit drei
-       Erfolgen in derselben Sekunde deckten sie sonst den halben
-       Bildschirm zu. */
-    while (box.children.length >= 4) box.removeChild(box.firstChild);
+    kind = kind || 'good';
+
+    /* Zusammenfassen: dieselbe Art innerhalb von 1,5 Sekunden wird
+       gezaehlt statt gestapelt. */
+    var jetzt = Date.now();
+    for (var i = toastVerlauf.length - 1; i >= 0; i--) {
+      var v = toastVerlauf[i];
+      if (jetzt - v.zeit > 1500 || !v.el.parentNode) { toastVerlauf.splice(i, 1); continue; }
+      if (v.kind === kind && v.text === text) {
+        v.n++;
+        v.zeit = jetzt;
+        v.el.querySelector('.toast__body').innerHTML = UI.helpers.e(text);
+        var z = v.el.querySelector('.toast__n');
+        if (!z) {
+          z = document.createElement('span');
+          z.className = 'toast__n';
+          v.el.insertBefore(z, v.el.firstChild);
+        }
+        z.textContent = v.n + '\u00d7';
+        return;
+      }
+    }
+
+    while (box.children.length >= 3) box.removeChild(box.firstChild);
     var t = document.createElement('div');
-    t.className = 'toast toast--' + (kind || 'good');
-    t.innerHTML = (big ? '<b>' + UI.helpers.e(text) + '</b>' : UI.helpers.e(text));
+    t.className = 'toast toast--' + kind;
+    t.innerHTML = '<span class="toast__body">' + UI.helpers.e(text) + '</span>';
     box.appendChild(t);
+    toastVerlauf.push({ el: t, kind: kind, text: text, n: 1, zeit: jetzt });
+
     setTimeout(function () {
       t.classList.add('out');
-      setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 260);
-    }, big ? 4600 : 3200);
+      setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 220);
+    }, 2800);
     if (kind === 'bad') sfx('bad');
-    else if (kind === 'gold') sfx('rank');
+  }
+
+  /* Banner: hoechstens zwei, damit sie sich nicht selbst im Weg stehen. */
+  function banner(text, kind, titel, ico) {
+    var box = $('banners');
+    while (box.children.length >= 2) box.removeChild(box.firstChild);
+    var cls = kind === 'bad' ? ' banner--bad' : (kind === 'warn' ? ' banner--warn' : '');
+    var b = document.createElement('div');
+    b.className = 'banner' + cls;
+    b.innerHTML = '<span class="banner__ico">' +
+      A.icon(ico || (kind === 'bad' ? 'warn' : kind === 'warn' ? 'bell' : 'rank')) + '</span>' +
+      '<span><span class="banner__t">' + UI.helpers.e(titel || standardTitel(kind)) + '</span>' +
+      '<span class="banner__s">' + UI.helpers.e(text) + '</span></span>';
+    box.appendChild(b);
+    setTimeout(function () {
+      b.classList.add('out');
+      setTimeout(function () { if (b.parentNode) b.parentNode.removeChild(b); }, 300);
+    }, 4200);
+    sfx(kind === 'bad' ? 'bad' : kind === 'warn' ? 'warn' : 'rank');
+  }
+
+  function standardTitel(kind) {
+    return kind === 'bad' ? 'Bad news' : kind === 'warn' ? 'Take notice' : 'Milestone';
   }
 
   function sfx(name) { if (G.settings.sound) CE.audio.play(name); }
@@ -109,13 +171,17 @@
 
     for (var i = 0; i < res.report.length; i++) {
       var r = res.report[i];
-      if (r.t === 'rank') { toast(r.text, 'gold', true); sfx('rank'); }
-      else if (r.ach) { toast(r.text, 'gold', true); sfx('good'); }
+      /* Was das Spiel veraendert, bekommt ein Banner. Was nur passiert,
+         bekommt eine Meldung. Der Unterschied war vorher keiner. */
+      if (r.t === 'rank') banner(r.text, 'good', 'Promotion', 'rank');
+      else if (r.ach) banner(r.text.replace(/^Achievement unlocked: /, ''), 'good', 'Achievement', 'trophy');
+      else if (r.banner) banner(r.text, r.t === 'bad' ? 'bad' : 'warn', r.banner, r.ico);
       else if (r.t === 'bad') toast(r.text, 'bad');
       else if (r.t === 'warn') toast(r.text, 'warn');
       else if (r.t === 'good') toast(r.text, 'good');
     }
     if (res.progress && res.progress.victory) victory();
+    if (s._banner) { banner(s._banner.text, s._banner.kind, s._banner.title, s._banner.ico); s._banner = null; }
 
     if (res.weekly) {
       sfx('week');
@@ -171,7 +237,8 @@
       (s.speed === 0 ? '<b>PAUSED</b> &middot; ' : '') +
       (last ? UI.helpers.e(last.text) : 'Blackhaven is quiet.') +
       (s.ops.length ? ' <span class="muted">&middot; ' + s.ops.length + ' operation' +
-        (s.ops.length === 1 ? '' : 's') + ' running</span>' : '');
+        (s.ops.length === 1 ? '' : 's') + ' running</span>' : '') +
+      '<span class="ticker__more">full log &rarr;</span>';
   }
 
   function resStrip(s, d) {
@@ -259,7 +326,7 @@
       sfx('tap');
       if (res.progress) {
         for (var k = 0; k < res.progress.achievements.length; k++) {
-          toast('Achievement unlocked: ' + res.progress.achievements[k].name, 'gold', true);
+          banner(res.progress.achievements[k].name, 'good', 'Achievement', 'trophy');
         }
         if (res.progress.victory) victory();
       }
@@ -479,6 +546,13 @@
       if (!r.ok) return toast(r.why, 'bad');
       var up = D.byId(D.ORG_UPGRADES, p.id);
       toast(up.name + ' is at level ' + r.level + '.', 'gold');
+      sfx('cash');
+      G.dirty = true;
+    },
+    caseAction: function (p) {
+      var r = CE.commission.doAction(G.state, p.id);
+      if (!r.ok) return toast(r.why, 'bad');
+      toast(r.text, 'good');
       sfx('cash');
       G.dirty = true;
     },
@@ -938,7 +1012,8 @@
     if (s.event) showEvent();
     if (!loaded) {
       setTimeout(function () {
-        toast('Blackhaven, ' + U.dateLabel(0) + '. Old Town is open to you. Press Play when you are ready.', 'gold', true);
+        banner('Old Town is open to you. Press Play when you are ready.', 'good',
+      'Blackhaven, ' + U.dateLabel(0), 'map');
       }, 400);
     }
     CE.save.save(s, 'auto', 'Autosave');
@@ -1007,6 +1082,7 @@
       return;
     }
 
+    if (ev.target.closest('#ticker')) { go('log'); return; }
     if (ev.target.closest('#toMenu')) { ACTIONS.mainMenu({}); return; }
     if (ev.target.closest('#nextDay')) { ACTIONS.nextDay({}); return; }
   }

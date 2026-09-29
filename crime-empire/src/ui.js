@@ -96,6 +96,7 @@
       pnlRow('Legal revenue', d.cleanGross, maxFlow, '#4ad98a') +
       pnlRow('Underground revenue', d.dirtyGross, maxFlow, '#e04141') +
       (d.launderLoss > 0 ? pnlRow('Laundering losses', -d.launderLoss, maxFlow, '#8e1f1f') : '') +
+      (d.caseLoss > 0 ? pnlRow('Federal case', -d.caseLoss, maxFlow, '#7a2020') : '') +
       (d.heatLoss > 0 ? pnlRow('Police pressure', -d.heatLoss, maxFlow, '#8e1f1f') : '') +
       pnlRow('Upkeep', -d.upkeep, maxFlow, '#6d7280') +
       pnlRow('Salaries', -d.salaries, maxFlow, '#6d7280') +
@@ -205,6 +206,16 @@
     if (s.heat >= 55) {
       tips.push(tip('Heat is at ' + Math.round(s.heat), 'Police pressure is eating ' +
         U.pct(St.heatPenalty(s.heat)) + ' of your revenue.', 'Handle it', 'go', { screen: 'org' }, 'red'));
+    }
+    var kom = s.commission;
+    if (kom && kom.open) {
+      var kf = CE.commission.feed(s, d);
+      if (kom.strength > 55 || (kf.netto > 0 && kom.strength > 25)) {
+        var bis = kf.netto > 0 ? Math.ceil((100 - kom.strength) / kf.netto) : null;
+        tips.push(tip('Federal case at ' + Math.round(kom.strength),
+          CE.commission.phase(s).name + (bis !== null ? ' - indictment in about ' + bis + ' weeks' : ''),
+          'Fight it', 'go', { screen: 'org' }, 'red'));
+      }
     }
     if (d.launderLoss > 500) {
       tips.push(tip('You are burning ' + money(d.launderLoss) + ' a week',
@@ -327,8 +338,13 @@
     D.DISTRICTS.forEach(function (dist) {
       var dd = s.districts[dist.id];
       var cls = 'dpoly' + (dd.open ? ' is-open' : ' is-locked') + (sel.district === dist.id ? ' is-sel' : '');
-      o.push('<polygon class="' + cls + '" points="' + dist.poly + '" data-act="district" data-id="' + dist.id + '">' +
-        '<title>' + e(dist.name) + '</title></polygon>');
+      /* Der Zustand faerbt den Bezirk. Ein Blick auf die Karte soll
+         reichen, um zu sehen, wo es brennt und wo es laeuft. */
+      var z = dd.open && dd.state && dd.state !== 'stable' ? CE.city.zustand(dd.state) : null;
+      var stil = z ? ' style="fill:' + z.color + '1f;stroke:' + z.color + '66"' : '';
+      o.push('<polygon class="' + cls + '"' + stil + ' points="' + dist.poly +
+        '" data-act="district" data-id="' + dist.id + '">' +
+        '<title>' + e(dist.name) + (z ? ' - ' + e(z.name) : '') + '</title></polygon>');
     });
 
     /* Beschriftung und Einflussbalken */
@@ -363,8 +379,12 @@
           run += w;
         });
         var count = s.businesses.filter(function (b) { return b.district === dist.id; }).length;
-        if (count) {
-          o.push('<text x="' + lx + '" y="' + (ly + 6.2) + '">' + count + ' owned</text>');
+        var zz = dd.state && dd.state !== 'stable' ? CE.city.zustand(dd.state) : null;
+        if (count || zz) {
+          o.push('<text x="' + lx + '" y="' + (ly + 6.2) + '">' +
+            (count ? count + ' owned' : '') + (count && zz ? ' \u00b7 ' : '') +
+            (zz ? '<tspan fill="' + zz.color + '">' + e(zz.name.toUpperCase()) + '</tspan>' : '') +
+            '</text>');
         }
       }
       o.push('</g>');
@@ -398,7 +418,18 @@
     h.push('<div class="card"><div class="card__title"><b>' + e(dist.name) + '</b>' +
       '<span class="tag ' + (dd.open ? 'tag--gold' : '') + '">' + (dd.open ? 'Established' : 'Not yours') + '</span></div>');
     h.push('<p style="margin:0 0 6px;font-size:.84rem;color:var(--ink2);line-height:1.55">' + e(dist.desc) + '</p>');
-    h.push('<p style="margin:0 0 14px;font-size:.76rem;color:var(--gold)">' + e(dist.tag) + '</p>');
+    h.push('<p style="margin:0 0 10px;font-size:.76rem;color:var(--gold)">' + e(dist.tag) + '</p>');
+    if (dd.open && dd.state) {
+      var z = CE.city.zustand(dd.state);
+      h.push('<div class="card card--flat" style="padding:10px 12px;margin-bottom:14px;border-left:3px solid ' + z.color + '">' +
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">' +
+        '<b style="font-size:.86rem;color:' + z.color + '">' + e(z.name) + '</b>' +
+        (z.econ !== 1 ? '<span class="tag ' + (z.econ > 1 ? 'tag--green' : 'tag--red') + '">' +
+          (z.econ > 1 ? '+' : '') + Math.round((z.econ - 1) * 100) + '% income</span>' : '') +
+        (z.infl !== 1 ? '<span class="tag ' + (z.infl > 1 ? 'tag--green' : 'tag--red') + '">' +
+          (z.infl > 1 ? '+' : '') + Math.round((z.infl - 1) * 100) + '% influence</span>' : '') +
+        '</div><div class="op__desc">' + e(z.desc) + '</div></div>');
+    }
 
     h.push('<div class="money-grid" style="margin-bottom:14px">' +
       statBox('Population', U.group(dist.pop)) +
@@ -757,6 +788,9 @@
     });
     h.push('</div></div></div>');
 
+    /* Die Kommission */
+    h.push(commissionPanel(s, d));
+
     /* Ausbauten */
     h.push('<div class="card__title"><b>Infrastructure</b><span>' + money(d.orgUpkeep) + '/wk upkeep</span></div>');
     h.push('<div class="grid grid--3">');
@@ -781,13 +815,93 @@
     return h.join('');
   }
 
+  /* Die Kommission: Stand, Naehrboden, Gegenwehr - alles an einem Ort.
+     Ein Gegner, dessen Wachstum man nicht nachlesen kann, ist Willkuer. */
+  function commissionPanel(s, d) {
+    var K = CE.commission;
+    var c = s.commission || K.fresh();
+    var p = K.phase(s);
+    var h = [];
+
+    if (!c.open) {
+      return '<div class="card" style="margin-bottom:14px;opacity:.65">' +
+        '<div class="card__title"><b>Federal interest</b><span class="tag">No file</span></div>' +
+        '<div class="why" style="margin:0">Nobody has opened a file yet. That changes once an ' +
+        'organisation gets large enough to be worth the paperwork.</div></div>';
+    }
+
+    var f = K.feed(s, d);
+    var wochenBis = f.netto > 0 ? Math.ceil((100 - c.strength) / f.netto) : null;
+
+    h.push('<div class="card" style="margin-bottom:14px;border-color:' +
+      (c.phase >= 2 ? 'rgba(224,65,65,.4)' : 'var(--line)') + '">');
+    h.push('<div class="card__title"><b>The Commission</b>' +
+      '<span class="tag ' + (c.phase >= 2 ? 'tag--red' : c.phase === 1 ? 'tag--gold' : '') + '">' +
+      e(p.name) + '</span></div>');
+
+    h.push('<div class="grid grid--2" style="gap:18px;align-items:start">');
+
+    /* Links: Stand und Naehrboden */
+    h.push('<div>' + statBox('Case strength', Math.round(c.strength) + '<small class="muted"> / 100</small>',
+      e(p.desc), c.phase >= 2 ? 'red' : 'amber') +
+      '<div style="margin-top:10px">' + bar('bar--r', c.strength / 100) + '</div>');
+
+    h.push('<div class="pnl" style="margin-top:14px">');
+    f.zeilen.forEach(function (z) {
+      h.push('<div class="pnl__row"><span class="muted">' + e(z.label) +
+        '<div class="row__s" style="font-size:.7rem">' + e(z.note) + '</div></span>' +
+        '<b class="' + (z.v > 0 ? 'red' : 'green') + '">' + (z.v > 0 ? '+' : '') + z.v.toFixed(1) + '</b></div>');
+    });
+    h.push('<div class="pnl__row" style="border-top:1px solid var(--line);padding-top:6px;margin-top:4px">' +
+      '<span style="font-weight:600">Net each week</span><b class="' + (f.netto > 0 ? 'red' : 'green') + '">' +
+      (f.netto > 0 ? '+' : '') + f.netto.toFixed(1) + '</b></div></div>');
+
+    if (wochenBis !== null && c.strength < 100) {
+      h.push('<div class="why ' + (wochenBis < 12 ? 'why--bad' : '') + '">At this rate they indict in about ' +
+        wochenBis + ' week' + (wochenBis === 1 ? '' : 's') + '. An indictment seizes underground ' +
+        'operations, freezes cash and takes people.</div>');
+    } else if (f.netto <= 0) {
+      h.push('<div class="why green">The case is going backwards. Keep it that way.</div>');
+    }
+    if (c.raids) h.push('<div class="why why--bad">Indicted ' + c.raids + ' time' + (c.raids === 1 ? '' : 's') + ' so far.</div>');
+    h.push('</div>');
+
+    /* Rechts: Gegenwehr */
+    h.push('<div style="display:flex;flex-direction:column;gap:8px">');
+    K.actions(s, d).forEach(function (a) {
+      var can = K.canDo(s, a.id);
+      h.push('<div class="card card--flat" style="padding:12px">' +
+        '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">' +
+        '<b style="flex:1;font-size:.9rem">' + e(a.name) + '</b>' +
+        '<span class="tag tag--green">' + a.strength + ' case</span>' +
+        (a.rep ? '<span class="tag ' + (a.rep > 0 ? 'tag--cyan' : 'tag--red') + '">' +
+          (a.rep > 0 ? '+' : '') + a.rep + ' rep</span>' : '') +
+        (a.heat ? '<span class="tag ' + (a.heat > 0 ? 'tag--red' : 'tag--green') + '">' +
+          (a.heat > 0 ? '+' : '') + a.heat + ' heat</span>' : '') + '</div>' +
+        '<div class="op__desc" style="margin-bottom:9px">' + e(a.desc) + '</div>' +
+        btn(a.divest ? 'Give them up' : 'Pay ' + money(a.cost), 'caseAction',
+          { data: { id: a.id }, cls: 'btn--sm btn--block' + (can.ok && c.strength > 40 ? ' btn--primary' : ''),
+            disabled: !can.ok, title: can.why || '' }) +
+        (can.ok ? '' : '<div class="why">' + e(can.why) + '</div>') + '</div>');
+    });
+    h.push('</div>');
+
+    h.push('</div></div>');
+    return h.join('');
+  }
+
   /* ================================================== 6 RIVALEN */
 
   function rivals(s, d) {
     var h = [];
-    h.push('<div class="page-head"><div><h2>Rivals</h2>' +
-      '<p>Four organisations, all of them older than yours. They expand whether you pay attention or not.</p></div></div>');
+    h.push('<div class="page-head"><div><h2>Rivals &amp; Contacts</h2>' +
+      '<p>Four organisations, all of them older than yours, and the people in this city ' +
+      'who know your name.</p></div></div>');
 
+    /* Die Figuren zuerst - sie sind das Persoenlichere. */
+    h.push(peoplePanel(s, d));
+
+    h.push('<div class="card__title"><b>Organisations</b></div>');
     h.push('<div class="grid grid--2">');
     s.rivals.forEach(function (r) {
       var rd = D.byId(D.RIVALS, r.id);
@@ -828,6 +942,11 @@
         h.push('<div class="row__s" style="margin-bottom:10px">Strongest in ' +
           where.map(function (x) { return '<b>' + e(x.name) + '</b> (' + Math.round(r.infl[x.id]) + ')'; }).join(', ') + '</div>');
       }
+      var ziel = CE.rivals.zielText(s, r);
+      if (ziel) {
+        h.push('<div class="row__s" style="margin-bottom:6px">' +
+          '<span class="tag tag--violet">Current aim</span> ' + e(ziel) + '</div>');
+      }
       if (r.lastAct) h.push('<div class="row__s muted" style="margin-bottom:10px">Last week they ' + e(r.lastAct) + '.</div>');
       if (truce) h.push('<div class="tag tag--cyan" style="margin-bottom:10px">Truce until day ' + r.truceUntil + '</div>');
 
@@ -863,6 +982,64 @@
     });
     h.push('</div>');
     return h.join('');
+  }
+
+  /* Wiederkehrende Figuren: wen man kennt, wie man zueinander steht und
+     wie weit die gemeinsame Geschichte ist. Ohne diese Anzeige waeren es
+     wieder nur Textmeldungen, die zufaellig denselben Namen tragen. */
+  function peoplePanel(s, d) {
+    var P = CE.people;
+    var leute = P.known(s);
+    if (!leute.length) {
+      return '<div class="card" style="margin-bottom:16px;opacity:.6">' +
+        '<div class="card__title"><b>People</b><span>nobody yet</span></div>' +
+        '<div class="why" style="margin:0">As you become someone worth knowing, ' +
+        'people in this city will introduce themselves. They remember how it went.</div></div>';
+    }
+    var h = ['<div class="card card--pad0" style="margin-bottom:16px">' +
+      '<div class="card__title" style="padding:16px 16px 0"><b>People</b>' +
+      '<span>' + leute.length + ' of ' + P.CAST.length + ' met</span></div>' +
+      '<div class="grid grid--2" style="padding:12px 16px 16px">'];
+    leute.forEach(function (x) {
+      var pd = x.def, st = x.state;
+      var lbl = P.trustLabel(st.trust);
+      var cls = st.trust >= 25 ? 'tag--green' : st.trust > -20 ? '' : 'tag--red';
+      h.push('<div class="card card--flat" style="display:flex;gap:11px;align-items:flex-start">' +
+        '<div class="crew__av" style="border-color:' + pd.color + '55">' + A.portrait(pd.face, 46) + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+        '<b style="font-size:.92rem">' + e(pd.name) + '</b>' +
+        '<span class="tag ' + cls + '">' + e(lbl) + '</span>' +
+        (st.done ? '<span class="tag">story ended</span>' : '') + '</div>' +
+        '<div class="row__s" style="color:' + pd.color + '">' + e(pd.role) + '</div>' +
+        '<div class="op__desc" style="margin:6px 0">' + e(pd.blurb) + '</div>' +
+        '<div class="meter" style="grid-template-columns:44px 1fr 34px">' +
+        '<span>Trust</span><div class="bar ' + (st.trust >= 0 ? 'bar--g' : 'bar--r') + '">' +
+        '<i style="width:' + Math.abs(st.trust) + '%"></i></div>' +
+        '<b>' + Math.round(st.trust) + '</b></div>' +
+        (st.flags && Object.keys(st.flags).length
+          ? '<div class="row__s muted" style="margin-top:5px">' +
+            e(flagText(pd.id, st.flags)) + '</div>' : '') +
+        '</div></div>');
+    });
+    h.push('</div></div>');
+    return h.join('');
+  }
+
+  /* Was zwischen euch steht, in einem Satz. */
+  function flagText(id, f) {
+    var teile = [];
+    if (f.bribed) teile.push('you tried to buy them');
+    if (f.channel) teile.push('there is a line open');
+    if (f.fed) teile.push('you gave them a rival');
+    if (f.closed) teile.push('you shut the door');
+    if (f.ally) teile.push('they buried their own file');
+    if (f.destroyed) teile.push('you ended their career');
+    if (f.gavePenn) teile.push('you gave up the councilman');
+    if (f.saved) teile.push('you paid for their defence');
+    if (f.silenced) teile.push('they will not be testifying');
+    if (f.network) teile.push('their whole network works for you');
+    return teile.join(' \u00b7 ');
   }
 
   /* ================================================== 7 FINANZEN */

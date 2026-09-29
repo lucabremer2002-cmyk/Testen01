@@ -50,9 +50,13 @@
     var launderLoss = over * 0.42;
     var grossTotal = cleanGross + dirtyGross;
 
+    /* Die Kommission zuerst - sie greift auf denselben Bruttoertrag zu. */
+    var caseCut = CE.commission ? CE.commission.incomeCut(s) : 0;
+    var caseLoss = (grossTotal - launderLoss) * caseCut;
+
     /* Hitzestrafe auf alles, was hereinkommt. */
     var hp = St.heatPenalty(s.heat);
-    var heatLoss = (grossTotal - launderLoss) * hp;
+    var heatLoss = (grossTotal - launderLoss - caseLoss) * hp;
 
     line(book, 'Legal revenue', cleanGross, s.businesses.filter(function (x) {
       return D.byId(D.BUSINESSES, x.type).legal; }).length + ' businesses', 'in');
@@ -60,6 +64,8 @@
       layingLow ? 'suspended - lying low' : 'before laundering', 'in');
     line(book, 'Laundering losses', -launderLoss,
       U.money(over) + ' above your capacity of ' + U.money(launderCap) + ', 42% written off', 'loss');
+    line(book, 'Federal case', -caseLoss,
+      (CE.commission ? CE.commission.phase(s).name : '') + ' costs you ' + U.pct(caseCut) + ' of revenue', 'bad');
     line(book, 'Police pressure', -heatLoss,
       'heat ' + Math.round(s.heat) + ' costs you ' + U.pct(hp) + ' of revenue', 'loss');
 
@@ -79,7 +85,7 @@
     line(book, 'Organisation upkeep', -d.orgUpkeep, 'safe houses, retainers, fleet', 'out');
     line(book, 'District operating costs', -d.districtCost, d.districtsOpen + ' districts held', 'out');
 
-    var income = cleanGross + dirtyGross - launderLoss - heatLoss;
+    var income = cleanGross + dirtyGross - launderLoss - caseLoss - heatLoss;
     var expense = upkeep + salaries + d.orgUpkeep + d.districtCost;
 
     /* ---------------------------------- Ertrag aus Buendnissen
@@ -180,6 +186,7 @@
         rivalHere += s.rivals[i].infl[k] || 0;
       }
       var contest = 1 - U.clamp(rivalHere / 160, 0, 0.75);
+      contest *= CE.city ? CE.city.inflOf(s, k) : 1;
       var before = dd.mine;
       dd.mine = U.clamp(dd.mine + gain * contest, 0, 100);
       if (Math.abs(dd.mine - before) > 0.05) {

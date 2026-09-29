@@ -100,6 +100,18 @@
        Ereignis noch mitgeschrieben wurde. */
     if (s.event && (!s.event.options || typeof (s.event.options[0] || {}).go !== 'function')) s.event = null;
     if (!s.history) s.history = [];
+    if (!s.commission) s.commission = CE.commission.fresh();
+    if (!s.people) s.people = {};
+    for (var ri = 0; ri < s.rivals.length; ri++) {
+      if (!s.rivals[ri].goal) {
+        var hd = D.byId(D.RIVALS, s.rivals[ri].id);
+        s.rivals[ri].goal = { kind: 'district',
+          target: hd ? Object.keys(hd.home)[0] : 'oldtown', since: 0, progress: 0 };
+      }
+    }
+    for (var dk in s.districts) if (!s.districts[dk].state) {
+      s.districts[dk].state = 'stable'; s.districts[dk].stateSince = 0;
+    }
     /* Bezirke oder Rivalen, die es beim Speichern noch nicht gab. */
     D.DISTRICTS.forEach(function (d) {
       if (!s.districts[d.id]) s.districts[d.id] = { id: d.id, open: false, mine: 0, unrest: 0 };

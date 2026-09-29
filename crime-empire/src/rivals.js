@@ -41,6 +41,105 @@
     return (overlap / 40 + Math.max(0, power - 0.8) * 0.6 - r.relation / 120) * worth;
   }
 
+  /* ----------------------------------------------------------- Ziele
+
+     Ein Rivale, der jede Woche gewichtet wuerfelt, wirkt betriebsam,
+     aber nicht zielstrebig. Deshalb hat jetzt jeder eine Absicht, die
+     mehrere Wochen haelt, auf die er hinarbeitet und die auf seiner
+     Karte steht. Man kann ihm dabei zusehen - und ihn davon abbringen.
+  */
+  function neuesZiel(s, rng, r, rd, d) {
+    var kand = [];
+
+    /* Einen Bezirk nehmen, in dem er noch nicht stark ist. */
+    for (var k in s.districts) {
+      var hier = r.infl[k] || 0;
+      var frei = Math.max(0, 100 - hier - othersIn(s, r, k) - (s.districts[k].open ? s.districts[k].mine : 0));
+      kand.push({ kind: 'district', target: k,
+        w: (frei / 30 + (rd.home[k] ? 2 : 0)) * rd.greed });
+    }
+
+    /* Einen anderen Rivalen bekaempfen - die Stadt gehoert nicht nur
+       dem Spieler, und das soll man merken. */
+    for (var i = 0; i < s.rivals.length; i++) {
+      var anderer = s.rivals[i];
+      if (anderer.id === r.id) continue;
+      var reibung = 0;
+      for (var kk in anderer.infl) {
+        if ((r.infl[kk] || 0) > 8 && (anderer.infl[kk] || 0) > 8) reibung += 1;
+      }
+      if (reibung) kand.push({ kind: 'rival', target: anderer.id, w: reibung * 0.9 * rd.agg });
+    }
+
+    /* Den Spieler ueberholen. */
+    if (d.netWorth > 150000) kand.push({ kind: 'outgrow', target: null, w: 1.2 * rd.greed });
+
+    /* Sich sammeln. */
+    kand.push({ kind: 'consolidate', target: null, w: 0.8 });
+
+    var z = rng.weighted(kand);
+    if (!z) z = { kind: 'consolidate', target: null };
+    return { kind: z.kind, target: z.target, since: s.day, progress: 0 };
+  }
+
+  /* Ist das Ziel erreicht oder sinnlos geworden? */
+  function zielFertig(s, r, d) {
+    var g = r.goal;
+    if (!g) return true;
+    if (s.day - g.since > 140) return true;          /* zwanzig Wochen genug */
+    if (g.kind === 'district') return (r.infl[g.target] || 0) >= 55;
+    if (g.kind === 'rival') {
+      var o = U.byId(s.rivals, g.target);
+      if (!o) return true;
+      return totalInfl(o) < 25;
+    }
+    if (g.kind === 'outgrow') return r.cash > d.netWorth;
+    if (g.kind === 'consolidate') return r.strength > 140;
+    return false;
+  }
+
+  function zielText(s, r) {
+    var g = r.goal;
+    if (!g) return '';
+    if (g.kind === 'district') {
+      var dn = D.byId(D.DISTRICTS, g.target);
+      return 'Taking ' + (dn ? dn.name : g.target);
+    }
+    if (g.kind === 'rival') {
+      var o = D.byId(D.RIVALS, g.target);
+      return 'Moving against ' + (o ? o.name : 'a rival');
+    }
+    if (g.kind === 'outgrow') return 'Out-earning you';
+    return 'Consolidating';
+  }
+
+  /* Einen anderen Rivalen angreifen. Der Spieler sieht es im Protokoll
+     und auf der Karte - die Stadt lebt auch ohne ihn. */
+  function rivalKrieg(s, rng, r, rd, report) {
+    var o = U.byId(s.rivals, r.goal.target);
+    if (!o) return;
+    var od = def(o.id);
+    var kand = [];
+    for (var k in o.infl) if ((o.infl[k] || 0) > 6) kand.push({ id: k, w: o.infl[k] });
+    var ziel = rng.weighted(kand);
+    if (!ziel) return;
+    var staerke = r.strength / Math.max(20, o.strength);
+    if (rng.chance(U.clamp(0.35 + (staerke - 1) * 0.3, 0.12, 0.85))) {
+      var genommen = rng.range(1.5, 4.5);
+      o.infl[ziel.id] = Math.max(0, o.infl[ziel.id] - genommen);
+      r.infl[ziel.id] = U.clamp((r.infl[ziel.id] || 0) + genommen * 0.75, 0, 100);
+      o.strength = Math.max(12, o.strength - rng.range(1, 3));
+      r.lastAct = 'took ground from ' + od.name;
+      if (rng.chance(0.5)) {
+        report.push({ t: 'neutral', text: rd.name + ' pushed ' + od.name + ' out of part of ' +
+          D.byId(D.DISTRICTS, ziel.id).name + '. Neither of them asked you.' });
+      }
+    } else {
+      r.strength = Math.max(12, r.strength - rng.range(0.5, 2));
+      r.lastAct = 'lost people fighting ' + od.name;
+    }
+  }
+
   /* -------------------------------------------------------- Wochenzug */
 
   function weekly(s, rng, d, report) {
@@ -73,6 +172,15 @@
       if (r.allied) r.relation = Math.max(r.relation, 45);
       if (r.truceUntil > s.day) continue;
 
+      /* Ziel pflegen. */
+      if (!r.goal || zielFertig(s, r, d)) r.goal = neuesZiel(s, rng, r, rd, d);
+
+      /* Krieg gegen einen anderen Rivalen laeuft neben allem anderen. */
+      if (r.goal.kind === 'rival' && rng.chance(0.45)) {
+        rivalKrieg(s, rng, r, rd, report);
+        continue;
+      }
+
       var f = friction(s, r, d);
       var moves = [
         { id: 'expand', w: 1.6 * rd.greed },
@@ -83,12 +191,17 @@
         { id: 'court', w: r.relation > 10 && !r.allied ? 0.5 : 0.15 },
         { id: 'idle', w: 0.5 }
       ];
+      /* Wer ein Ziel hat, verfolgt es auch. */
+      if (r.goal.kind === 'district') moves[0].w *= 2.4;
+      if (r.goal.kind === 'outgrow') moves[1].w *= 2.2;
+      if (r.goal.kind === 'consolidate') moves[2].w *= 2.4;
+
       var move = rng.weighted(moves);
-      act(s, rng, r, rd, move ? move.id : 'idle', d, report);
+      act(s, rng, r, rd, move ? move.id : 'idle', d, report, r.goal);
     }
   }
 
-  function act(s, rng, r, rd, move, d, report) {
+  function act(s, rng, r, rd, move, d, report, goal) {
     var k, dist, best, i;
     switch (move) {
       /* Gebiet nehmen - bevorzugt dort, wo wenig Widerstand steht. */
@@ -100,6 +213,10 @@
           var home = rd.home[k] ? 1.8 : 1;
           var free = Math.max(0, 100 - mine - othersIn(s, r, k));
           cands.push({ id: k, w: (free / 40 + here / 50) * home });
+        }
+        /* Auf das Ziel zusteuern, statt zu streuen. */
+        if (goal && goal.kind === 'district') {
+          for (var ci = 0; ci < cands.length; ci++) if (cands[ci].id === goal.target) cands[ci].w *= 5;
         }
         var pick = rng.weighted(cands);
         if (!pick) return;
@@ -397,7 +514,7 @@
   CE.rivals = {
     weekly: weekly, totalInfl: totalInfl, negotiate: negotiate, negotiateCost: negotiateCost,
     canAlly: canAlly, ally: ally, breakAlly: breakAlly, canPressure: canPressure,
-    tribute: tribute, tributeCost: tributeCost,
+    tribute: tribute, tributeCost: tributeCost, zielText: zielText, neuesZiel: neuesZiel,
     pressureRival: pressureRival, pressureOdds: pressureOdds, relationLabel: relationLabel,
     friction: friction
   };

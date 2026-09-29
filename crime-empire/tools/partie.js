@@ -113,10 +113,15 @@ function policySource() {
     /* Einstellen, solange Platz und Puffer da sind. */
     if (bezahlt.length < d.crewCap && st.recruits.length && st.cash > 18000) {
       const haben = new Set(bezahlt.map(c => c.role));
+      const anwaelte = bezahlt.filter(c => c.role === 'lawyer').length;
+      const fallLaeuft = st.commission && st.commission.open;
       const wunsch = ['manager', 'accountant', 'lawyer', 'enforcer', 'driver', 'informant', 'security', 'operator'];
       const bewertet = st.recruits.map(r => {
         let s2 = r.skill * 120 + r.potential * 40 + r.loyalty - r.ask * 0.5;
         if (!haben.has(r.role)) s2 += 260;                 /* Luecken zuerst */
+        /* Anwaelte bremsen die Bundesermittlung - im Spaetspiel ist das
+           mehr wert als jeder Betriebsleiter. */
+        if (r.role === 'lawyer' && fallLaeuft && anwaelte < 3) s2 += 520;
         s2 += wunsch.indexOf(r.role) >= 0 ? (8 - wunsch.indexOf(r.role)) * 25 : 0;
         return { r, s2 };
       }).sort((a, b) => b.s2 - a.s2);
@@ -148,6 +153,28 @@ function policySource() {
       if (st.heat > 78 && st.cash > grease.cost * 2.5) { act('heatAction', { id: 'grease' }); log.push('W' + U.weekOf(st.day) + ' Schmiergeld gegen Hitze ' + Math.round(st.heat)); }
       else if (st.cash > counsel.cost * 3) { act('heatAction', { id: 'counsel' }); log.push('W' + U.weekOf(st.day) + ' Anwaelte gegen Hitze ' + Math.round(st.heat)); }
       else if (!(st.flags.layLowUntil > st.day)) { act('heatAction', { id: 'laylow' }); log.push('W' + U.weekOf(st.day) + ' Ruhephase bei Hitze ' + Math.round(st.heat)); }
+      d = der();
+    }
+
+    /* 1b. Die Bundesermittlung. Sie ist im Spaetspiel der groesste
+           Posten - wer sie laufen laesst, verliert Betriebe. */
+    const kom = st.commission;
+    if (kom && kom.open) {
+      const K = CE.commission;
+      const f = K.feed(st, d);
+      const dringend = kom.strength > 65 || (kom.strength > 38 && f.netto > 1.5);
+      if (dringend) {
+        for (const id of ['counsel', 'witness', 'records', 'divest']) {
+          const can = K.canDo(st, id);
+          if (!can.ok) continue;
+          if (can.act.cost && st.cash < can.act.cost * 1.6) continue;
+          K.doAction(st, id);
+          log.push('W' + U.weekOf(st.day) + ' Fall bekaempft: ' + can.act.name +
+            ' (' + (can.act.cost ? U.money(can.act.cost) : 'Betriebe abgegeben') + ') -> ' +
+            Math.round(st.commission.strength));
+          break;
+        }
+      }
       d = der();
     }
 
@@ -339,7 +366,16 @@ function policySource() {
         rivalInfl, rivalSum: Math.round(rivalSum),
         waesche: Math.round(d.launderCap), dreck: Math.round(d.dirtyGross),
         waescheVerlust: Math.round(d.launderLoss),
+        fall: st.commission && st.commission.open ? Math.round(st.commission.strength) : -1,
+        fallPhase: st.commission && st.commission.open ? CE.commission.phase(st).name : 'none',
+        anklagen: st.commission ? st.commission.raids : 0,
+        fallAusgaben: st.commission ? Math.round(st.commission.spent) : 0,
+        bezirkslage: Object.keys(st.districts).filter(k => st.districts[k].open)
+          .map(k => st.districts[k].state || 'stable'),
+        figuren: (CE.people ? CE.people.known(st) : []).map(x => x.def.id + ':' + Math.round(x.state.trust) + ':' + x.state.stage),
+        rivalZiele: st.rivals.map(r => CE.rivals.zielText(st, r)),
         erfolge: CE.progress.earned(st).length,
+        erfolgeMax: D.ACHIEVEMENTS.length,
         ops: st.stats.opsRun, opsWon: st.stats.opsWon,
         razzien: st.stats.raids, strafen: st.stats.fines,
         buendnisse: st.rivals.filter(r => r.allied).length,
@@ -487,15 +523,15 @@ function policySource() {
 
   /* ------------------------------------------------ Ausgabe */
   console.log('CRIME EMPIRE - vollstaendige Partie\n');
-  console.log('Woche  Bargeld     Vermoegen   Netto/W    Betr Crew Bez Kon  Hitze Ruf  Einfl Rivalen  Rang');
+  console.log('Woche  Bargeld     Vermoegen   Netto/W    Betr Crew Bez Kon  Hitze Fall  Einfl Rang');
   for (const m of verlauf) {
     if (m.woche % 4 !== 0 && m.woche !== 1) continue;
     console.log(
       String(m.woche).padStart(5) + '  ' + fmt(m.cash).padStart(10) + '  ' + fmt(m.worth).padStart(10) + '  ' +
       fmt(m.net).padStart(9) + '  ' + String(m.biz).padStart(4) + ' ' + String(m.crew).padStart(4) + ' ' +
       String(m.bezirke).padStart(3) + ' ' + String(m.kontrolliert).padStart(3) + '  ' +
-      String(m.heat).padStart(5) + ' ' + String(m.rep).padStart(3) + '  ' + String(m.infl).padStart(5) +
-      ' ' + String(m.rivalSum).padStart(7) + '  ' + m.rang);
+      String(m.heat).padStart(5) + ' ' + (m.fall < 0 ? '  - ' : String(m.fall).padStart(4)) + '  ' +
+      String(m.infl).padStart(5) + ' ' + m.rang);
   }
   console.log('\nMeilensteine:');
   for (const k of ['early', 'mid', 'late', 'endgame']) {
@@ -506,8 +542,15 @@ function policySource() {
   if (letzte) {
     console.log('\nEndstand Woche ' + letzte.woche + ': ' + letzte.rang + ', ' + fmt(letzte.worth) +
       ', ' + letzte.biz + ' Betriebe, ' + letzte.crew + ' Leute, ' + letzte.kontrolliert + '/6 Bezirke kontrolliert');
-    console.log('Auftraege ' + letzte.opsWon + '/' + letzte.ops + '  Erfolge ' + letzte.erfolge + '/14  Razzien ' +
+    console.log('Auftraege ' + letzte.opsWon + '/' + letzte.ops + '  Erfolge ' + letzte.erfolge + '/' + letzte.erfolgeMax + '  Razzien ' +
       letzte.razzien + '  Strafen ' + letzte.strafen + '  Buendnisse ' + letzte.buendnisse + '  Sieg: ' + (letzte.gewonnen ? 'ja' : 'nein'));
+  }
+  if (letzte) {
+    console.log('Bundesermittlung: Phase ' + letzte.fallPhase + ', ' + letzte.anklagen +
+      ' Anklagen, ' + fmt(letzte.fallAusgaben) + ' fuer Abwehr ausgegeben');
+    console.log('Bezirkslage: ' + letzte.bezirkslage.join(', '));
+    console.log('Figuren: ' + (letzte.figuren.length ? letzte.figuren.join('  ') : 'keine getroffen'));
+    console.log('Rivalenziele: ' + letzte.rivalZiele.join(' | '));
   }
   console.log('\nEntscheidungen getroffen: ' + entscheidungen.length);
   const arten = {};

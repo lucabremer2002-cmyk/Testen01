@@ -79,6 +79,11 @@ investieren, anwerben, oder gegen den Spieler vorgehen. Ihre
 Stammgebiete wachsen nach, damit sie sich von einem Rueckschlag erholen
 koennen. Die ersten vier Wochen gelten als Schonfrist.
 
+Jeder Rivale verfolgt ein sichtbares Ziel ueber mehrere Wochen, das auf
+seiner Karte steht: einen Bezirk nehmen, den Spieler ueberholen, sich
+sammeln - oder einen *anderen Rivalen* angreifen. Die Stadt kaempft
+auch ohne den Spieler.
+
 Diplomatie hat zwei Stufen: **Tribut** ist klein, billig und jederzeit
 moeglich, wirkt aber umso weniger, je freundlicher jemand schon ist.
 **Verhandeln** ist das grosse Treffen mit Waffenstillstand. Ab 42
