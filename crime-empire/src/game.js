@@ -549,6 +549,15 @@
       sfx('cash');
       G.dirty = true;
     },
+    caseTargeted: function (p) {
+      var rng = CE.sim.rngOf(G.state);
+      var r = CE.commission.doTargeted(G.state, rng, p.id);
+      CE.sim.keepRng(G.state, rng);
+      if (!r.ok) return toast(r.why, 'bad');
+      toast(r.text, 'good');
+      sfx('tap');
+      G.dirty = true;
+    },
     caseAction: function (p) {
       var r = CE.commission.doAction(G.state, p.id);
       if (!r.ok) return toast(r.why, 'bad');

@@ -101,18 +101,18 @@
                   '"Mara Kessler, Organised Crime. I am not here to arrest you today. I am here so ' +
                   'that when I do, you will know it was me."',
             options: [
-              { label: 'Take the coffee and talk', hint: 'She learns about you. So do you.',
+              { label: 'Take the coffee and talk', hint: 'Opens a line you can use later. +2 heat now.',
                 go: function () {
                   bump(s, 'kessler', 12, 1);
                   return 'You talked for forty minutes about nothing. She paid attention to all of it. ' +
                          fx(s, { heat: 2 });
                 } },
-              { label: 'Walk away without a word', hint: 'Nothing given, nothing gained',
+              { label: 'Walk away without a word', hint: 'Nothing now. She stops offering.',
                 go: function () {
                   bump(s, 'kessler', -10, 1);
                   return 'She drank both coffees. ' + fx(s, { heat: 1 });
                 } },
-              { label: 'Offer her money', hint: 'Insulting a detective has a price',
+              { label: 'Offer her money', hint: '+9 heat, and she never deals with you again',
                 go: function () {
                   bump(s, 'kessler', -34, 1);
                   get(s, 'kessler').flags.bribed = true;
@@ -138,7 +138,7 @@
               : 'She has been outside three of your businesses this month, and she wants you to ' +
                 'know it. "The federal people took my file. I gave them everything. Sleep well."',
             options: [
-              { label: 'Keep her close', hint: 'Case grows slower, she learns more',
+              { label: 'Keep her close', hint: 'Case -8 now, and she warns you later',
                 disabled: !warm, why: 'She would not take a call from you.',
                 go: function () {
                   bump(s, 'kessler', 14, 1);
@@ -147,7 +147,7 @@
                   return 'There is a line open now. Neither of you would call it a friendship. ' +
                          fx(s, { heat: -3 });
                 } },
-              { label: 'Feed her a rival', hint: 'Case drops hard, a rival turns on you',
+              { label: 'Feed her a rival', hint: 'Case -16, that rival -28 relations',
                 disabled: c.enemies.length === 0 && s.rivals.length === 0, why: 'Nobody to give.',
                 go: function () {
                   var r = c.rng.pick(s.rivals.filter(function (x) { return !x.allied; }).length
@@ -158,7 +158,7 @@
                   return 'She took it, and she knew exactly why you were giving it to her. ' +
                          fx(s, { rival: r, relation: -28, rep: -2 });
                 } },
-              { label: 'Shut the door', hint: 'She becomes an enemy for good',
+              { label: 'Shut the door', hint: 'Case +6 and no more warnings, ever',
                 go: function () {
                   bump(s, 'kessler', -30, 1);
                   k.flags.closed = true;
@@ -185,7 +185,7 @@
               : 'She has a warrant, a van and four people who owe her favours. Whatever she has been ' +
                 'building since that coffee, it is finished now.',
             options: freund ? [
-              { label: 'Bury him with her', hint: U.moneySigned(-kosten) + ', case falls hard',
+              { label: 'Bury him with her', hint: U.moneySigned(-kosten) + ', case -30 and she retires',
                 disabled: s.cash < kosten, why: 'Not enough cash.',
                 go: function () {
                   bump(s, 'kessler', 25, 1);
@@ -247,7 +247,7 @@
                   'career came to own ' + s.businesses.length + ' businesses in three years. She is ' +
                   'writing it either way and wanted to offer you the courtesy of a comment.',
             options: [
-              { label: 'Give her the interview', hint: 'Risky, but she prints the truth',
+              { label: 'Give her the interview', hint: 'Usually +4 reputation, sometimes the opposite',
                 go: function () {
                   bump(s, 'whitlock', 16, 1);
                   return c.rng.chance(0.6)
@@ -256,13 +256,13 @@
                     : 'She quoted you precisely, and precisely was worse than you thought. ' +
                       fx(s, { rep: -2, heat: 6 });
                 } },
-              { label: 'Offer to buy the story', hint: 'She does not take money',
+              { label: 'Offer to buy the story', hint: '-4 reputation, +8 heat. She prints the attempt.',
                 go: function () {
                   bump(s, 'whitlock', -28, 1);
                   get(s, 'whitlock').flags.bribed = true;
                   return 'The attempted bribe became the third paragraph. ' + fx(s, { rep: -4, heat: 8 });
                 } },
-              { label: 'No comment', hint: 'She writes it anyway',
+              { label: 'No comment', hint: '+4 heat, +1 reputation',
                 go: function () {
                   bump(s, 'whitlock', -4, 1);
                   return 'The piece ran on page six with a photograph of your restaurant. ' +
@@ -355,7 +355,7 @@
                   return 'The permits came through on Monday. ' +
                          fx(s, { cash: -bitte, infl: 5, district: k });
                 } },
-              { label: 'Refuse', hint: 'He finds another friend',
+              { label: 'Refuse', hint: 'Free. He works for somebody else from now on.',
                 go: function () {
                   bump(s, 'penn', -16, 1);
                   return 'Somebody else paid. You will meet them eventually.';
@@ -453,7 +453,7 @@
                   'slightly illegal, extremely useful, and priced at ' + U.money(preis) + ' for ' +
                   'the first item, whatever you choose it to be.',
             options: [
-              { label: 'Buy from the list', hint: U.moneySigned(-preis) + ', a permanent edge',
+              { label: 'Buy from the list', hint: U.moneySigned(-preis) + ', permanent +3% on every operation',
                 disabled: s.cash < preis, why: 'Not enough cash.',
                 go: function () {
                   bump(s, 'okonkwo', 20, 1);
@@ -461,7 +461,7 @@
                   return 'Whatever it was, it works. Operations run a little better from now on. ' +
                          fx(s, { cash: -preis });
                 } },
-              { label: 'Ask what he wants long term', hint: 'Information, and he likes being asked',
+              { label: 'Ask what he wants long term', hint: 'Free. He remembers being asked.',
                 go: function () {
                   bump(s, 'okonkwo', 12, 1);
                   return '"A percentage, eventually. Not today." He left his number.';
@@ -514,7 +514,7 @@
             text: '"I said a percentage eventually. It is eventually." He wants ' + U.money(anteil) +
                   ' for a standing arrangement: his whole network, permanently, working for you.',
             options: [
-              { label: 'Buy the network', hint: U.moneySigned(-anteil) + ', permanent operation bonus',
+              { label: 'Buy the network', hint: U.moneySigned(-anteil) + ', permanent +10% odds, +8% pay, 15% faster',
                 disabled: s.cash < anteil, why: 'Not enough cash.',
                 go: function () {
                   var o = get(s, 'okonkwo');

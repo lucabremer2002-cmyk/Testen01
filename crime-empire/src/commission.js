@@ -55,7 +55,13 @@
 
   function fresh() {
     return { open: false, strength: 0, phase: 0, opened: -1, raids: 0,
-             lastPhase: 0, spent: 0, beaten: 0 };
+             lastPhase: 0, spent: 0, beaten: 0, reachedGrand: false,
+             /* Eigene Mittel. Vorher war die Kommission eine Zahl, die
+                der Spieler mit Geld niederhielt - sie besass nichts, tat
+                nichts und zielte auf niemanden. Jetzt hat sie ein
+                Budget, legt damit Figuren aufs Brett und sucht sich
+                einen Schwerpunkt. */
+             budget: 0, assets: [], target: null, lastAction: '', acted: -1 };
   }
 
   /* Wann die Kommission aufmacht: wenn man gross genug ist, um sie zu
@@ -122,8 +128,28 @@
         note: 'a majority-legal portfolio is hard to characterise' });
     }
 
+    /* Was die Kommission selbst aufgebaut hat. Das ist der Unterschied
+       zwischen einem Gegner und einem Zaehler: diese Zeilen entstehen
+       nicht aus dem, was der Spieler besitzt, sondern aus dem, was die
+       andere Seite getan hat - und sie lassen sich gezielt entfernen. */
+    var abhoer = 0, spitzel = 0, zeugen = 0;
+    var as = (s.commission && s.commission.assets) || [];
+    for (i = 0; i < as.length; i++) {
+      if (as[i].kind === 'wiretap') abhoer++;
+      else if (as[i].kind === 'informant') spitzel++;
+      else if (as[i].kind === 'witness') zeugen++;
+    }
+    if (abhoer) zeilen.push({ label: 'Wiretaps', v: abhoer * 0.8,
+      note: abhoer + ' of your sites are being listened to' });
+    if (spitzel) zeilen.push({ label: 'Somebody is talking', v: spitzel * 1.3,
+      note: spitzel + ' informant' + (spitzel === 1 ? '' : 's') + ' inside your organisation' });
+    if (zeugen) zeilen.push({ label: 'Cooperating witnesses', v: zeugen * 1.8,
+      note: zeugen + ' named witness' + (zeugen === 1 ? '' : 'es') + ' prepared to testify' });
+
     /* Ruf oeffnet Tueren, auch im Gericht. */
     if (s.rep >= 70) zeilen.push({ label: 'Standing in the city', v: -0.5, note: 'people vouch for you' });
+    if (d.boardCase) zeilen.push({ label: 'Board seat', v: -d.boardCase,
+      note: 'a man on a development board is not an obvious defendant' });
 
     /* Wer klein und ruhig ist, verliert Aufmerksamkeit. */
     if (s.heat < 20 && dirty <= 2) zeilen.push({ label: 'Nothing new to look at', v: -1.4, note: 'quiet weeks' });
@@ -150,6 +176,19 @@
       return;
     }
 
+    pflegeAssets(s, c, report);
+
+    /* Eigenes Budget. Es waechst mit der Phase und aus Beschlagnahmten -
+       wer einmal durchsucht wurde, finanziert damit die naechste Runde. */
+    c.budget = (c.budget || 0) + 3500 + c.strength * 160 + c.phase * 5500;
+
+    /* Schwerpunkt: der Bezirk, in dem am meisten zu holen ist. Er wird
+       angezeigt, damit man weiss, wo man aufraeumen muss. */
+    waehleZiel(s, d, c);
+
+    /* Ihr Zug. */
+    agieren(s, rng, d, c, report);
+
     var f = feed(s, d);
     var vorher = c.strength;
     c.strength = U.clamp(c.strength + f.netto, 0, 100);
@@ -169,12 +208,164 @@
     }
 
     /* Anklage: der Zugriff. Er nimmt viel, aber nicht alles - und er
-       setzt den Fall zurueck, statt das Spiel zu beenden. */
+       setzt den Fall zurueck, statt das Spiel zu beenden.
+
+       Mit Abstand und Nachwirkung: im Szenarienlauf traf es den
+       schlampigen Spieler dreizehnmal, alle vier bis sieben Wochen.
+       Damit wurde aus einer Katastrophe eine Steuer. Jetzt vergehen
+       mindestens fuenfzehn Wochen dazwischen, der Fall faellt tiefer
+       zurueck - und jeder weitere Zugriff sitzt haerter, weil sie beim
+       zweiten Mal wissen, wo sie suchen muessen. */
     if (c.strength >= 100) {
-      strike(s, rng, d, report, book);
-      c.strength = 52;
-      c.phase = phaseOf(c.strength).id;
-      c.raids++;
+      if (s.day - (c.lastStrike || -999) < 105) {
+        /* Sie haben den Fall, aber noch keinen Termin. Der Druck bleibt. */
+        c.strength = 99;
+      } else {
+        c.lastStrike = s.day;
+        strike(s, rng, d, report, book);
+        c.strength = 30 + Math.min(20, c.raids * 5);
+        c.phase = phaseOf(c.strength).id;
+        c.raids++;
+      }
+    }
+  }
+
+  /* ------------------------------------------------ Eigene Zuege
+
+     Ein Gegner, der nur am Ende einmal zuschlaegt, ist ein Countdown.
+     Diese Zuege sind klein, sichtbar und einzeln beantwortbar - man
+     jagt ihre Figuren, statt eine Zahl zu bezahlen.
+  */
+  var ZUEGE = [
+    { id: 'wiretap', phase: 1, cost: 18000, w: 1.4 },
+    { id: 'informant', phase: 1, cost: 26000, w: 1.2 },
+    { id: 'freeze', phase: 2, cost: 22000, w: 1.0 },
+    { id: 'subpoena', phase: 2, cost: 32000, w: 1.1 },
+    { id: 'witness', phase: 3, cost: 55000, w: 1.6 }
+  ];
+
+  function waehleZiel(s, d, c) {
+    var best = null, bestW = -1;
+    for (var k in s.districts) {
+      if (!s.districts[k].open) continue;
+      var bd = d.byDistrict[k];
+      if (!bd) continue;
+      var w = bd.gross / 1000 + bd.heat * 3;
+      if (w > bestW) { bestW = w; best = k; }
+    }
+    c.target = best;
+  }
+
+  function agieren(s, rng, d, c, report) {
+    if (s.day - (c.acted || -99) < 14) return;      /* hoechstens alle zwei Wochen */
+    var moeglich = ZUEGE.filter(function (z) {
+      if (c.phase < z.phase) return false;
+      if (c.budget < z.cost) return false;
+      if (z.id === 'wiretap') return s.businesses.length > 0 && zaehle(c, 'wiretap') < 3;
+      if (z.id === 'informant') return s.crew.filter(function (x) { return !x.player; }).length > 0 && zaehle(c, 'informant') < 2;
+      if (z.id === 'witness') return zaehle(c, 'witness') < 2;
+      if (z.id === 'freeze') return s.cash > 20000;
+      return true;
+    });
+    if (!moeglich.length) return;
+    var zug = rng.weighted(moeglich);
+    if (!zug) return;
+    c.budget -= zug.cost;
+    c.acted = s.day;
+
+    switch (zug.id) {
+      case 'wiretap': {
+        /* Auf den lohnendsten Standort im Schwerpunktbezirk. */
+        var kand = s.businesses.filter(function (b) {
+          return (!c.target || b.district === c.target) && !hatAsset(c, 'wiretap', b.id);
+        });
+        if (!kand.length) kand = s.businesses.filter(function (b) { return !hatAsset(c, 'wiretap', b.id); });
+        if (!kand.length) return;
+        kand.sort(function (a, b) { return St.bizFinance(s, b).gross - St.bizFinance(s, a).gross; });
+        var ziel = kand[0];
+        c.assets.push({ kind: 'wiretap', ref: ziel.id, name: ziel.name, since: s.day });
+        c.lastAction = 'put a wire in ' + ziel.name;
+        report.push({ t: 'warn', text: 'Something is wrong at ' + ziel.name + '. The phones click, ' +
+          'and takings are down. Somebody is listening.' });
+        break;
+      }
+      case 'informant': {
+        var leute = s.crew.filter(function (x) { return !x.player && !hatAsset(c, 'informant', x.id); });
+        if (!leute.length) return;
+        leute.sort(function (a, b) { return a.loyalty - b.loyalty; });
+        var wer = leute[0];
+        /* Der Name steht im Spielstand, aber die Oberflaeche zeigt ihn
+           nicht: wer den Spitzel finden will, muss suchen. */
+        c.assets.push({ kind: 'informant', ref: wer.id, name: wer.name, since: s.day, known: false });
+        c.lastAction = 'turned somebody inside your organisation';
+        report.push({ t: 'bad', banner: 'Somebody Is Talking', ico: 'informant',
+          text: 'Details only your own people know have reached the task force. ' +
+                'One of them is cooperating, and you do not know which.' });
+        break;
+      }
+      case 'freeze': {
+        var betrag = Math.round(s.cash * rng.range(0.10, 0.20));
+        if (betrag < 1000) return;
+        s.cash -= betrag;
+        c.budget += Math.round(betrag * 0.25);      /* sie finanzieren sich daraus */
+        c.assets.push({ kind: 'freeze', amount: betrag, until: s.day + 28, since: s.day });
+        c.lastAction = 'froze ' + U.money(betrag) + ' of your accounts';
+        report.push({ t: 'bad', text: U.money(betrag) + ' has been frozen pending a hearing. ' +
+          'You get it back in four weeks, if there is anything left to get.' });
+        break;
+      }
+      case 'subpoena': {
+        var b2 = s.businesses.length ? s.businesses[rng.int(0, s.businesses.length - 1)] : null;
+        if (!b2) return;
+        b2.damage = U.clamp((b2.damage || 0) + 0.3, 0, 0.8);
+        c.strength = U.clamp(c.strength + 3, 0, 100);
+        c.lastAction = 'subpoenaed the books at ' + b2.name;
+        report.push({ t: 'warn', text: 'Investigators took four years of records out of ' + b2.name +
+          ' in cardboard boxes. It will not trade properly for a while.' });
+        break;
+      }
+      case 'witness': {
+        var namen = ['a former accountant', 'somebody who used to drive for you',
+                     'a supplier you stopped paying', 'a man who owns the building next door'];
+        var nm = namen[rng.int(0, namen.length - 1)];
+        c.assets.push({ kind: 'witness', name: nm, since: s.day });
+        c.lastAction = 'signed up a cooperating witness';
+        report.push({ t: 'bad', banner: 'A Witness', ico: 'scales',
+          text: nm.charAt(0).toUpperCase() + nm.slice(1) + ' has agreed to testify. ' +
+                'Every week they stay on the list, the case gets heavier.' });
+        break;
+      }
+    }
+  }
+
+  function zaehle(c, kind) {
+    var n = 0;
+    for (var i = 0; i < (c.assets || []).length; i++) if (c.assets[i].kind === kind) n++;
+    return n;
+  }
+  function hatAsset(c, kind, ref) {
+    for (var i = 0; i < (c.assets || []).length; i++) {
+      if (c.assets[i].kind === kind && c.assets[i].ref === ref) return true;
+    }
+    return false;
+  }
+
+  /* Eingefrorenes Geld kommt zurueck, Mittel zu verschwundenen Zielen
+     verfallen. Laeuft jede Woche. */
+  function pflegeAssets(s, c, report) {
+    if (!c.assets) c.assets = [];
+    for (var i = c.assets.length - 1; i >= 0; i--) {
+      var a = c.assets[i];
+      if (a.kind === 'freeze') {
+        if (s.day >= a.until) {
+          s.cash += a.amount;
+          report.push({ t: 'good', text: U.money(a.amount) + ' has been released. The hearing found nothing.' });
+          c.assets.splice(i, 1);
+        }
+        continue;
+      }
+      if (a.kind === 'wiretap' && !U.byId(s.businesses, a.ref)) c.assets.splice(i, 1);
+      else if (a.kind === 'informant' && !U.byId(s.crew, a.ref)) c.assets.splice(i, 1);
     }
   }
 
@@ -183,7 +374,9 @@
     var verloren = [];
     /* Zuerst die Untergrundbetriebe - das ist es, was sie beweisen koennen. */
     var dreck = s.businesses.filter(function (b) { return !D.byId(D.BUSINESSES, b.type).legal; });
-    var nehmen = Math.max(1, Math.round(dreck.length * rng.range(0.28, 0.45)));
+    /* Jeder weitere Zugriff greift tiefer. */
+    var haerte = 1 + Math.min(0.6, (s.commission.raids || 0) * 0.2);
+    var nehmen = Math.max(1, Math.round(dreck.length * rng.range(0.28, 0.45) * haerte));
     rng.shuffle(dreck);
     var wert = 0;
     for (var i = 0; i < nehmen && i < dreck.length; i++) {
@@ -195,7 +388,7 @@
     }
 
     /* Und Bargeld, das sie einfrieren koennen. */
-    var frost = Math.round(Math.max(0, s.cash) * rng.range(0.25, 0.4));
+    var frost = Math.round(Math.max(0, s.cash) * U.clamp(rng.range(0.25, 0.4) * haerte, 0.2, 0.7));
     s.cash -= frost;
     s.stats.spent += frost;
 
@@ -212,6 +405,9 @@
         if (weg.loyalty < 45) s.heat = U.clamp(s.heat + 6, 0, 100);
       }
     }
+
+    /* Ein erfolgreicher Zugriff finanziert den naechsten. */
+    s.commission.budget += Math.round(frost * 0.5 + wert * 0.1);
 
     s.rep = U.clamp(s.rep - 12, 0, 100);
     s.heat = U.clamp(s.heat - 18, 0, 100);
@@ -251,6 +447,121 @@
         desc: 'Sell your two most exposed underground operations at a loss. ' +
               'Nothing weakens a case like having less to prosecute.' }
     ];
+  }
+
+  /* ------------------------------------------- Gezielte Gegenwehr
+
+     Die allgemeinen Massnahmen senken eine Zahl. Diese hier entfernen
+     eine bestimmte Figur vom Brett - und nur sie helfen gegen das, was
+     die Kommission aufgebaut hat. Das ist der Unterschied zwischen
+     "Geld gegen Statistik" und einem Schlagabtausch.
+  */
+  function targeted(s, d) {
+    var c = s.commission;
+    if (!c || !c.open) return [];
+    var basis = U.clamp(d.grossIncome * 0.9 + Math.max(0, d.netWorth) * 0.02, 4000, 500000);
+    var out = [];
+    var wires = zaehle(c, 'wiretap');
+    var spitzel = zaehle(c, 'informant');
+    var zeugen = zaehle(c, 'witness');
+    var frost = 0;
+    for (var i = 0; i < (c.assets || []).length; i++) if (c.assets[i].kind === 'freeze') frost += c.assets[i].amount;
+
+    if (wires) {
+      out.push({ id: 'sweep', name: 'Sweep for Bugs', cost: Math.round(basis * 0.5 * wires),
+        desc: 'A technician, a van and an afternoon in every back office. ' +
+              'Removes all ' + wires + ' wiretap' + (wires === 1 ? '' : 's') + '.',
+        badge: wires + ' wiretap' + (wires === 1 ? '' : 's') });
+    }
+    if (spitzel) {
+      out.push({ id: 'leak', name: 'Find the Leak', cost: Math.round(basis * 0.9),
+        desc: 'Feed four people four different stories and see which one comes back. ' +
+              'Good odds of naming the informant. They will not stay afterwards.',
+        badge: spitzel + ' informant' + (spitzel === 1 ? '' : 's') });
+    }
+    if (zeugen) {
+      out.push({ id: 'silence', name: 'Persuade a Witness', cost: Math.round(basis * 1.6),
+        desc: 'Money, a job for a relative, or a conversation. Removes one witness ' +
+              'from the list. It costs reputation and it is noticed.',
+        badge: zeugen + ' witness' + (zeugen === 1 ? '' : 'es') });
+    }
+    if (frost) {
+      out.push({ id: 'unfreeze', name: 'Fight the Freeze', cost: Math.round(basis * 0.7),
+        desc: 'An emergency motion. Releases ' + U.money(frost) + ' now instead of in four weeks.',
+        badge: U.money(frost) + ' frozen' });
+    }
+    return out;
+  }
+
+  function doTargeted(s, rng, id) {
+    var c = s.commission;
+    if (!c || !c.open) return { ok: false, why: 'There is no case.' };
+    var d = St.derive(s);
+    var a = null, list = targeted(s, d);
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) a = list[i];
+    if (!a) return { ok: false, why: 'Nothing to do there.' };
+    if (s.cash < a.cost) return { ok: false, why: 'Needs ' + U.money(a.cost) + '.' };
+
+    s.cash -= a.cost;
+    s.stats.spent += a.cost;
+    c.spent += a.cost;
+
+    if (id === 'sweep') {
+      var n = 0;
+      for (i = c.assets.length - 1; i >= 0; i--) if (c.assets[i].kind === 'wiretap') { c.assets.splice(i, 1); n++; }
+      c.strength = U.clamp(c.strength - n * 2, 0, 100);
+      return { ok: true, text: n + ' device' + (n === 1 ? '' : 's') + ' found and destroyed. ' +
+        'Your sites are quiet again.' };
+    }
+    if (id === 'leak') {
+      var idx = -1;
+      for (i = 0; i < c.assets.length; i++) if (c.assets[i].kind === 'informant') { idx = i; break; }
+      if (idx < 0) return { ok: false, why: 'Nobody is talking.' };
+      var asset = c.assets[idx];
+      /* Nicht garantiert. Wer sucht, findet meistens - aber nicht immer,
+         und ein Fehlschlag kostet die Mannschaft Nerven. */
+      if (rng.chance(0.72)) {
+        var wer = U.byId(s.crew, asset.ref);
+        c.assets.splice(idx, 1);
+        c.strength = U.clamp(c.strength - 6, 0, 100);
+        if (wer) {
+          CE.crew.remove(s, wer.id);
+          for (i = 0; i < s.crew.length; i++) if (!s.crew[i].player) {
+            s.crew[i].loyalty = U.clamp(s.crew[i].loyalty - 5, 0, 100);
+          }
+          return { ok: true, text: 'It was ' + wer.name + '. They are gone, and everybody knows why.' };
+        }
+        return { ok: true, text: 'The leak is closed.' };
+      }
+      for (i = 0; i < s.crew.length; i++) if (!s.crew[i].player) {
+        s.crew[i].loyalty = U.clamp(s.crew[i].loyalty - 8, 0, 100);
+      }
+      return { ok: true, text: 'You interrogated four people and learned nothing. ' +
+        'All four of them remember it.' };
+    }
+    if (id === 'silence') {
+      for (i = 0; i < c.assets.length; i++) {
+        if (c.assets[i].kind === 'witness') {
+          var nm = c.assets[i].name;
+          c.assets.splice(i, 1);
+          c.strength = U.clamp(c.strength - 9, 0, 100);
+          s.rep = U.clamp(s.rep - 3, 0, 100);
+          s.heat = U.clamp(s.heat + 3, 0, 100);
+          return { ok: true, text: nm.charAt(0).toUpperCase() + nm.slice(1) +
+            ' is no longer cooperating. Nobody asked how.' };
+        }
+      }
+      return { ok: false, why: 'No witness to reach.' };
+    }
+    if (id === 'unfreeze') {
+      var summe = 0;
+      for (i = c.assets.length - 1; i >= 0; i--) {
+        if (c.assets[i].kind === 'freeze') { summe += c.assets[i].amount; c.assets.splice(i, 1); }
+      }
+      s.cash += summe;
+      return { ok: true, text: U.money(summe) + ' released by court order.' };
+    }
+    return { ok: false, why: 'Unknown.' };
   }
 
   function canDo(s, id) {
@@ -319,6 +630,7 @@
 
   CE.commission = {
     PHASEN: PHASEN, fresh: fresh, weekly: weekly, feed: feed, actions: actions,
+    targeted: targeted, doTargeted: doTargeted, zaehle: zaehle,
     canDo: canDo, doAction: doAction, phase: phase, phaseOf: phaseOf,
     incomeCut: incomeCut, shouldOpen: shouldOpen
   };

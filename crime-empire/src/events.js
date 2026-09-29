@@ -611,7 +611,10 @@
     },
     {
       id: 'succession', w: 1.2, cool: 14,
+      /* Nur solange es keine rechte Hand gibt - vorher kam dieselbe
+         Szene dreimal in einer Partie, jedes Mal mit jemand anderem. */
       when: function (s, c) {
+        if (s.flags.second && U.byId(s.crew, s.flags.second)) return false;
         return c.paid.filter(function (x) { return St.effectiveSkill(x) >= 8; }).length > 0 && c.d.rank >= 3;
       },
       build: function (s, c) {

@@ -164,8 +164,19 @@
     /* Dauerhafte Aufwertung aus Ereignissen ("More Than It Can Hold"). */
     var boost = b.boost || 0;
 
+    /* Ein abgehoerter Standort verdient schlechter: Kunden bleiben weg,
+       Lieferanten werden vorsichtig. Ohne diese Zeile waere die
+       Abhoermassnahme nur eine Zahl im Fallstand gewesen. */
+    var wanze = 0;
+    if (s.commission && s.commission.assets) {
+      for (var wi = 0; wi < s.commission.assets.length; wi++) {
+        var wa = s.commission.assets[wi];
+        if (wa.kind === 'wiretap' && wa.ref === b.id) { wanze = 0.12; break; }
+      }
+    }
+
     var mods = s.mods || { income: 1, heat: 1 };
-    gross *= (1 + staffBonus + inflBonus + perk + boost - staffPenalty) * mods.income;
+    gross *= (1 + staffBonus + inflBonus + perk + boost - staffPenalty - wanze) * mods.income;
     upkeep *= (1 + upkeepBonus);
     if (upkeep < 0) upkeep = 0;
 
@@ -184,7 +195,7 @@
       gross: gross, upkeep: upkeep, net: gross - upkeep, heat: heat, infl: infl,
       slots: slots, filled: filled, understaffed: understaffed,
       staffBonus: staffBonus, inflBonus: inflBonus, perkBonus: perk, staffPenalty: staffPenalty,
-      boost: boost,
+      boost: boost, wiretap: wanze > 0,
       legal: def.legal, def: def
     };
   }
@@ -280,6 +291,35 @@
       d.opSpeedUpgrade = (d.opSpeedUpgrade || 0) + (up.opSpeed || 0) * lv;
     }
     d.fineMul = U.clamp(d.fineMul, 0.25, 1);
+
+    /* ------------------------------------------- Dauerhafte Gewinne
+
+       Diese Flaggen wurden von Ereignissen gesetzt und nirgends
+       gelesen. Der Text versprach "a permanent edge" und "every fence
+       in Blackhaven takes your calls first" - und es passierte nichts.
+       Ein Spiel, das eine Belohnung ankuendigt und nicht liefert,
+       belaest den Spieler. Jetzt wirken sie.                          */
+    /* Absichtlich ausgeschrieben statt ueber eine Abkuerzung: so findet
+       jeder - und der Selbsttest - jede Belohnung mit einer Suche nach
+       ihrem Namen. Genau daran war die Pruefung vorher gescheitert. */
+    if (!s.flags) s.flags = {};
+
+    /* Sundays Liste und sein Netzwerk - bessere Auftraege. */
+    d.opBonusUpgrade = (d.opBonusUpgrade || 0) + Math.min(0.09, (s.flags.sundayEdge || 0) * 0.03);
+    if (s.flags.sundayNetwork) {
+      d.opBonusUpgrade += 0.10;
+      d.opSpeedUpgrade = (d.opSpeedUpgrade || 0) + 0.15;
+      d.opPayBonus = 0.08;
+    } else d.opPayBonus = 0;
+
+    /* Ein Polizist auf Band ist jede Woche etwas wert. */
+    if (s.flags.leverage) d.heatDecay += Math.min(3, s.flags.leverage * 1.4);
+
+    /* Ein Sitz im Aufsichtsrat bremst die Ermittlung und baut Ansehen. */
+    if (s.flags.board) { d.boardCase = 1.0; d.repDrift += 0.3; } else d.boardCase = 0;
+
+    /* Eine rechte Hand haelt die Mannschaft zusammen. */
+    d.secondHand = s.flags.second && U.byId(s.crew, s.flags.second) ? 0.7 : 0;
 
     /* --- Bezirkskosten: wer Gebiet haelt, zahlt dafuer --- */
     for (var k in s.districts) {

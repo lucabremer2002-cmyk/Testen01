@@ -642,6 +642,7 @@
       ? '<span class="amber">-' + U.pct(f.staffPenalty) + ' income</span>'
       : '<span class="green">+' + U.pct(f.staffBonus) + '</span>') + '</span></div>');
 
+    if (f.wiretap) h.push('<div class="biz__warn red">Wiretapped &mdash; 12% less income until you sweep for bugs.</div>');
     if (b.damage > 0) h.push('<div class="biz__warn">Damaged &mdash; output down ' + U.pct(b.damage) + ', recovering weekly.</div>');
     if (def.heat) h.push('<div class="biz__warn">Draws ' + f.heat.toFixed(1) + ' heat a week.</div>');
     if (b.boost) h.push('<div class="row__s green">Improved: +' + U.pct(b.boost) + ' income, permanently.</div>');
@@ -864,10 +865,54 @@
       h.push('<div class="why green">The case is going backwards. Keep it that way.</div>');
     }
     if (c.raids) h.push('<div class="why why--bad">Indicted ' + c.raids + ' time' + (c.raids === 1 ? '' : 's') + ' so far.</div>');
+
+    /* Was sie aufgebaut haben. Der Spitzel bleibt namenlos - ihn zu
+       finden ist eine eigene Handlung, keine Anzeige. */
+    if (c.assets && c.assets.length) {
+      h.push('<div class="card__title" style="margin-top:14px"><b>What they have</b>' +
+        (c.target ? '<span>focused on ' + e(D.byId(D.DISTRICTS, c.target).name) + '</span>' : '') + '</div>');
+      h.push('<div class="rowlist" style="border:1px solid var(--line);border-radius:var(--r)">');
+      c.assets.forEach(function (a) {
+        var txt, ico;
+        if (a.kind === 'wiretap') { txt = 'A wire in <b>' + e(a.name) + '</b> &mdash; 12% less income there'; ico = 'eye'; }
+        else if (a.kind === 'informant') { txt = '<b>Someone on your payroll</b> is cooperating'; ico = 'informant'; }
+        else if (a.kind === 'witness') { txt = '<b>' + e(a.name.charAt(0).toUpperCase() + a.name.slice(1)) + '</b> will testify'; ico = 'scales'; }
+        else if (a.kind === 'freeze') { txt = '<b>' + money(a.amount) + '</b> frozen until day ' + a.until; ico = 'cash'; }
+        else return;
+        h.push('<div class="row" style="padding:8px 12px">' +
+          '<span style="width:18px;color:var(--red)">' + A.icon(ico) + '</span>' +
+          '<div class="row__main"><div class="row__s" style="color:var(--ink2)">' + txt + '</div></div>' +
+          '<span class="row__s muted">day ' + a.since + '</span></div>');
+      });
+      h.push('</div>');
+    } else {
+      h.push('<div class="why">They have nothing on the board right now. That will not last.</div>');
+    }
     h.push('</div>');
 
-    /* Rechts: Gegenwehr */
+    /* Rechts: Gegenwehr. Gezieltes zuerst - es ist wirksamer und
+       billiger als das Allgemeine, aber nur verfuegbar, wenn die
+       Kommission tatsaechlich etwas aufgebaut hat. */
     h.push('<div style="display:flex;flex-direction:column;gap:8px">');
+
+    var gezielt = K.targeted(s, d);
+    if (gezielt.length) {
+      h.push('<div class="card__title" style="margin:0 0 2px"><b>On the board</b>' +
+        '<span>' + (c.budget ? money(c.budget) + ' in their budget' : '') + '</span></div>');
+      gezielt.forEach(function (a) {
+        var bezahlbar = s.cash >= a.cost;
+        h.push('<div class="card card--flat" style="padding:12px;border-left:3px solid var(--red)">' +
+          '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">' +
+          '<b style="flex:1;font-size:.9rem">' + e(a.name) + '</b>' +
+          '<span class="tag tag--red">' + e(a.badge) + '</span></div>' +
+          '<div class="op__desc" style="margin-bottom:9px">' + e(a.desc) + '</div>' +
+          btn('Pay ' + money(a.cost), 'caseTargeted',
+            { data: { id: a.id }, cls: 'btn--sm btn--block btn--primary', disabled: !bezahlbar,
+              title: bezahlbar ? '' : 'Not enough cash.' }) + '</div>');
+      });
+      h.push('<div class="card__title" style="margin:10px 0 2px"><b>General defence</b></div>');
+    }
+
     K.actions(s, d).forEach(function (a) {
       var can = K.canDo(s, a.id);
       h.push('<div class="card card--flat" style="padding:12px">' +
@@ -1162,8 +1207,11 @@
     h.push('<div class="card" style="margin-top:14px"><div class="card__title"><b>The city</b>' +
       '<span>' + city.held + ' / ' + city.total + ' districts at majority control</span></div>' +
       bar('bar--g', city.held / city.total) +
-      '<div class="why">Hold 60 influence or more in all six districts as an Underworld Legend ' +
-      'to take Blackhaven outright.' + (s.flags.won ? ' <b class="gold">Achieved on day ' + s.flags.won + '.</b>' : '') + '</div></div>');
+      '<div class="why">Hold 60 influence or more in all six districts as an Underworld Legend, ' +
+      'with the federal case below 60, to take Blackhaven outright.' +
+      (s.commission && s.commission.open && s.commission.strength >= 60
+        ? ' <b class="red">The case is at ' + Math.round(s.commission.strength) +
+          ' &mdash; you do not control a city that is about to seize you.</b>' : '') + (s.flags.won ? ' <b class="gold">Achieved on day ' + s.flags.won + '.</b>' : '') + '</div></div>');
     return h.join('');
   }
 

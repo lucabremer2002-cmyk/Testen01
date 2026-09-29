@@ -40,7 +40,14 @@
   }
 
   /* Stadtweite Kontrolle: alle sechs Bezirke offen und in jedem die
-     Mehrheit. Absichtlich nicht 100% - ein Rest Widerstand bleibt immer. */
+     Mehrheit. Absichtlich nicht 100% - ein Rest Widerstand bleibt immer.
+
+     Dazu ein Bundesverfahren, das man im Griff hat. Ohne diese Bedingung
+     gewann im Szenarienvergleich auch der schlampige Spieler die Stadt -
+     mit dreizehn Razzien, einem Fall bei 99 und einer Anklage in
+     Vorbereitung. Wer kurz davor steht, alles verzollt zu bekommen,
+     kontrolliert nichts. Die Bedingung ist erfuellbar, nicht streng:
+     unter 60 heisst "keine Anklagekammer", nicht "makellos". */
   function victory(s) {
     var n = 0;
     for (var k in s.districts) {
@@ -48,7 +55,9 @@
       if (!dd.open || dd.mine < 60) return false;
       n++;
     }
-    return n >= D.DISTRICTS.length;
+    if (n < D.DISTRICTS.length) return false;
+    if (s.commission && s.commission.open && s.commission.strength >= 60) return false;
+    return true;
   }
 
   /* Wie weit ist die Stadt erobert - fuer die Anzeige. */

@@ -223,6 +223,7 @@
       if (!working) drift -= 0.8;                          /* Leerlauf zermuerbt */
       if (s.rep > 55) drift += 0.5;
       drift -= traitMod(c, 'loyaltyDecay');
+      drift += (d && d.secondHand) || 0;    /* eine rechte Hand haelt Ordnung */
       c.loyalty = U.clamp(c.loyalty + drift, 0, 100);
 
       c.mood = c.loyalty > 75 ? 'loyal' : (c.loyalty > 45 ? 'steady' : (c.loyalty > 22 ? 'restless' : 'hostile'));

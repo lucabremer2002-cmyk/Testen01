@@ -161,6 +161,13 @@ function policySource() {
     const kom = st.commission;
     if (kom && kom.open) {
       const K = CE.commission;
+      /* Zuerst ihre Figuren vom Brett nehmen - das ist billiger und
+         wirksamer als die allgemeine Abwehr. */
+      for (const a of K.targeted(st, d)) {
+        if (st.cash < a.cost * 1.5) continue;
+        const r = K.doTargeted(st, CE.sim.rngOf(st), a.id);
+        if (r.ok) { log.push('W' + U.weekOf(st.day) + ' ' + a.name + ': ' + r.text.slice(0, 70)); break; }
+      }
       const f = K.feed(st, d);
       const dringend = kom.strength > 65 || (kom.strength > 38 && f.netto > 1.5);
       if (dringend) {
@@ -305,6 +312,11 @@ function policySource() {
 
     const knapp = st.cash < 20000;
     const text = o => (o.label + ' ' + (o.hint || '')).toLowerCase();
+    let teuerste = 0;
+    for (const x of offen) {
+      const mm = text(x.o).match(/-\$([\d.,]+)([km]?)/);
+      if (mm) { let c = parseFloat(mm[1].replace(/,/g, '')); if (mm[2] === 'k') c *= 1000; else if (mm[2] === 'm') c *= 1e6; teuerste = Math.max(teuerste, c); }
+    }
     let beste = offen[0], besterWert = -1e9;
     for (const x of offen) {
       const t = text(x.o);
@@ -367,6 +379,9 @@ function policySource() {
         waesche: Math.round(d.launderCap), dreck: Math.round(d.dirtyGross),
         waescheVerlust: Math.round(d.launderLoss),
         fall: st.commission && st.commission.open ? Math.round(st.commission.strength) : -1,
+        komMittel: st.commission && st.commission.assets ? st.commission.assets.length : 0,
+        komBudget: st.commission ? Math.round(st.commission.budget || 0) : 0,
+        haeltKontrolle: CE.progress.victory(st),
         fallPhase: st.commission && st.commission.open ? CE.commission.phase(st).name : 'none',
         anklagen: st.commission ? st.commission.raids : 0,
         fallAusgaben: st.commission ? Math.round(st.commission.spent) : 0,
@@ -547,7 +562,9 @@ function policySource() {
   }
   if (letzte) {
     console.log('Bundesermittlung: Phase ' + letzte.fallPhase + ', ' + letzte.anklagen +
-      ' Anklagen, ' + fmt(letzte.fallAusgaben) + ' fuer Abwehr ausgegeben');
+      ' Anklagen, ' + fmt(letzte.fallAusgaben) + ' fuer Abwehr, ' + letzte.komMittel +
+      ' Mittel auf dem Brett, ' + fmt(letzte.komBudget) + ' in ihrer Kasse');
+    console.log('Kontrolle am Ende: ' + (letzte.haeltKontrolle ? 'gehalten' : 'VERLOREN'));
     console.log('Bezirkslage: ' + letzte.bezirkslage.join(', '));
     console.log('Figuren: ' + (letzte.figuren.length ? letzte.figuren.join('  ') : 'keine getroffen'));
     console.log('Rivalenziele: ' + letzte.rivalZiele.join(' | '));

@@ -29,6 +29,36 @@ function firstOpenIdx(ev) {
   for (var i = 0; i < ev.options.length; i++) if (!ev.options[i].disabled) return i;
   return 0;
 }
+/* ---------------------------------------------------- Tote Belohnungen
+
+   Eine Flagge, die ein Ereignis setzt und die nie jemand liest, ist eine
+   Belohnung, die es nicht gibt. Der Text verspricht "a permanent edge",
+   der Spieler zahlt, und es passiert nichts. Fuenf davon lagen im Code.
+   Diese Pruefung liest den Quelltext und verlangt fuer jede gesetzte
+   Flagge mindestens eine Stelle, die sie auch auswertet.
+   -------------------------------------------------------------------- */
+function toteFlaggen() {
+  const fs = require('fs'), path = require('path');
+  const dir = path.join(__dirname, '..', 'src');
+  const quellen = fs.readdirSync(dir).filter(f => f.endsWith('.js'))
+    .map(f => ({ name: f, text: fs.readFileSync(path.join(dir, f), 'utf8') }));
+  const alles = quellen.map(q => q.text).join('\n');
+
+  const gesetzt = new Set();
+  const re = /(?:s|state|probe)\.flags\.([A-Za-z_][\w]*)\s*=/g;
+  let m;
+  while ((m = re.exec(alles))) gesetzt.add(m[1]);
+
+  const tot = [];
+  for (const flagge of gesetzt) {
+    /* Jede Nennung zaehlen, die keine Zuweisung ist. */
+    const nennungen = alles.match(new RegExp('flags\\.' + flagge + '\\b', 'g')) || [];
+    const zuweisungen = alles.match(new RegExp('flags\\.' + flagge + '\\s*=', 'g')) || [];
+    if (nennungen.length <= zuweisungen.length) tot.push(flagge);
+  }
+  return tot;
+}
+
 (async () => {
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -341,6 +371,14 @@ function firstOpenIdx(ev) {
       sichtbar('rivals', /Current aim/, 'rival goals');
       sichtbar('org', /Case strength/, 'the federal case');
       sichtbar('org', /Burn the Records/, 'case counterplay');
+      probe2.commission.assets = [
+        { kind: 'wiretap', ref: probe2.businesses[0].id, name: probe2.businesses[0].name, since: 1 },
+        { kind: 'informant', ref: 'x', name: 'Geheim', since: 1, known: false }
+      ];
+      sichtbar('org', /What they have/, 'what the commission owns');
+      sichtbar('org', /Sweep for Bugs/, 'targeted counterplay');
+      const orgHtml = CE.ui.render('org', probe2, St.derive(probe2));
+      if (/Geheim/.test(orgHtml)) fail('the informant is named in the interface - finding them should be an action');
       sichtbar('city', /Booming/i, 'district states');
       sichtbar('overview', /Federal case|federal/i, 'the case on the overview');
     }
@@ -355,6 +393,8 @@ function firstOpenIdx(ev) {
 
   /* --- 1. Fehler in der Konsole ------------------------------------- */
   const fails = R.fails.slice();
+  const tot = toteFlaggen();
+  if (tot.length) fails.push('rewards that are set but never read (dead promises): ' + tot.join(', '));
   if (errors.length) fails.push('page errors: ' + errors.slice(0, 4).join(' | '));
 
   /* --- Klicktest: jeden Knopf jedes Bildschirms wirklich anklicken --- */

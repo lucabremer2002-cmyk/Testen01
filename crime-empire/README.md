@@ -106,6 +106,26 @@ Bargeld darf ins Minus, aber nie stillschweigend: 6 % Zinsen je Woche,
 und wenn die Schuld das halbe Anlagevermoegen ueberschreitet, verkaufen
 die Glaeubiger den guenstigsten Betrieb zum halben Wert. Mit Ansage.
 
+## Drei Spielweisen im Vergleich
+
+`tools/szenarien.js` laesst dieselbe Partie von drei Spielern spielen:
+vorsichtig (wenig Hitze, legal, frueh verteidigt), aggressiv (Untergrund,
+jeder Auftrag, Hitze egal) und schlampig (gibt aus was da ist, ohne
+Ruecklage). Gemessener Stand:
+
+| | Vorsichtig | Aggressiv | Schlampig |
+| --- | --- | --- | --- |
+| Vermoegen nach 110 Wochen | 7,8 Mio. | 3,4 Mio. | 2,5 Mio. |
+| Stadt erobert in Woche | 68 | 89 | 91 |
+| Kontrolle am Ende gehalten | ja | **nein** | **nein** |
+| Wochen mit tatsaechlicher Kontrolle | 44 | 0 | 3 |
+| Anklagen / Razzien | 0 / 0 | 0 / 0 | 5 / 13 |
+
+Der Sieg verlangt seit dieser Fassung nicht nur sechs Bezirke, sondern
+auch ein Verfahren unter 60. Wer kurz davor steht, alles verzollt zu
+bekommen, kontrolliert nichts - und genau das trennt die drei
+Spielweisen: alle drei beruehren den Sieg, nur eine haelt ihn.
+
 ## Werkzeuge
 
 Alle laufen ohne Browser, bis auf die beiden, die Playwright brauchen.
@@ -117,6 +137,7 @@ python3 -m http.server 8231 &
 node tools/selftest.js               # Browsertest: Buchhaltung, Speichern, tote Knoepfe
 node tools/durchlauf.js              # klickt sich wie ein Mensch durch das Spiel
 node tools/partie.js [wochen] [ordner]     # ganze Partie im Browser, mit Bildern
+node tools/szenarien.js [wochen] [seed]    # drei Spielweisen nebeneinander
 node tools/ansicht.js                # Bildschirmfotos aller Ansichten
 ```
 

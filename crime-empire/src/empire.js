@@ -182,7 +182,14 @@
   */
   function heatActions(s) {
     var d = St.derive(s);
-    var base = Math.max(6000, d.grossIncome * 0.9);
+    /* Der Preis muss zur Groesse passen. Die feste Untergrenze von 6.000
+       traf einen Anfaenger ohne Betriebe genauso hart wie ein Imperium:
+       drei Auftraege Ertrag fuer neun Punkte Hitze. Im Szenarienlauf
+       verbrannte der vorsichtige Spieler damit hundertzehn Wochen lang
+       sein gesamtes Einkommen und kam nie ueber 11.000 Dollar hinaus -
+       er lief auf einem Laufband statt zu wachsen. */
+    var base = U.clamp(d.grossIncome * 0.9 + Math.max(0, d.netWorth) * 0.035,
+                       1400, 400000);
     return [
       { id: 'counsel', name: 'Retain Counsel', cost: Math.round(base * 0.55),
         heat: -9, rep: 0,

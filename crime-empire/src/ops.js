@@ -161,7 +161,8 @@
 
     if (win) {
       s.stats.opsWon++;
-      res.cash = Math.round(o.pay * rng.range(0.94, 1.14));
+      var netzBonus = 1 + (St.derive(s).opPayBonus || 0);
+      res.cash = Math.round(o.pay * rng.range(0.94, 1.14) * netzBonus);
       res.rep = o.rep;
       res.heat = o.heat * 0.55 * (s.mods ? s.mods.heat : 1);
       res.infl = o.infl;
