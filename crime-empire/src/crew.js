@@ -108,13 +108,52 @@
     return { ok: true, crew: c, signing: signing };
   }
 
+  /* Jemanden aus der Organisation nehmen - die einzige richtige Art.
+
+     Wer geht, verschwindet auch aus laufenden Auftraegen. Vorher blieb
+     seine Kennung in run.crew stehen, und beim Abrechnen suchte ops.js
+     einen Menschen, den es nicht mehr gab: "Cannot set properties of
+     null". Das ist kein Randfall - Leute kuendigen, werden abgeworben,
+     rausgeworfen oder verschwinden nach einer Entscheidung, und alles
+     davon kann passieren, waehrend sie unterwegs sind.
+
+     Bleibt ein Auftrag ohne einen einzigen Kopf zurueck, platzt er.
+     Das ist ehrlicher, als ihn geisterhaft weiterlaufen zu lassen. */
+  function remove(s, crewId, report) {
+    var weg = U.byId(s.crew, crewId);
+    if (!weg) return null;
+    s.crew = s.crew.filter(function (x) { return x.id !== crewId; });
+
+    for (var i = s.ops.length - 1; i >= 0; i--) {
+      var run = s.ops[i];
+      var idx = run.crew.indexOf(crewId);
+      if (idx < 0) continue;
+      run.crew.splice(idx, 1);
+      if (!run.crew.length) {
+        s.ops.splice(i, 1);
+        if (report) {
+          report.push({ t: 'bad', text: run.offer.name + ' collapsed - ' + weg.name +
+            ' was the only one on it and they are gone.' });
+        }
+      } else {
+        /* Weniger Leute, schlechtere Aussicht. */
+        run.odds = U.clamp(run.odds - 0.18, 0.04, 0.93);
+        if (report) {
+          report.push({ t: 'warn', text: weg.name + ' walked off ' + run.offer.name +
+            '. The rest are going ahead at ' + Math.round(run.odds * 100) + '%.' });
+        }
+      }
+    }
+    return weg;
+  }
+
   function fire(s, crewId) {
     var c = U.byId(s.crew, crewId);
     if (!c || c.player) return { ok: false, why: 'You cannot dismiss yourself.' };
     var severance = Math.round(c.salary * 2);
     if (s.cash < severance) return { ok: false, why: 'Severance of ' + U.money(severance) + ' is more than you have.' };
     s.cash -= severance;
-    s.crew = s.crew.filter(function (x) { return x.id !== crewId; });
+    remove(s, crewId);
     /* Andere sehen zu. Wer Leute rauswirft, verliert etwas Vertrauen. */
     for (var i = 0; i < s.crew.length; i++) if (!s.crew[i].player) s.crew[i].loyalty = U.clamp(s.crew[i].loyalty - 4, 0, 100);
     return { ok: true, severance: severance };
@@ -205,7 +244,7 @@
 
     for (var j = 0; j < quitters.length; j++) {
       var q = quitters[j];
-      s.crew = s.crew.filter(function (x) { return x.id !== q.id; });
+      remove(s, q.id, report);
       report.push({ t: 'bad', text: q.name + ' walked out. Loyalty had been in the ground for weeks.' });
       /* Wer verbittert geht, redet manchmal. */
       if (rng.chance(0.3)) {
@@ -251,7 +290,7 @@
   }
 
   CE.crew = {
-    makeRecruit: makeRecruit, refreshRecruits: refreshRecruits, hire: hire, fire: fire,
+    remove: remove, makeRecruit: makeRecruit, refreshRecruits: refreshRecruits, hire: hire, fire: fire,
     setSalary: setSalary, fairSalary: fairSalary, assign: assign, weekly: weekly,
     bonus: bonus, promote: promote, askingSalary: askingSalary, traitMod: traitMod
   };

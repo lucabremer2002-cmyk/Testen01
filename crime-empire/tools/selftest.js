@@ -197,9 +197,19 @@ function firstOpenIdx(ev) {
         probe.day++;
         probe.cash = 90000;                    /* Geldmangel soll nicht alles sperren */
         probe.heat = 20 + (i % 70);
-        /* Mannschaft gelegentlich leeren: mehrere Ereignisse setzen
-           freien Platz voraus, und ohne das bleiben sie ungeprueft. */
-        if (i % 40 === 0) probe.crew = probe.crew.filter(c => c.player);
+        /* Die Mannschaft muss beide Zustaende durchlaufen: leer, damit
+           die Ereignisse mit Platzbedarf greifen, und voll, damit die
+           Ereignisse mit Mannschaftsbedarf greifen. Wurde sie nur
+           geleert, blieb "union" (braucht vier Leute) ungeprueft. */
+        if (i % 80 === 0) probe.crew = probe.crew.filter(c => c.player);
+        if (i % 80 === 40) {
+          CE.crew.refreshRecruits(probe, rngP, 8);
+          while (probe.crew.filter(c => !c.player).length < 5 && probe.recruits.length) {
+            const before = probe.crew.length;
+            CE.crew.hire(probe, probe.recruits[0].id);
+            if (probe.crew.length === before) break;
+          }
+        }
         const ev = CE.events.draw(probe, rngP);
         if (!ev) continue;
         checked++;
@@ -220,6 +230,56 @@ function firstOpenIdx(ev) {
         fail('events that never fired in 3000 days: ' + missed.join(', '));
       }
       if (noWayOut.size) fail('events with every option locked (soft-lock): ' + [...noWayOut].join(', '));
+    }
+
+    /* --- 5d. Jemand verlaesst die Organisation waehrend eines Auftrags
+
+       Leute kuendigen, werden abgeworben, rausgeworfen oder verschwinden
+       nach einer Entscheidung - und das alles kann passieren, waehrend
+       sie unterwegs sind. Blieb ihre Kennung im laufenden Auftrag
+       stehen, stuerzte die Abrechnung ab ("Cannot set properties of
+       null") und die Partie war zu Ende. */
+    {
+      const probe = St.newGame({ seed: 8181 });
+      CE.sim.bootstrap(probe);
+      probe.cash = 300000;
+      const rngX = CE.sim.rngOf(probe);
+      CE.crew.refreshRecruits(probe, rngX, 8);
+      for (let i = 0; i < 4 && probe.recruits.length; i++) CE.crew.hire(probe, probe.recruits[0].id);
+
+      const angebote = CE.ops.allOffers(probe);
+      const mann = probe.crew.filter(c => !c.player);
+      let gestartet = 0;
+      for (const o of angebote) {
+        const frei = CE.ops.available(probe).filter(c => !c.player && !c.post);
+        if (frei.length < o.crewNeed) continue;
+        if (CE.ops.start(probe, o.id, frei.slice(0, o.crewNeed).map(c => c.id)).ok) gestartet++;
+      }
+      if (!gestartet) fail('could not start an operation for the crew-removal test');
+
+      /* Jeden Weg durchspielen, auf dem jemand verschwindet. */
+      const wege = [];
+      const aufOp = probe.ops.flatMap(r => r.crew).filter(id => id !== 'you');
+      if (aufOp.length) { CE.crew.remove(probe, aufOp[0]); wege.push('remove'); }
+      const nochDa = probe.ops.flatMap(r => r.crew).filter(id => id !== 'you');
+      if (nochDa.length) { CE.crew.fire(probe, nochDa[0]); wege.push('fire'); }
+
+      /* Kein laufender Auftrag darf auf jemanden zeigen, den es nicht gibt. */
+      for (const run of probe.ops) {
+        for (const id of run.crew) {
+          if (!U.byId(probe.crew, id)) fail('a running operation still points at a departed crew member');
+        }
+        if (!run.crew.length) fail('an operation is running with nobody on it');
+      }
+
+      /* Und die Abrechnung muss durchlaufen, nicht stuerzen. */
+      probe.day += 14;
+      try {
+        CE.ops.resolveDue(probe, rngX, []);
+      } catch (e) {
+        fail('settling an operation after someone left threw: ' + e.message);
+      }
+      out.notes.crewRemovalPaths = wege.join('+') || 'none';
     }
 
     /* --- 6./7. Alle Bildschirme und alle Knoepfe -------------------- */

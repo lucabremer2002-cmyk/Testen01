@@ -491,6 +491,13 @@
     },
 
     /* --- Rivalen ------------------------------------------------------ */
+    tribute: function (p) {
+      var r = CE.rivals.tribute(G.state, p.id);
+      if (!r.ok) return toast(r.why, 'bad');
+      toast(r.text, 'good');
+      sfx('cash');
+      G.dirty = true;
+    },
     negotiate: function (p) {
       var r = CE.rivals.negotiate(G.state, p.id);
       if (!r.ok) return toast(r.why, 'bad');

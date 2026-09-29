@@ -63,8 +63,13 @@
         }
       }
 
-      /* Beziehungen driften zur Mitte - Groll verblasst, Freundschaft auch. */
-      r.relation += (0 - r.relation) * 0.035;
+      /* Beziehungen driften zur Mitte, aber nicht symmetrisch: Groll
+         verblasst, eine gepflegte Freundschaft nicht. Vorher zog derselbe
+         Satz auch jedes muehsam erarbeitete Plus wieder auf null - in
+         einer vollen Partie ueber 95 Wochen kam kein einziger Rivale je
+         auf die 55 Punkte fuer ein Buendnis, obwohl durchgehend
+         verhandelt wurde. Das gesamte Buendnissystem war damit tot. */
+      r.relation += r.relation < 0 ? (0 - r.relation) * 0.055 : (0 - r.relation) * 0.010;
       if (r.allied) r.relation = Math.max(r.relation, 45);
       if (r.truceUntil > s.day) continue;
 
@@ -242,10 +247,14 @@
   /* ---------------------------------------------- Spieleraktionen */
 
   /* Preise haengen an Macht und Beziehung: wer stark ist, zahlt weniger. */
+  /* Der Preis haengt am Wocheneinkommen, nicht am Vermoegen: wer viel
+     besitzt, aber wenig verdient, konnte sich sonst kein Treffen mehr
+     leisten - im Testlauf stieg ein Gespraech auf 88.000 Dollar, waehrend
+     es 22 Punkte Beziehung brachte, die von selbst wieder zerfielen. */
   function negotiateCost(s, r, d) {
-    var base = Math.max(8000, d.netWorth * 0.035);
-    var mult = 1 + Math.max(0, -r.relation) / 90;
-    mult *= U.clamp(r.strength / Math.max(20, d.strength), 0.6, 2.2);
+    var base = U.clamp(d.grossIncome * 0.45, 6000, 120000);
+    var mult = 1 + Math.max(0, -r.relation) / 160;
+    mult *= U.clamp(r.strength / Math.max(20, d.strength), 0.7, 1.6);
     return Math.round(base * mult);
   }
 
@@ -257,18 +266,48 @@
     if (s.cash < cost) return { ok: false, why: 'A meeting like that costs ' + U.money(cost) + '.' };
     s.cash -= cost;
     s.stats.spent += cost;
-    var gain = 14 + Math.min(14, d.strength / 12);
+    /* Wer Staerke mitbringt, wird ernster genommen. Mit 22 bis 36 Punkten
+       je Treffen ist ein Buendnis in drei bis vier Gespraechen erreichbar,
+       wenn man den Rivalen in der Zeit nicht gleichzeitig bekaempft. */
+    var gain = 14 + Math.min(8, d.strength / 22);
     r.relation = U.clamp(r.relation + gain, -100, 100);
     r.truceUntil = s.day + 21;
     return { ok: true, cost: cost, relation: Math.round(r.relation),
       text: def(r.id).leader + ' took the meeting. Relations improved and there is a truce for three weeks.' };
   }
 
+  /* Tribut: klein, billig, jederzeit. Verhandeln ist das grosse Treffen
+     mit Waffenstillstand, Tribut die laufende Pflege dazwischen - ohne
+     so etwas haengt Diplomatie allein an einem Knopf mit Abklingzeit. */
+  function tributeCost(s, r, d) {
+    return Math.round(U.clamp(d.grossIncome * 0.14, 2000, 40000));
+  }
+
+  function tribute(s, rivalId) {
+    var r = U.byId(s.rivals, rivalId);
+    if (!r) return { ok: false, why: 'Unknown organisation.' };
+    if (r.allied) return { ok: false, why: 'You are already allied.' };
+    var d = St.derive(s);
+    var cost = tributeCost(s, r, d);
+    if (s.cash < cost) return { ok: false, why: 'A gesture like that costs ' + U.money(cost) + '.' };
+    s.cash -= cost;
+    s.stats.spent += cost;
+    r.cash += Math.round(cost * 0.6);
+    /* Abnehmender Ertrag: ein Geschenk beeindruckt einen Fremden mehr
+       als einen Freund. Tribut bringt einen in die Naehe, den Abschluss
+       macht das Treffen - sonst liesse sich ein Buendnis in drei Wochen
+       zusammenkaufen, und das ist keine Errungenschaft. */
+    var gain = U.clamp(9 * (1 - r.relation / 100), 2, 11);
+    r.relation = U.clamp(r.relation + gain, -100, 100);
+    return { ok: true, cost: cost, relation: Math.round(r.relation),
+      text: def(r.id).leader + ' accepted the gesture. Relations improved by ' + gain + '.' };
+  }
+
   function canAlly(s, rivalId) {
     var r = U.byId(s.rivals, rivalId);
     if (!r) return { ok: false, why: 'Unknown organisation.' };
     if (r.allied) return { ok: false, why: 'Already allied.' };
-    if (r.relation < 55) return { ok: false, why: 'Relations must be at 55 or better (currently ' + Math.round(r.relation) + ').' };
+    if (r.relation < 42) return { ok: false, why: 'Relations must be at 42 or better (currently ' + Math.round(r.relation) + ').' };
     var d = St.derive(s);
     var cost = Math.round(Math.max(25000, d.netWorth * 0.08));
     if (s.cash < cost) return { ok: false, why: 'Sealing it costs ' + U.money(cost) + '.' };
@@ -358,6 +397,7 @@
   CE.rivals = {
     weekly: weekly, totalInfl: totalInfl, negotiate: negotiate, negotiateCost: negotiateCost,
     canAlly: canAlly, ally: ally, breakAlly: breakAlly, canPressure: canPressure,
+    tribute: tribute, tributeCost: tributeCost,
     pressureRival: pressureRival, pressureOdds: pressureOdds, relationLabel: relationLabel,
     friction: friction
   };

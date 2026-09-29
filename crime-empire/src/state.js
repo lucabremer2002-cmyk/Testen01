@@ -133,7 +133,11 @@
       if (hasTrait(c, 'reckless')) heatBonus += 0.5;
     }
     var understaffed = Math.max(0, slots - filled);
-    var staffPenalty = understaffed * 0.07;
+    /* Gedeckelt: ein Betrieb mit sieben Plaetzen und niemandem darin
+       verlor sonst 49 % Ertrag. Im Spaetspiel hat man zwangslaeufig mehr
+       Standorte als Leute - das soll den Ausbau bremsen, nicht die
+       Haelfte des Imperiums entwerten. */
+    var staffPenalty = Math.min(0.30, understaffed * 0.07);
 
     /* Einfluss im Bezirk schuetzt und verdient: wer die Strasse haelt,
        wird nicht bestohlen. */
@@ -346,6 +350,13 @@
     d.rankProgress = d.nextRank
       ? U.clamp((d.notoriety - D.RANKS[d.rank].at) / (d.nextRank.at - D.RANKS[d.rank].at), 0, 1)
       : 1;
+    /* Rang bringt Leute. Vorher hing die Mannschaftsgrenze allein am
+       Safe House und endete bei 13 - fuer ein Imperium mit 22 Betrieben
+       und ueber 60 Arbeitsplaetzen. Im Testlauf standen deshalb ab
+       Woche 60 dauerhaft "21 Betriebe unterbesetzt" auf der Uebersicht,
+       jeder mit 7 % Ertragsverlust je leerer Stelle. Ein Crime Boss
+       befehligt mehr Leute als ein Unbekannter - jetzt auch im Spiel. */
+    d.crewCap += d.rank * 2;
     d.crewCap = Math.round(d.crewCap);
     d.districtsOpen = districtsOpen;
     return d;

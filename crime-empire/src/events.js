@@ -122,7 +122,7 @@
               go: function () {
                 if (c.rng.chance(0.45 + (60 - e.loyalty) / 160)) {
                   var n = e.name;
-                  s.crew = s.crew.filter(function (x) { return x.id !== e.id; });
+                  CE.crew.remove(s, e.id);
                   r.strength += 5;
                   return n + ' took the offer and walked. ' + rd.name + ' is stronger for it.';
                 }
@@ -540,6 +540,200 @@
           ]
         };
       }
+    },
+    /* --- Spaetes Spiel -----------------------------------------------
+
+       Im Testlauf ueber 95 Wochen kamen 118 Entscheidungen aus nur
+       vierzehn Vorlagen - "A Distressed Sale" allein achtzehnmal. Die
+       folgenden greifen erst, wenn das Imperium steht, und verschieben
+       das Gewicht im Spaetspiel auf Stoffe, die es vorher nicht gab. */
+    {
+      id: 'union', w: 1.4, cool: 9,
+      when: function (s, c) { return s.businesses.length >= 6 && c.paid.length >= 4; },
+      build: function (s, c) {
+        var kosten = Math.round(Math.max(3000, c.d.salaries * 0.55) / 10) * 10;
+        return {
+          title: 'They Have Been Talking', tone: 'crew',
+          text: 'Your people have been comparing numbers. The message came through three of ' +
+                'them at once, which means it was rehearsed: everybody wants more, and they ' +
+                'want it together.',
+          options: [
+            { label: 'Give the whole crew a rise', hint: U.moneySigned(-kosten) + '/week, loyalty across the board',
+              go: function () {
+                for (var i = 0; i < s.crew.length; i++) {
+                  if (!s.crew[i].player) s.crew[i].salary = Math.round(s.crew[i].salary * 1.14);
+                }
+                return 'Nobody expected you to say yes that fast. ' + fx(s, { loyaltyAll: 14, rep: 1 });
+              } },
+            { label: 'Buy off the ringleaders', hint: U.moneySigned(-Math.round(kosten * 2.5)) + ' once',
+              disabled: s.cash < kosten * 2.5, why: 'Not enough cash.',
+              go: function () {
+                var top = c.paid.slice().sort(function (a, b) { return b.loyalty - a.loyalty; }).slice(0, 2);
+                for (var i = 0; i < top.length; i++) top[i].loyalty = U.clamp(top[i].loyalty + 18, 0, 100);
+                return 'Two of them went quiet and the rest noticed. ' +
+                       fx(s, { cash: -Math.round(kosten * 2.5), loyaltyAll: -5 });
+              } },
+            { label: 'Remind them who pays', hint: 'Free. Loyalty falls hard.',
+              go: function () { return fx(s, { loyaltyAll: -16, rep: 0.5, heat: 1 }); } }
+          ]
+        };
+      }
+    },
+    {
+      id: 'federal', w: 1.5, cool: 11,
+      when: function (s, c) { return c.d.rank >= 3 && s.heat >= 35; },
+      build: function (s, c) {
+        var kosten = Math.round(Math.max(20000, c.d.grossIncome * 0.9));
+        return {
+          title: 'Not Local Anymore', tone: 'heat',
+          text: 'The car outside your laundry has federal plates. Whatever file this is, it did ' +
+                'not start at the 9th precinct, and the people reading it do not take envelopes.',
+          options: [
+            { label: 'Restructure everything', hint: U.moneySigned(-kosten) + ', heat -22',
+              disabled: s.cash < kosten, why: 'Not enough cash.',
+              go: function () { return fx(s, { cash: -kosten, heat: -22, rep: -1 }); } },
+            { label: 'Feed them somebody else', hint: 'Heat -14, a rival turns on you',
+              disabled: c.enemies.length === 0 && s.rivals.length === 0, why: 'Nobody to give them.',
+              go: function () {
+                var r = c.rng.pick(s.rivals);
+                r.infl[c.rng.pick(c.openDistricts)] = Math.max(0, (r.infl[c.openDistricts[0]] || 0) - 5);
+                return fx(s, { heat: -14, rival: r, relation: -30, rep: -3 }) +
+                       '. ' + D.byId(D.RIVALS, r.id).name + ' will work out where it came from.';
+              } },
+            { label: 'Let them look', hint: 'Free now, expensive later',
+              go: function () {
+                later(s, 21, 'federal', {});
+                return 'You changed nothing. They will take their time.';
+              } }
+          ]
+        };
+      }
+    },
+    {
+      id: 'succession', w: 1.2, cool: 14,
+      when: function (s, c) {
+        return c.paid.filter(function (x) { return St.effectiveSkill(x) >= 8; }).length > 0 && c.d.rank >= 3;
+      },
+      build: function (s, c) {
+        var beste = c.paid.filter(function (x) { return St.effectiveSkill(x) >= 8; })
+          .sort(function (a, b) { return St.effectiveSkill(b) - St.effectiveSkill(a); })[0];
+        return {
+          title: 'The Second Chair', tone: 'crew', who: beste.id,
+          text: beste.name + ' runs more of this organisation than you do on most days, and ' +
+                'everyone has noticed. There is no threat in it yet. There does not have to be.',
+          options: [
+            { label: 'Make them your second', hint: 'Strong loyalty, they take a cut',
+              go: function () {
+                beste.salary = Math.round(beste.salary * 1.35);
+                s.flags.second = beste.id;
+                return beste.name + ' is your second now, and the salary reflects it. ' +
+                       fx(s, { crew: beste, loyalty: 22, loyaltyAll: 4, rep: 2 });
+              } },
+            { label: 'Split their duties up', hint: 'Safer, and they know why',
+              go: function () { return fx(s, { crew: beste, loyalty: -16, loyaltyAll: -3 }); } },
+            { label: 'Leave it alone', hint: 'Nothing changes. For now.',
+              go: function () {
+                later(s, 28, 'ambition', { crew: beste.id });
+                return 'You said nothing. Neither did they.';
+              } }
+          ]
+        };
+      }
+    },
+    {
+      id: 'expansion_offer', w: 1.3, cool: 10,
+      when: function (s, c) {
+        for (var k in s.districts) if (!s.districts[k].open) return c.d.rank >= 2 && s.cash > 25000;
+        return false;
+      },
+      build: function (s, c) {
+        var zu = [];
+        for (var k in s.districts) if (!s.districts[k].open) zu.push(k);
+        var ziel = c.rng.pick(zu);
+        var dist = D.byId(D.DISTRICTS, ziel);
+        var preis = Math.round(CE.empire.entryCost(s, ziel) * 0.6);
+        return {
+          title: 'A Door Into ' + dist.name, tone: 'money',
+          text: 'Somebody who owes somebody who owes you can put your name on the right list in ' +
+                dist.name + '. It is a shortcut, not a gift, and shortcuts in this city have ' +
+                'a way of being remembered.',
+          options: [
+            { label: 'Take the shortcut', hint: U.moneySigned(-preis) + ', establishes you there',
+              disabled: s.cash < preis || c.d.rank < dist.rank,
+              why: s.cash < preis ? 'Not enough cash.' : 'You do not have the standing for that district yet.',
+              go: function () {
+                s.cash -= preis; s.stats.spent += preis;
+                s.districts[ziel].open = true;
+                s.districts[ziel].mine = Math.max(s.districts[ziel].mine, 5);
+                return 'You are in ' + dist.name + ' for ' + U.money(preis) + '. ' +
+                       fx(s, { rep: 1.5, heat: 2 });
+              } },
+            { label: 'Ask what it really costs', hint: 'Information, no commitment',
+              go: function () {
+                return 'The favour would have been called in within the year, and not in money. ' +
+                       'Good to know. ' + fx(s, { rep: 0.5 });
+              } },
+            { label: 'Do it the slow way', hint: 'Nothing now',
+              go: function () { return 'You will walk in through the front door or not at all.'; } }
+          ]
+        };
+      }
+    },
+    {
+      id: 'legit', w: 1.1, cool: 13,
+      when: function (s, c) { return c.d.rank >= 4 && c.d.cleanGross > 20000; },
+      build: function (s, c) {
+        var kosten = Math.round(c.d.netWorth * 0.09);
+        return {
+          title: 'The Respectable Option', tone: 'money',
+          text: 'A development group wants you on the board. Real name, real title, photographs ' +
+                'at the ribbon cutting. It would cost ' + U.money(kosten) + ' and a certain amount ' +
+                'of what you are.',
+          options: [
+            { label: 'Buy the seat', hint: U.moneySigned(-kosten) + ', reputation and heat relief',
+              disabled: s.cash < kosten, why: 'Not enough cash.',
+              go: function () {
+                s.flags.board = true;
+                return fx(s, { cash: -kosten, rep: 8, heat: -12 }) +
+                       '. Respectability turns out to be purchasable, like everything else.';
+              } },
+            { label: 'Put somebody else on it', hint: 'Cheaper, less benefit',
+              disabled: s.cash < Math.round(kosten * 0.4), why: 'Not enough cash.',
+              go: function () { return fx(s, { cash: -Math.round(kosten * 0.4), rep: 3, heat: -5 }); } },
+            { label: 'Refuse', hint: 'They will remember being turned down',
+              go: function () { return fx(s, { rep: -1 }) + '. You do not want your face on anything.'; } }
+          ]
+        };
+      }
+    },
+    {
+      id: 'cartel', w: 1.2, cool: 12,
+      when: function (s, c) { return c.d.rank >= 3 && s.rivals.filter(function (r) { return !r.allied; }).length >= 2; },
+      build: function (s, c) {
+        var zwei = c.rng.shuffle(s.rivals.filter(function (r) { return !r.allied; }).slice()).slice(0, 2);
+        var a = zwei[0], b = zwei[1];
+        var ad = D.byId(D.RIVALS, a.id), bd = D.byId(D.RIVALS, b.id);
+        return {
+          title: 'A Table For Three', tone: 'rival', who: a.id,
+          text: ad.leader + ' and ' + bd.leader + ' are at war over the docks, and both of them ' +
+                'have asked you to sit down. Whatever you do next, one of them finds out.',
+          options: [
+            { label: 'Side with ' + ad.leader.split(' ').pop(), hint: 'Relations up with one, down with the other',
+              go: function () { return fx(s, { rival: a, relation: 26 }) + ', ' + fx(s, { rival: b, relation: -20 }); } },
+            { label: 'Side with ' + bd.leader.split(' ').pop(), hint: 'The mirror of the above',
+              go: function () { return fx(s, { rival: b, relation: 26 }) + ', ' + fx(s, { rival: a, relation: -20 }); } },
+            { label: 'Broker the peace', hint: 'Both improve, costs standing to try',
+              go: function () {
+                if (c.rng.chance(0.55 + c.d.rep / 400)) {
+                  return 'They signed nothing, but they shook hands in front of you. ' +
+                         fx(s, { rival: a, relation: 16 }) + ', ' + fx(s, { rival: b, relation: 16 }) + ', ' + fx(s, { rep: 3 });
+                }
+                return 'It fell apart at the table and both of them blame the host. ' +
+                       fx(s, { rival: a, relation: -8 }) + ', ' + fx(s, { rival: b, relation: -8 });
+              } }
+          ]
+        };
+      }
     }
   ];
 
@@ -617,7 +811,7 @@
         if (c.loyalty < 40 && rng.chance(0.5)) {
           var take = Math.round(Math.max(1500, St.derive(s).grossIncome * 0.12));
           s.cash -= take;
-          s.crew = s.crew.filter(function (x) { return x.id !== c.id; });
+          CE.crew.remove(s, c.id);
           return { t: 'bad', text: c.name + ' emptied what they could reach — ' + U2.money(take) + ' — and disappeared.' };
         }
         return { t: 'neutral', text: c.name + ' got over being refused. Mostly.' };
@@ -658,6 +852,26 @@
         }
         return { t: 'neutral', text: 'The ' + def.name.toLowerCase() + ' in ' + dist.name +
           ' had three liens and a silent partner. You are glad you asked.' };
+      }
+      case 'federal': {
+        var schwer = Math.round(Math.max(25000, St.derive(s).grossIncome * 1.4) * St.derive(s).fineMul);
+        s.cash -= schwer;
+        s.heat = U.clamp(s.heat + 8, 0, 100);
+        return { t: 'bad', text: 'The federal case landed. ' + U2.money(schwer) +
+          ' in seizures and legal costs before anyone saw a courtroom.' };
+      }
+      case 'ambition': {
+        var amb = U.byId(s.crew, p.data.crew);
+        if (!amb) return null;
+        if (amb.loyalty < 55 && rng.chance(0.5)) {
+          var mit = Math.round(Math.max(4000, St.derive(s).grossIncome * 0.25));
+          s.cash -= mit;
+          CE.crew.remove(s, amb.id);
+          return { t: 'bad', text: amb.name + ' left and took ' + U2.money(mit) +
+            ' worth of the organisation with them. You saw it coming and did nothing.' };
+        }
+        amb.loyalty = U.clamp(amb.loyalty + 6, 0, 100);
+        return { t: 'neutral', text: amb.name + ' settled. Whatever it was, it passed.' };
       }
       case 'investment': {
         var amount = p.data.amount;

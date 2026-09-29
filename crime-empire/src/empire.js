@@ -27,11 +27,19 @@
 
   /* Eintrittsgeld steigt mit der fremden Praesenz: wo schon jemand sitzt,
      kostet der erste Fuss auf dem Boden mehr. */
+  /* Der Aufschlag fuer fremde Praesenz ist gedeckelt, und wer einen Namen
+     hat, kommt guenstiger hinein. Vorher wuchs der Preis ungebremst mit
+     dem Einfluss der Rivalen - und weil die nachwachsen, wurde Expansion
+     mit der Zeit *teurer* statt leichter. Im Testlauf sass der Spieler
+     deshalb 39 Wochen in einem einzigen Bezirk fest, mit Einfluss am
+     Anschlag und nichts mehr zu tun. */
   function entryCost(s, id) {
     var def = D.byId(D.DISTRICTS, id);
     var rivalInfl = 0;
     for (var i = 0; i < s.rivals.length; i++) rivalInfl += s.rivals[i].infl[id] || 0;
-    return Math.round(def.entry * (1 + rivalInfl / 150));
+    var aufschlag = 1 + Math.min(rivalInfl, 90) / 220;      /* hoechstens +41 % */
+    var ruf = 1 - (s.rep / 100) * 0.25;                     /* bis zu 25 % Rabatt */
+    return Math.round(def.entry * aufschlag * ruf);
   }
 
   function openDistrict(s, id) {
@@ -52,14 +60,24 @@
   /* --------------------------------------------------------- Betriebe */
 
   /* Wie viele Standorte ein Bezirk traegt: zwei ohne Rueckhalt, sechs bei
-     voller Kontrolle. */
-  function maxBusinesses(s, districtId) {
+     voller Kontrolle - und zwei mehr, wenn man einen Namen hat.
+
+     Der Rangteil ist kein Beiwerk. Einfluss endet bei 100, und ein voll
+     kontrollierter Bezirk war damit fertig: im Testlauf stand der
+     Spieler dreizehn Wochen mit maximalem Einfluss und sechs Betrieben
+     da und konnte nur noch Geld ansammeln. Mit dem Rang waechst ein
+     alter Bezirk weiter, statt zum Standbild zu werden. */
+  function maxBusinesses(s, districtId, rang) {
     var dd = s.districts[districtId];
     if (!dd || !dd.open) return 0;
-    return 2 + Math.floor(dd.mine / 22);
+    /* Der Rang darf mitgegeben werden. Der Betriebe-Bildschirm fragt
+       diese Funktion bis zu achtzig Mal je Aufbau - jedes Mal derive()
+       zu rechnen waere Verschwendung, auch wenn es billig ist. */
+    if (rang === undefined) rang = St.derive(s).rank;
+    return 2 + Math.floor(dd.mine / 22) + Math.floor(rang / 2);
   }
 
-  function canBuy(s, districtId, typeId) {
+  function canBuy(s, districtId, typeId, rang) {
     var def = D.byId(D.BUSINESSES, typeId);
     var dd = s.districts[districtId];
     if (!def || !dd) return { ok: false, why: 'Unknown.' };
@@ -72,7 +90,7 @@
        die Simulation lief auf 123 Standorte, was nichts mehr entscheidet.
        Jetzt ist Einfluss die Voraussetzung fuer Wachstum, nicht Beiwerk. */
     var here = s.businesses.filter(function (b) { return b.district === districtId; }).length;
-    var room = maxBusinesses(s, districtId);
+    var room = maxBusinesses(s, districtId, rang);
     if (here >= room) {
       return { ok: false, why: 'You can support ' + room + ' businesses in this district. ' +
         'Build influence here to make room for more.' };
@@ -88,7 +106,7 @@
   }
 
   function buy(s, districtId, typeId, name) {
-    var c = canBuy(s, districtId, typeId);
+    var c = canBuy(s, districtId, typeId);   /* Kauf rechnet frisch */
     if (!c.ok) return c;
     var def = D.byId(D.BUSINESSES, typeId);
     s.cash -= c.cost;

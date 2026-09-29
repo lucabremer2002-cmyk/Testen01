@@ -82,6 +82,26 @@
     var income = cleanGross + dirtyGross - launderLoss - heatLoss;
     var expense = upkeep + salaries + d.orgUpkeep + d.districtCost;
 
+    /* ---------------------------------- Ertrag aus Buendnissen
+
+       Ein Buendnis kostete bisher Geld und brachte nur Schutz - einen
+       Nutzen, den man nicht beziffern kann. Wer auf Wachstum spielt,
+       schloss deshalb nie eines: dasselbe Geld in einen Betrieb gesteckt
+       verdiente sichtbar. Jetzt teilt ein Verbuendeter seinen Umsatz,
+       und die Zeile steht mit Namen im Buch. */
+    for (i = 0; i < s.rivals.length; i++) {
+      var ally = s.rivals[i];
+      if (!ally.allied) continue;
+      var allyInfl = 0;
+      for (var ak in ally.infl) allyInfl += ally.infl[ak];
+      var cut = Math.round(allyInfl * 58 * (0.7 + s.rep / 250));
+      if (cut > 0) {
+        income += cut;
+        line(book, 'Alliance dividend', cut,
+          D.byId(D.RIVALS, ally.id).name + ' shares its take across ' + Math.round(allyInfl) + ' influence', 'in');
+      }
+    }
+
     /* --------------------------------------- Zufaelle der Woche */
     var extra = weeklyIncidents(s, rng, d, book, report, perBiz);
     expense += extra.expense;
@@ -152,8 +172,13 @@
       var gain = d.influenceGain[k] || 0;
       /* Fremder Druck: je staerker die Rivalen hier stehen, desto mehr
          von dem Zuwachs verpufft. */
+      /* Verbuendete zaehlen hier nicht mit: wer sich die Hand gegeben
+         hat, kaempft nicht um dieselbe Strasse. */
       var rivalHere = 0;
-      for (i = 0; i < s.rivals.length; i++) rivalHere += s.rivals[i].infl[k] || 0;
+      for (i = 0; i < s.rivals.length; i++) {
+        if (s.rivals[i].allied) continue;
+        rivalHere += s.rivals[i].infl[k] || 0;
+      }
       var contest = 1 - U.clamp(rivalHere / 160, 0, 0.75);
       var before = dd.mine;
       dd.mine = U.clamp(dd.mine + gain * contest, 0, 100);

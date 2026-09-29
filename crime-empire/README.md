@@ -72,12 +72,21 @@ Bezirk traegt zwei Betriebe ohne Rueckhalt und sechs bei voller
 Kontrolle — Einfluss ist damit keine Zierde, sondern die Voraussetzung
 fuer Wachstum.
 
-### Rivalen
+### Rivalen und Diplomatie
 
 Vier Organisationen handeln jede Woche fuer sich: expandieren,
 investieren, anwerben, oder gegen den Spieler vorgehen. Ihre
 Stammgebiete wachsen nach, damit sie sich von einem Rueckschlag erholen
 koennen. Die ersten vier Wochen gelten als Schonfrist.
+
+Diplomatie hat zwei Stufen: **Tribut** ist klein, billig und jederzeit
+moeglich, wirkt aber umso weniger, je freundlicher jemand schon ist.
+**Verhandeln** ist das grosse Treffen mit Waffenstillstand. Ab 42
+Punkten Beziehung laesst sich ein **Buendnis** schliessen: der
+Verbuendete raeumt die eigenen Bezirke, hoert auf, um Einfluss zu
+streiten, und zahlt eine woechentliche Beteiligung, die mit seinem
+Gebiet waechst. Gegen ihn gerichtete Auftraege kosten Beziehung - man
+kann nicht mit allen vier gleichzeitig befreundet sein.
 
 ### Ereignisse
 
@@ -98,11 +107,22 @@ Alle laufen ohne Browser, bis auf die beiden, die Playwright brauchen.
 
 ```bash
 node tools/anfang.js [seed]          # die ersten zwoelf Wochen, prueft den Einstieg
-node tools/simulation.js [wochen] [seed]   # ganze Partie, zeigt die Fortschrittskurve
+node tools/simulation.js [wochen] [seed]   # ganze Partie in Node, Fortschrittskurve
 python3 -m http.server 8231 &
 node tools/selftest.js               # Browsertest: Buchhaltung, Speichern, tote Knoepfe
+node tools/durchlauf.js              # klickt sich wie ein Mensch durch das Spiel
+node tools/partie.js [wochen] [ordner]     # ganze Partie im Browser, mit Bildern
 node tools/ansicht.js                # Bildschirmfotos aller Ansichten
 ```
+
+`partie.js` ist das Werkzeug, das die Frage "macht das ueber Stunden
+Spass?" beantwortet. Es spielt eine volle Kampagne im echten Browser
+ueber dieselben Klick-Behandlungen wie ein Mensch, mit einer Spielweise,
+die Erwartungswerte rechnet statt zu wuerfeln, und haelt an vier
+Meilensteinen fuer Bildschirmfotos an. Nebenbei prueft es jede Woche die
+Buchhaltung, speichert und laedt zwischendurch und protokolliert jede
+Entscheidung. Genau dieser Lauf hat die Befunde geliefert, die unten
+stehen.
 
 `selftest.js` prueft unter anderem die wichtigste Zusage des Spiels:
 **Bargeld vorher plus Summe der Buchungszeilen ergibt Bargeld nachher.**
@@ -110,6 +130,27 @@ Wer Geld verliert, findet die Zeile, die sagt warum. Ausserdem: dass
 jedes Ereignis mindestens eine offene Antwort hat (sonst stuende die
 Zeit fuer immer still), dass jedes Ereignis ueberhaupt erreichbar ist,
 und dass hinter jedem Knopf eine Behandlung steht.
+
+## Was ein voller Durchlauf gezeigt hat
+
+Eine komplette Kampagne (rund 100 Wochen, Sieg erreicht) brachte vier
+Dinge ans Licht, die kein Einzeltest gefunden hatte:
+
+* **Buendnisse waren unerreichbar.** Beziehungen zerfielen symmetrisch
+  gegen null, waehrend jede Expansion sie senkte. Nach 95 Wochen
+  aktiven Verhandelns stand kein einziger Rivale ueber 35 von noetigen
+  55 Punkten - das ganze System war toter Inhalt.
+* **Ein voll kontrollierter Bezirk war fertig.** Einfluss endet bei 100,
+  und damit endete auch die Betriebskapazitaet. Dreizehn Wochen lang
+  liess sich nur noch Geld ansammeln.
+* **Die Mannschaftsgrenze lag bei 13** - fuer ein Imperium mit ueber
+  zwanzig Standorten und sechzig Arbeitsplaetzen.
+* **Ein Absturz**, wenn jemand die Organisation verlaesst, waehrend er
+  auf einem Auftrag ist. Die Abrechnung suchte dann einen Menschen, den
+  es nicht mehr gab.
+
+Alle vier sind behoben; drei davon haben eigene Regressionstests im
+Selbsttest.
 
 ## Dateien
 
@@ -136,7 +177,7 @@ src/skyline.js  Die Stadt bei Nacht im Hauptmenue
 src/ui.js       Neun Bildschirme
 src/game.js     Steuerung: Zeit, Klicks, Fenster, Spielstaende
 
-tools/          Testwerkzeuge (siehe oben)
+tools/          Test- und Durchspielwerkzeuge (siehe oben)
 ```
 
 Die Logikdateien (bis `sim.js`) kommen ohne DOM aus. Deshalb koennen

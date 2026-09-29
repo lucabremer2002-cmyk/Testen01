@@ -183,11 +183,24 @@
   function advice(s, d) {
     var tips = [];
     var free = CE.ops.available(s).filter(function (c) { return !c.post; });
+    /* Wirklich untaetig ist nur, wer einen Betriebsposten haben koennte
+       und keinen hat. Ein Anwalt ohne Auftrag arbeitet trotzdem - er
+       senkt jede Woche die Hitze. Die alte Zaehlung warf beides zusammen
+       und meldete "6 Leute untaetig", waehrend sechs Spezialisten ihre
+       Wirkung entfalteten. */
+    var muessig = s.crew.filter(function (c) {
+      return !c.player && !c.post && c.busyUntil <= s.day &&
+             D.byId(D.ROLES, c.role).slot === 'business';
+    });
 
     if (s.event) tips.push(tip('A decision is waiting', 'Nothing moves until you answer it.', 'Open', 'showEvent', {}, 'gold'));
+    if (muessig.length) {
+      tips.push(tip(muessig.length + ' ' + (muessig.length === 1 ? 'person has' : 'people have') + ' no posting',
+        'Operators and managers earn nothing until you post them to a business.', 'Assign', 'go', { screen: 'crew' }, 'amber'));
+    }
     if (free.length && CE.ops.allOffers(s).length) {
-      tips.push(tip(free.length + ' ' + (free.length === 1 ? 'person is' : 'people are') + ' idle',
-        'Idle crew still draw salary. Send them on a job.', 'City map', 'go', { screen: 'city' }, 'cyan'));
+      tips.push(tip(free.length + ' ' + (free.length === 1 ? 'person is' : 'people are') + ' free for a job',
+        'Operations are the fastest money you have and they build influence.', 'City map', 'go', { screen: 'city' }, 'cyan'));
     }
     if (s.heat >= 55) {
       tips.push(tip('Heat is at ' + Math.round(s.heat), 'Police pressure is eating ' +
@@ -198,9 +211,19 @@
         'Dirty money above your laundering capacity loses 42%.', 'Fix it', 'go', { screen: 'org' }, 'amber'));
     }
     var under = s.businesses.filter(function (b) { return b._f && b._f.understaffed > 0; });
-    if (under.length) {
+    /* Nur melden, wenn es sich auch abstellen laesst. Wer 48 Standorte
+       und 23 Leute hat, kann nichts dagegen tun - dann stand dort
+       dauerhaft "29 Betriebe unterbesetzt", ohne Knopf, der hilft. In
+       dem Fall ist die Mannschaftsgrenze die eigentliche Nachricht. */
+    var bezahlt = s.crew.filter(function (c) { return !c.player; }).length;
+    if (under.length && muessig.length) {
       tips.push(tip(under.length + ' business' + (under.length === 1 ? '' : 'es') + ' short of staff',
-        'Empty positions cost 7% of income each.', 'Assign', 'go', { screen: 'crew' }, 'amber'));
+        'You have ' + muessig.length + ' unposted ' + (muessig.length === 1 ? 'person' : 'people') +
+        ' who could fill them.', 'Assign', 'go', { screen: 'crew' }, 'amber'));
+    } else if (under.length > 3 && bezahlt >= d.crewCap) {
+      tips.push(tip('Your empire has outgrown your crew',
+        under.length + ' sites are short-staffed and every position is filled. ' +
+        'A Safe House or the next rank raises the ceiling.', 'Organization', 'go', { screen: 'org' }, 'amber'));
     }
     var unhappy = s.crew.filter(function (c) { return !c.player && c.loyalty < 35; });
     if (unhappy.length) {
@@ -212,7 +235,7 @@
     for (var k in s.districts) {
       if (!s.districts[k].open) continue;
       for (var i = 0; i < D.BUSINESSES.length; i++) {
-        var can = CE.empire.canBuy(s, k, D.BUSINESSES[i].id);
+        var can = CE.empire.canBuy(s, k, D.BUSINESSES[i].id, d.rank);
         if (!can.ok) continue;
         var score = D.BUSINESSES[i].income / can.cost;
         if (!best || score > best.score) best = { k: k, def: D.BUSINESSES[i], cost: can.cost, score: score };
@@ -408,7 +431,7 @@
     }
 
     /* Wirtschaft im Bezirk */
-    var room = CE.empire.maxBusinesses(s, id);
+    var room = CE.empire.maxBusinesses(s, id, d.rank);
     h.push('<div class="money-grid" style="margin-bottom:12px">' +
       statBox('Businesses', owned.length + ' / ' + room, room > owned.length ? 'room to grow' : 'at capacity') +
       statBox('Weekly gross', bd ? money(bd.gross) : '$0') +
@@ -527,7 +550,7 @@
       h.push('<div class="card"><div class="empty"><p>You have no district to build in.</p></div></div>');
     }
     districts.forEach(function (dist) {
-      var room = CE.empire.maxBusinesses(s, dist.id);
+      var room = CE.empire.maxBusinesses(s, dist.id, d.rank);
       var have = s.businesses.filter(function (b) { return b.district === dist.id; }).length;
       h.push('<div class="card__title" style="margin-top:14px"><b>' + e(dist.name) + '</b>' +
         '<span>' + have + ' / ' + room + ' sites used</span></div>');
@@ -535,7 +558,7 @@
       D.BUSINESSES.forEach(function (def) {
         if (sel.bizFilter !== 'all' && (sel.bizFilter === 'legal') !== def.legal) return;
         if (def.tier > dist.tier + 1) return;
-        var can = CE.empire.canBuy(s, dist.id, def.id);
+        var can = CE.empire.canBuy(s, dist.id, def.id, d.rank);
         var cost = St.buyCost(dist.id, def.id);
         h.push('<div class="card card--flat biz' + (def.legal ? '' : ' biz--dirty') + '">' +
           '<div class="biz__top"><div class="biz__ico">' + A.icon(def.icon) + '</div>' +
@@ -773,6 +796,7 @@
       var crest = A.crest(rd.name, rd.color);
       var canA = CE.rivals.canAlly(s, r.id);
       var negCost = CE.rivals.negotiateCost(s, r, d);
+      var tribCost = CE.rivals.tributeCost(s, r, d);
       var truce = r.truceUntil > s.day;
 
       h.push('<div class="card rival" style="border-left-color:' + rd.color + '">');
@@ -809,7 +833,12 @@
 
       h.push('<div class="crew__acts">' +
         btn('Negotiate &middot; ' + money(negCost), 'negotiate', { data: { id: r.id }, cls: 'btn--sm',
-          disabled: s.cash < negCost, title: s.cash < negCost ? 'Not enough cash.' : '' }) +
+          disabled: s.cash < negCost || truce, title: s.cash < negCost ? 'Not enough cash.'
+            : (truce ? 'A truce is already running. Send a tribute instead.' : '') }) +
+        (r.allied ? '' :
+          btn('Tribute &middot; ' + money(tribCost), 'tribute', { data: { id: r.id }, cls: 'btn--sm',
+            disabled: s.cash < tribCost, title: s.cash < tribCost ? 'Not enough cash.'
+              : 'A small, repeatable gesture. +9 relations, no truce needed.' })) +
         (r.allied
           ? btn('Break alliance', 'breakAlly', { data: { id: r.id }, cls: 'btn--sm btn--danger' })
           : btn('Propose alliance', 'ally', { data: { id: r.id }, cls: 'btn--sm btn--primary',
@@ -817,7 +846,19 @@
         btn('Pressure', 'pressureDialog', { data: { rival: r.id }, cls: 'btn--sm btn--ghost', disabled: r.allied,
           title: r.allied ? 'You are allied.' : '' }) +
         '</div>');
-      if (!r.allied && !canA.ok && canA.why) h.push('<div class="why">' + e(canA.why) + '</div>');
+      if (!r.allied && !canA.ok && canA.why) {
+        h.push('<div class="why">' + e(canA.why) +
+          (r.relation < 42 ? ' Negotiating lifts relations by 14-22, a tribute by up to 11 ' +
+            '(less the friendlier they already are). Working against them in operations pushes it back down.' : '') +
+          '</div>');
+      }
+      if (r.allied) {
+        h.push('<div class="why green">Allied: they stay out of your districts, stop contesting your ' +
+          'influence, and pay you ' + money(Math.round(infl * 58 * (0.7 + s.rep / 250))) + ' a week.</div>');
+      } else if (canA.ok) {
+        h.push('<div class="why">An alliance would pay about ' +
+          money(Math.round(infl * 58 * (0.7 + s.rep / 250))) + ' a week and stop them contesting your districts.</div>');
+      }
       h.push('</div>');
     });
     h.push('</div>');

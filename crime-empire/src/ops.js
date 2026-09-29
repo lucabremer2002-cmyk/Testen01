@@ -201,7 +201,12 @@
       }
       /* Ein Mann kann verletzt ausfallen - selten, und nie der Spieler. */
       if (rng.chance(0.14)) {
-        var pool = run.crew.filter(function (id) { return id !== 'you'; });
+        /* Nur wer noch da ist, kann verletzt werden. crew.remove() haelt
+           run.crew sauber, aber ein geladener Altstand koennte eine
+           Kennung enthalten, die es nicht mehr gibt. */
+        var pool = run.crew.filter(function (id) {
+          return id !== 'you' && U.byId(s.crew, id);
+        });
         if (pool.length) {
           var hurt = U.byId(s.crew, rng.pick(pool));
           hurt.busyUntil = s.day + rng.int(5, 12);
