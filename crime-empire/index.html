@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crime Empire</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230a0a0c'/><path d='M3 13 V6 l2-2 2 2 v7z' fill='%23d4af5a'/><path d='M8 13 V4 l2.5-2 2.5 2 v9z' fill='%23e04141'/></svg>">
+</head>
+<body class="booting">
+
+<!-- ================================================== Hauptmenue -->
+<div id="menu" class="menu">
+  <canvas id="skyline" class="menu__sky" aria-hidden="true"></canvas>
+  <div class="menu__vignette" aria-hidden="true"></div>
+  <div class="menu__grain" aria-hidden="true"></div>
+
+  <div class="menu__inner">
+    <header class="title">
+      <div class="title__kicker">Blackhaven &middot; 2027</div>
+      <h1 class="title__main"><span>CRIME</span><span class="title__gold">EMPIRE</span></h1>
+      <p class="title__sub">Build your empire. Control the city.</p>
+    </header>
+
+    <nav class="menu__list" id="menuList">
+      <button type="button" class="mbtn" data-menu="new"><b>New Game</b><small>Start with nothing</small></button>
+      <button type="button" class="mbtn" data-menu="continue"><b>Continue</b><small id="contSub">No save found</small></button>
+      <button type="button" class="mbtn" data-menu="load"><b>Load Game</b><small>Four slots</small></button>
+      <button type="button" class="mbtn" data-menu="settings"><b>Settings</b><small>Sound, speed, motion</small></button>
+      <button type="button" class="mbtn" data-menu="credits"><b>Credits</b><small>How this was made</small></button>
+    </nav>
+    <p class="menu__foot">No accounts, no servers. Your empire is stored in this browser.</p>
+  </div>
+</div>
+
+<!-- ================================================== Spiel -->
+<div id="game" class="game" hidden>
+
+  <header class="top">
+    <button type="button" class="top__logo" id="toMenu" title="Main menu">
+      <span class="top__mark"></span><span class="top__name">CRIME<b>EMPIRE</b></span>
+    </button>
+
+    <div class="res" id="resStrip"></div>
+
+    <div class="clock">
+      <div class="clock__date"><b id="dateLabel">—</b><small id="weekLabel">Week 1</small></div>
+      <div class="clock__ctl" role="group" aria-label="Game speed">
+        <button type="button" data-speed="0" class="sbtn" title="Pause (Space)" aria-label="Pause">&#10074;&#10074;</button>
+        <button type="button" data-speed="1" class="sbtn" title="Play (1)" aria-label="Play">&#9654;</button>
+        <button type="button" data-speed="2" class="sbtn" title="Fast (2)" aria-label="Fast">&#9654;&#9654;</button>
+        <button type="button" data-speed="3" class="sbtn" title="Fastest (3)" aria-label="Fastest">&#9654;&#9654;&#9654;</button>
+      </div>
+      <button type="button" class="btn btn--ghost btn--sm" id="nextDay" title="Advance one day (N)">Next day</button>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="nav" id="nav" aria-label="Main sections"></nav>
+    <main class="view" id="view" tabindex="-1"></main>
+  </div>
+
+  <div class="ticker" id="ticker" aria-live="polite"></div>
+</div>
+
+<!-- ================================================== Overlays -->
+<div id="modal" class="modal" hidden>
+  <div class="modal__back" data-close="1"></div>
+  <div class="modal__card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <header class="modal__head">
+      <h2 id="modalTitle">—</h2>
+      <button type="button" class="modal__x" data-close="1" aria-label="Close">&times;</button>
+    </header>
+    <div class="modal__body" id="modalBody"></div>
+    <footer class="modal__foot" id="modalFoot"></footer>
+  </div>
+</div>
+
+<div id="event" class="event" hidden>
+  <div class="event__back"></div>
+  <div class="event__card" role="dialog" aria-modal="true" aria-labelledby="evTitle">
+    <div class="event__tone" id="evTone"></div>
+    <div class="event__main">
+      <div class="event__kicker" id="evKicker">DECISION</div>
+      <h2 class="event__title" id="evTitle">—</h2>
+      <p class="event__text" id="evText"></p>
+      <div class="event__opts" id="evOpts"></div>
+    </div>
+  </div>
+</div>
+
+<div id="report" class="modal modal--wide" hidden>
+  <div class="modal__back" data-close="1"></div>
+  <div class="modal__card">
+    <header class="modal__head">
+      <h2 id="repTitle">Week 1</h2>
+      <button type="button" class="modal__x" data-close="1" aria-label="Close">&times;</button>
+    </header>
+    <div class="modal__body" id="repBody"></div>
+    <footer class="modal__foot">
+      <button type="button" class="btn btn--primary" data-close="1">Continue</button>
+    </footer>
+  </div>
+</div>
+
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<script src="src/util.js"></script>
+<script src="src/data.js"></script>
+<script src="src/state.js"></script>
+<script src="src/crew.js"></script>
+<script src="src/ops.js"></script>
+<script src="src/empire.js"></script>
+<script src="src/economy.js"></script>
+<script src="src/rivals.js"></script>
+<script src="src/events.js"></script>
+<script src="src/progress.js"></script>
+<script src="src/save.js"></script>
+<script src="src/sim.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/art.js"></script>
+<script src="src/charts.js"></script>
+<script src="src/skyline.js"></script>
+<script src="src/ui.js"></script>
+<script src="src/game.js"></script>
+</body>
+</html>

@@ -1,10 +1,11 @@
 # Browser-Spiele
 
-Zwei eigenstaendige Spiele ohne Framework, ohne Build-Schritt und ohne
+Drei eigenstaendige Spiele ohne Framework, ohne Build-Schritt und ohne
 Abhaengigkeiten:
 
 | Spiel | Start | Kurz |
 | --- | --- | --- |
+| **Crime Empire** | [`crime-empire/index.html`](crime-empire/) | Aufbauspiel um eine kriminelle Organisation in der erfundenen Stadt Blackhaven: sechs Bezirke, Betriebe, Mannschaft, Rivalen-KI, Ereignisse, Wochenbuchhaltung. Details in [`crime-empire/README.md`](crime-empire/README.md). |
 | **Gipfelsprint** | [`gipfelsprint/index.html`](gipfelsprint/) | 3D-Time-Trial-Platformer mit eigenem WebGL2-Renderer: ein Lauf ohne Checkpoints, drei Wege pro Abzweig, Geist des Bestlaufs, Flow-System. Details in [`gipfelsprint/README.md`](gipfelsprint/README.md). |
 | **Tetris** | [`index.html`](index.html) | Vollstaendiges Tetris mit SRS, Hold, Lock-Delay, T-Spins und Wertung (unten dokumentiert). |
 
@@ -86,4 +87,5 @@ style.css    Darstellung, Layout und Responsive-Verhalten
 game.js      Spiellogik und Rendering auf dem Canvas
 
 gipfelsprint/   3D-Time-Trial-Platformer (eigene README im Ordner)
+crime-empire/   Aufbauspiel (eigene README im Ordner)
 ```
