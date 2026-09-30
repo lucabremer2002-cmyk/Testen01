@@ -34,7 +34,9 @@
     var role = opts.role ? D.byId(D.ROLES, opts.role) : rng.pick(roles);
 
     /* Ansehen und die Anwerbung bestimmen, wer ueberhaupt vorspricht. */
-    var tier = (s.rep / 100) * 3.2 + (s.org.recruiting || 0) * 1.0 + (opts.bonus || 0);
+    /* Wer gefuerchtet wird, bekommt, wer uebrig bleibt. */
+    var tier = (s.rep / 100) * 3.2 + (s.org.recruiting || 0) * 1.0 + (opts.bonus || 0) -
+               (d.recruitPenalty || 0);
     var skill = Math.round(U.clamp(rng.bell(1.5, 6.5) + tier, 1, 10));
     var potential = Math.round(U.clamp(skill + rng.bell(0, 4.2), skill, 12));
 

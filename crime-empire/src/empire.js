@@ -57,6 +57,70 @@
     return { ok: true, cost: c.cost };
   }
 
+  /* Sich hineinzwingen. Der zweite Weg in einen Bezirk: kein Eintritts-
+     geld, dafuer Staerke, Hitze und eine Stadt, die zusieht. Der Bezirk
+     startet umkaempft statt ruhig - man hat ihn genommen, nicht
+     gekauft. Ein vorsichtiger Spieler bekommt diesen Knopf nie zu
+     sehen, weil er die Furcht dafuer nicht aufbringt. */
+  function canMuscleIn(s, id) {
+    var F = CE.fear;
+    var dd = s.districts[id], ddef = D.byId(D.DISTRICTS, id);
+    if (!dd) return { ok: false, why: 'Unknown district.' };
+    if (dd.open) return { ok: false, why: 'Already yours to work.' };
+    if ((s.fear || 0) < F.TORE.muscle) {
+      return { ok: false, why: 'Forcing your way in needs ' + F.TORE.muscle + ' fear (you have ' +
+        Math.round(s.fear || 0) + ').' };
+    }
+    var d = St.derive(s);
+    if (d.rank < ddef.rank) return { ok: false, why: 'Requires rank ' + D.RANKS[ddef.rank].name + '.' };
+    var fremd = 0;
+    for (var i = 0; i < s.rivals.length; i++) fremd += s.rivals[i].infl[id] || 0;
+    var noetig = 35 + fremd * 0.75;
+    if (d.strength < noetig) {
+      return { ok: false, why: 'Needs organisation strength ' + Math.round(noetig) +
+        ' (you have ' + d.strength + ').' };
+    }
+    var odds = U.clamp(0.35 + (d.strength - noetig) / 130 + ((s.fear || 0) - 40) / 150, 0.2, 0.88);
+    return { ok: true, odds: odds, strength: noetig };
+  }
+
+  function muscleIn(s, rng, id) {
+    var pre = canMuscleIn(s, id);
+    if (!pre.ok) return pre;
+    var ddef = D.byId(D.DISTRICTS, id);
+
+    s.heat = U.clamp(s.heat + 12, 0, 100);
+    s.rep = U.clamp(s.rep - 4, 0, 100);
+    CE.fear.add(s, 15, 'forced into ' + ddef.name);
+    for (var i = 0; i < s.rivals.length; i++) {
+      if ((s.rivals[i].infl[id] || 0) > 5) {
+        s.rivals[i].relation = U.clamp(s.rivals[i].relation - 22, -100, 100);
+        s.rivals[i].truceUntil = -1;
+      }
+    }
+
+    if (!rng.chance(pre.odds)) {
+      /* Ein gescheiterter Einmarsch kostet Leute. */
+      var verletzt = s.crew.filter(function (c) { return !c.player && c.busyUntil <= s.day; });
+      if (verletzt.length) {
+        var wer = rng.pick(verletzt);
+        wer.busyUntil = s.day + rng.int(8, 16);
+        wer.hurt = wer.busyUntil;
+      }
+      return { ok: true, win: false,
+        text: 'They held. You are not in ' + ddef.name + ', and now everyone there knows you tried.' };
+    }
+
+    s.districts[id].open = true;
+    s.districts[id].mine = 14;
+    s.districts[id].state = 'contested';
+    s.districts[id].stateSince = s.day;
+    s.stats.muscled = (s.stats.muscled || 0) + 1;
+    return { ok: true, win: true,
+      text: 'You are in ' + ddef.name + ', and you did not pay a cent for it. ' +
+            'The district is contested and will stay that way for a while.' };
+  }
+
   /* --------------------------------------------------------- Betriebe */
 
   /* Wie viele Standorte ein Bezirk traegt: zwei ohne Rueckhalt, sechs bei
@@ -83,6 +147,12 @@
     if (!def || !dd) return { ok: false, why: 'Unknown.' };
     if (!dd.open) return { ok: false, why: 'You have no foothold in this district.' };
     if (s.rep < def.rep) return { ok: false, why: 'Requires ' + def.rep + ' reputation (you have ' + Math.floor(s.rep) + ').' };
+    /* Kein Lizenzgeber unterschreibt fuer jemanden, vor dem die Stadt
+       Angst hat. Das ist die Tuer, die Furcht zuschlaegt. */
+    if (def.legal && def.tier >= 3 && (s.fear || 0) >= 45) {
+      return { ok: false, why: 'No licensing board will sign for you at ' +
+        Math.round(s.fear) + ' fear. This door closes above 45.' };
+    }
     var dist = D.byId(D.DISTRICTS, districtId);
     if (def.tier > dist.tier + 1) return { ok: false, why: 'This district cannot support an operation that size.' };
     /* Ein Bezirk traegt nur so viele Betriebe, wie man dort Rueckhalt
@@ -218,6 +288,7 @@
 
   CE.empire = {
     maxBusinesses: maxBusinesses, canOpenDistrict: canOpenDistrict, openDistrict: openDistrict, entryCost: entryCost,
+    canMuscleIn: canMuscleIn, muscleIn: muscleIn,
     canBuy: canBuy, buy: buy, canUpgrade: canUpgrade, upgrade: upgrade, sell: sell,
     canUpgradeOrg: canUpgradeOrg, upgradeOrg: upgradeOrg,
     heatActions: heatActions, doHeatAction: doHeatAction

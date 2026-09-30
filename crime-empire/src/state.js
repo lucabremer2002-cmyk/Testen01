@@ -39,6 +39,8 @@
       cash: 3500,
       rep: 4,
       heat: 0,
+      fear: 0,                /* siehe fear.js - die Waehrung der Aggression */
+      tributes: [],           /* Rivalen, die Schutzgeld zahlen */
       rankSeen: 0,            /* hoechster bereits gefeierter Rang */
 
       districts: {},
@@ -388,6 +390,31 @@
       if (d.byDistrict[k]) g += d.byDistrict[k].infl;
       g += d.strength / 260;
       d.influenceGain[k] = g;
+    }
+
+    /* ------------------------------------------------ Furcht
+
+       Sie gibt keine besseren Werte, sie oeffnet und schliesst Tueren.
+       Was sie schliesst, steht hier; was sie oeffnet, in rivals.js und
+       empire.js. */
+    d.fear = s.fear || 0;
+    d.fearLevel = CE.fear ? CE.fear.level(s) : null;
+    d.legitimacy = CE.fear ? CE.fear.legitimacy(s) : 0;
+
+    /* Wer gefuerchtet wird, bekommt schlechtere Bewerber: die Guten
+       gehen woanders hin. Das laesst sich nicht mit Geld ausgleichen. */
+    d.recruitPenalty = d.fear >= 50 ? 2.2 : (d.fear >= 30 ? 1.1 : 0);
+
+    /* Und keine Lizenz fuer die grossen legalen Haeuser. */
+    d.licenceBlocked = d.fear >= 45;
+
+    /* Seriositaet ist der Gegenentwurf - sie kostet nichts laufend,
+       aber man muss die aggressiven Mittel gelassen haben. */
+    if (d.legitimacy >= 2) {
+      d.expenseCut = (d.expenseCut || 0) + 0.05;   /* Banken, Versicherer, Vertraege */
+      d.launderCap += 12000;                        /* seriose Fassade wascht besser */
+    } else if (d.legitimacy === 1) {
+      d.launderCap += 4000;
     }
 
     /* --- Vermoegen, Bekanntheit, Rang --- */

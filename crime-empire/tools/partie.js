@@ -25,6 +25,11 @@ const fs = require('fs');
 const path = require('path');
 const WEEKS = parseInt(process.argv[2] || '120', 10);
 const DIR = process.argv[3] || '/tmp/ce-partie';
+/* --aggressiv spielt dieselbe Partie mit der gewaltsamen Spielweise:
+   Bezirke erzwingen statt kaufen, Betriebe uebernehmen, Schutzgeld
+   fordern. So entstehen echte Bildschirmfotos dieses Wegs statt
+   nachgestellter Zustaende. */
+const AGGRESSIV = process.argv.includes('--aggressiv');
 const URL = process.env.CE_URL || 'http://127.0.0.1:8231/index.html';
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
 
@@ -33,10 +38,11 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
    Laeuft im Browser. Alles hier drin sieht nur den Spielstand und ruft
    die Aktionen auf, die auch an den Knoepfen haengen.
    ------------------------------------------------------------------ */
-function policySource() {
+function policySource(aggressiv) {
   const CE = window.CE, U = CE.util, D = CE.data, St = CE.state;
   const A = window.CRIME.actions;
   const log = [];
+  const AGG = !!aggressiv;
 
   /* Bestaetigungsfenster fuer grosse Ausgaben wegklicken - ein Mensch
      tut dasselbe, wenn er den Kauf wirklich will. */
@@ -82,7 +88,8 @@ function policySource() {
         const tage = CE.ops.duration(st, o, team);
         /* Ertrag je Kopf und Tag - so gewinnt der kurze, sichere Auftrag
            gegen den langen, der zwei Leute bindet. */
-        const wert = (o.pay * p - o.pay * 0.2 * (1 - p)) / (tage * o.crewNeed);
+        let wert = (o.pay * p - o.pay * 0.2 * (1 - p)) / (tage * o.crewNeed);
+        if (AGG && o.type === 'raid') wert *= 2.4;
         if (!best || wert > best.wert) best = { o, team, wert, p };
       }
       if (!best) break;
@@ -202,13 +209,55 @@ function policySource() {
       }
     }
 
-    /* 3. Neuer Bezirk, wenn er sich lohnt. */
+    /* 3. Neuer Bezirk: kaufen oder nehmen. Dieser Spieler greift zu,
+          wenn Gewalt guenstiger ist als Geld. */
     for (const dist of D.DISTRICTS) {
-      const can = CE.empire.canOpenDistrict(st, dist.id);
-      if (can.ok && st.cash > can.cost * 2.4) {
-        act('openDistrict', { id: dist.id });
-        log.push('W' + U.weekOf(st.day) + ' Bezirk eroeffnet: ' + dist.name + ' fuer ' + U.money(can.cost));
+      const kaufen = CE.empire.canOpenDistrict(st, dist.id);
+      const zwingen = CE.empire.canMuscleIn(st, dist.id);
+      const kannKaufen = kaufen.ok && st.cash > kaufen.cost * (AGG ? 1.3 : 2.4);
+      if (zwingen.ok && zwingen.odds > (AGG ? 0.42 : 0.55) && (AGG || !kannKaufen)) {
+        act('muscleIn', { id: dist.id });
+        log.push('W' + U.weekOf(st.day) + ' BEZIRK ERZWUNGEN: ' + dist.name + ' (kein Eintrittsgeld)');
         d = der();
+        break;
+      }
+      if (kannKaufen) {
+        act('openDistrict', { id: dist.id });
+        log.push('W' + U.weekOf(st.day) + ' Bezirk eroeffnet: ' + dist.name + ' fuer ' + U.money(kaufen.cost));
+        d = der();
+        break;
+      }
+    }
+
+    /* 3c. Betriebe uebernehmen statt kaufen. */
+    if (AGG) {
+      for (const r of st.rivals) {
+        if (r.allied) continue;
+        let fertig = false;
+        for (const k in st.districts) {
+          if (!st.districts[k].open) continue;
+          const canS = CE.rivals.canSeize(st, r.id, k);
+          if (canS.ok && canS.odds > 0.4) {
+            act('seize', { rival: r.id, district: k });
+            log.push('W' + U.weekOf(st.day) + ' UEBERNAHME in ' + D.byId(D.DISTRICTS, k).name +
+              ' von ' + D.byId(D.RIVALS, r.id).name + ' (kein Kaufpreis)');
+            fertig = true;
+            break;
+          }
+        }
+        if (fertig) break;
+      }
+      d = der();
+    }
+
+    /* 3b. Schutzgeld: eine Einnahme ohne Waesche. */
+    for (const r of st.rivals) {
+      if (r.allied) continue;
+      if ((st.tributes || []).some(x => x.rival === r.id)) continue;
+      const canT = CE.rivals.canDemandTribute(st, r.id);
+      if (canT.ok && canT.odds > (AGG ? 0.38 : 0.5)) {
+        act('demandTribute', { id: r.id });
+        log.push('W' + U.weekOf(st.day) + ' Schutzgeld gefordert von ' + D.byId(D.RIVALS, r.id).name);
         break;
       }
     }
@@ -281,15 +330,16 @@ function policySource() {
         act('negotiate', { id: r.id });   /* Feindschaft entschaerfen */
       }
     }
-    /* Druck machen, wenn man stark genug ist und jemand im Weg sitzt. */
-    if (d.strength > 60) {
+    /* Druck machen: er verschiebt Gebiet und baut Furcht auf - das
+       einzige, was die aggressiven Wege ueberhaupt aufschliesst. */
+    if (d.strength > (AGG ? 22 : 35) && (st.fear || 0) < (AGG ? 80 : 62)) {
       for (const r of st.rivals) {
         if (r.allied) continue;
         for (const k in st.districts) {
           if (!st.districts[k].open) continue;
           if (st.districts[k].mine < 45) continue;
           const can = CE.rivals.canPressure(st, r.id, k);
-          if (can.ok && can.odds > 0.6 && st.cash > can.cost * 5) {
+          if (can.ok && can.odds > (AGG ? 0.38 : 0.5) && st.cash > can.cost * (AGG ? 2 : 4)) {
             act('pressure', { rival: r.id, district: k });
             log.push('W' + U.weekOf(st.day) + ' Druck auf ' + D.byId(D.RIVALS, r.id).name + ' in ' + D.byId(D.DISTRICTS, k).name);
             closeAll();
@@ -379,6 +429,12 @@ function policySource() {
         waesche: Math.round(d.launderCap), dreck: Math.round(d.dirtyGross),
         waescheVerlust: Math.round(d.launderLoss),
         fall: st.commission && st.commission.open ? Math.round(st.commission.strength) : -1,
+        fear: Math.round(st.fear || 0),
+        legit: CE.fear.legitimacy(st),
+        legitText: CE.fear.legitimacyLabel(CE.fear.legitimacy(st)),
+        tribute: (st.tributes || []).length,
+        erzwungen: st.stats.muscled || 0,
+        uebernommen: st.stats.seized || 0,
         komMittel: st.commission && st.commission.assets ? st.commission.assets.length : 0,
         komBudget: st.commission ? Math.round(st.commission.budget || 0) : 0,
         haeltKontrolle: CE.progress.victory(st),
@@ -428,7 +484,7 @@ function policySource() {
   await page.waitForTimeout(400);
   await page.screenshot({ path: DIR + '/01-start-tag0.png' });
 
-  await page.evaluate(policySource);
+  await page.evaluate(policySource, AGGRESSIV);
 
   const verlauf = [];
   const entscheidungen = [];
@@ -538,14 +594,15 @@ function policySource() {
 
   /* ------------------------------------------------ Ausgabe */
   console.log('CRIME EMPIRE - vollstaendige Partie\n');
-  console.log('Woche  Bargeld     Vermoegen   Netto/W    Betr Crew Bez Kon  Hitze Fall  Einfl Rang');
+  console.log('Woche  Bargeld     Vermoegen   Netto/W    Betr Crew Bez Kon  Hitze Furcht Fall  Einfl Rang');
   for (const m of verlauf) {
     if (m.woche % 4 !== 0 && m.woche !== 1) continue;
     console.log(
       String(m.woche).padStart(5) + '  ' + fmt(m.cash).padStart(10) + '  ' + fmt(m.worth).padStart(10) + '  ' +
       fmt(m.net).padStart(9) + '  ' + String(m.biz).padStart(4) + ' ' + String(m.crew).padStart(4) + ' ' +
       String(m.bezirke).padStart(3) + ' ' + String(m.kontrolliert).padStart(3) + '  ' +
-      String(m.heat).padStart(5) + ' ' + (m.fall < 0 ? '  - ' : String(m.fall).padStart(4)) + '  ' +
+      String(m.heat).padStart(5) + ' ' + String(m.fear).padStart(5) + ' ' +
+      (m.fall < 0 ? '  - ' : String(m.fall).padStart(4)) + '  ' +
       String(m.infl).padStart(5) + ' ' + m.rang);
   }
   console.log('\nMeilensteine:');
@@ -566,6 +623,9 @@ function policySource() {
       ' Mittel auf dem Brett, ' + fmt(letzte.komBudget) + ' in ihrer Kasse');
     console.log('Kontrolle am Ende: ' + (letzte.haeltKontrolle ? 'gehalten' : 'VERLOREN'));
     console.log('Bezirkslage: ' + letzte.bezirkslage.join(', '));
+    console.log('Furcht ' + letzte.fear + ' (' + letzte.legitText + ')  ' +
+      letzte.erzwungen + ' Bezirke erzwungen, ' + letzte.uebernommen + ' Betriebe uebernommen, ' +
+      letzte.tribute + ' zahlen Schutzgeld');
     console.log('Figuren: ' + (letzte.figuren.length ? letzte.figuren.join('  ') : 'keine getroffen'));
     console.log('Rivalenziele: ' + letzte.rivalZiele.join(' | '));
   }

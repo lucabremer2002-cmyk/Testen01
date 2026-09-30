@@ -253,6 +253,8 @@
       chip('', 'rep', Math.floor(s.rep), 'Reputation') +
       chip('chip--heat' + (s.heat >= 55 ? ' is-hot' : ''), 'heat', Math.round(s.heat), band.name) +
       chip('', 'influence', Math.round(d.totalInfluence), 'Influence') +
+      chip('chip--fear' + (d.fear >= 40 ? ' is-hot' : ''), 'enforcer',
+        Math.round(d.fear), d.fearLevel ? d.fearLevel.name : 'Fear') +
       chip('chip--strength', 'strength', d.strength, 'Strength') +
       chip('chip--rank', 'rank', d.rankName, 'Rank');
   }
@@ -581,6 +583,48 @@
       sfx('cash');
       G.dirty = true;
     },
+    demandTribute: function (p) {
+      var rng = CE.sim.rngOf(G.state);
+      var r = CE.rivals.demandTribute(G.state, rng, p.id);
+      CE.sim.keepRng(G.state, rng);
+      if (!r.ok) return toast(r.why, 'bad');
+      if (r.win) banner(r.text, 'good', 'Tribute Agreed', 'cash');
+      else banner(r.text, 'bad', 'They Refused', 'warn');
+      G.dirty = true;
+    },
+    stopTribute: function (p) {
+      var r = CE.rivals.stopTribute(G.state, p.id);
+      if (!r.ok) return toast(r.why, 'bad');
+      toast(r.text, 'good');
+      G.dirty = true;
+    },
+    seizeDialog: function (p) { seizeDialog(p.rival); },
+    seize: function (p) {
+      var rng = CE.sim.rngOf(G.state);
+      var r = CE.rivals.seize(G.state, rng, p.rival, p.district);
+      CE.sim.keepRng(G.state, rng);
+      if (!r.ok) return toast(r.why, 'bad');
+      closeModal();
+      banner(r.text, r.win ? 'good' : 'bad', r.win ? 'Taken' : 'It Went Wrong', r.win ? 'building' : 'warn');
+      G.dirty = true;
+    },
+    muscleIn: function (p) {
+      var pre = CE.empire.canMuscleIn(G.state, p.id);
+      if (!pre.ok) return toast(pre.why, 'bad');
+      confirmBox('Force your way into ' + D.byId(D.DISTRICTS, p.id).name + '?',
+        'No entry payment. ' + Math.round(pre.odds * 100) + '% chance it holds. Either way: ' +
+        '+12 heat, -4 reputation, +15 fear, and every organisation with people there ' +
+        'becomes an enemy. The district starts contested.',
+        function () {
+          var rng = CE.sim.rngOf(G.state);
+          var r = CE.empire.muscleIn(G.state, rng, p.id);
+          CE.sim.keepRng(G.state, rng);
+          closeModal();
+          if (!r.ok) return toast(r.why, 'bad');
+          banner(r.text, r.win ? 'good' : 'bad', r.win ? 'Forced In' : 'Thrown Back', r.win ? 'map' : 'warn');
+          G.dirty = true;
+        }, 'Go in');
+    },
     negotiate: function (p) {
       var r = CE.rivals.negotiate(G.state, p.id);
       if (!r.ok) return toast(r.why, 'bad');
@@ -860,6 +904,32 @@
     if (!s.businesses.length) body.push('<div class="empty"><p>You own no businesses to staff yet.</p></div>');
     body.push('</div>');
     modal('Assign ' + c.name, body.join(''));
+  }
+
+  /* Wo man einem Rivalen einen Betrieb abnehmen kann. */
+  function seizeDialog(rivalId) {
+    var s = G.state;
+    var rd = D.byId(D.RIVALS, rivalId);
+    var body = ['<div class="row__s" style="margin-bottom:12px">Taking a site outright costs nothing ' +
+      'in cash. It arrives damaged, it makes a permanent enemy, and the whole city hears about it.</div><div class="slots">'];
+    var any = false;
+    D.DISTRICTS.forEach(function (dist) {
+      var can = CE.rivals.canSeize(s, rivalId, dist.id);
+      var r = U.byId(s.rivals, rivalId);
+      if (!can.ok && (r.infl[dist.id] || 0) < 10) return;
+      any = true;
+      body.push('<div class="slotrow">' +
+        '<div class="slotrow__n" style="color:' + rd.color + '">' + A.icon('building') + '</div>' +
+        '<div class="slotrow__i"><div class="slotrow__t">' + UI.helpers.e(dist.name) + '</div>' +
+        '<div class="slotrow__s">They hold ' + Math.round(r.infl[dist.id] || 0) + ' influence here' +
+        (can.ok ? ' &middot; ' + Math.round(can.odds * 100) + '% chance' : '') + '</div></div>' +
+        '<button type="button" class="btn btn--sm btn--danger" data-act="seize" data-rival="' + rivalId +
+        '" data-district="' + dist.id + '"' + (can.ok ? '' : ' disabled title="' + UI.helpers.e(can.why) + '"') +
+        '>Take it</button></div>');
+    });
+    if (!any) body.push('<div class="empty"><p>They have nothing you can reach.</p></div>');
+    body.push('</div>');
+    modal('Take from ' + rd.name, body.join(''));
   }
 
   function pressureDialog(rivalId, districtId) {

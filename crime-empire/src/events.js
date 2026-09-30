@@ -165,6 +165,7 @@
                 var n = e.name;
                 CE.crew.fire(s, e.id);
                 s.flags.exampleMade = (s.flags.exampleMade || 0) + 1;
+                CE.fear.add(s, 4, 'made an example of somebody');
                 return n + ' is gone and everyone knows why. ' + fx(s, { loyaltyAll: -6, rep: 1, heat: 2 });
               } }
           ]
@@ -304,6 +305,7 @@
               go: function () {
                 s.cash -= cost;
                 var odds = U.clamp(0.35 + (c.d.strength - r.strength) / 140, 0.12, 0.88);
+                CE.fear.add(s, 5, 'pushed a rival off a corner');
                 if (c.rng.chance(odds)) {
                   r.infl[k] = Math.max(0, r.infl[k] - 7);
                   return fx(s, { infl: 6, district: k, rival: r, relation: -18, rep: 2, heat: 3 }) + '. They moved.';
@@ -503,6 +505,7 @@
                 var cands = s.rivals.filter(function (r) { return r.infl[k] > 5; });
                 var r = cands.length ? c.rng.pick(cands) : c.rng.pick(s.rivals);
                 r.infl[k] = Math.max(0, r.infl[k] - 4);
+                CE.fear.add(s, 3, 'informed on a rival');
                 return fx(s, { heat: -8, rival: r, relation: -25, rep: -2 }) +
                        '. ' + D.byId(D.RIVALS, r.id).name + ' will work out who did it.';
               } }

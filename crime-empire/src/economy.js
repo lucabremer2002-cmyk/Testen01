@@ -88,6 +88,24 @@
     var income = cleanGross + dirtyGross - launderLoss - caseLoss - heatLoss;
     var expense = upkeep + salaries + d.orgUpkeep + d.districtCost;
 
+    /* -------------------------------------------- Schutzgeld
+
+       Der wirtschaftliche Kern der aggressiven Spielweise. Diese
+       Einnahme laeuft an der Waesche vorbei: niemand meldet, was er aus
+       Angst zahlt. Damit hat Aggression eine Einnahmeart, die ein
+       vorsichtiger Spieler nicht hat - und sie erklaert, warum er sich
+       die legalen Fassaden nicht sparen kann. */
+    if (CE.fear) {
+      var trib = CE.fear.tributeIncome(s, d);
+      if (trib.total > 0) {
+        income += trib.total;
+        for (i = 0; i < trib.zeilen.length; i++) {
+          line(book, 'Protection money', trib.zeilen[i].amount,
+            trib.zeilen[i].name + ' pays weekly - no laundering needed', 'in');
+        }
+      }
+    }
+
     /* ---------------------------------- Ertrag aus Buendnissen
 
        Ein Buendnis kostete bisher Geld und brachte nur Schutz - einen

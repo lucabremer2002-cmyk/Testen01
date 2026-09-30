@@ -106,6 +106,36 @@ Bargeld darf ins Minus, aber nie stillschweigend: 6 % Zinsen je Woche,
 und wenn die Schuld das halbe Anlagevermoegen ueberschreitet, verkaufen
 die Glaeubiger den guenstigsten Betrieb zum halben Wert. Mit Ansage.
 
+### Furcht und Seriositaet
+
+Zwei Bahnen, die sich gegenseitig ausschliessen.
+
+**Furcht** entsteht nur aus bewussten Taten: Druck auf Rivalen, ein
+erzwungener Einmarsch, eine Uebernahme, eine Schutzgeldforderung. Sie
+gibt keine besseren Werte, sie oeffnet andere Handlungen:
+
+| ab | was moeglich wird |
+| --- | --- |
+| 18 | **Schutzgeld** von unterlegenen Rivalen fordern - eine Wocheneinnahme, die an der Geldwaesche vorbeilaeuft, weil niemand meldet, was er aus Angst zahlt |
+| 38 | **Bezirk erzwingen** statt Eintritt zahlen - gemessen 0 statt 80.207 Dollar fuer Downtown, dafuer 12 Hitze, 4 Ansehen und ein Bezirk, der umkaempft startet |
+| 55 | **Betrieb uebernehmen** statt kaufen - 0 statt 13.775 bis 174.000 Dollar, dafuer 45 % Schaden und ein dauerhafter Feind |
+
+Und sie kostet, was sich nicht zurueckkaufen laesst: ueber 45 unter-
+schreibt keine Lizenzbehoerde mehr fuer Casino oder Hotel, ab 30 bewerben
+sich nur noch die, die sonst niemand nimmt, und die Furcht selbst
+zerfaellt oben schneller als unten - ein Schrecken auf Dauer ist teurer
+als einer auf Zeit.
+
+**Seriositaet** ist der Gegenentwurf und nicht erzwingbar: sie verlangt
+55 Ansehen *und* Furcht unter 20. Dafuer 5 % weniger laufende Kosten,
+12.000 Dollar mehr Waeschekapazitaet je Woche und die grossen legalen
+Haeuser. Ein gefuerchteter Spieler kann das nicht nachbauen, solange er
+gefuerchtet bleibt.
+
+Den Sieg gibt es auf beiden Wegen: sechs Bezirke halten und *entweder*
+das Bundesverfahren unter 60 *oder* Furcht ab 65. Kontrolle durch
+Bestand oder Kontrolle durch Schrecken.
+
 ## Drei Spielweisen im Vergleich
 
 `tools/szenarien.js` laesst dieselbe Partie von drei Spielern spielen:
@@ -113,18 +143,26 @@ vorsichtig (wenig Hitze, legal, frueh verteidigt), aggressiv (Untergrund,
 jeder Auftrag, Hitze egal) und schlampig (gibt aus was da ist, ohne
 Ruecklage). Gemessener Stand:
 
-| | Vorsichtig | Aggressiv | Schlampig |
-| --- | --- | --- | --- |
-| Vermoegen nach 110 Wochen | 7,8 Mio. | 3,4 Mio. | 2,5 Mio. |
-| Stadt erobert in Woche | 68 | 89 | 91 |
-| Kontrolle am Ende gehalten | ja | **nein** | **nein** |
-| Wochen mit tatsaechlicher Kontrolle | 44 | 0 | 3 |
-| Anklagen / Razzien | 0 / 0 | 0 / 0 | 5 / 13 |
+Gemessen ueber 115 Wochen, derselbe Seed:
 
-Der Sieg verlangt seit dieser Fassung nicht nur sechs Bezirke, sondern
-auch ein Verfahren unter 60. Wer kurz davor steht, alles verzollt zu
-bekommen, kontrolliert nichts - und genau das trennt die drei
-Spielweisen: alle drei beruehren den Sieg, nur eine haelt ihn.
+| | Vorsichtig | Aggressiv | Ausgewogen |
+| --- | --- | --- | --- |
+| Vermoegen | 10,8 Mio. | 5,1 Mio. | 5,9 Mio. |
+| **Stadt erobert in Woche** | 63 | **50** | 66 |
+| **Wochen mit Kontrolle** | 54 | **67** | 51 |
+| Furcht / Seriositaet | 22 / Tolerated | 90 / Notorious | 80 / Notorious |
+| Bezirke erzwungen | 0 | **3** | 0 |
+| Betriebe uebernommen | 0 | **34** | 0 |
+| zahlen Schutzgeld | 0 | **4** | **4** |
+| Unruhe in den Bezirken | 0 | **58** | 0 |
+| Hitze im Schnitt | 34 | 62 | 52 |
+| Wochen mit Ausnahmezustand | 0 | 41 | 28 |
+
+Aggression nimmt die Stadt dreizehn Wochen frueher und haelt sie
+laenger - mit vierunddreissig Betrieben, fuer die sie nichts bezahlt
+hat, und drei Bezirken ohne Eintrittsgeld. Sie endet mit der Haelfte
+des Vermoegens, einem aufruehrerischen Bezirk und einem Verfahren bei
+78. Keine der drei Weisen ist in jeder Spalte vorn.
 
 ## Werkzeuge
 

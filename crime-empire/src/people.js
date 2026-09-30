@@ -431,6 +431,7 @@
               { label: 'Make sure he cannot testify', hint: 'Effective. Expensive in every way.',
                 go: function () {
                   bump(s, 'penn', -100, 1); p.done = true; p.flags.silenced = true;
+                CE.fear.add(s, 9, 'silenced a councilman');
                   if (s.commission) s.commission.strength = U.clamp(s.commission.strength - 6, 0, 100);
                   if (met(s, 'whitlock')) bump(s, 'whitlock', -25, 0);
                   return 'Arthur Penn withdrew from public life and moved to another state. ' +

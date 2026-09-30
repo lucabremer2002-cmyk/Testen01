@@ -102,6 +102,8 @@
     if (!s.history) s.history = [];
     if (!s.commission) s.commission = CE.commission.fresh();
     if (!s.people) s.people = {};
+    if (s.fear === undefined) s.fear = 0;
+    if (!s.tributes) s.tributes = [];
     for (var ri = 0; ri < s.rivals.length; ri++) {
       if (!s.rivals[ri].goal) {
         var hd = D.byId(D.RIVALS, s.rivals[ri].id);

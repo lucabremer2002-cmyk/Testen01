@@ -38,7 +38,27 @@
        Partie standen alle sechs Bezirke gleichzeitig still. Wenn die
        Strasse stillsteht, entsteht dort auch nichts Neues. */
     lockdown: { name: 'Lockdown', color: '#e04141', econ: 0.65, infl: 0.6, heat: 0.7,
-      desc: 'Checkpoints and a curfew. Nothing moves here without being seen.' }
+      desc: 'Checkpoints and a curfew. Nothing moves here without being seen.' },
+
+    /* ------------------------------------------- Spaetspiel-Zustaende
+
+       Im Testlauf standen am Ende alle sechs Bezirke auf "stable": ein
+       grosses Imperium laeuft zu heiss fuer Aufschwung, und die Rivalen
+       sind zu schwach fuer Streit. Die Karte wurde damit wieder zum
+       Standbild. Diese zwei Zustaende greifen erst spaet - und sie
+       trennen die Spielweisen:
+
+         consolidated  was ein geduldiger Spieler erreicht: ein Bezirk,
+                       den man lange und ruhig haelt
+         restive       was ein gewaltsamer Spieler erntet: eine Strasse,
+                       die sich wehrt
+    */
+    consolidated: { name: 'Consolidated', color: '#d4af5a', econ: 1.30, infl: 1.20, heat: 0.85,
+      desc: 'Held long enough that nobody remembers it being otherwise. ' +
+            'Rents, permits and police shifts all arrange themselves around you.' },
+    restive: { name: 'Restive', color: '#ff6b3d', econ: 0.72, infl: 0.55, heat: 1.25,
+      desc: 'People here did not choose you and have not forgotten how you arrived. ' +
+            'Staff quit, windows break, and nobody saw anything.' }
   };
 
   function zustand(id) { return ZUSTAENDE[id] || ZUSTAENDE.stable; }
@@ -46,7 +66,38 @@
   function ensure(s, k) {
     var dd = s.districts[k];
     if (!dd.state) { dd.state = 'stable'; dd.stateSince = s.day; }
+    if (dd.unrest === undefined) dd.unrest = 0;
+    if (dd.heldSince === undefined) dd.heldSince = -1;
     return dd;
+  }
+
+  /* Unruhe: die Rechnung fuer Gewalt, und zwar ortsgebunden. Sie steigt
+     durch Uebernahmen, erzwungene Einmaersche und Furcht - und faellt
+     nur langsam, wenn man den Bezirk in Ruhe laesst. Ein vorsichtiger
+     Spieler sieht diesen Wert nie ueber null. */
+  function unruhe(s, d, k, rng) {
+    var dd = s.districts[k];
+    if (!dd.open) return;
+    var zu = 0;
+
+    /* Furcht faerbt auf die Strasse ab, aber nur dort, wo man sitzt. */
+    if ((s.fear || 0) > 30) zu += ((s.fear - 30) / 100) * 0.9;
+
+    /* Uebernommene Betriebe gaeren. Nicht nur solange sie beschaedigt
+       sind - der Schaden heilt in zwei Wochen, der Groll nicht. Rund
+       ein halbes Jahr lang arbeiten die Leute dort unter Zwang, danach
+       haben sie sich arrangiert. */
+    for (var i = 0; i < s.businesses.length; i++) {
+      var b = s.businesses[i];
+      if (b.district !== k || !b.seized) continue;
+      var alter = s.day - (b.seizedOn || b.bought || 0);
+      if (alter < 182) zu += 0.9 * (1 - alter / 182);
+    }
+
+    /* Ruhe heilt. */
+    var ab = 0.55 + (s.rep / 100) * 0.5;
+    if (dd.state === 'lockdown') ab += 0.4;
+    dd.unrest = U.clamp(dd.unrest + zu - ab, 0, 100);
   }
 
   /* Welcher Zustand passt jetzt? Die Reihenfolge ist die Rangfolge:
@@ -82,14 +133,30 @@
     var istStreit = dd.state === 'contested';
     if (dd.mine >= (istStreit ? 26 : 32) && staerkster >= (istStreit ? 22 : 28)) return 'contested';
 
+    /* Aufruhr schlaegt fast alles - das ist der Preis der Gewalt. */
+    if (dd.unrest >= (dd.state === 'restive' ? 6 : 14)) return 'restive';
+
+    /* Gefestigt: lange gehalten, viel investiert, wenig Aerger. Der
+       Lohn der Geduld, und aggressiv nicht zu erreichen, weil die
+       Unruhe die Uhr immer wieder zurueckstellt. */
+    if (dd.heldSince >= 0 && s.day - dd.heldSince >= 140 &&
+        meine.length >= 4 && dd.mine >= 70 && dd.unrest < 4 && staerkster < 20) {
+      return 'consolidated';
+    }
+
     /* Aufschwung: Investition, Ruhe und Kontrolle.
 
        Mit Hysterese: hineinzukommen ist schwerer, als drinzubleiben.
        Ohne das kippte ein Bezirk im Spaetspiel im Takt der schwankenden
        Hitze zwischen "booming" und "stable" hin und her, was auf der
        Karte wie ein Flackern aussah und nichts bedeutete. */
+    /* Die oertliche Hitze zaehlt, nicht die der ganzen Organisation.
+       Vorher blockierte ein heisses Imperium den Aufschwung selbst in
+       Bezirken, in denen gar nichts Illegales lief. */
     var istBoom = dd.state === 'booming';
-    if (meine.length >= 3 && dd.mine >= 45 && s.heat < (istBoom ? 68 : 55)) return 'booming';
+    var hitzeHier2 = bd ? bd.heat : 0;
+    var ruhigGenug = hitzeHier2 < (istBoom ? 6.5 : 4.5) && s.heat < (istBoom ? 82 : 72);
+    if (meine.length >= 3 && dd.mine >= 45 && ruhigGenug && dd.unrest < 8) return 'booming';
 
     /* Verfall: kaum jemand investiert hier. */
     if (meine.length === 0 && dd.mine < (dd.state === 'declining' ? 32 : 25) && fremd < 25) return 'declining';
@@ -118,6 +185,11 @@
     for (var k in s.districts) {
       var dd = ensure(s, k);
       if (!dd.open) continue;
+
+      /* Unruhe und Haltedauer fortschreiben, bevor bewertet wird. */
+      unruhe(s, d, k, rng);
+      if (dd.mine >= 60) { if (dd.heldSince < 0) dd.heldSince = s.day; }
+      else dd.heldSince = -1;
       var soll = bewerten(s, d, k);
 
       /* Nur der lauteste Bezirk kann abgeriegelt werden, und nur einer
@@ -172,8 +244,13 @@
       if (v > staerkster) staerkster = v;
     }
     dd.state = merk;
+    if (dd.unrest >= 14) return 'restive';
+    if (dd.heldSince >= 0 && s.day - dd.heldSince >= 140 && meine.length >= 4 &&
+        dd.mine >= 70 && dd.unrest < 4 && staerkster < 20) return 'consolidated';
     if (dd.mine >= 32 && staerkster >= 28) return 'contested';
-    if (meine.length >= 3 && dd.mine >= 45 && s.heat < 68) return 'booming';
+    var bd2 = d.byDistrict[k];
+    if (meine.length >= 3 && dd.mine >= 45 && (bd2 ? bd2.heat : 0) < 4.5 &&
+        s.heat < 72 && dd.unrest < 8) return 'booming';
     if (meine.length === 0 && dd.mine < 25 && fremd < 25) return 'declining';
     return 'stable';
   }
@@ -193,7 +270,7 @@
   }
 
   CE.city = {
-    ZUSTAENDE: ZUSTAENDE, zustand: zustand, weekly: weekly, bewerten: bewerten,
+    ZUSTAENDE: ZUSTAENDE, zustand: zustand, weekly: weekly, bewerten: bewerten, unruhe: unruhe,
     econOf: econOf, inflOf: inflOf, heatOf: heatOf, ensure: ensure
   };
 })(typeof window !== 'undefined' ? window : globalThis);

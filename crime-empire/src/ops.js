@@ -177,6 +177,18 @@
         if (r) {
           r.infl[o.district] = Math.max(0, r.infl[o.district] - res.infl * 0.8);
           r.relation = U.clamp(r.relation - 9, -100, 100);
+          /* Nur der offen gewaltsame Auftrag macht Furcht, und wenig.
+             Vorher zaehlte jeder Auftrag, der zufaellig gegen einen
+             Rivalen lief - bei 1.200 Auftraegen je Partie stand am Ende
+             auch der vorsichtige Spieler bei 98 Furcht. Furcht soll aus
+             Entscheidungen kommen, nicht aus Betriebsamkeit. */
+          /* Nur dieser eine Auftragstyp, dafuer spuerbar: er ist die
+             Einstiegsrampe. Ohne ihn war die aggressive Spielweise gar
+             nicht erreichbar - man braucht Furcht 18 fuer die erste
+             Forderung, und die einzige andere Quelle (Druck auf einen
+             Rivalen) setzt eine Organisation voraus, die man ohne
+             Aggression erst spaet hat. Henne und Ei. */
+          if (o.type === 'raid') CE.fear.add(s, 1.2, 'muscled a rival corner');
           res.text += ' ' + D.byId(D.RIVALS, r.id).name + ' lost ground and noticed.';
         }
       }

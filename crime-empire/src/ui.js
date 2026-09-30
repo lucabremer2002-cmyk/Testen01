@@ -113,7 +113,7 @@
     h.push('</div>');
 
     /* Vier Messwerte */
-    h.push('<div class="grid grid--4" style="margin-bottom:14px">');
+    h.push('<div class="grid grid--3" style="margin-bottom:14px">');
     h.push('<div class="card">' + statBox('Reputation', Math.floor(s.rep) + '<small class="muted"> / 100</small>', '', 'cyan') +
       '<div style="margin-top:10px">' + bar('bar--c', s.rep / 100) + '</div>' +
       '<div class="why">Unlocks businesses and better recruits.</div></div>');
@@ -125,6 +125,21 @@
     h.push('<div class="card">' + statBox('Influence', Math.round(d.totalInfluence), 'across ' + d.districtsOpen + ' districts') +
       '<div style="margin-top:10px">' + bar('bar--g', d.totalInfluence / 600) + '</div>' +
       '<div class="why">Influence makes room for more businesses.</div></div>');
+    h.push('<div class="card">' + statBox('Fear', Math.round(d.fear) + '<small class="muted"> / 100</small>',
+      '<span class="' + (d.fear >= 45 ? 'red' : d.fear >= 25 ? 'amber' : 'muted') + '">' +
+      e(d.fearLevel ? d.fearLevel.name : '') + '</span>', d.fear >= 45 ? 'red' : 'amber') +
+      '<div style="margin-top:10px">' + bar('bar--r', d.fear / 100) + '</div>' +
+      '<div class="why">' + (d.fear >= CE.fear.TORE.seize ? 'You can take a rival&rsquo;s business outright.'
+        : d.fear >= CE.fear.TORE.muscle ? 'You can force your way into a district.'
+        : d.fear >= CE.fear.TORE.tribute ? 'You can demand tribute from weaker rivals.'
+        : 'At 25 you can demand tribute. At 40 you can take districts by force.') + '</div></div>');
+    h.push('<div class="card">' + statBox('Standing', e(CE.fear.legitimacyLabel(d.legitimacy)),
+      d.legitimacy >= 2 ? 'banks, insurers and licensing boards deal with you'
+        : d.legitimacy === 1 ? 'tolerated, not trusted'
+        : 'the respectable doors are shut', d.legitimacy >= 2 ? 'green' : d.legitimacy === 1 ? 'cyan' : 'muted') +
+      '<div style="margin-top:10px">' + bar('bar--c', d.legitimacy / 2) + '</div>' +
+      '<div class="why">' + (d.legitimacy >= 2 ? '-5% expenses, +' + money(12000) + ' laundering capacity.'
+        : 'Needs 55 reputation and fear at 20 or below. Fear closes this door.') + '</div></div>');
     h.push('<div class="card">' + statBox('Strength', d.strength, s.crew.length - 1 + ' on payroll') +
       '<div style="margin-top:10px">' + bar('bar--v', U.clamp(d.strength / 260, 0, 1)) + '</div>' +
       '<div class="why">Decides how rivals treat you.</div></div>');
@@ -457,6 +472,20 @@
       h.push('<div style="margin-top:10px">' + btn('Move into ' + e(dist.name), 'openDistrict',
         { data: { id: id }, cls: 'btn--primary btn--block', disabled: !can.ok, title: can.why || '' }) + '</div>');
       if (!can.ok) h.push('<div class="why why--bad">' + e(can.why) + '</div>');
+
+      /* Der zweite Weg hinein. Er kostet kein Geld, aber alles andere. */
+      var mus = CE.empire.canMuscleIn(s, id);
+      h.push('<div class="card card--flat" style="margin-top:12px;padding:12px;border-left:3px solid var(--red)">' +
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:5px">' +
+        '<b style="flex:1;font-size:.88rem">Force your way in</b>' +
+        (mus.ok ? '<span class="tag tag--red">' + Math.round(mus.odds * 100) + '% chance</span>' : '') +
+        '<span class="tag">no entry cost</span></div>' +
+        '<div class="op__desc" style="margin-bottom:9px">No payment, no permission. Costs strength, ' +
+        '12 heat and 4 reputation, makes enemies of everyone holding ground here, and the ' +
+        'district starts contested.</div>' +
+        btn('Go in', 'muscleIn', { data: { id: id }, cls: 'btn--sm btn--danger btn--block',
+          disabled: !mus.ok, title: mus.why || '' }) +
+        (mus.ok ? '' : '<div class="why">' + e(mus.why) + '</div>') + '</div>');
       h.push('</div>');
       return h.join('');
     }
@@ -1000,7 +1029,11 @@
           disabled: s.cash < negCost || truce, title: s.cash < negCost ? 'Not enough cash.'
             : (truce ? 'A truce is already running. Send a tribute instead.' : '') }) +
         (r.allied ? '' :
-          btn('Tribute &middot; ' + money(tribCost), 'tribute', { data: { id: r.id }, cls: 'btn--sm',
+          /* "Gift" statt "Tribute": das diplomatische Geschenk und das
+             erpresste Schutzgeld standen beide als "Tribute" auf
+             derselben Karte - zwei gegensaetzliche Handlungen unter
+             einem Namen. */
+          btn('Send a gift &middot; ' + money(tribCost), 'tribute', { data: { id: r.id }, cls: 'btn--sm',
             disabled: s.cash < tribCost, title: s.cash < tribCost ? 'Not enough cash.'
               : 'A small, repeatable gesture. +9 relations, no truce needed.' })) +
         (r.allied
@@ -1010,6 +1043,34 @@
         btn('Pressure', 'pressureDialog', { data: { rival: r.id }, cls: 'btn--sm btn--ghost', disabled: r.allied,
           title: r.allied ? 'You are allied.' : '' }) +
         '</div>');
+
+      /* Die aggressiven Wege. Sie erscheinen nur, wenn die Furcht dafuer
+         reicht - ein vorsichtiger Spieler sieht hier eine Zeile, die
+         erklaert, was ihm entgeht, und keinen Knopf. */
+      var zahlt = (s.tributes || []).some(function (x) { return x.rival === r.id; });
+      var canT = CE.rivals.canDemandTribute(s, r.id);
+      var canS = CE.rivals.canSeize(s, r.id, sel.district);
+      var fearGen = (s.fear || 0);
+      if (zahlt) {
+        var tb = CE.fear.tributeIncome(s, d).zeilen.filter(function (x) { return x.rival === r.id; })[0];
+        h.push('<div class="card card--flat" style="margin-top:8px;padding:10px 12px;border-left:3px solid var(--gold)">' +
+          '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+          '<b style="flex:1;font-size:.86rem" class="gold">Paying you protection</b>' +
+          '<span class="tag tag--gold">' + money(tb ? tb.amount : 0) + '/wk</span></div>' +
+          '<div class="op__desc" style="margin:4px 0 8px">Straight into your pocket. Nobody launders ' +
+          'protection money, because nobody reports it.</div>' +
+          btn('Let them off', 'stopTribute', { data: { id: r.id }, cls: 'btn--sm btn--ghost' }) + '</div>');
+      } else if (fearGen >= CE.fear.TORE.tribute - 10 || canT.ok) {
+        h.push('<div class="crew__acts" style="margin-top:6px">' +
+          btn('Demand protection' + (canT.ok ? ' &middot; ' + Math.round(canT.odds * 100) + '%' : ''),
+            'demandTribute', { data: { id: r.id }, cls: 'btn--sm btn--danger',
+              disabled: !canT.ok, title: canT.why || '' }) +
+          btn('Take a site', 'seizeDialog', { data: { rival: r.id }, cls: 'btn--sm btn--danger',
+            disabled: fearGen < CE.fear.TORE.seize,
+            title: fearGen < CE.fear.TORE.seize ? 'Needs ' + CE.fear.TORE.seize + ' fear.' : '' }) +
+          '</div>');
+        if (!canT.ok && canT.why) h.push('<div class="why">' + e(canT.why) + '</div>');
+      }
       if (!r.allied && !canA.ok && canA.why) {
         h.push('<div class="why">' + e(canA.why) +
           (r.relation < 42 ? ' Negotiating lifts relations by 14-22, a tribute by up to 11 ' +
@@ -1207,8 +1268,9 @@
     h.push('<div class="card" style="margin-top:14px"><div class="card__title"><b>The city</b>' +
       '<span>' + city.held + ' / ' + city.total + ' districts at majority control</span></div>' +
       bar('bar--g', city.held / city.total) +
-      '<div class="why">Hold 60 influence or more in all six districts as an Underworld Legend, ' +
-      'with the federal case below 60, to take Blackhaven outright.' +
+      '<div class="why">Hold 60 influence or more in all six districts as an Underworld Legend. ' +
+      'Then either keep the federal case below 60, or be feared at 65 or above &mdash; ' +
+      'control by standing or control by dread, either one holds the city.' +
       (s.commission && s.commission.open && s.commission.strength >= 60
         ? ' <b class="red">The case is at ' + Math.round(s.commission.strength) +
           ' &mdash; you do not control a city that is about to seize you.</b>' : '') + (s.flags.won ? ' <b class="gold">Achieved on day ' + s.flags.won + '.</b>' : '') + '</div></div>');

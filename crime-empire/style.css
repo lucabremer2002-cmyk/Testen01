@@ -198,6 +198,9 @@ body.calm *, body.calm *::before, body.calm *::after {
 .chip__l { font-size: .63rem; letter-spacing: .13em; text-transform: uppercase; color: var(--ink3); white-space: nowrap; }
 .chip--cash .chip__v { color: var(--gold); }
 .chip--heat .chip__v { color: var(--amber); }
+.chip--fear .chip__v { color: #ff8f6b; }
+.chip--fear.is-hot { border-color: rgba(224,65,65,.5); }
+.chip--fear.is-hot .chip__v { color: var(--red); }
 .chip--heat.is-hot { border-color: rgba(224,65,65,.55); animation: pulseRed 1.9s ease-in-out infinite; }
 .chip--heat.is-hot .chip__v { color: var(--red); }
 @keyframes pulseRed {
@@ -763,6 +766,6 @@ body.calm *, body.calm *::before, body.calm *::after {
   /* Auf schmalen Geraeten passen nicht sechs Werte nebeneinander. Rang
      und Staerke stehen ohnehin auf der Uebersicht; Geld, Ansehen, Hitze
      und Einfluss sind die, die man im Blick behalten muss. */
-  .chip--rank, .chip--strength { display: none; }
+  .chip--rank, .chip--strength, .chip--fear { display: none; }
   .chip__v { font-size: .86rem; }
 }

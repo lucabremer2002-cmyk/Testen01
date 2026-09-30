@@ -468,7 +468,7 @@
     var d = St.derive(s);
     var cost = Math.round(Math.max(6000, d.grossIncome * 0.6));
     if (s.cash < cost) return { ok: false, why: 'Needs ' + U.money(cost) + '.' };
-    if (d.strength < 25) return { ok: false, why: 'Your organisation is not strong enough (need 25).' };
+    if (d.strength < 18) return { ok: false, why: 'Your organisation is not strong enough (need 18).' };
     return { ok: true, cost: cost, odds: pressureOdds(s, r, d) };
   }
 
@@ -484,6 +484,7 @@
     s.stats.spent += c.cost;
     r.relation = U.clamp(r.relation - 22, -100, 100);
     s.heat = U.clamp(s.heat + 5, 0, 100);
+    CE.fear.add(s, 8, 'pressured ' + def(rivalId).name);
     var win = rng.chance(c.odds);
     if (win) {
       var taken = Math.min(r.infl[districtId], 6 + rng.next() * 4);
@@ -501,6 +502,142 @@
       text: 'They did not move. You spent ' + U.money(c.cost) + ', drew attention and made an enemy.' };
   }
 
+  /* =============================================== Aggressive Wege
+
+     Drei Handlungen, die ein vorsichtiger Spieler nie zu Gesicht
+     bekommt, weil er die Furcht dafuer nicht aufbringt. Keine davon
+     gibt bessere Werte - sie geben andere Moeglichkeiten:
+
+       Schutzgeld   eine Einnahme, die keine Waesche braucht
+       Hineinzwingen ein Bezirk ohne Eintrittsgeld
+       Uebernehmen  ein Betrieb ohne Kaufpreis
+
+     Jede kostet Beziehung, Hitze und Ansehen - und sie schliessen die
+     seriose Seite des Spiels zu, solange die Furcht hoch bleibt.
+  */
+
+  function canDemandTribute(s, rivalId) {
+    var F = CE.fear;
+    var r = U.byId(s.rivals, rivalId);
+    if (!r) return { ok: false, why: 'Unknown organisation.' };
+    if (r.allied) return { ok: false, why: 'You do not extort an ally.' };
+    if ((s.tributes || []).some(function (t) { return t.rival === rivalId; })) {
+      return { ok: false, why: 'They are already paying you.' };
+    }
+    if ((s.fear || 0) < F.TORE.tribute) {
+      return { ok: false, why: 'They are not afraid enough of you yet (needs ' + F.TORE.tribute + ' fear).' };
+    }
+    var d = St.derive(s);
+    if (d.strength < r.strength * 0.9) {
+      return { ok: false, why: 'You are not strong enough to make that demand.' };
+    }
+    var odds = U.clamp(0.3 + ((s.fear || 0) - F.TORE.tribute) / 90 +
+      (d.strength - r.strength) / 180, 0.15, 0.9);
+    return { ok: true, odds: odds };
+  }
+
+  function demandTribute(s, rng, rivalId) {
+    var pre = canDemandTribute(s, rivalId);
+    if (!pre.ok) return pre;
+    var r = U.byId(s.rivals, rivalId), rd = def(rivalId);
+    var d = St.derive(s);
+
+    r.relation = U.clamp(r.relation - 26, -100, 100);
+    s.heat = U.clamp(s.heat + 4, 0, 100);
+    CE.fear.add(s, 6, 'demanded tribute');
+
+    if (rng.chance(pre.odds)) {
+      if (!s.tributes) s.tributes = [];
+      s.tributes.push({ rival: rivalId, since: s.day, weeks: 0 });
+      r.strength = Math.max(12, r.strength - 6);
+      return { ok: true, win: true,
+        text: rd.leader + ' agreed to an arrangement. They pay protection weekly, and nobody writes it down.' };
+    }
+    /* Ein gescheiterter Versuch macht einen dauerhaften Feind. */
+    r.relation = U.clamp(r.relation - 18, -100, 100);
+    r.truceUntil = -1;
+    s.rep = U.clamp(s.rep - 2, 0, 100);
+    return { ok: true, win: false,
+      text: rd.leader + ' told you to try. They have been preparing for you ever since.' };
+  }
+
+  function stopTribute(s, rivalId) {
+    if (!s.tributes) return { ok: false, why: 'Nothing to stop.' };
+    var vorher = s.tributes.length;
+    s.tributes = s.tributes.filter(function (t) { return t.rival !== rivalId; });
+    if (s.tributes.length === vorher) return { ok: false, why: 'They are not paying you.' };
+    var r = U.byId(s.rivals, rivalId);
+    if (r) r.relation = U.clamp(r.relation + 14, -100, 100);
+    return { ok: true, text: 'You let them off. They will remember that too.' };
+  }
+
+  /* Betrieb uebernehmen: statt zu kaufen, nimmt man einen. Er kommt
+     beschaedigt und heiss, aber er kostet nichts. */
+  function canSeize(s, rivalId, districtId) {
+    var F = CE.fear;
+    var r = U.byId(s.rivals, rivalId);
+    if (!r) return { ok: false, why: 'Unknown organisation.' };
+    if (r.allied) return { ok: false, why: 'You are allied with them.' };
+    if ((s.fear || 0) < F.TORE.seize) {
+      return { ok: false, why: 'Taking somebody\u2019s business outright needs ' + F.TORE.seize + ' fear.' };
+    }
+    if (!s.districts[districtId] || !s.districts[districtId].open) {
+      return { ok: false, why: 'You are not established there.' };
+    }
+    if ((r.infl[districtId] || 0) < 10) return { ok: false, why: 'They have nothing worth taking there.' };
+    if (r.biz < 2) return { ok: false, why: 'They have too little left to take.' };
+    var d = St.derive(s);
+    var raum = CE.empire.maxBusinesses(s, districtId, d.rank);
+    var haben = s.businesses.filter(function (b) { return b.district === districtId; }).length;
+    if (haben >= raum) return { ok: false, why: 'No room for another site in that district.' };
+    var odds = U.clamp(0.28 + (d.strength - r.strength) / 150 + ((s.fear || 0) - 55) / 120, 0.12, 0.85);
+    return { ok: true, odds: odds };
+  }
+
+  function seize(s, rng, rivalId, districtId) {
+    var pre = canSeize(s, rivalId, districtId);
+    if (!pre.ok) return pre;
+    var r = U.byId(s.rivals, rivalId), rd = def(rivalId);
+    var dist = D.byId(D.DISTRICTS, districtId);
+
+    r.relation = U.clamp(r.relation - 34, -100, 100);
+    r.truceUntil = -1;
+    s.heat = U.clamp(s.heat + 9, 0, 100);
+    s.rep = U.clamp(s.rep - 3, 0, 100);
+    CE.fear.add(s, 12, 'seized a business');
+
+    if (!rng.chance(pre.odds)) {
+      s.districts[districtId].mine = Math.max(0, s.districts[districtId].mine - 4);
+      return { ok: true, win: false,
+        text: 'It went wrong. Their people were waiting, and you lost ground in ' + dist.name + '.' };
+    }
+
+    /* Was man nimmt, haengt davon ab, was dort ueberhaupt Sinn ergibt. */
+    var moeglich = D.BUSINESSES.filter(function (b) {
+      return b.tier <= dist.tier + 1 && !b.legal;
+    });
+    if (!moeglich.length) moeglich = D.BUSINESSES.filter(function (b) { return b.tier <= dist.tier; });
+    var def2 = rng.pick(moeglich);
+
+    var b = {
+      id: U.nextId(s, 'b'), type: def2.id, district: districtId, level: 1,
+      name: def2.name, bought: s.day, shut: 0,
+      /* Uebernommen heisst nicht uebergeben: die Leute vor Ort brauchen
+         Wochen, bis sie fuer einen arbeiten. */
+      damage: 0.45, seized: true, seizedOn: s.day
+    };
+    s.businesses.push(b);
+    r.biz = Math.max(0, r.biz - 1);
+    r.infl[districtId] = Math.max(0, (r.infl[districtId] || 0) - 7);
+    r.strength = Math.max(12, r.strength - 5);
+    s.districts[districtId].mine = U.clamp(s.districts[districtId].mine + 5, 0, 100);
+    s.stats.seized = (s.stats.seized || 0) + 1;
+
+    return { ok: true, win: true, biz: b,
+      text: 'You took their ' + def2.name.toLowerCase() + ' in ' + dist.name +
+            '. It is yours, it is damaged, and everybody saw it happen.' };
+  }
+
   function relationLabel(v) {
     if (v >= 70) return 'Allied';
     if (v >= 35) return 'Friendly';
@@ -515,6 +652,8 @@
     weekly: weekly, totalInfl: totalInfl, negotiate: negotiate, negotiateCost: negotiateCost,
     canAlly: canAlly, ally: ally, breakAlly: breakAlly, canPressure: canPressure,
     tribute: tribute, tributeCost: tributeCost, zielText: zielText, neuesZiel: neuesZiel,
+    canDemandTribute: canDemandTribute, demandTribute: demandTribute, stopTribute: stopTribute,
+    canSeize: canSeize, seize: seize,
     pressureRival: pressureRival, pressureOdds: pressureOdds, relationLabel: relationLabel,
     friction: friction
   };

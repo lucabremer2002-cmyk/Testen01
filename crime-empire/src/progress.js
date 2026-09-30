@@ -56,7 +56,21 @@
       n++;
     }
     if (n < D.DISTRICTS.length) return false;
-    if (s.commission && s.commission.open && s.commission.strength >= 60) return false;
+
+    /* Zwei Wege, die Stadt zu halten - und man braucht nur einen.
+
+       Entweder man haelt das Bundesverfahren klein: dann kontrolliert
+       man durch Bestand. Oder man wird so gefuerchtet, dass niemand
+       mehr antritt: dann kontrolliert man durch Schrecken, auch waehrend
+       die Anklagekammer tagt.
+
+       Ohne diesen zweiten Weg konnte ein aggressiver Spieler den Sieg
+       zwar beruehren, aber nie halten - sein Verfahren lag im Testlauf
+       dauerhaft zwischen 76 und 99. Aggression waere damit eine
+       Sackgasse gewesen, egal wie gut man sie spielt. */
+    var fallImGriff = !(s.commission && s.commission.open && s.commission.strength >= 60);
+    var gefuerchtetGenug = (s.fear || 0) >= 65;
+    if (!fallImGriff && !gefuerchtetGenug) return false;
     return true;
   }
 
