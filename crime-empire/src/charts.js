@@ -35,7 +35,7 @@
     for (i = 0; i < series.length; i++) n = Math.max(n, series[i].values.length);
     if (n < 2) {
       g.fillStyle = '#6d7280'; g.font = '12px system-ui'; g.textAlign = 'center';
-      g.fillText('Not enough weeks yet', w / 2, h / 2);
+      g.fillText('Noch nicht genug Wochen', w / 2, h / 2);
       return;
     }
 
@@ -100,9 +100,9 @@
     }
 
     g.fillStyle = '#6d7280'; g.font = '10px system-ui'; g.textAlign = 'left';
-    g.fillText(opts.xFirst || 'Week 1', padL, h - 6);
+    g.fillText(opts.xFirst || 'Woche 1', padL, h - 6);
     g.textAlign = 'right';
-    g.fillText(opts.xLast || ('Week ' + n), w - padR, h - 6);
+    g.fillText(opts.xLast || ('Woche ' + n), w - padR, h - 6);
   }
 
   /* Waagerechte Balken. rows: [{label, value, color}] */
@@ -112,7 +112,7 @@
     var c = setup(canvas, Math.max(40, rows.length * rowH + 8)), g = c.g, w = c.w;
     if (!rows.length) {
       g.fillStyle = '#6d7280'; g.font = '12px system-ui'; g.textAlign = 'center';
-      g.fillText(opts.empty || 'Nothing to show', w / 2, 24);
+      g.fillText(opts.empty || 'Nichts zu zeigen', w / 2, 24);
       return;
     }
     var labelW = 112, valW = 78;

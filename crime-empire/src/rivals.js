@@ -103,14 +103,14 @@
     if (!g) return '';
     if (g.kind === 'district') {
       var dn = D.byId(D.DISTRICTS, g.target);
-      return 'Taking ' + (dn ? dn.name : g.target);
+      return 'Nimmt sich ' + (dn ? dn.akk : g.target);
     }
     if (g.kind === 'rival') {
       var o = D.byId(D.RIVALS, g.target);
-      return 'Moving against ' + (o ? o.name : 'a rival');
+      return 'Geht vor gegen ' + (o ? o.name : 'einen Rivalen');
     }
-    if (g.kind === 'outgrow') return 'Out-earning you';
-    return 'Consolidating';
+    if (g.kind === 'outgrow') return 'Will mehr verdienen als du';
+    return 'Festigt den Besitz';
   }
 
   /* Einen anderen Rivalen angreifen. Der Spieler sieht es im Protokoll
@@ -129,14 +129,14 @@
       o.infl[ziel.id] = Math.max(0, o.infl[ziel.id] - genommen);
       r.infl[ziel.id] = U.clamp((r.infl[ziel.id] || 0) + genommen * 0.75, 0, 100);
       o.strength = Math.max(12, o.strength - rng.range(1, 3));
-      r.lastAct = 'took ground from ' + od.name;
+      r.lastAct = 'hat ' + od.name + ' Boden abgenommen';
       if (rng.chance(0.5)) {
-        report.push({ t: 'neutral', text: rd.name + ' pushed ' + od.name + ' out of part of ' +
-          D.byId(D.DISTRICTS, ziel.id).name + '. Neither of them asked you.' });
+        report.push({ t: 'neutral', text: rd.name + ' hat ' + od.name + ' teilweise aus ' +
+          D.byId(D.DISTRICTS, ziel.id).dat + ' verdrängt. Gefragt hat dich keiner von beiden.' });
       }
     } else {
       r.strength = Math.max(12, r.strength - rng.range(0.5, 2));
-      r.lastAct = 'lost people fighting ' + od.name;
+      r.lastAct = 'hat im Kampf gegen ' + od.name + ' Leute verloren';
     }
   }
 
@@ -229,18 +229,18 @@
           if (take > 0) {
             s.districts[pick.id].mine -= take;
             report.push({ t: 'warn', rival: r.id,
-              text: rd.name + ' pushed into ' + D.byId(D.DISTRICTS, pick.id).name +
-                    '. You lost ' + take.toFixed(1) + ' influence there.' });
+              text: rd.name + ' ist ' + D.byId(D.DISTRICTS, pick.id).wohin +
+                    ' vorgestoßen. Du hast dort ' + take.toFixed(1) + ' Einfluss verloren.' });
           }
         }
-        r.lastAct = 'expanded into ' + D.byId(D.DISTRICTS, pick.id).name;
+        r.lastAct = 'hat sich ' + D.byId(D.DISTRICTS, pick.id).wohin + ' ausgedehnt';
         break;
       }
       /* Betrieb kaufen - abstrakt, aber mit Folgen: mehr Staerke, mehr
          Einnahmen, hoeherer Preis fuer den Spieler in dem Bezirk. */
       case 'invest': {
         var price = 30000 + rng.int(0, 40000);
-        if (r.cash < price) { r.lastAct = 'sat on its money'; break; }
+        if (r.cash < price) { r.lastAct = 'hat auf dem Geld gesessen'; break; }
         r.cash -= price;
         r.biz++;
         r.strength += rng.range(1.5, 4);
@@ -248,15 +248,15 @@
           return { id: id, w: (r.infl[id] || 0) + 1 };
         }));
         if (where) r.infl[where.id] = U.clamp((r.infl[where.id] || 0) + rng.range(0.6, 1.8), 0, 100);
-        r.lastAct = 'bought another business';
+        r.lastAct = 'hat einen weiteren Betrieb gekauft';
         break;
       }
       case 'recruit': {
         var cost = 6000 + rng.int(0, 14000);
-        if (r.cash < cost) { r.lastAct = 'was short on cash'; break; }
+        if (r.cash < cost) { r.lastAct = 'war knapp bei Kasse'; break; }
         r.cash -= cost;
         r.strength += rng.range(2, 6);
-        r.lastAct = 'brought on new people';
+        r.lastAct = 'hat neue Leute angeheuert';
         break;
       }
       /* Gegen den Spieler vorgehen. Immer angekuendigt, immer erklaert. */
@@ -266,11 +266,11 @@
       }
       case 'court': {
         r.relation = U.clamp(r.relation + rng.range(2, 6), -100, 100);
-        r.lastAct = 'sent word that they want to talk';
+        r.lastAct = 'hat ausrichten lassen, dass man reden will';
         break;
       }
       default:
-        r.lastAct = 'kept quiet this week';
+        r.lastAct = 'hat sich diese Woche ruhig verhalten';
     }
   }
 
@@ -299,9 +299,9 @@
         var cut = U.clamp(1 - d.sabotageCut, 0.25, 1);
         b.damage = U.clamp((b.damage || 0) + rng.range(0.25, 0.55) * cut, 0, 0.8);
         report.push({ t: 'bad', rival: r.id,
-          text: name + ' hit ' + b.name + '. Output down ' + U.pct(b.damage) + ' until it is repaired.' });
+          text: name + ' hat ' + b.name + ' getroffen. Ertrag ' + U.pct(b.damage) + ' niedriger, bis repariert ist.' });
         r.relation = U.clamp(r.relation - 5, -100, 100);
-        r.lastAct = 'sabotaged one of your sites';
+        r.lastAct = 'hat einen deiner Betriebe sabotiert';
         break;
       }
       case 'undercut': {
@@ -311,28 +311,28 @@
         s.districts[k2].mine = Math.max(0, s.districts[k2].mine - loss);
         r.infl[k2] = U.clamp((r.infl[k2] || 0) + loss * 0.7, 0, 100);
         report.push({ t: 'warn', rival: r.id,
-          text: name + ' undercut your prices in ' + D.byId(D.DISTRICTS, k2).name +
-                '. Influence -' + loss.toFixed(1) + '.' });
-        r.lastAct = 'undercut you on price';
+          text: name + ' hat deine Preise ' + D.byId(D.DISTRICTS, k2).wo +
+                ' unterboten. Einfluss -' + loss.toFixed(1) + '.' });
+        r.lastAct = 'hat dich im Preis unterboten';
         break;
       }
       case 'poach': {
         var pool = s.crew.filter(function (c) { return !c.player && c.loyalty < 62; });
-        if (!pool.length) { r.lastAct = 'tried to buy one of your people and failed'; break; }
+        if (!pool.length) { r.lastAct = 'wollte einen deiner Leute kaufen und scheiterte'; break; }
         var c = rng.pick(pool);
         c.loyalty = U.clamp(c.loyalty - rng.range(10, 22), 0, 100);
         report.push({ t: 'warn', rival: r.id,
-          text: name + ' made ' + c.name + ' an offer. Loyalty is down to ' + Math.round(c.loyalty) + '.' });
-        r.lastAct = 'went after your people';
+          text: name + ' hat ' + c.name + ' ein Angebot gemacht. Loyalität jetzt bei ' + Math.round(c.loyalty) + '.' });
+        r.lastAct = 'hat sich an deine Leute herangemacht';
         break;
       }
       case 'tip': {
         var add = rng.range(4, 11);
         s.heat = U.clamp(s.heat + add, 0, 100);
         report.push({ t: 'bad', rival: r.id,
-          text: 'Somebody put your name in front of the police. Heat +' + add.toFixed(1) +
-                '. It smells like ' + name + '.' });
-        r.lastAct = 'talked to the police about you';
+          text: 'Jemand hat deinen Namen bei der Polizei genannt. Hitze +' + add.toFixed(1) +
+                '. Das riecht nach ' + name + '.' });
+        r.lastAct = 'hat mit der Polizei über dich gesprochen';
         r.relation = U.clamp(r.relation - 8, -100, 100);
         break;
       }
@@ -344,8 +344,8 @@
         s.cash -= cost;
         s.rep = U.clamp(s.rep - 1.5, 0, 100);
         report.push({ t: 'bad', rival: r.id,
-          text: name + ' leaned on your operations. ' + U.money(cost) + ' in damage and lost business.' });
-        r.lastAct = 'moved on you directly';
+          text: name + ' ist gegen deine Betriebe vorgegangen. ' + U.money(cost) + ' an Schaden und entgangenem Geschäft.' });
+        r.lastAct = 'ist direkt gegen dich vorgegangen';
         r.relation = U.clamp(r.relation - 6, -100, 100);
         break;
       }
@@ -377,10 +377,10 @@
 
   function negotiate(s, rivalId) {
     var r = U.byId(s.rivals, rivalId);
-    if (!r) return { ok: false, why: 'Unknown organisation.' };
+    if (!r) return { ok: false, why: 'Unbekannte Organisation.' };
     var d = St.derive(s);
     var cost = negotiateCost(s, r, d);
-    if (s.cash < cost) return { ok: false, why: 'A meeting like that costs ' + U.money(cost) + '.' };
+    if (s.cash < cost) return { ok: false, why: 'Ein solches Treffen kostet ' + U.money(cost) + '.' };
     s.cash -= cost;
     s.stats.spent += cost;
     /* Wer Staerke mitbringt, wird ernster genommen. Mit 22 bis 36 Punkten
@@ -390,7 +390,7 @@
     r.relation = U.clamp(r.relation + gain, -100, 100);
     r.truceUntil = s.day + 21;
     return { ok: true, cost: cost, relation: Math.round(r.relation),
-      text: def(r.id).leader + ' took the meeting. Relations improved and there is a truce for three weeks.' };
+      text: def(r.id).leader + ' ist zum Treffen gekommen. Das Verhältnis ist besser, und drei Wochen lang herrscht Waffenruhe.' };
   }
 
   /* Tribut: klein, billig, jederzeit. Verhandeln ist das grosse Treffen
@@ -402,11 +402,11 @@
 
   function tribute(s, rivalId) {
     var r = U.byId(s.rivals, rivalId);
-    if (!r) return { ok: false, why: 'Unknown organisation.' };
-    if (r.allied) return { ok: false, why: 'You are already allied.' };
+    if (!r) return { ok: false, why: 'Unbekannte Organisation.' };
+    if (r.allied) return { ok: false, why: 'Ihr seid bereits verbündet.' };
     var d = St.derive(s);
     var cost = tributeCost(s, r, d);
-    if (s.cash < cost) return { ok: false, why: 'A gesture like that costs ' + U.money(cost) + '.' };
+    if (s.cash < cost) return { ok: false, why: 'Eine solche Geste kostet ' + U.money(cost) + '.' };
     s.cash -= cost;
     s.stats.spent += cost;
     r.cash += Math.round(cost * 0.6);
@@ -417,17 +417,17 @@
     var gain = U.clamp(9 * (1 - r.relation / 100), 2, 11);
     r.relation = U.clamp(r.relation + gain, -100, 100);
     return { ok: true, cost: cost, relation: Math.round(r.relation),
-      text: def(r.id).leader + ' accepted the gesture. Relations improved by ' + gain + '.' };
+      text: def(r.id).leader + ' hat die Geste angenommen. Das Verhältnis steigt um ' + gain + '.' };
   }
 
   function canAlly(s, rivalId) {
     var r = U.byId(s.rivals, rivalId);
-    if (!r) return { ok: false, why: 'Unknown organisation.' };
-    if (r.allied) return { ok: false, why: 'Already allied.' };
-    if (r.relation < 42) return { ok: false, why: 'Relations must be at 42 or better (currently ' + Math.round(r.relation) + ').' };
+    if (!r) return { ok: false, why: 'Unbekannte Organisation.' };
+    if (r.allied) return { ok: false, why: 'Bereits verbündet.' };
+    if (r.relation < 42) return { ok: false, why: 'Das Verhältnis muss bei 42 oder besser liegen (derzeit ' + Math.round(r.relation) + ').' };
     var d = St.derive(s);
     var cost = Math.round(Math.max(25000, d.netWorth * 0.08));
-    if (s.cash < cost) return { ok: false, why: 'Sealing it costs ' + U.money(cost) + '.' };
+    if (s.cash < cost) return { ok: false, why: 'Der Abschluss kostet ' + U.money(cost) + '.' };
     return { ok: true, cost: cost };
   }
 
@@ -445,30 +445,30 @@
       if (s.rivals[i].id !== rivalId) s.rivals[i].relation = U.clamp(s.rivals[i].relation - 8, -100, 100);
     }
     return { ok: true, cost: c.cost,
-      text: def(rivalId).leader + ' shook on it. They will stay out of your districts and share what they hear.' };
+      text: def(rivalId).leader + ' hat eingeschlagen. Man hält sich aus deinen Bezirken heraus und teilt, was man hört.' };
   }
 
   function breakAlly(s, rivalId) {
     var r = U.byId(s.rivals, rivalId);
-    if (!r || !r.allied) return { ok: false, why: 'No alliance to break.' };
+    if (!r || !r.allied) return { ok: false, why: 'Es gibt kein Bündnis zu brechen.' };
     r.allied = false;
     r.relation = U.clamp(r.relation - 55, -100, 100);
     s.rep = U.clamp(s.rep - 3, 0, 100);
-    return { ok: true, text: 'The arrangement with ' + def(rivalId).name + ' is over. They will remember it.' };
+    return { ok: true, text: 'Die Abmachung mit ' + def(rivalId).name + ' ist beendet. Man wird sich daran erinnern.' };
   }
 
   /* Druck machen: teuer, riskant, aber die einzige Art, jemanden
      dauerhaft aus einem Bezirk zu draengen. */
   function canPressure(s, rivalId, districtId) {
     var r = U.byId(s.rivals, rivalId);
-    if (!r) return { ok: false, why: 'Unknown organisation.' };
-    if (r.allied) return { ok: false, why: 'You are allied with them.' };
-    if (!s.districts[districtId] || !s.districts[districtId].open) return { ok: false, why: 'You are not established there.' };
-    if ((r.infl[districtId] || 0) < 3) return { ok: false, why: 'They are not really in that district.' };
+    if (!r) return { ok: false, why: 'Unbekannte Organisation.' };
+    if (r.allied) return { ok: false, why: 'Ihr seid verbündet.' };
+    if (!s.districts[districtId] || !s.districts[districtId].open) return { ok: false, why: 'Dort hast du keinen Fuß in der Tür.' };
+    if ((r.infl[districtId] || 0) < 3) return { ok: false, why: 'In diesem Bezirk sind sie kaum vertreten.' };
     var d = St.derive(s);
     var cost = Math.round(Math.max(6000, d.grossIncome * 0.6));
-    if (s.cash < cost) return { ok: false, why: 'Needs ' + U.money(cost) + '.' };
-    if (d.strength < 18) return { ok: false, why: 'Your organisation is not strong enough (need 18).' };
+    if (s.cash < cost) return { ok: false, why: 'Benötigt ' + U.money(cost) + '.' };
+    if (d.strength < 18) return { ok: false, why: 'Deine Organisation ist nicht stark genug (nötig: 18).' };
     return { ok: true, cost: cost, odds: pressureOdds(s, r, d) };
   }
 
@@ -484,7 +484,7 @@
     s.stats.spent += c.cost;
     r.relation = U.clamp(r.relation - 22, -100, 100);
     s.heat = U.clamp(s.heat + 5, 0, 100);
-    CE.fear.add(s, 8, 'pressured ' + def(rivalId).name);
+    CE.fear.add(s, 8, 'Druck auf ' + def(rivalId).name + ' gemacht');
     var win = rng.chance(c.odds);
     if (win) {
       var taken = Math.min(r.infl[districtId], 6 + rng.next() * 4);
@@ -493,13 +493,13 @@
       r.strength = Math.max(10, r.strength - 4);
       s.rep = U.clamp(s.rep + 2, 0, 100);
       return { ok: true, win: true, cost: c.cost,
-        text: 'Their people pulled back from ' + D.byId(D.DISTRICTS, districtId).name +
-              '. You took ' + taken.toFixed(1) + ' influence.' };
+        text: 'Ihre Leute haben sich aus ' + D.byId(D.DISTRICTS, districtId).dat +
+              ' zurückgezogen. Du hast ' + taken.toFixed(1) + ' Einfluss genommen.' };
     }
     s.rep = U.clamp(s.rep - 2, 0, 100);
     s.heat = U.clamp(s.heat + 4, 0, 100);
     return { ok: true, win: false, cost: c.cost,
-      text: 'They did not move. You spent ' + U.money(c.cost) + ', drew attention and made an enemy.' };
+      text: 'Sie haben sich nicht bewegt. Du hast ' + U.money(c.cost) + ' ausgegeben, Aufmerksamkeit erregt und einen Feind gemacht.' };
   }
 
   /* =============================================== Aggressive Wege
@@ -519,17 +519,17 @@
   function canDemandTribute(s, rivalId) {
     var F = CE.fear;
     var r = U.byId(s.rivals, rivalId);
-    if (!r) return { ok: false, why: 'Unknown organisation.' };
-    if (r.allied) return { ok: false, why: 'You do not extort an ally.' };
+    if (!r) return { ok: false, why: 'Unbekannte Organisation.' };
+    if (r.allied) return { ok: false, why: 'Einen Verbündeten erpresst man nicht.' };
     if ((s.tributes || []).some(function (t) { return t.rival === rivalId; })) {
-      return { ok: false, why: 'They are already paying you.' };
+      return { ok: false, why: 'Sie zahlen bereits an dich.' };
     }
     if ((s.fear || 0) < F.TORE.tribute) {
-      return { ok: false, why: 'They are not afraid enough of you yet (needs ' + F.TORE.tribute + ' fear).' };
+      return { ok: false, why: 'Sie fürchten dich noch nicht genug (nötig: ' + F.TORE.tribute + ' Furcht).' };
     }
     var d = St.derive(s);
     if (d.strength < r.strength * 0.9) {
-      return { ok: false, why: 'You are not strong enough to make that demand.' };
+      return { ok: false, why: 'Du bist nicht stark genug für diese Forderung.' };
     }
     var odds = U.clamp(0.3 + ((s.fear || 0) - F.TORE.tribute) / 90 +
       (d.strength - r.strength) / 180, 0.15, 0.9);
@@ -544,31 +544,31 @@
 
     r.relation = U.clamp(r.relation - 26, -100, 100);
     s.heat = U.clamp(s.heat + 4, 0, 100);
-    CE.fear.add(s, 6, 'demanded tribute');
+    CE.fear.add(s, 6, 'Schutzgeld gefordert');
 
     if (rng.chance(pre.odds)) {
       if (!s.tributes) s.tributes = [];
       s.tributes.push({ rival: rivalId, since: s.day, weeks: 0 });
       r.strength = Math.max(12, r.strength - 6);
       return { ok: true, win: true,
-        text: rd.leader + ' agreed to an arrangement. They pay protection weekly, and nobody writes it down.' };
+        text: rd.leader + ' hat eingewilligt. Sie zahlen wöchentlich Schutzgeld, und niemand schreibt es auf.' };
     }
     /* Ein gescheiterter Versuch macht einen dauerhaften Feind. */
     r.relation = U.clamp(r.relation - 18, -100, 100);
     r.truceUntil = -1;
     s.rep = U.clamp(s.rep - 2, 0, 100);
     return { ok: true, win: false,
-      text: rd.leader + ' told you to try. They have been preparing for you ever since.' };
+      text: rd.leader + ' hat dich auflaufen lassen. Seitdem bereitet man sich auf dich vor.' };
   }
 
   function stopTribute(s, rivalId) {
-    if (!s.tributes) return { ok: false, why: 'Nothing to stop.' };
+    if (!s.tributes) return { ok: false, why: 'Da ist nichts zu beenden.' };
     var vorher = s.tributes.length;
     s.tributes = s.tributes.filter(function (t) { return t.rival !== rivalId; });
-    if (s.tributes.length === vorher) return { ok: false, why: 'They are not paying you.' };
+    if (s.tributes.length === vorher) return { ok: false, why: 'Sie zahlen nicht an dich.' };
     var r = U.byId(s.rivals, rivalId);
     if (r) r.relation = U.clamp(r.relation + 14, -100, 100);
-    return { ok: true, text: 'You let them off. They will remember that too.' };
+    return { ok: true, text: 'Du hast sie laufen lassen. Auch daran wird man sich erinnern.' };
   }
 
   /* Betrieb uebernehmen: statt zu kaufen, nimmt man einen. Er kommt
@@ -576,20 +576,20 @@
   function canSeize(s, rivalId, districtId) {
     var F = CE.fear;
     var r = U.byId(s.rivals, rivalId);
-    if (!r) return { ok: false, why: 'Unknown organisation.' };
-    if (r.allied) return { ok: false, why: 'You are allied with them.' };
+    if (!r) return { ok: false, why: 'Unbekannte Organisation.' };
+    if (r.allied) return { ok: false, why: 'Ihr seid verbündet.' };
     if ((s.fear || 0) < F.TORE.seize) {
-      return { ok: false, why: 'Taking somebody\u2019s business outright needs ' + F.TORE.seize + ' fear.' };
+      return { ok: false, why: 'Jemandem einen Betrieb einfach wegzunehmen braucht ' + F.TORE.seize + ' Furcht.' };
     }
     if (!s.districts[districtId] || !s.districts[districtId].open) {
-      return { ok: false, why: 'You are not established there.' };
+      return { ok: false, why: 'Dort hast du keinen Fuß in der Tür.' };
     }
-    if ((r.infl[districtId] || 0) < 10) return { ok: false, why: 'They have nothing worth taking there.' };
-    if (r.biz < 2) return { ok: false, why: 'They have too little left to take.' };
+    if ((r.infl[districtId] || 0) < 10) return { ok: false, why: 'Dort haben sie nichts, was sich zu nehmen lohnt.' };
+    if (r.biz < 2) return { ok: false, why: 'Es ist zu wenig übrig, um etwas zu nehmen.' };
     var d = St.derive(s);
     var raum = CE.empire.maxBusinesses(s, districtId, d.rank);
     var haben = s.businesses.filter(function (b) { return b.district === districtId; }).length;
-    if (haben >= raum) return { ok: false, why: 'No room for another site in that district.' };
+    if (haben >= raum) return { ok: false, why: 'In diesem Bezirk ist kein Platz für einen weiteren Betrieb.' };
     var odds = U.clamp(0.28 + (d.strength - r.strength) / 150 + ((s.fear || 0) - 55) / 120, 0.12, 0.85);
     return { ok: true, odds: odds };
   }
@@ -604,12 +604,12 @@
     r.truceUntil = -1;
     s.heat = U.clamp(s.heat + 9, 0, 100);
     s.rep = U.clamp(s.rep - 3, 0, 100);
-    CE.fear.add(s, 12, 'seized a business');
+    CE.fear.add(s, 12, 'einen Betrieb übernommen');
 
     if (!rng.chance(pre.odds)) {
       s.districts[districtId].mine = Math.max(0, s.districts[districtId].mine - 4);
       return { ok: true, win: false,
-        text: 'It went wrong. Their people were waiting, and you lost ground in ' + dist.name + '.' };
+        text: 'Es ging schief. Ihre Leute haben gewartet, und du hast ' + dist.wo + ' Boden verloren.' };
     }
 
     /* Was man nimmt, haengt davon ab, was dort ueberhaupt Sinn ergibt. */
@@ -634,18 +634,18 @@
     s.stats.seized = (s.stats.seized || 0) + 1;
 
     return { ok: true, win: true, biz: b,
-      text: 'You took their ' + def2.name.toLowerCase() + ' in ' + dist.name +
-            '. It is yours, it is damaged, and everybody saw it happen.' };
+      text: 'Du hast ihnen ' + def2.name + ' ' + dist.wo +
+            ' weggenommen. Der Betrieb gehört dir, er ist beschädigt, und alle haben es gesehen.' };
   }
 
   function relationLabel(v) {
-    if (v >= 70) return 'Allied';
-    if (v >= 35) return 'Friendly';
-    if (v >= 10) return 'Cordial';
+    if (v >= 70) return 'Verbündet';
+    if (v >= 35) return 'Freundlich';
+    if (v >= 10) return 'Verbindlich';
     if (v > -15) return 'Neutral';
-    if (v > -45) return 'Cold';
-    if (v > -75) return 'Hostile';
-    return 'At War';
+    if (v > -45) return 'Kühl';
+    if (v > -75) return 'Feindselig';
+    return 'Im Krieg';
   }
 
   CE.rivals = {

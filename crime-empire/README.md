@@ -9,6 +9,12 @@ Reines HTML, CSS und JavaScript. Kein Framework, kein Build-Schritt,
 keine Abhaengigkeiten, keine Fremd-Assets: Grafik, Portraits, Karte,
 Diagramme und Klang entstehen im Code.
 
+Die Oberflaeche und alle Spieltexte sind deutsch. Bezirke tragen in
+`src/data.js` neben dem Namen die Formen `nom`, `akk`, `dat`, `wo` und
+`wohin` - deutsche Saetze brauchen den Artikel, und "im Hafen" ist nicht
+"in dem Hafen". Wer Text ergaenzt, nimmt `wo` fuer den Ort und `wohin`
+fuer die Richtung; beide bringen die Praeposition schon mit.
+
 ## Spielen
 
 `index.html` im Browser oeffnen. Das war's.
@@ -117,7 +123,7 @@ gibt keine besseren Werte, sie oeffnet andere Handlungen:
 | ab | was moeglich wird |
 | --- | --- |
 | 18 | **Schutzgeld** von unterlegenen Rivalen fordern - eine Wocheneinnahme, die an der Geldwaesche vorbeilaeuft, weil niemand meldet, was er aus Angst zahlt |
-| 38 | **Bezirk erzwingen** statt Eintritt zahlen - gemessen 0 statt 80.207 Dollar fuer Downtown, dafuer 12 Hitze, 4 Ansehen und ein Bezirk, der umkaempft startet |
+| 38 | **Bezirk erzwingen** statt Eintritt zahlen - gemessen 0 statt 80.207 Dollar fuer die Innenstadt, dafuer 12 Hitze, 4 Ansehen und ein Bezirk, der umkaempft startet |
 | 55 | **Betrieb uebernehmen** statt kaufen - 0 statt 13.775 bis 174.000 Dollar, dafuer 45 % Schaden und ein dauerhafter Feind |
 
 Und sie kostet, was sich nicht zurueckkaufen laesst: ueber 45 unter-

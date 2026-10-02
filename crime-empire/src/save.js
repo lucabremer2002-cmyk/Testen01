@@ -69,7 +69,7 @@
     };
     var json;
     try { json = JSON.stringify(payload); }
-    catch (e) { return { ok: false, why: 'This game state could not be written.' }; }
+    catch (e) { return { ok: false, why: 'Dieser Spielstand konnte nicht geschrieben werden.' }; }
     put(PREFIX + slot, json);
     put(META, JSON.stringify({ last: slot, at: payload.saved }));
     return { ok: true, slot: slot, bytes: json.length, stored: available };
@@ -77,10 +77,10 @@
 
   function load(slot) {
     var json = raw(PREFIX + String(slot));
-    if (!json) return { ok: false, why: 'Empty slot.' };
+    if (!json) return { ok: false, why: 'Leerer Platz.' };
     var payload;
-    try { payload = JSON.parse(json); } catch (e) { return { ok: false, why: 'This save is damaged.' }; }
-    if (!payload.state) return { ok: false, why: 'This save is damaged.' };
+    try { payload = JSON.parse(json); } catch (e) { return { ok: false, why: 'Dieser Spielstand ist beschädigt.' }; }
+    if (!payload.state) return { ok: false, why: 'Dieser Spielstand ist beschädigt.' };
     var s = migrate(payload.state, payload.v);
     return { ok: true, state: s, saved: payload.saved, label: payload.label };
   }

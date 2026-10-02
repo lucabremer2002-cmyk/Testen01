@@ -368,39 +368,39 @@ function toteFlaggen() {
         if (!muster.test(html)) fail('"' + was + '" does not appear on the ' + schirm + ' screen');
       };
       sichtbar('rivals', /Kessler/, 'recurring characters');
-      sichtbar('rivals', /Current aim/, 'rival goals');
-      sichtbar('org', /Case strength/, 'the federal case');
-      sichtbar('org', /Burn the Records/, 'case counterplay');
+      sichtbar('rivals', /Aktuelles Ziel/, 'rival goals');
+      sichtbar('org', /Stärke des Falls/, 'the federal case');
+      sichtbar('org', /Die Akten verbrennen/, 'case counterplay');
       probe2.commission.assets = [
         { kind: 'wiretap', ref: probe2.businesses[0].id, name: probe2.businesses[0].name, since: 1 },
         { kind: 'informant', ref: 'x', name: 'Geheim', since: 1, known: false }
       ];
-      sichtbar('org', /What they have/, 'what the commission owns');
-      sichtbar('org', /Sweep for Bugs/, 'targeted counterplay');
+      sichtbar('org', /Was sie haben/, 'what the commission owns');
+      sichtbar('org', /Nach Wanzen suchen/, 'targeted counterplay');
       const orgHtml = CE.ui.render('org', probe2, St.derive(probe2));
       if (/Geheim/.test(orgHtml)) fail('the informant is named in the interface - finding them should be an action');
-      sichtbar('city', /Booming/i, 'district states');
+      sichtbar('city', /Boomend|Stabil/i, 'district states');
       /* Der Einmarsch erscheint nur bei einem Bezirk, den man noch nicht
          hat - also muss die Tafel auch auf einen solchen zeigen. */
       CE.ui.sel.district = 'harbor';
-      sichtbar('city', /Force your way in/, 'the aggressive route into a district');
+      sichtbar('city', /Mit Gewalt hinein/, 'the aggressive route into a district');
       CE.ui.sel.district = 'oldtown';
-      sichtbar('overview', /Fear/, 'the fear track');
-      sichtbar('overview', /Standing/, 'the legitimacy track');
+      sichtbar('overview', /Furcht/, 'the fear track');
+      sichtbar('overview', /Stellung/, 'the legitimacy track');
       /* Furcht muss die aggressiven Knoepfe oeffnen - und ohne sie
          muessen sie erklaert statt versteckt sein. */
       probe2.fear = 70;
       const rivHoch = CE.ui.render('rivals', probe2, St.derive(probe2));
-      if (!/Demand protection/.test(rivHoch)) fail('at 70 fear the protection demand does not appear');
-      if (!/Take a site/.test(rivHoch)) fail('at 70 fear the seizure option does not appear');
+      if (!/Schutzgeld fordern/.test(rivHoch)) fail('at 70 fear the protection demand does not appear');
+      if (!/Betrieb nehmen/.test(rivHoch)) fail('at 70 fear the seizure option does not appear');
       probe2.fear = 0;
       const rivNull = CE.ui.render('rivals', probe2, St.derive(probe2));
-      if (/Demand protection/.test(rivNull)) fail('the protection demand shows at zero fear');
+      if (/Schutzgeld fordern/.test(rivNull)) fail('the protection demand shows at zero fear');
       /* Und die beiden Bedeutungen von "Tribut" duerfen nicht kollidieren. */
       if (/Tribute &middot;/.test(rivNull) && /Paying you protection/.test(rivNull)) {
         fail('the diplomatic gift and extorted protection are both labelled tribute');
       }
-      sichtbar('overview', /Federal case|federal/i, 'the case on the overview');
+      sichtbar('overview', /Bundesverfahren/i, 'the case on the overview');
     }
 
     const missing = [...seenActs].filter(a => typeof window.CRIME.actions[a] !== 'function');

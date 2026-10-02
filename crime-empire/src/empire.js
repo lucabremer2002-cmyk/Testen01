@@ -16,12 +16,12 @@
 
   function canOpenDistrict(s, id) {
     var dd = s.districts[id], def = D.byId(D.DISTRICTS, id);
-    if (!dd) return { ok: false, why: 'Unknown district.' };
-    if (dd.open) return { ok: false, why: 'Already yours to work.' };
+    if (!dd) return { ok: false, why: 'Unbekannter Bezirk.' };
+    if (dd.open) return { ok: false, why: 'Darin arbeitest du bereits.' };
     var d = St.derive(s);
-    if (d.rank < def.rank) return { ok: false, why: 'Requires rank ' + D.RANKS[def.rank].name + '.' };
+    if (d.rank < def.rank) return { ok: false, why: 'Erfordert Rang ' + D.RANKS[def.rank].name + '.' };
     var cost = entryCost(s, id);
-    if (s.cash < cost) return { ok: false, why: 'Needs ' + U.money(cost) + '.' };
+    if (s.cash < cost) return { ok: false, why: 'Benötigt ' + U.money(cost) + '.' };
     return { ok: true, cost: cost };
   }
 
@@ -65,20 +65,20 @@
   function canMuscleIn(s, id) {
     var F = CE.fear;
     var dd = s.districts[id], ddef = D.byId(D.DISTRICTS, id);
-    if (!dd) return { ok: false, why: 'Unknown district.' };
-    if (dd.open) return { ok: false, why: 'Already yours to work.' };
+    if (!dd) return { ok: false, why: 'Unbekannter Bezirk.' };
+    if (dd.open) return { ok: false, why: 'Darin arbeitest du bereits.' };
     if ((s.fear || 0) < F.TORE.muscle) {
-      return { ok: false, why: 'Forcing your way in needs ' + F.TORE.muscle + ' fear (you have ' +
+      return { ok: false, why: 'Sich hineinzuzwingen braucht ' + F.TORE.muscle + ' Furcht (du hast ' +
         Math.round(s.fear || 0) + ').' };
     }
     var d = St.derive(s);
-    if (d.rank < ddef.rank) return { ok: false, why: 'Requires rank ' + D.RANKS[ddef.rank].name + '.' };
+    if (d.rank < ddef.rank) return { ok: false, why: 'Erfordert Rang ' + D.RANKS[ddef.rank].name + '.' };
     var fremd = 0;
     for (var i = 0; i < s.rivals.length; i++) fremd += s.rivals[i].infl[id] || 0;
     var noetig = 35 + fremd * 0.75;
     if (d.strength < noetig) {
-      return { ok: false, why: 'Needs organisation strength ' + Math.round(noetig) +
-        ' (you have ' + d.strength + ').' };
+      return { ok: false, why: 'Benötigt Organisationsstärke ' + Math.round(noetig) +
+        ' (du hast ' + d.strength + ').' };
     }
     var odds = U.clamp(0.35 + (d.strength - noetig) / 130 + ((s.fear || 0) - 40) / 150, 0.2, 0.88);
     return { ok: true, odds: odds, strength: noetig };
@@ -91,7 +91,7 @@
 
     s.heat = U.clamp(s.heat + 12, 0, 100);
     s.rep = U.clamp(s.rep - 4, 0, 100);
-    CE.fear.add(s, 15, 'forced into ' + ddef.name);
+    CE.fear.add(s, 15, 'mit Gewalt eingedrungen ' + ddef.wohin);
     for (var i = 0; i < s.rivals.length; i++) {
       if ((s.rivals[i].infl[id] || 0) > 5) {
         s.rivals[i].relation = U.clamp(s.rivals[i].relation - 22, -100, 100);
@@ -108,7 +108,7 @@
         wer.hurt = wer.busyUntil;
       }
       return { ok: true, win: false,
-        text: 'They held. You are not in ' + ddef.name + ', and now everyone there knows you tried.' };
+        text: 'Sie haben gehalten. Du bist nicht ' + ddef.wo + ', und jetzt weiß dort jeder, dass du es versucht hast.' };
     }
 
     s.districts[id].open = true;
@@ -117,8 +117,8 @@
     s.districts[id].stateSince = s.day;
     s.stats.muscled = (s.stats.muscled || 0) + 1;
     return { ok: true, win: true,
-      text: 'You are in ' + ddef.name + ', and you did not pay a cent for it. ' +
-            'The district is contested and will stay that way for a while.' };
+      text: 'Du bist ' + ddef.wo + ', und du hast keinen Cent dafür bezahlt. ' +
+            'Der Bezirk ist umkämpft und bleibt es eine Weile.' };
   }
 
   /* --------------------------------------------------------- Betriebe */
@@ -144,17 +144,17 @@
   function canBuy(s, districtId, typeId, rang) {
     var def = D.byId(D.BUSINESSES, typeId);
     var dd = s.districts[districtId];
-    if (!def || !dd) return { ok: false, why: 'Unknown.' };
-    if (!dd.open) return { ok: false, why: 'You have no foothold in this district.' };
-    if (s.rep < def.rep) return { ok: false, why: 'Requires ' + def.rep + ' reputation (you have ' + Math.floor(s.rep) + ').' };
+    if (!def || !dd) return { ok: false, why: 'Unbekannt.' };
+    if (!dd.open) return { ok: false, why: 'In diesem Bezirk hast du keinen Fuß in der Tür.' };
+    if (s.rep < def.rep) return { ok: false, why: 'Erfordert ' + def.rep + ' Ansehen (du hast ' + Math.floor(s.rep) + ').' };
     /* Kein Lizenzgeber unterschreibt fuer jemanden, vor dem die Stadt
        Angst hat. Das ist die Tuer, die Furcht zuschlaegt. */
     if (def.legal && def.tier >= 3 && (s.fear || 0) >= 45) {
-      return { ok: false, why: 'No licensing board will sign for you at ' +
-        Math.round(s.fear) + ' fear. This door closes above 45.' };
+      return { ok: false, why: 'Keine Genehmigungsbehörde unterschreibt für dich bei ' +
+        Math.round(s.fear) + ' Furcht. Diese Tür schließt sich oberhalb von 45.' };
     }
     var dist = D.byId(D.DISTRICTS, districtId);
-    if (def.tier > dist.tier + 1) return { ok: false, why: 'This district cannot support an operation that size.' };
+    if (def.tier > dist.tier + 1) return { ok: false, why: 'Dieser Bezirk trägt keinen Betrieb dieser Größe.' };
     /* Ein Bezirk traegt nur so viele Betriebe, wie man dort Rueckhalt
        hat. Ohne diese Grenze wird das Spaetspiel zum Kaufknopf-Druecken:
        die Simulation lief auf 123 Standorte, was nichts mehr entscheidet.
@@ -162,16 +162,16 @@
     var here = s.businesses.filter(function (b) { return b.district === districtId; }).length;
     var room = maxBusinesses(s, districtId, rang);
     if (here >= room) {
-      return { ok: false, why: 'You can support ' + room + ' businesses in this district. ' +
-        'Build influence here to make room for more.' };
+      return { ok: false, why: 'Du kannst hier ' + room + ' Betriebe tragen. ' +
+        'Bau hier Einfluss auf, um Platz für mehr zu schaffen.' };
     }
 
     /* Ein Betriebstyp zweimal im selben Bezirk verwaessert sich. */
     var same = s.businesses.filter(function (b) { return b.district === districtId && b.type === typeId; }).length;
-    if (same >= 2) return { ok: false, why: 'Two of these in one district is already one too many.' };
+    if (same >= 2) return { ok: false, why: 'Zwei davon in einem Bezirk sind schon einer zu viel.' };
     var cost = St.buyCost(districtId, typeId) * (same ? 1.35 : 1);
     cost = Math.round(cost);
-    if (s.cash < cost) return { ok: false, why: 'Needs ' + U.money(cost) + '.' };
+    if (s.cash < cost) return { ok: false, why: 'Benötigt ' + U.money(cost) + '.' };
     return { ok: true, cost: cost };
   }
 
@@ -193,10 +193,10 @@
 
   function canUpgrade(s, bizId) {
     var b = U.byId(s.businesses, bizId);
-    if (!b) return { ok: false, why: 'Unknown business.' };
-    if (b.level >= D.UPGRADE.max) return { ok: false, why: 'Already at maximum level.' };
+    if (!b) return { ok: false, why: 'Unbekannter Betrieb.' };
+    if (b.level >= D.UPGRADE.max) return { ok: false, why: 'Bereits auf der höchsten Stufe.' };
     var cost = St.upgradeCost(s, b);
-    if (s.cash < cost) return { ok: false, why: 'Needs ' + U.money(cost) + '.' };
+    if (s.cash < cost) return { ok: false, why: 'Benötigt ' + U.money(cost) + '.' };
     return { ok: true, cost: cost };
   }
 
@@ -214,7 +214,7 @@
      wenig, um Kaufen und Verkaufen zur Einnahmequelle zu machen. */
   function sell(s, bizId) {
     var b = U.byId(s.businesses, bizId);
-    if (!b) return { ok: false, why: 'Unknown business.' };
+    if (!b) return { ok: false, why: 'Unbekannter Betrieb.' };
     var price = Math.round(St.bizValue(s, b) * 0.68);
     s.cash += price;
     s.stats.earned += price;
@@ -227,11 +227,11 @@
 
   function canUpgradeOrg(s, upId) {
     var up = D.byId(D.ORG_UPGRADES, upId);
-    if (!up) return { ok: false, why: 'Unknown.' };
+    if (!up) return { ok: false, why: 'Unbekannt.' };
     var lv = s.org[upId] || 0;
-    if (lv >= up.max) return { ok: false, why: 'Fully built.' };
+    if (lv >= up.max) return { ok: false, why: 'Vollständig ausgebaut.' };
     var cost = up.cost[lv];
-    if (s.cash < cost) return { ok: false, why: 'Needs ' + U.money(cost) + '.' };
+    if (s.cash < cost) return { ok: false, why: 'Benötigt ' + U.money(cost) + '.' };
     return { ok: true, cost: cost, level: lv + 1 };
   }
 
@@ -261,23 +261,23 @@
     var base = U.clamp(d.grossIncome * 0.9 + Math.max(0, d.netWorth) * 0.035,
                        1400, 400000);
     return [
-      { id: 'counsel', name: 'Retain Counsel', cost: Math.round(base * 0.55),
+      { id: 'counsel', name: 'Anwälte einschalten', cost: Math.round(base * 0.55),
         heat: -9, rep: 0,
-        desc: 'Lawyers file, delay and lose paperwork. Slow, clean, expensive.' },
-      { id: 'grease', name: 'Grease Palms', cost: Math.round(base * 1.1),
+        desc: 'Anwälte stellen Anträge, verzögern und verlieren Akten. Langsam, sauber, teuer.' },
+      { id: 'grease', name: 'Hände schmieren', cost: Math.round(base * 1.1),
         heat: -19, rep: -3,
-        desc: 'Envelopes reach the right desks. It works, and people know it worked.' },
-      { id: 'laylow', name: 'Lay Low', cost: 0, heat: -14, rep: -1, shut: 7,
-        desc: 'Shut every underground operation for a week. No dirty income, no new attention.' }
+        desc: 'Umschläge erreichen die richtigen Schreibtische. Es wirkt, und man weiß, dass es gewirkt hat.' },
+      { id: 'laylow', name: 'Untertauchen', cost: 0, heat: -14, rep: -1, shut: 7,
+        desc: 'Schließe jeden Untergrundbetrieb für eine Woche. Kein schmutziges Geld, keine neue Aufmerksamkeit.' }
     ];
   }
 
   function doHeatAction(s, id) {
     var act = null, list = heatActions(s);
     for (var i = 0; i < list.length; i++) if (list[i].id === id) act = list[i];
-    if (!act) return { ok: false, why: 'Unknown action.' };
-    if (s.cash < act.cost) return { ok: false, why: 'Needs ' + U.money(act.cost) + '.' };
-    if (act.shut && s.flags.layLowUntil > s.day) return { ok: false, why: 'You are already lying low.' };
+    if (!act) return { ok: false, why: 'Unbekannte Aktion.' };
+    if (s.cash < act.cost) return { ok: false, why: 'Benötigt ' + U.money(act.cost) + '.' };
+    if (act.shut && s.flags.layLowUntil > s.day) return { ok: false, why: 'Du tauchst bereits unter.' };
     s.cash -= act.cost;
     s.stats.spent += act.cost;
     s.heat = U.clamp(s.heat + act.heat, 0, 100);

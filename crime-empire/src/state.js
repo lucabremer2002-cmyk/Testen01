@@ -29,7 +29,7 @@
       seed: seed,
       rngState: seed >>> 0,
       idc: 0,
-      name: opts.name || 'Unknown',
+      name: opts.name || 'Unbekannt',
       difficulty: opts.difficulty || 'normal',
       created: Date.now(),
       played: 0,              /* Millisekunden Spielzeit */
@@ -103,7 +103,7 @@
        ist in der ersten Woche der einzige Mensch, den man hat. Gehalt null,
        zaehlt nicht gegen die Mannschaftsgrenze, unkuendbar. */
     s.crew.push({
-      id: 'you', player: true, name: opts.name || 'You', role: 'boss',
+      id: 'you', player: true, name: opts.name || 'Du', role: 'boss',
       skill: 4, xp: 0, loyalty: 100, salary: 0, traits: [], post: null,
       busyUntil: -1, hired: 0, face: 0, potential: 10, mood: ''
     });
@@ -485,12 +485,12 @@
 
   /* Hitzestufe als Text - erscheint an jeder Stelle, die Hitze zeigt. */
   function heatBand(heat) {
-    if (heat < 15) return { key: 'calm', name: 'Quiet', desc: 'Nobody downtown is looking at you.' };
-    if (heat < 40) return { key: 'noted', name: 'Noted', desc: 'Your name is in a file somewhere.' };
-    if (heat < 60) return { key: 'watched', name: 'Watched', desc: 'Investigations are opening. Income down 6-14%.' };
-    if (heat < 75) return { key: 'pressure', name: 'Under Pressure', desc: 'Fines and seizures. Income down sharply.' };
-    if (heat < 90) return { key: 'hunted', name: 'Task Force', desc: 'A dedicated unit is on your organisation. Raids likely.' };
-    return { key: 'critical', name: 'Critical', desc: 'They are coming. Anything you own can be taken.' };
+    if (heat < 15) return { key: 'calm', name: 'Ruhig', desc: 'In der Innenstadt schaut niemand in deine Richtung.' };
+    if (heat < 40) return { key: 'noted', name: 'Vermerkt', desc: 'Dein Name steht irgendwo in einer Akte.' };
+    if (heat < 60) return { key: 'watched', name: 'Beobachtet', desc: 'Ermittlungen laufen an. Einnahmen 6-14% niedriger.' };
+    if (heat < 75) return { key: 'pressure', name: 'Unter Druck', desc: 'Geldstrafen und Beschlagnahmen. Einnahmen deutlich niedriger.' };
+    if (heat < 90) return { key: 'hunted', name: 'Sonderkommission', desc: 'Eine eigene Einheit arbeitet an deiner Organisation. Razzien wahrscheinlich.' };
+    return { key: 'critical', name: 'Kritisch', desc: 'Sie kommen. Alles, was dir gehört, kann genommen werden.' };
   }
 
   CE.state = {

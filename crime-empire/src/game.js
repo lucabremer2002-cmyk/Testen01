@@ -111,7 +111,7 @@
   }
 
   function standardTitel(kind) {
-    return kind === 'bad' ? 'Bad news' : kind === 'warn' ? 'Take notice' : 'Milestone';
+    return kind === 'bad' ? 'Schlechte Nachricht' : kind === 'warn' ? 'Aufgepasst' : 'Meilenstein';
   }
 
   function sfx(name) { if (G.settings.sound) CE.audio.play(name); }
@@ -121,7 +121,7 @@
   function modal(title, body, foot) {
     $('modalTitle').textContent = title;
     $('modalBody').innerHTML = body;
-    $('modalFoot').innerHTML = foot || '<button type="button" class="btn" data-close="1">Close</button>';
+    $('modalFoot').innerHTML = foot || '<button type="button" class="btn" data-close="1">Schließen</button>';
     $('modal').hidden = false;
     sfx('open');
   }
@@ -173,8 +173,8 @@
       var r = res.report[i];
       /* Was das Spiel veraendert, bekommt ein Banner. Was nur passiert,
          bekommt eine Meldung. Der Unterschied war vorher keiner. */
-      if (r.t === 'rank') banner(r.text, 'good', 'Promotion', 'rank');
-      else if (r.ach) banner(r.text.replace(/^Achievement unlocked: /, ''), 'good', 'Achievement', 'trophy');
+      if (r.t === 'rank') banner(r.text, 'good', 'Aufstieg', 'rank');
+      else if (r.ach) banner(r.text.replace(/^Erfolg freigeschaltet: /, ''), 'good', 'Erfolg', 'trophy');
       else if (r.banner) banner(r.text, r.t === 'bad' ? 'bad' : 'warn', r.banner, r.ico);
       else if (r.t === 'bad') toast(r.text, 'bad');
       else if (r.t === 'warn') toast(r.text, 'warn');
@@ -191,13 +191,13 @@
          vollstaendige Abrechnung steht unter Finanzen. */
       if (s.speed >= 2) {
         var L = res.weekly;
-        toast('Week ' + L.week + ': ' + U.moneySigned(L.net) + ', cash ' + U.money(L.cashAfter),
+        toast('Woche ' + L.week + ': ' + U.moneySigned(L.net) + ', Bargeld ' + U.money(L.cashAfter),
           L.net >= 0 ? 'good' : 'bad');
       } else {
         showWeekly(res.weekly);
       }
       if (G.settings.autosave) {
-        CE.save.save(s, 'auto', 'Autosave');
+        CE.save.save(s, 'auto', 'Autospeicherung');
         G.lastAuto = s.day;
       }
     }
@@ -215,7 +215,7 @@
 
     /* Kopfleiste */
     $('dateLabel').textContent = U.dateLabel(s.day);
-    $('weekLabel').textContent = 'Week ' + U.weekOf(s.day) + ' · Day ' + s.day;
+    $('weekLabel').textContent = 'Woche ' + U.weekOf(s.day) + ' · Tag ' + s.day;
     $('resStrip').innerHTML = resStrip(s, d);
 
     /* Navigation */
@@ -234,11 +234,11 @@
     /* Laufband */
     var last = s.log[0];
     $('ticker').innerHTML = '<span class="ticker__dot"></span>' +
-      (s.speed === 0 ? '<b>PAUSED</b> &middot; ' : '') +
-      (last ? UI.helpers.e(last.text) : 'Blackhaven is quiet.') +
-      (s.ops.length ? ' <span class="muted">&middot; ' + s.ops.length + ' operation' +
-        (s.ops.length === 1 ? '' : 's') + ' running</span>' : '') +
-      '<span class="ticker__more">full log &rarr;</span>';
+      (s.speed === 0 ? '<b>PAUSE</b> &middot; ' : '') +
+      (last ? UI.helpers.e(last.text) : 'In Blackhaven ist es ruhig.') +
+      (s.ops.length ? ' <span class="muted">&middot; ' + s.ops.length + ' Operation' +
+        (s.ops.length === 1 ? ' läuft' : 'en laufen') + '</span>' : '') +
+      '<span class="ticker__more">volles Protokoll &rarr;</span>';
   }
 
   function resStrip(s, d) {
@@ -249,14 +249,14 @@
           (delta.indexOf('-') === 0 ? 'down' : 'up') + '">' + delta + '</span>' : '') + '</span></div></div>';
     }
     var band = St.heatBand(s.heat);
-    return chip('chip--cash', 'cash', U.money(s.cash), 'Cash', U.moneySigned(Math.round(d.net))) +
-      chip('', 'rep', Math.floor(s.rep), 'Reputation') +
+    return chip('chip--cash', 'cash', U.money(s.cash), 'Bargeld', U.moneySigned(Math.round(d.net))) +
+      chip('', 'rep', Math.floor(s.rep), 'Ansehen') +
       chip('chip--heat' + (s.heat >= 55 ? ' is-hot' : ''), 'heat', Math.round(s.heat), band.name) +
-      chip('', 'influence', Math.round(d.totalInfluence), 'Influence') +
+      chip('', 'influence', Math.round(d.totalInfluence), 'Einfluss') +
       chip('chip--fear' + (d.fear >= 40 ? ' is-hot' : ''), 'enforcer',
-        Math.round(d.fear), d.fearLevel ? d.fearLevel.name : 'Fear') +
-      chip('chip--strength', 'strength', d.strength, 'Strength') +
-      chip('chip--rank', 'rank', d.rankName, 'Rank');
+        Math.round(d.fear), d.fearLevel ? d.fearLevel.name : 'Furcht') +
+      chip('chip--strength', 'strength', d.strength, 'Stärke') +
+      chip('chip--rank', 'rank', d.rankName, 'Rang');
   }
 
   function navHtml(s, d) {
@@ -281,10 +281,10 @@
         '<span>' + sc.name + '</span>' + badge + '</button>');
     });
     h.push('<div class="nav__gap"></div>');
-    h.push('<button type="button" class="navbtn" data-act="saveDialog">' + A.icon('check') + '<span>Save game</span></button>');
-    h.push('<button type="button" class="navbtn" data-act="settings">' + A.icon('org') + '<span>Settings</span></button>');
-    h.push('<div class="nav__note">Autosave ' + (G.settings.autosave ? 'on' : 'off') +
-      '. <br>Space pauses, N advances a day.</div>');
+    h.push('<button type="button" class="navbtn" data-act="saveDialog">' + A.icon('check') + '<span>Spiel speichern</span></button>');
+    h.push('<button type="button" class="navbtn" data-act="settings">' + A.icon('org') + '<span>Einstellungen</span></button>');
+    h.push('<div class="nav__note">Autospeicherung ' + (G.settings.autosave ? 'an' : 'aus') +
+      '. <br>Leertaste pausiert, N geht einen Tag weiter.</div>');
     return h.join('');
   }
 
@@ -304,8 +304,8 @@
     var ev = G.state.event;
     if (!ev) return;
     $('evTone').className = 'event__tone ' + (ev.tone || '');
-    $('evKicker').textContent = ev.tone === 'heat' ? 'POLICE' : ev.tone === 'rival' ? 'RIVALS'
-      : ev.tone === 'crew' ? 'YOUR PEOPLE' : 'OPPORTUNITY';
+    $('evKicker').textContent = ev.tone === 'heat' ? 'POLIZEI' : ev.tone === 'rival' ? 'RIVALEN'
+      : ev.tone === 'crew' ? 'DEINE LEUTE' : 'GELEGENHEIT';
     $('evTitle').textContent = ev.title;
     $('evText').textContent = ev.text;
     var h = [];
@@ -314,7 +314,7 @@
         (o.disabled ? ' disabled' : '') + (o.disabled && o.why ? ' title="' + UI.helpers.e(o.why) + '"' : '') + '>' +
         '<span class="opt__k">' + (i + 1) + '</span>' +
         '<span class="opt__l">' + UI.helpers.e(o.label) + '</span>' +
-        '<span class="opt__h">' + UI.helpers.e(o.disabled ? (o.why || 'Not possible') : (o.hint || '')) + '</span></button>');
+        '<span class="opt__h">' + UI.helpers.e(o.disabled ? (o.why || 'Nicht möglich') : (o.hint || '')) + '</span></button>');
     });
     $('evOpts').innerHTML = h.join('');
     $('event').hidden = false;
@@ -328,7 +328,7 @@
       sfx('tap');
       if (res.progress) {
         for (var k = 0; k < res.progress.achievements.length; k++) {
-          banner(res.progress.achievements[k].name, 'good', 'Achievement', 'trophy');
+          banner(res.progress.achievements[k].name, 'good', 'Erfolg', 'trophy');
         }
         if (res.progress.victory) victory();
       }
@@ -342,32 +342,32 @@
     var s = G.state, d = St.derive(s);
     var h = [];
     h.push('<div class="grid grid--4" style="margin-bottom:16px">' +
-      '<div class="card card--flat">' + UI.helpers.statBox('Income', U.money(L.income), '', 'green') + '</div>' +
-      '<div class="card card--flat">' + UI.helpers.statBox('Expenses', U.money(L.expense), '', 'red') + '</div>' +
-      '<div class="card card--flat">' + UI.helpers.statBox('Net', U.moneySigned(L.net), '', L.net >= 0 ? 'green' : 'red') + '</div>' +
-      '<div class="card card--flat">' + UI.helpers.statBox('Cash', U.money(L.cashAfter), '', 'gold') + '</div></div>');
+      '<div class="card card--flat">' + UI.helpers.statBox('Einnahmen', U.money(L.income), '', 'green') + '</div>' +
+      '<div class="card card--flat">' + UI.helpers.statBox('Ausgaben', U.money(L.expense), '', 'red') + '</div>' +
+      '<div class="card card--flat">' + UI.helpers.statBox('Netto', U.moneySigned(L.net), '', L.net >= 0 ? 'green' : 'red') + '</div>' +
+      '<div class="card card--flat">' + UI.helpers.statBox('Bargeld', U.money(L.cashAfter), '', 'gold') + '</div></div>');
 
-    h.push('<table class="ledger"><thead><tr><th>Item</th><th class="r">Amount</th></tr></thead><tbody>');
+    h.push('<table class="ledger"><thead><tr><th>Posten</th><th class="r">Betrag</th></tr></thead><tbody>');
     L.book.forEach(function (line) {
       h.push('<tr><td>' + UI.helpers.e(line.label) +
         (line.note ? '<div class="note">' + UI.helpers.e(line.note) + '</div>' : '') + '</td>' +
         '<td class="r ' + (line.amount > 0 ? 'green' : (line.kind === 'bad' ? 'red' : 'muted')) + '">' +
         (line.amount === 0 ? '&mdash;' : U.moneySigned(line.amount)) + '</td></tr>');
     });
-    h.push('<tr class="sum"><td>Net for the week</td><td class="r ' + (L.net >= 0 ? 'green' : 'red') + '">' +
+    h.push('<tr class="sum"><td>Netto für die Woche</td><td class="r ' + (L.net >= 0 ? 'green' : 'red') + '">' +
       U.moneySigned(L.net) + '</td></tr></tbody></table>');
 
     var bits = [];
-    bits.push('Heat ' + (L.heatDelta >= 0 ? '+' : '') + L.heatDelta.toFixed(1) + ' &rarr; <b>' + L.heat + '</b>');
-    bits.push('Reputation <b>' + L.rep + '</b>');
+    bits.push('Hitze ' + (L.heatDelta >= 0 ? '+' : '') + L.heatDelta.toFixed(1) + ' &rarr; <b>' + L.heat + '</b>');
+    bits.push('Ansehen <b>' + L.rep + '</b>');
     if (L.influence.length) {
-      bits.push('Influence: ' + L.influence.map(function (x) {
+      bits.push('Einfluss: ' + L.influence.map(function (x) {
         return D.byId(D.DISTRICTS, x.id).name + ' ' + (x.delta >= 0 ? '+' : '') + x.delta.toFixed(1);
       }).join(', '));
     }
     h.push('<div class="why" style="margin-top:14px;font-size:.8rem">' + bits.join(' &nbsp;&middot;&nbsp; ') + '</div>');
 
-    $('repTitle').textContent = 'Week ' + L.week + ' statement';
+    $('repTitle').textContent = 'Abrechnung Woche ' + L.week + '';
     $('repBody').innerHTML = h.join('');
     $('report').hidden = false;
   }
@@ -375,17 +375,17 @@
   function victory() {
     setSpeed(0);
     sfx('rank');
-    modal('Blackhaven Is Yours',
+    modal('Blackhaven gehört dir',
       '<div class="win"><div class="win__crown">&#9819;</div>' +
-      '<h3>Citywide Empire</h3>' +
+      '<h3>Stadtweites Imperium</h3>' +
       '<p style="color:var(--ink2);line-height:1.6;max-width:44ch;margin:0 auto">' +
-      'Six districts, majority control in every one of them, and a name nobody says out loud ' +
-      'in the wrong room. You came here with ' + U.money(3500) + ' and a rented mattress.</p>' +
+      'Sechs Bezirke, in jedem davon die Mehrheit, und ein Name, den im falschen Raum ' +
+      'niemand laut ausspricht. Hierher gekommen bist du mit ' + U.money(3500) + ' und einer gemieteten Matratze.</p>' +
       '<div class="money-grid" style="margin-top:20px">' +
-      UI.helpers.statBox('Weeks taken', U.weekOf(G.state.day)) +
-      UI.helpers.statBox('Net worth', U.money(St.derive(G.state).netWorth), '', 'gold') +
-      UI.helpers.statBox('Businesses', G.state.businesses.length) + '</div></div>',
-      '<button type="button" class="btn btn--primary" data-close="1">Keep playing</button>');
+      UI.helpers.statBox('Gebrauchte Wochen', U.weekOf(G.state.day)) +
+      UI.helpers.statBox('Vermögen', U.money(St.derive(G.state).netWorth), '', 'gold') +
+      UI.helpers.statBox('Betriebe', G.state.businesses.length) + '</div></div>',
+      '<button type="button" class="btn btn--primary" data-close="1">Weiterspielen</button>');
   }
 
   /* ============================================== Aktionen (data-act)
@@ -405,13 +405,13 @@
     openDistrict: function (p) {
       var pre = CE.empire.canOpenDistrict(G.state, p.id);
       if (!pre.ok) return toast(pre.why, 'bad');
-      bigSpend(pre.cost, 'a foothold in ' + D.byId(D.DISTRICTS, p.id).name, function () {
+      bigSpend(pre.cost, 'einen Einstieg ' + D.byId(D.DISTRICTS, p.id).wohin, function () {
       var r = CE.empire.openDistrict(G.state, p.id);
       if (!r.ok) return toast(r.why, 'bad');
       var rng = CE.sim.rngOf(G.state);
       CE.ops.refreshOffers(G.state, rng, p.id);
       CE.sim.keepRng(G.state, rng);
-      toast('You are established in ' + D.byId(D.DISTRICTS, p.id).name + ' for ' + U.money(r.cost) + '.', 'gold', true);
+      toast('Du bist ' + D.byId(D.DISTRICTS, p.id).wo + ', für ' + U.money(r.cost) + '.', 'gold', true);
       sfx('cash');
       G.dirty = true;
       });
@@ -430,7 +430,7 @@
       var r = CE.ops.start(G.state, p.op, picked);
       if (!r.ok) return toast(r.why, 'bad');
       delete UI.sel.opCrew[p.op];
-      toast(r.run.offer.name + ' is under way. ' + (r.run.ends - r.run.started) + ' days.', 'good');
+      toast(r.run.offer.name + ' läuft. ' + (r.run.ends - r.run.started) + ' Tage.', 'good');
       sfx('tap');
       G.dirty = true;
     },
@@ -442,7 +442,7 @@
       bigSpend(can.cost, D.byId(D.BUSINESSES, p.type).name, function () {
         var r = CE.empire.buy(G.state, p.district, p.type);
         if (!r.ok) return toast(r.why, 'bad');
-        toast('Bought ' + r.biz.name + ' for ' + U.money(r.cost) + '.', 'gold');
+        toast('Gekauft: ' + r.biz.name + ' für ' + U.money(r.cost) + '.', 'gold');
         sfx('cash');
         G.dirty = true;
       });
@@ -451,7 +451,7 @@
       var r = CE.empire.upgrade(G.state, p.id);
       if (!r.ok) return toast(r.why, 'bad');
       var b = U.byId(G.state.businesses, p.id);
-      toast(b.name + ' is now level ' + r.level + '.', 'gold');
+      toast(b.name + ' ist jetzt Stufe ' + r.level + '.', 'gold');
       sfx('cash');
       G.dirty = true;
     },
@@ -459,12 +459,12 @@
       var b = U.byId(G.state.businesses, p.id);
       if (!b) return;
       var price = Math.round(St.bizValue(G.state, b) * 0.68);
-      confirmBox('Sell ' + b.name + '?',
-        'You will get ' + U.money(price) + ' &mdash; 68% of its value. Anyone posted there will be freed up.',
+      confirmBox('Verkaufen: ' + b.name + '?',
+        'Du bekommst ' + U.money(price) + ' &mdash; 68% des Werts. Wer dort eingesetzt ist, wird frei.',
         function () {
           var r = CE.empire.sell(G.state, p.id);
           closeModal();
-          toast('Sold for ' + U.money(r.price) + '.', 'good');
+          toast('Verkauft für ' + U.money(r.price) + '.', 'good');
           sfx('cash');
           G.dirty = true;
         });
@@ -475,7 +475,7 @@
     recruitDialog: function () { recruitDialog(); },
     searchRecruits: function () {
       var cost = 1200;
-      if (G.state.cash < cost) return toast('Putting the word out costs ' + U.money(cost) + '.', 'bad');
+      if (G.state.cash < cost) return toast('Es herumzusagen kostet ' + U.money(cost) + '.', 'bad');
       G.state.cash -= cost;
       var rng = CE.sim.rngOf(G.state);
       CE.crew.refreshRecruits(G.state, rng);
@@ -487,7 +487,7 @@
     hire: function (p) {
       var r = CE.crew.hire(G.state, p.id, p.salary ? +p.salary : undefined);
       if (!r.ok) return toast(r.why, 'bad');
-      toast(r.crew.name + ' is on the payroll. Signing fee ' + U.money(r.signing) + '.', 'gold');
+      toast(r.crew.name + ' steht auf der Lohnliste. Antrittszahlung ' + U.money(r.signing) + '.', 'gold');
       sfx('cash');
       recruitDialog();
       G.dirty = true;
@@ -505,7 +505,7 @@
       var c = U.byId(G.state.crew, p.id);
       var r = CE.crew.setSalary(G.state, p.id, +p.to);
       if (!r.ok) return toast(r.why, 'bad');
-      toast(c.name + ': ' + U.money(r.from) + ' &rarr; ' + U.money(r.to) + ' a week.', 'good');
+      toast(c.name + ': ' + U.money(r.from) + ' &rarr; ' + U.money(r.to) + ' pro Woche.', 'good');
       sfx('tap');
       crewDialog(p.id);
       G.dirty = true;
@@ -514,7 +514,7 @@
       var c = U.byId(G.state.crew, p.id);
       var r = CE.crew.bonus(G.state, p.id);
       if (!r.ok) return toast(r.why, 'bad');
-      toast(c.name + ' got ' + U.money(r.amount) + '. Loyalty up.', 'good');
+      toast(c.name + ' got ' + U.money(r.amount) + '. Loyalität steigt.', 'good');
       sfx('cash');
       crewDialog(p.id);
       G.dirty = true;
@@ -523,7 +523,7 @@
       var c = U.byId(G.state.crew, p.id);
       var r = CE.crew.promote(G.state, p.id);
       if (!r.ok) return toast(r.why, 'bad');
-      toast(c.name + ' is now skill ' + r.skill + '.', 'gold');
+      toast(c.name + ' hat jetzt Können ' + r.skill + '.', 'gold');
       sfx('good');
       crewDialog(p.id);
       G.dirty = true;
@@ -531,13 +531,13 @@
     fire: function (p) {
       var c = U.byId(G.state.crew, p.id);
       if (!c) return;
-      confirmBox('Dismiss ' + c.name + '?',
-        'Severance is ' + U.money(c.salary * 2) + '. Everyone else loses a little loyalty watching it happen.',
+      confirmBox('Entlassen: ' + c.name + '?',
+        'Die Abfindung beträgt ' + U.money(c.salary * 2) + '. Alle anderen verlieren beim Zusehen etwas Loyalität.',
         function () {
           var r = CE.crew.fire(G.state, p.id);
           closeModal();
           if (!r.ok) return toast(r.why, 'bad');
-          toast(c.name + ' is gone. ' + U.money(r.severance) + ' in severance.', 'warn');
+          toast(c.name + ' ist weg. ' + U.money(r.severance) + ' an Abfindung.', 'warn');
           G.dirty = true;
         });
     },
@@ -547,7 +547,7 @@
       var r = CE.empire.upgradeOrg(G.state, p.id);
       if (!r.ok) return toast(r.why, 'bad');
       var up = D.byId(D.ORG_UPGRADES, p.id);
-      toast(up.name + ' is at level ' + r.level + '.', 'gold');
+      toast(up.name + ' ist auf Stufe ' + r.level + '.', 'gold');
       sfx('cash');
       G.dirty = true;
     },
@@ -570,7 +570,7 @@
     heatAction: function (p) {
       var r = CE.empire.doHeatAction(G.state, p.id);
       if (!r.ok) return toast(r.why, 'bad');
-      toast(r.act.name + ': heat ' + r.act.heat + '.', 'good');
+      toast(r.act.name + ': Hitze ' + r.act.heat + '.', 'good');
       sfx('tap');
       G.dirty = true;
     },
@@ -588,8 +588,8 @@
       var r = CE.rivals.demandTribute(G.state, rng, p.id);
       CE.sim.keepRng(G.state, rng);
       if (!r.ok) return toast(r.why, 'bad');
-      if (r.win) banner(r.text, 'good', 'Tribute Agreed', 'cash');
-      else banner(r.text, 'bad', 'They Refused', 'warn');
+      if (r.win) banner(r.text, 'good', 'Schutzgeld vereinbart', 'cash');
+      else banner(r.text, 'bad', 'Sie haben abgelehnt', 'warn');
       G.dirty = true;
     },
     stopTribute: function (p) {
@@ -605,25 +605,25 @@
       CE.sim.keepRng(G.state, rng);
       if (!r.ok) return toast(r.why, 'bad');
       closeModal();
-      banner(r.text, r.win ? 'good' : 'bad', r.win ? 'Taken' : 'It Went Wrong', r.win ? 'building' : 'warn');
+      banner(r.text, r.win ? 'good' : 'bad', r.win ? 'Übernommen' : 'Es ging schief', r.win ? 'building' : 'warn');
       G.dirty = true;
     },
     muscleIn: function (p) {
       var pre = CE.empire.canMuscleIn(G.state, p.id);
       if (!pre.ok) return toast(pre.why, 'bad');
-      confirmBox('Force your way into ' + D.byId(D.DISTRICTS, p.id).name + '?',
-        'No entry payment. ' + Math.round(pre.odds * 100) + '% chance it holds. Either way: ' +
-        '+12 heat, -4 reputation, +15 fear, and every organisation with people there ' +
-        'becomes an enemy. The district starts contested.',
+      confirmBox('Mit Gewalt eindringen ' + D.byId(D.DISTRICTS, p.id).wohin + '?',
+        'Kein Eintrittsgeld. ' + Math.round(pre.odds * 100) + '% Aussicht, dass es hält. So oder so: ' +
+        '+12 Hitze, -4 Ansehen, +15 Furcht, und jede Organisation mit Leuten dort ' +
+        'wird zum Feind. Der Bezirk startet umkämpft.',
         function () {
           var rng = CE.sim.rngOf(G.state);
           var r = CE.empire.muscleIn(G.state, rng, p.id);
           CE.sim.keepRng(G.state, rng);
           closeModal();
           if (!r.ok) return toast(r.why, 'bad');
-          banner(r.text, r.win ? 'good' : 'bad', r.win ? 'Forced In' : 'Thrown Back', r.win ? 'map' : 'warn');
+          banner(r.text, r.win ? 'good' : 'bad', r.win ? 'Hineingezwungen' : 'Zurückgeschlagen', r.win ? 'map' : 'warn');
           G.dirty = true;
-        }, 'Go in');
+        }, 'Reingehen');
     },
     negotiate: function (p) {
       var r = CE.rivals.negotiate(G.state, p.id);
@@ -641,8 +641,8 @@
     },
     breakAlly: function (p) {
       var rd = D.byId(D.RIVALS, p.id);
-      confirmBox('Break with ' + rd.name + '?',
-        'They will take it personally, and they will remember it for a long time.',
+      confirmBox('Bruch mit ' + rd.name + '?',
+        'Man wird es persönlich nehmen und sich lange daran erinnern.',
         function () {
           var r = CE.rivals.breakAlly(G.state, p.id);
           closeModal();
@@ -667,9 +667,9 @@
     saveDialog: function () { saveDialog(); },
     settings: function () { settingsDialog(); },
     saveTo: function (p) {
-      var r = CE.save.save(G.state, p.slot, 'Week ' + U.weekOf(G.state.day));
-      toast(r.ok ? 'Saved to slot ' + p.slot + '.' : r.why, r.ok ? 'good' : 'bad');
-      if (!CE.save.available) toast('This browser blocks local storage - the save will not survive a reload.', 'warn');
+      var r = CE.save.save(G.state, p.slot, 'Woche ' + U.weekOf(G.state.day));
+      toast(r.ok ? 'Gespeichert auf Platz ' + p.slot + '.' : r.why, r.ok ? 'good' : 'bad');
+      if (!CE.save.available) toast('Dieser Browser blockiert den lokalen Speicher - der Spielstand überlebt kein Neuladen.', 'warn');
       saveDialog();
     },
     loadFrom: function (p) {
@@ -677,10 +677,10 @@
       if (!r.ok) return toast(r.why, 'bad');
       startGame(r.state, true);
       closeModal();
-      toast('Loaded: week ' + U.weekOf(r.state.day) + '.', 'good');
+      toast('Geladen: Woche ' + U.weekOf(r.state.day) + '.', 'good');
     },
     eraseSlot: function (p) {
-      confirmBox('Erase slot ' + p.slot + '?', 'This cannot be undone.', function () {
+      confirmBox('Platz löschen: ' + p.slot + '?', 'Das lässt sich nicht rückgängig machen.', function () {
         CE.save.erase(p.slot);
         closeModal();
         saveDialog();
@@ -694,14 +694,14 @@
       G.dirty = true;
     },
     mainMenu: function () {
-      confirmBox('Return to the main menu?',
-        'Your progress is saved automatically at the end of each week' +
-        (G.settings.autosave ? '' : ', but autosave is currently off') + '. Save now to be safe.',
+      confirmBox('Zurück ins Hauptmenü?',
+        'Dein Fortschritt wird am Ende jeder Woche automatisch gespeichert' +
+        (G.settings.autosave ? '' : ', aber die Autospeicherung ist gerade aus') + '. Speichere sicherheitshalber jetzt.',
         function () {
-          CE.save.save(G.state, 'auto', 'Autosave');
+          CE.save.save(G.state, 'auto', 'Autospeicherung');
           closeModal();
           toMenu();
-        }, 'Save and leave');
+        }, 'Speichern und gehen');
     },
     nextDay: function () { if (!G.state.event) { tickDay(); } },
     speed: function (p) { setSpeed(+p.n); G.dirty = true; }
@@ -718,19 +718,19 @@
     if (!G.settings.confirmBig || cost < s.cash * 0.25 || cost < 5000) { onYes(); return; }
     var after = s.cash - cost;
     var weeks = G.derived && G.derived.net < 0
-      ? ' At your current rate you are losing money every week.'
+      ? ' Bei deinem jetzigen Stand verlierst du jede Woche Geld.'
       : '';
-    confirmBox('Spend ' + U.money(cost) + '?',
-      'That is ' + U.pct(cost / Math.max(1, s.cash)) + ' of your cash on ' + UI.helpers.e(what) +
-      '. You would be left with <b>' + U.money(after) + '</b>.' + weeks +
-      '<br><br><span class="why">You can turn these prompts off in Settings.</span>',
-      function () { closeModal(); onYes(); }, 'Spend it');
+    confirmBox('Ausgeben: ' + U.money(cost) + '?',
+      'Das sind ' + U.pct(cost / Math.max(1, s.cash)) + ' deines Bargelds für ' + UI.helpers.e(what) +
+      '. Dir blieben <b>' + U.money(after) + '</b>.' + weeks +
+      '<br><br><span class="why">Diese Nachfragen lassen sich in den Einstellungen abschalten.</span>',
+      function () { closeModal(); onYes(); }, 'Ausgeben');
   }
 
   function confirmBox(title, text, onYes, yesLabel) {
     modal(title, '<p style="color:var(--ink2);line-height:1.6;margin:0">' + text + '</p>',
-      '<button type="button" class="btn" data-close="1">Cancel</button>' +
-      '<button type="button" class="btn btn--primary" data-act="__confirm">' + (yesLabel || 'Confirm') + '</button>');
+      '<button type="button" class="btn" data-close="1">Abbrechen</button>' +
+      '<button type="button" class="btn btn--primary" data-act="__confirm">' + (yesLabel || 'Bestätigen') + '</button>');
     ACTIONS.__confirm = function () { onYes(); };
   }
 
@@ -743,24 +743,24 @@
     var dist = D.byId(D.DISTRICTS, b.district);
 
     var rows = [
-      ['Base gross', U.money(def.income * D.UPGRADE.income[b.level - 1] * dist.econ), 'level ' + b.level + ' in a ' + Math.round(dist.econ * 100) + '% economy'],
-      ['Staff effect', (f.staffBonus >= 0 ? '+' : '') + U.pct(f.staffBonus, 1), f.filled + ' of ' + f.slots + ' positions filled'],
-      ['District influence', '+' + U.pct(f.inflBonus, 1), Math.round(s.districts[b.district].mine) + ' influence here'],
-      f.boost ? ['Improvements', '+' + U.pct(f.boost), 'from a past decision'] : null,
-      f.perkBonus ? ['Synergy', '+' + U.pct(f.perkBonus), 'another business here supports this one'] : null,
-      f.understaffed ? ['Empty positions', '-' + U.pct(f.staffPenalty), f.understaffed + ' unfilled'] : null,
-      b.damage ? ['Damage', '-' + U.pct(b.damage), 'recovering by 22 points a week'] : null,
-      ['Gross this week', U.money(f.gross), ''],
-      ['Upkeep', '-' + U.money(f.upkeep), ''],
-      ['Net', U.moneySigned(f.net), ''],
-      def.heat ? ['Heat generated', '+' + f.heat.toFixed(2) + '/wk', 'police presence here is ' + Math.round(dist.lawEye * 100) + '%'] : null,
-      ['Influence generated', '+' + f.infl.toFixed(2) + '/wk', ''],
-      def.legal ? ['Laundering capacity', U.money(f.gross * def.launder) + '/wk', 'lets underground money through clean'] : null
+      ['Grundertrag', U.money(def.income * D.UPGRADE.income[b.level - 1] * dist.econ), 'Stufe ' + b.level + ' in einer ' + Math.round(dist.econ * 100) + '%-Wirtschaft'],
+      ['Wirkung des Personals', (f.staffBonus >= 0 ? '+' : '') + U.pct(f.staffBonus, 1), f.filled + ' von ' + f.slots + ' Stellen besetzt'],
+      ['Einfluss im Bezirk', '+' + U.pct(f.inflBonus, 1), Math.round(s.districts[b.district].mine) + ' Einfluss hier'],
+      f.boost ? ['Verbesserungen', '+' + U.pct(f.boost), 'aus einer früheren Entscheidung'] : null,
+      f.perkBonus ? ['Zusammenspiel', '+' + U.pct(f.perkBonus), 'ein anderer Betrieb hier stützt diesen'] : null,
+      f.understaffed ? ['Leere Stellen', '-' + U.pct(f.staffPenalty), f.understaffed + ' unbesetzt'] : null,
+      b.damage ? ['Schaden', '-' + U.pct(b.damage), 'erholt sich um 22 Punkte je Woche'] : null,
+      ['Ertrag diese Woche', U.money(f.gross), ''],
+      ['Laufende Kosten', '-' + U.money(f.upkeep), ''],
+      ['Netto', U.moneySigned(f.net), ''],
+      def.heat ? ['Erzeugte Hitze', '+' + f.heat.toFixed(2) + '/wk', 'die Polizeipräsenz liegt hier bei ' + Math.round(dist.lawEye * 100) + '%'] : null,
+      ['Erzeugter Einfluss', '+' + f.infl.toFixed(2) + '/wk', ''],
+      def.legal ? ['Waschkapazität', U.money(f.gross * def.launder) + '/wk', 'lässt Untergrundgeld sauber durch'] : null
     ].filter(Boolean);
 
     var body = '<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">' +
       '<div class="biz__ico">' + A.icon(def.icon) + '</div><div><b style="font-size:1.05rem">' +
-      UI.helpers.e(b.name) + '</b><div class="row__s">' + UI.helpers.e(dist.name) + ' &middot; level ' + b.level + ' of 5</div></div></div>' +
+      UI.helpers.e(b.name) + '</b><div class="row__s">' + UI.helpers.e(dist.name) + ' &middot; Stufe ' + b.level + ' von 5</div></div></div>' +
       '<p class="op__desc" style="margin-bottom:14px">' + UI.helpers.e(def.blurb) + '</p>' +
       '<table class="ledger"><tbody>' +
       rows.map(function (r) {
@@ -771,27 +771,27 @@
     if (up.ok) {
       var next = b.level;
       body += '<div class="card card--flat" style="margin-top:14px">' +
-        '<div class="card__title"><b>Level ' + (b.level + 1) + '</b><span>' + U.money(up.cost) + '</span></div>' +
-        '<div class="row__s">Income &times;' + D.UPGRADE.income[next].toFixed(2) + ' (now &times;' +
-        D.UPGRADE.income[next - 1].toFixed(2) + '), upkeep &times;' + D.UPGRADE.upkeep[next].toFixed(2) +
-        ', ' + (D.UPGRADE.staff[next] > D.UPGRADE.staff[next - 1] ? '+1 position' : 'same positions') + '.</div></div>';
+        '<div class="card__title"><b>Stufe ' + (b.level + 1) + '</b><span>' + U.money(up.cost) + '</span></div>' +
+        '<div class="row__s">Ertrag &times;' + D.UPGRADE.income[next].toFixed(2) + ' (jetzt &times;' +
+        D.UPGRADE.income[next - 1].toFixed(2) + '), laufende Kosten &times;' + D.UPGRADE.upkeep[next].toFixed(2) +
+        ', ' + (D.UPGRADE.staff[next] > D.UPGRADE.staff[next - 1] ? '+1 Stelle' : 'gleiche Stellen') + '.</div></div>';
     }
 
     modal(b.name, body,
       (up.ok ? '<button type="button" class="btn btn--primary" data-act="upgradeBiz" data-id="' + b.id +
-        '">Upgrade for ' + U.money(up.cost) + '</button>' : '') +
-      '<button type="button" class="btn btn--danger" data-act="sellBiz" data-id="' + b.id + '">Sell</button>' +
-      '<button type="button" class="btn" data-close="1">Close</button>');
+        '">Ausbauen für ' + U.money(up.cost) + '</button>' : '') +
+      '<button type="button" class="btn btn--danger" data-act="sellBiz" data-id="' + b.id + '">Verkaufen</button>' +
+      '<button type="button" class="btn" data-close="1">Schließen</button>');
   }
 
   function recruitDialog() {
     var s = G.state, d = St.derive(s);
     var paid = s.crew.filter(function (c) { return !c.player; }).length;
-    var body = ['<div class="row__s" style="margin-bottom:12px">' + paid + ' of ' + d.crewCap +
-      ' positions filled. A new hire costs 1.6 weeks of salary up front.</div>'];
+    var body = ['<div class="row__s" style="margin-bottom:12px">' + paid + ' von ' + d.crewCap +
+      ' Stellen besetzt. Eine Einstellung kostet 1,6 Wochengehälter im Voraus.</div>'];
 
     if (!s.recruits.length) {
-      body.push('<div class="empty"><p>Nobody is looking for work right now. New people turn up every week.</p></div>');
+      body.push('<div class="empty"><p>Gerade sucht niemand Arbeit. Jede Woche tauchen neue Leute auf.</p></div>');
     }
     s.recruits.forEach(function (r) {
       var role = D.byId(D.ROLES, r.role);
@@ -803,12 +803,12 @@
         '<div class="crew__id"><div class="crew__name">' + UI.helpers.e(r.name) + '</div>' +
         '<div class="crew__role">' + UI.helpers.e(role.name) + '</div>' +
         '<div class="row__s">' + UI.helpers.e(role.desc) + '</div></div>' +
-        '<div style="text-align:right"><div class="crew__pay">' + U.money(r.ask) + '/wk</div>' +
-        '<div class="row__s">' + U.money(signing) + ' to sign</div></div></div>' +
+        '<div style="text-align:right"><div class="crew__pay">' + U.money(r.ask) + '/Woche</div>' +
+        '<div class="row__s">' + U.money(signing) + ' für die Unterschrift</div></div></div>' +
         '<div class="crew__meters" style="margin-top:10px">' +
-        '<div class="meter"><span>Skill</span>' + UI.helpers.bar('bar--c', r.skill / 12) + '<b>' + r.skill + '</b></div>' +
-        '<div class="meter"><span>Loyalty</span>' + UI.helpers.bar('bar--g', r.loyalty / 100) + '<b>' + r.loyalty + '</b></div>' +
-        '<div class="meter"><span>Ceiling</span>' + UI.helpers.bar('bar--v', r.potential / 12) + '<b>' + r.potential + '</b></div></div>' +
+        '<div class="meter"><span>Können</span>' + UI.helpers.bar('bar--c', r.skill / 12) + '<b>' + r.skill + '</b></div>' +
+        '<div class="meter"><span>Loyalität</span>' + UI.helpers.bar('bar--g', r.loyalty / 100) + '<b>' + r.loyalty + '</b></div>' +
+        '<div class="meter"><span>Höchstmaß</span>' + UI.helpers.bar('bar--v', r.potential / 12) + '<b>' + r.potential + '</b></div></div>' +
         (r.traits.length ? '<div class="crew__traits" style="margin-top:8px">' + r.traits.map(function (t) {
           var td = D.byId(D.TRAITS, t);
           return '<span class="tag ' + (td.good === true ? 'tag--green' : td.good === false ? 'tag--red' : 'tag--violet') +
@@ -816,17 +816,17 @@
         }).join('') + '</div>' : '') +
         '<div class="crew__acts" style="margin-top:10px">' +
         '<button type="button" class="btn btn--primary btn--sm" data-act="hire" data-id="' + r.id + '"' +
-        (afford ? '' : ' disabled title="' + (paid >= d.crewCap ? 'No room in your crew.' : 'Not enough cash.') + '"') +
-        '>Hire at ' + U.money(r.ask) + '</button>' +
+        (afford ? '' : ' disabled title="' + (paid >= d.crewCap ? 'Kein Platz in deiner Crew.' : 'Nicht genug Bargeld.') + '"') +
+        '>Einstellen für ' + U.money(r.ask) + '</button>' +
         '<button type="button" class="btn btn--sm" data-act="hire" data-id="' + r.id + '" data-salary="' + low + '"' +
-        (afford ? '' : ' disabled') + ' title="Lower pay costs loyalty, and below 70% of their asking price they walk.">' +
-        'Lowball ' + U.money(low) + '</button></div></div>');
+        (afford ? '' : ' disabled') + ' title="Weniger Lohn kostet Loyalität, und unter 70% der Forderung gehen sie.">' +
+        'Drücken auf ' + U.money(low) + '</button></div></div>');
     });
 
-    modal('Recruiting', body.join(''),
+    modal('Anwerben', body.join(''),
       '<button type="button" class="btn" data-act="searchRecruits"' +
-      (s.cash < 1200 ? ' disabled title="Needs $1,200."' : '') + '>Put the word out &middot; $1,200</button>' +
-      '<button type="button" class="btn btn--primary" data-close="1">Done</button>');
+      (s.cash < 1200 ? ' disabled title="Benötigt $1.200."' : '') + '>Herumsagen &middot; $1.200</button>' +
+      '<button type="button" class="btn btn--primary" data-close="1">Fertig</button>');
   }
 
   function crewDialog(id) {
@@ -844,19 +844,19 @@
       '<div class="crew__id"><div class="crew__name" style="font-size:1.05rem">' + UI.helpers.e(c.name) + '</div>' +
       '<div class="crew__role">' + UI.helpers.e(role.name) + '</div>' +
       '<div class="row__s">' + UI.helpers.e(role.desc) + '</div>' +
-      '<div class="row__s">Joined on day ' + c.hired + (c.raises ? ' &middot; ' + c.raises + ' raise' + (c.raises === 1 ? '' : 's') : '') + '</div>' +
+      '<div class="row__s">Dabei seit Tag ' + c.hired + (c.raises ? ' &middot; ' + c.raises + (c.raises === 1 ? ' Erhöhung' : ' Erhöhungen') : '') + '</div>' +
       '</div></div>' +
       '<div class="crew__meters" style="margin-bottom:14px">' +
-      '<div class="meter"><span>Skill</span>' + UI.helpers.bar('bar--c', eff / 12) + '<b>' + eff + '/' + c.potential + '</b></div>' +
-      '<div class="meter"><span>Loyalty</span>' + UI.helpers.bar(c.loyalty < 30 ? 'bar--r' : 'bar--g', c.loyalty / 100) +
+      '<div class="meter"><span>Können</span>' + UI.helpers.bar('bar--c', eff / 12) + '<b>' + eff + '/' + c.potential + '</b></div>' +
+      '<div class="meter"><span>Loyalität</span>' + UI.helpers.bar(c.loyalty < 30 ? 'bar--r' : 'bar--g', c.loyalty / 100) +
       '<b class="mood-' + (c.mood || 'steady') + '">' + Math.round(c.loyalty) + '</b></div>' +
-      '<div class="meter"><span>Experience</span>' + UI.helpers.bar('bar--v', (c.xp % 100) / 100) + '<b>' + c.xp + '</b></div></div>' +
+      '<div class="meter"><span>Erfahrung</span>' + UI.helpers.bar('bar--v', (c.xp % 100) / 100) + '<b>' + c.xp + '</b></div></div>' +
       '<table class="ledger"><tbody>' +
-      '<tr><td>Current salary</td><td class="r">' + U.money(c.salary) + '/wk</td></tr>' +
-      '<tr><td>Worth at this skill<div class="note">' +
-      (c.salary < fair * 0.85 ? 'Underpaid. Loyalty is falling every week.'
-        : c.salary > fair * 1.2 ? 'Paid above the rate. Loyalty is climbing.' : 'Fairly paid.') +
-      '</div></td><td class="r">' + U.money(fair) + '/wk</td></tr>' +
+      '<tr><td>Aktuelles Gehalt</td><td class="r">' + U.money(c.salary) + '/Woche</td></tr>' +
+      '<tr><td>Wert bei diesem Können<div class="note">' +
+      (c.salary < fair * 0.85 ? 'Unterbezahlt. Die Loyalität sinkt jede Woche.'
+        : c.salary > fair * 1.2 ? 'Über dem Satz bezahlt. Die Loyalität steigt.' : 'Fair bezahlt.') +
+      '</div></td><td class="r">' + U.money(fair) + '/Woche</td></tr>' +
       '</tbody></table>' +
       (c.traits.length ? '<div class="crew__traits" style="margin-top:12px">' + c.traits.map(function (t) {
         var td = D.byId(D.TRAITS, t);
@@ -866,26 +866,26 @@
 
     modal(c.name, body,
       '<button type="button" class="btn" data-act="raise" data-id="' + c.id + '" data-to="' + toFair + '"' +
-      (toFair <= c.salary ? ' disabled title="Already at or above the rate."' : '') + '>Raise to ' + U.money(toFair) + '</button>' +
+      (toFair <= c.salary ? ' disabled title="Schon auf oder über dem Satz."' : '') + '>Erhöhen auf ' + U.money(toFair) + '</button>' +
       '<button type="button" class="btn" data-act="bonus" data-id="' + c.id + '"' +
-      (s.cash < bonusAmt ? ' disabled title="Needs ' + U.money(bonusAmt) + '."' : '') + '>Bonus ' + U.money(bonusAmt) + '</button>' +
+      (s.cash < bonusAmt ? ' disabled title="Benötigt ' + U.money(bonusAmt) + '."' : '') + '>Bonus ' + U.money(bonusAmt) + '</button>' +
       '<button type="button" class="btn btn--primary" data-act="promote" data-id="' + c.id + '"' +
       (s.cash < promoCost || eff >= c.potential ? ' disabled title="' +
-        (eff >= c.potential ? 'Nothing left to learn.' : 'Needs ' + U.money(promoCost) + '.') + '"' : '') +
-      '>Promote ' + U.money(promoCost) + '</button>' +
-      '<button type="button" class="btn btn--danger" data-act="fire" data-id="' + c.id + '">Dismiss</button>');
+        (eff >= c.potential ? 'Nichts mehr dazuzulernen.' : 'Benötigt ' + U.money(promoCost) + '.') + '"' : '') +
+      '>Befördern ' + U.money(promoCost) + '</button>' +
+      '<button type="button" class="btn btn--danger" data-act="fire" data-id="' + c.id + '">Entlassen</button>');
   }
 
   function assignDialog(id) {
     var s = G.state, c = U.byId(s.crew, id);
     if (!c) return;
-    var body = ['<div class="row__s" style="margin-bottom:12px">Where should ' +
-      UI.helpers.e(c.name) + ' work? Posted staff raise that site&rsquo;s income.</div><div class="slots">'];
+    var body = ['<div class="row__s" style="margin-bottom:12px">Wo soll ' +
+      UI.helpers.e(c.name) + ' arbeiten? Eingesetztes Personal erhöht den Ertrag des Betriebs.</div><div class="slots">'];
     body.push('<div class="slotrow' + (!c.post ? '' : '') + '">' +
       '<div class="slotrow__n">&mdash;</div><div class="slotrow__i">' +
-      '<div class="slotrow__t">Unassigned</div><div class="slotrow__s">No income, still drawing salary.</div></div>' +
+      '<div class="slotrow__t">Nicht eingesetzt</div><div class="slotrow__s">Kein Ertrag, das Gehalt läuft weiter.</div></div>' +
       '<button type="button" class="btn btn--sm" data-act="assign" data-id="' + c.id + '" data-biz="none"' +
-      (!c.post ? ' disabled' : '') + '>' + (!c.post ? 'Current' : 'Pull out') + '</button></div>');
+      (!c.post ? ' disabled' : '') + '>' + (!c.post ? 'Aktuell' : 'Abziehen') + '</button></div>');
 
     s.businesses.forEach(function (b) {
       var f = St.bizFinance(s, b);
@@ -895,23 +895,23 @@
         '<div class="slotrow__n">' + A.icon(def.icon) + '</div><div class="slotrow__i">' +
         '<div class="slotrow__t">' + UI.helpers.e(b.name) + '</div>' +
         '<div class="slotrow__s">' + UI.helpers.e(D.byId(D.DISTRICTS, b.district).name) + ' &middot; ' +
-        f.filled + '/' + f.slots + ' staffed &middot; ' + U.money(f.gross) + '/wk</div></div>' +
+        f.filled + '/' + f.slots + ' besetzt &middot; ' + U.money(f.gross) + '/Woche</div></div>' +
         '<button type="button" class="btn btn--sm' + (c.post === b.id ? '' : ' btn--primary') +
         '" data-act="assign" data-id="' + c.id + '" data-biz="' + b.id + '"' +
-        (full || c.post === b.id ? ' disabled title="' + (c.post === b.id ? 'Already posted here.' : 'No open position.') + '"' : '') +
-        '>' + (c.post === b.id ? 'Current' : 'Post here') + '</button></div>');
+        (full || c.post === b.id ? ' disabled title="' + (c.post === b.id ? 'Hier bereits eingesetzt.' : 'Keine freie Stelle.') + '"' : '') +
+        '>' + (c.post === b.id ? 'Aktuell' : 'Hier einsetzen') + '</button></div>');
     });
-    if (!s.businesses.length) body.push('<div class="empty"><p>You own no businesses to staff yet.</p></div>');
+    if (!s.businesses.length) body.push('<div class="empty"><p>Du besitzt noch keine Betriebe, die du besetzen könntest.</p></div>');
     body.push('</div>');
-    modal('Assign ' + c.name, body.join(''));
+    modal('Einsetzen: ' + c.name, body.join(''));
   }
 
   /* Wo man einem Rivalen einen Betrieb abnehmen kann. */
   function seizeDialog(rivalId) {
     var s = G.state;
     var rd = D.byId(D.RIVALS, rivalId);
-    var body = ['<div class="row__s" style="margin-bottom:12px">Taking a site outright costs nothing ' +
-      'in cash. It arrives damaged, it makes a permanent enemy, and the whole city hears about it.</div><div class="slots">'];
+    var body = ['<div class="row__s" style="margin-bottom:12px">Einen Betrieb einfach zu nehmen kostet kein ' +
+      'Bargeld. Er kommt beschädigt an, er macht einen dauerhaften Feind, und die ganze Stadt erfährt davon.</div><div class="slots">'];
     var any = false;
     D.DISTRICTS.forEach(function (dist) {
       var can = CE.rivals.canSeize(s, rivalId, dist.id);
@@ -921,21 +921,21 @@
       body.push('<div class="slotrow">' +
         '<div class="slotrow__n" style="color:' + rd.color + '">' + A.icon('building') + '</div>' +
         '<div class="slotrow__i"><div class="slotrow__t">' + UI.helpers.e(dist.name) + '</div>' +
-        '<div class="slotrow__s">They hold ' + Math.round(r.infl[dist.id] || 0) + ' influence here' +
-        (can.ok ? ' &middot; ' + Math.round(can.odds * 100) + '% chance' : '') + '</div></div>' +
+        '<div class="slotrow__s">Sie halten hier ' + Math.round(r.infl[dist.id] || 0) + ' Einfluss' +
+        (can.ok ? ' &middot; ' + Math.round(can.odds * 100) + '% Aussicht' : '') + '</div></div>' +
         '<button type="button" class="btn btn--sm btn--danger" data-act="seize" data-rival="' + rivalId +
         '" data-district="' + dist.id + '"' + (can.ok ? '' : ' disabled title="' + UI.helpers.e(can.why) + '"') +
-        '>Take it</button></div>');
+        '>Nehmen</button></div>');
     });
-    if (!any) body.push('<div class="empty"><p>They have nothing you can reach.</p></div>');
+    if (!any) body.push('<div class="empty"><p>Sie haben nichts, woran du herankommst.</p></div>');
     body.push('</div>');
-    modal('Take from ' + rd.name, body.join(''));
+    modal('Nehmen von ' + rd.name, body.join(''));
   }
 
   function pressureDialog(rivalId, districtId) {
     var s = G.state, d = St.derive(s);
-    var body = ['<div class="row__s" style="margin-bottom:12px">Pushing a rival out costs money, ' +
-      'raises heat and destroys relations. It is the only way to take ground they will not sell.</div><div class="slots">'];
+    var body = ['<div class="row__s" style="margin-bottom:12px">Einen Rivalen zu verdrängen kostet Geld, ' +
+      'treibt die Hitze hoch und zerstört das Verhältnis. Es ist der einzige Weg, Boden zu nehmen, den sie nicht verkaufen.</div><div class="slots">'];
     var any = false;
     s.rivals.forEach(function (r) {
       if (rivalId && r.id !== rivalId) return;
@@ -948,16 +948,16 @@
         body.push('<div class="slotrow">' +
           '<div class="slotrow__n" style="color:' + rd.color + '">' + A.icon('swords') + '</div>' +
           '<div class="slotrow__i"><div class="slotrow__t">' + UI.helpers.e(rd.name) + ' in ' + UI.helpers.e(dist.name) + '</div>' +
-          '<div class="slotrow__s">They hold ' + Math.round(r.infl[dist.id] || 0) + ' influence here' +
-          (can.ok ? ' &middot; ' + Math.round(can.odds * 100) + '% chance &middot; ' + U.money(can.cost) : '') + '</div></div>' +
+          '<div class="slotrow__s">Sie halten hier ' + Math.round(r.infl[dist.id] || 0) + ' Einfluss' +
+          (can.ok ? ' &middot; ' + Math.round(can.odds * 100) + '% Aussicht &middot; ' + U.money(can.cost) : '') + '</div></div>' +
           '<button type="button" class="btn btn--sm btn--danger" data-act="pressure" data-rival="' + r.id +
           '" data-district="' + dist.id + '"' + (can.ok ? '' : ' disabled title="' + UI.helpers.e(can.why) + '"') +
-          '>Push</button></div>');
+          '>Verdrängen</button></div>');
       });
     });
-    if (!any) body.push('<div class="empty"><p>There is nobody to push here. You need a district of your own where a rival is also established.</p></div>');
+    if (!any) body.push('<div class="empty"><p>Hier gibt es niemanden zu verdrängen. Du brauchst einen eigenen Bezirk, in dem auch ein Rivale sitzt.</p></div>');
     body.push('</div>');
-    modal('Pressure', body.join(''));
+    modal('Druck machen', body.join(''));
   }
 
   function saveDialog() {
@@ -967,26 +967,26 @@
       var isAuto = sl.slot === 'auto';
       body.push('<div class="slotrow' + (sl.empty ? ' slotrow--empty' : '') + '">' +
         '<div class="slotrow__n">' + (isAuto ? 'A' : sl.slot) + '</div><div class="slotrow__i">' +
-        '<div class="slotrow__t">' + (sl.empty ? (isAuto ? 'No autosave yet' : 'Empty slot')
-          : sl.broken ? 'Damaged save'
+        '<div class="slotrow__t">' + (sl.empty ? (isAuto ? 'Noch keine Autospeicherung' : 'Leerer Platz')
+          : sl.broken ? 'Beschädigter Spielstand'
           : UI.helpers.e(sl.name) + ' &middot; ' + UI.helpers.e(sl.rank)) + '</div>' +
-        '<div class="slotrow__s">' + (sl.empty || sl.broken ? (isAuto ? 'Written at the end of each week' : 'Save here to keep a checkpoint')
-          : 'Week ' + sl.week + ' &middot; ' + U.money(sl.worth) + ' &middot; ' + sl.businesses + ' businesses &middot; ' +
+        '<div class="slotrow__s">' + (sl.empty || sl.broken ? (isAuto ? 'Wird am Ende jeder Woche geschrieben' : 'Hier speichern, um einen Stand zu sichern')
+          : 'Woche ' + sl.week + ' &middot; ' + U.money(sl.worth) + ' &middot; ' + sl.businesses + ' Betriebe &middot; ' +
             new Date(sl.saved).toLocaleString()) + '</div></div>' +
-        (isAuto ? '' : '<button type="button" class="btn btn--sm" data-act="saveTo" data-slot="' + sl.slot + '">Save</button>') +
+        (isAuto ? '' : '<button type="button" class="btn btn--sm" data-act="saveTo" data-slot="' + sl.slot + '">Speichern</button>') +
         '<button type="button" class="btn btn--sm btn--primary" data-act="loadFrom" data-slot="' + sl.slot + '"' +
-        (sl.empty || sl.broken ? ' disabled' : '') + '>Load</button>' +
-        (sl.empty ? '' : '<button type="button" class="btn btn--sm btn--ghost" data-act="eraseSlot" data-slot="' + sl.slot + '" title="Erase">&times;</button>') +
+        (sl.empty || sl.broken ? ' disabled' : '') + '>Laden</button>' +
+        (sl.empty ? '' : '<button type="button" class="btn btn--sm btn--ghost" data-act="eraseSlot" data-slot="' + sl.slot + '" title="Löschen">&times;</button>') +
         '</div>');
     });
     body.push('</div>');
     if (!CE.save.available) {
-      body.push('<div class="why why--bad" style="margin-top:12px">This browser is blocking local storage. ' +
-        'Saves will work for this session only and are lost when the tab closes.</div>');
+      body.push('<div class="why why--bad" style="margin-top:12px">Dieser Browser blockiert den lokalen Speicher. ' +
+        'Spielstände halten nur für diese Sitzung und sind weg, sobald der Tab schließt.</div>');
     }
-    modal('Save and load', body.join(''),
-      '<button type="button" class="btn btn--danger" data-act="mainMenu">Main menu</button>' +
-      '<button type="button" class="btn btn--primary" data-close="1">Close</button>');
+    modal('Speichern und laden', body.join(''),
+      '<button type="button" class="btn btn--danger" data-act="mainMenu">Hauptmenü</button>' +
+      '<button type="button" class="btn btn--primary" data-close="1">Schließen</button>');
   }
 
   function settingsDialog() {
@@ -997,13 +997,13 @@
         '" data-act="toggleSetting" data-key="' + key + '" role="switch" aria-checked="' +
         (G.settings[key] ? 'true' : 'false') + '" aria-label="' + title + '"><i></i></button></div>';
     }
-    modal('Settings',
-      sw('sound', 'Sound effects', 'Short procedural cues. No music, no files.') +
-      sw('autosave', 'Autosave', 'Writes to the auto slot at the end of every week.') +
-      sw('reduceMotion', 'Reduce motion', 'Stops the animated skyline and shortens transitions.') +
-      sw('confirmBig', 'Confirm large spends', 'Asks before anything costing more than a quarter of your cash.') +
-      '<div class="why" style="margin-top:14px">Keyboard: <b>Space</b> pause &middot; <b>1 2 3</b> speed &middot; ' +
-      '<b>N</b> next day &middot; <b>1-4</b> answer a decision &middot; <b>Esc</b> close.</div>');
+    modal('Einstellungen',
+      sw('sound', 'Toneffekte', 'Kurze erzeugte Signale. Keine Musik, keine Dateien.') +
+      sw('autosave', 'Autospeicherung', 'Schreibt am Ende jeder Woche auf den Auto-Platz.') +
+      sw('reduceMotion', 'Bewegung reduzieren', 'Hält die animierte Skyline an und kürzt Übergänge.') +
+      sw('confirmBig', 'Große Ausgaben bestätigen', 'Fragt nach, bevor etwas mehr als ein Viertel deines Bargelds kostet.') +
+      '<div class="why" style="margin-top:14px">Tastatur: <b>Leertaste</b> Pause &middot; <b>1 2 3</b> Tempo &middot; ' +
+      '<b>N</b> nächster Tag &middot; <b>1-4</b> Entscheidung beantworten &middot; <b>Esc</b> schließen.</div>');
   }
 
   function applySettings() {
@@ -1018,7 +1018,7 @@
   /* ------------------------------------------------- Menue und Start */
 
   function toMenu() {
-    if (G.state) { CE.save.save(G.state, 'auto', 'Autosave'); }
+    if (G.state) { CE.save.save(G.state, 'auto', 'Autospeicherung'); }
     setSpeed(0);
     $('game').hidden = true;
     $('menu').hidden = false;
@@ -1034,30 +1034,30 @@
     if (has) {
       var info = CE.save.load(last || 'auto');
       $('contSub').textContent = info.ok
-        ? info.state.name + ' · week ' + U.weekOf(info.state.day) + ' · ' + U.money(info.state.cash)
-        : 'Saved game';
+        ? info.state.name + ' · Woche ' + U.weekOf(info.state.day) + ' · ' + U.money(info.state.cash)
+        : 'Gespeichertes Spiel';
     } else {
-      $('contSub').textContent = 'No save found';
+      $('contSub').textContent = 'Kein Spielstand gefunden';
     }
   }
 
   function newGameDialog() {
     var body =
-      '<div class="field"><label for="ngName">What do they call you?</label>' +
-      '<input type="text" id="ngName" maxlength="22" value="" placeholder="Your name" autocomplete="off"></div>' +
-      '<div class="field"><label>Difficulty</label><div class="choices" id="ngDiff">' +
-      '<button type="button" class="choice" data-diff="easy"><b>Careful</b>' +
-      '<small>$6,000 to start, gentler rivals, less heat.</small></button>' +
+      '<div class="field"><label for="ngName">Wie nennt man dich?</label>' +
+      '<input type="text" id="ngName" maxlength="22" value="" placeholder="Dein Name" autocomplete="off"></div>' +
+      '<div class="field"><label>Schwierigkeit</label><div class="choices" id="ngDiff">' +
+      '<button type="button" class="choice" data-diff="easy"><b>Vorsichtig</b>' +
+      '<small>$6.000 zum Start, mildere Rivalen, weniger Hitze.</small></button>' +
       '<button type="button" class="choice is-on" data-diff="normal"><b>Standard</b>' +
-      '<small>$3,500 to start. The intended experience.</small></button>' +
-      '<button type="button" class="choice" data-diff="hard"><b>Ruthless</b>' +
-      '<small>$2,500, aggressive rivals, heat builds fast.</small></button>' +
+      '<small>$3.500 zum Start. So ist es gedacht.</small></button>' +
+      '<button type="button" class="choice" data-diff="hard"><b>Skrupellos</b>' +
+      '<small>$2.500, aggressive Rivalen, die Hitze steigt schnell.</small></button>' +
       '</div></div>' +
-      '<div class="why">You begin in Old Town with no crew, no businesses and no reputation. ' +
-      'Run operations to raise your first few thousand, then buy something that earns while you sleep.</div>';
-    modal('New Game', body,
-      '<button type="button" class="btn" data-close="1">Cancel</button>' +
-      '<button type="button" class="btn btn--primary" data-act="__startNew">Begin</button>');
+      '<div class="why">Du fängst in der Altstadt an, ohne Crew, ohne Betriebe und ohne Ansehen. ' +
+      'Mach Operationen, um die ersten paar tausend zusammenzubekommen, und kauf dann etwas, das verdient, während du schläfst.</div>';
+    modal('Neues Spiel', body,
+      '<button type="button" class="btn" data-close="1">Abbrechen</button>' +
+      '<button type="button" class="btn btn--primary" data-act="__startNew">Anfangen</button>');
 
     var diffs = document.querySelectorAll('#ngDiff .choice');
     for (var i = 0; i < diffs.length; i++) {
@@ -1067,7 +1067,7 @@
       });
     }
     ACTIONS.__startNew = function () {
-      var name = ($('ngName').value || '').trim().slice(0, 22) || 'Unknown';
+      var name = ($('ngName').value || '').trim().slice(0, 22) || 'Unbekannt';
       var picked = el('#ngDiff .choice.is-on');
       var diff = picked ? picked.getAttribute('data-diff') : 'normal';
       var s = St.newGame({ name: name, difficulty: diff });
@@ -1091,11 +1091,11 @@
     if (s.event) showEvent();
     if (!loaded) {
       setTimeout(function () {
-        banner('Old Town is open to you. Press Play when you are ready.', 'good',
+        banner('Die Altstadt steht dir offen. Drück auf Play, wenn du bereit bist.', 'good',
       'Blackhaven, ' + U.dateLabel(0), 'map');
       }, 400);
     }
-    CE.save.save(s, 'auto', 'Autosave');
+    CE.save.save(s, 'auto', 'Autospeicherung');
   }
 
   function loadDialog() {
@@ -1103,21 +1103,21 @@
   }
 
   function creditsDialog() {
-    modal('Credits',
+    modal('Mitwirkende',
       '<p style="color:var(--ink2);line-height:1.7;margin:0 0 14px">' +
-      '<b>Crime Empire</b> is a management game about building something out of nothing in a city ' +
-      'that does not want you to. Blackhaven, its districts, its four families and everyone in them ' +
-      'are fictional.</p>' +
+      '<b>Crime Empire</b> ist ein Aufbauspiel darüber, aus dem Nichts etwas zu errichten, in einer Stadt, ' +
+      'die das nicht will. Blackhaven, seine Bezirke, seine vier Familien und alle darin ' +
+      'sind frei erfunden.</p>' +
       '<table class="ledger"><tbody>' +
-      '<tr><td>Design, code, art</td><td class="r">Written for this repository</td></tr>' +
-      '<tr><td>Engine</td><td class="r">None &mdash; plain HTML, CSS, JavaScript</td></tr>' +
-      '<tr><td>Dependencies</td><td class="r">Zero</td></tr>' +
-      '<tr><td>Graphics</td><td class="r">Procedural SVG and Canvas</td></tr>' +
-      '<tr><td>Sound</td><td class="r">Procedural Web Audio</td></tr>' +
-      '<tr><td>Saves</td><td class="r">localStorage, four slots</td></tr>' +
+      '<tr><td>Entwurf, Code, Grafik</td><td class="r">Für dieses Repository geschrieben</td></tr>' +
+      '<tr><td>Engine</td><td class="r">Keine &mdash; schlichtes HTML, CSS, JavaScript</td></tr>' +
+      '<tr><td>Abhängigkeiten</td><td class="r">Keine</td></tr>' +
+      '<tr><td>Grafik</td><td class="r">Erzeugtes SVG und Canvas</td></tr>' +
+      '<tr><td>Ton</td><td class="r">Erzeugtes Web Audio</td></tr>' +
+      '<tr><td>Spielstände</td><td class="r">localStorage, vier Plätze</td></tr>' +
       '</tbody></table>' +
-      '<div class="why" style="margin-top:14px">The underground operations in this game are abstract ' +
-      'management systems. Nothing here describes how anything is actually done.</div>');
+      '<div class="why" style="margin-top:14px">Die Untergrundbetriebe in diesem Spiel sind abstrakte ' +
+      'Verwaltungssysteme. Nichts hier beschreibt, wie so etwas tatsächlich abläuft.</div>');
   }
 
   /* ---------------------------------------------------------- Klicks */
@@ -1154,7 +1154,7 @@
         var slot = CE.save.lastSlot() || 'auto';
         var r = CE.save.load(slot);
         if (!r.ok) r = CE.save.load('auto');
-        if (r.ok) startGame(r.state, true); else toast('No save to continue.', 'bad');
+        if (r.ok) startGame(r.state, true); else toast('Kein Spielstand zum Fortsetzen.', 'bad');
       } else if (which === 'load') loadDialog();
       else if (which === 'settings') settingsDialog();
       else if (which === 'credits') creditsDialog();
@@ -1208,7 +1208,7 @@
     document.addEventListener('click', onClick);
     document.addEventListener('keydown', onKey);
     root.addEventListener('beforeunload', function () {
-      if (G.state && G.settings.autosave) CE.save.save(G.state, 'auto', 'Autosave');
+      if (G.state && G.settings.autosave) CE.save.save(G.state, 'auto', 'Autospeicherung');
     });
 
     document.body.classList.remove('booting');

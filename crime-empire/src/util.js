@@ -56,28 +56,30 @@
 
   /* --------------------------------------------------------- Formate */
 
-  /* Geld immer mit Vorzeichen-Logik der Anzeige: 1.234.567 -> $1.23M.
-     Bis 100.000 in voller Laenge, damit fruehe Betraege genau lesbar sind. */
+  /* Geld immer mit Vorzeichen-Logik der Anzeige: 1.234.567 -> $1,23 Mio.
+     Bis 100.000 in voller Laenge, damit fruehe Betraege genau lesbar sind.
+     Deutsche Schreibweise: Punkt trennt Tausender, Komma die Nachkommastelle. */
   function money(n) {
     var neg = n < 0;
     var v = Math.abs(Math.round(n));
     var s;
-    if (v >= 1e9) s = trimZero((v / 1e9).toFixed(2)) + 'B';
-    else if (v >= 1e6) s = trimZero((v / 1e6).toFixed(2)) + 'M';
-    else if (v >= 1e5) s = trimZero((v / 1e3).toFixed(1)) + 'K';
+    if (v >= 1e9) s = komma(trimZero((v / 1e9).toFixed(2))) + ' Mrd.';
+    else if (v >= 1e6) s = komma(trimZero((v / 1e6).toFixed(2))) + ' Mio.';
+    else if (v >= 1e5) s = komma(trimZero((v / 1e3).toFixed(1))) + ' Tsd.';
     else s = group(v);
     return (neg ? '-$' : '$') + s;
   }
+  function komma(s) { return s.replace('.', ','); }
   function moneySigned(n) {
     var r = money(n);
     return n > 0 ? '+' + r : r;
   }
   function trimZero(s) { return s.replace(/\.?0+$/, ''); }
-  function group(v) { return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
-  function pct(n, digits) { return (n * 100).toFixed(digits === undefined ? 0 : digits) + '%'; }
+  function group(v) { return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  function pct(n, digits) { return (n * 100).toFixed(digits === undefined ? 0 : digits).replace('.', ',') + '%'; }
 
-  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  /* Tag 0 ist der 1. Maerz eines Startjahres - reine Anzeige, die Logik
+  var MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+  /* Tag 0 ist der 1. Januar eines Startjahres - reine Anzeige, die Logik
      rechnet ausschliesslich in Tagen seit Spielbeginn. */
   function dateLabel(day) {
     var y = Math.floor(day / 364);
@@ -85,7 +87,7 @@
     var m = Math.floor(rest / 30.333);
     if (m > 11) m = 11;
     var d = Math.floor(rest - m * 30.333) + 1;
-    return MONTHS[m] + ' ' + d + ', ' + (2027 + y);
+    return d + '. ' + MONTHS[m] + ' ' + (2027 + y);
   }
   function weekOf(day) { return Math.floor(day / 7) + 1; }
 

@@ -58,16 +58,16 @@
     var hp = St.heatPenalty(s.heat);
     var heatLoss = (grossTotal - launderLoss - caseLoss) * hp;
 
-    line(book, 'Legal revenue', cleanGross, s.businesses.filter(function (x) {
-      return D.byId(D.BUSINESSES, x.type).legal; }).length + ' businesses', 'in');
-    line(book, 'Underground revenue', dirtyGross,
-      layingLow ? 'suspended - lying low' : 'before laundering', 'in');
-    line(book, 'Laundering losses', -launderLoss,
-      U.money(over) + ' above your capacity of ' + U.money(launderCap) + ', 42% written off', 'loss');
-    line(book, 'Federal case', -caseLoss,
-      (CE.commission ? CE.commission.phase(s).name : '') + ' costs you ' + U.pct(caseCut) + ' of revenue', 'bad');
-    line(book, 'Police pressure', -heatLoss,
-      'heat ' + Math.round(s.heat) + ' costs you ' + U.pct(hp) + ' of revenue', 'loss');
+    line(book, 'Legale Einnahmen', cleanGross, s.businesses.filter(function (x) {
+      return D.byId(D.BUSINESSES, x.type).legal; }).length + ' Betriebe', 'in');
+    line(book, 'Untergrund-Einnahmen', dirtyGross,
+      layingLow ? 'ausgesetzt - untergetaucht' : 'vor der Wäsche', 'in');
+    line(book, 'Waschverluste', -launderLoss,
+      U.money(over) + ' über deiner Kapazität von ' + U.money(launderCap) + ', 42% abgeschrieben', 'loss');
+    line(book, 'Bundesverfahren', -caseLoss,
+      (CE.commission ? CE.commission.phase(s).name : '') + ' kostet dich ' + U.pct(caseCut) + ' der Einnahmen', 'bad');
+    line(book, 'Polizeidruck', -heatLoss,
+      'Hitze ' + Math.round(s.heat) + ' kostet dich ' + U.pct(hp) + ' der Einnahmen', 'loss');
 
     /* ------------------------------------------------- Ausgaben */
     var upkeep = 0;
@@ -79,11 +79,11 @@
     for (i = 0; i < s.crew.length; i++) salaries += s.crew[i].salary;
     salaries *= (1 - expenseCut * 0.5);
 
-    line(book, 'Business upkeep', -upkeep, s.businesses.length + ' sites' +
-      (expenseCut > 0 ? ', accountants saving ' + U.pct(expenseCut) : ''), 'out');
-    line(book, 'Salaries', -salaries, s.crew.filter(function (c) { return !c.player; }).length + ' on payroll', 'out');
-    line(book, 'Organisation upkeep', -d.orgUpkeep, 'safe houses, retainers, fleet', 'out');
-    line(book, 'District operating costs', -d.districtCost, d.districtsOpen + ' districts held', 'out');
+    line(book, 'Betriebskosten', -upkeep, s.businesses.length + ' Standorte' +
+      (expenseCut > 0 ? ', Buchhalter sparen ' + U.pct(expenseCut) : ''), 'out');
+    line(book, 'Gehälter', -salaries, s.crew.filter(function (c) { return !c.player; }).length + ' auf der Lohnliste', 'out');
+    line(book, 'Organisationskosten', -d.orgUpkeep, 'Unterschlüpfe, Anwälte, Fuhrpark', 'out');
+    line(book, 'Bezirkskosten', -d.districtCost, d.districtsOpen + ' Bezirke gehalten', 'out');
 
     var income = cleanGross + dirtyGross - launderLoss - caseLoss - heatLoss;
     var expense = upkeep + salaries + d.orgUpkeep + d.districtCost;
@@ -100,8 +100,8 @@
       if (trib.total > 0) {
         income += trib.total;
         for (i = 0; i < trib.zeilen.length; i++) {
-          line(book, 'Protection money', trib.zeilen[i].amount,
-            trib.zeilen[i].name + ' pays weekly - no laundering needed', 'in');
+          line(book, 'Schutzgeld', trib.zeilen[i].amount,
+            trib.zeilen[i].name + ' zahlt wöchentlich - keine Wäsche nötig', 'in');
         }
       }
     }
@@ -121,8 +121,8 @@
       var cut = Math.round(allyInfl * 58 * (0.7 + s.rep / 250));
       if (cut > 0) {
         income += cut;
-        line(book, 'Alliance dividend', cut,
-          D.byId(D.RIVALS, ally.id).name + ' shares its take across ' + Math.round(allyInfl) + ' influence', 'in');
+        line(book, 'Bündnisanteil', cut,
+          D.byId(D.RIVALS, ally.id).name + ' teilt seinen Schnitt über ' + Math.round(allyInfl) + ' Einfluss', 'in');
       }
     }
 
@@ -147,9 +147,9 @@
       var debt = -s.cash;
       var interest = Math.round(debt * 0.06);
       s.cash -= interest;
-      line(book, 'Interest on debt', -interest, 'you owe ' + U.money(debt) + ' to people who charge 6% a week', 'bad');
+      line(book, 'Schuldzinsen', -interest, 'du schuldest ' + U.money(debt) + ' an Leute, die 6% pro Woche nehmen', 'bad');
       expense += interest;
-      report.push({ t: 'bad', text: 'You are ' + U.money(debt + interest) + ' in the red. Interest is running at 6% a week.' });
+      report.push({ t: 'bad', text: 'Du stehst mit ' + U.money(debt + interest) + ' im Minus. Die Zinsen laufen mit 6% pro Woche.' });
 
       /* Zwangsverkauf, sobald die Schuld das Vermoegen ueberholt. */
       var d3 = St.derive(s);
@@ -164,8 +164,8 @@
           s.cash += got;
           s.businesses = s.businesses.filter(function (x) { return x.id !== cheapest.b.id; });
           for (var q2 = 0; q2 < s.crew.length; q2++) if (s.crew[q2].post === cheapest.b.id) s.crew[q2].post = null;
-          line(book, 'Forced sale', got, cheapest.b.name + ' sold at half value to service your debts', 'bad');
-          report.push({ t: 'bad', text: 'Your creditors took ' + cheapest.b.name + '. It went for ' + U.money(got) + ', half what it was worth.' });
+          line(book, 'Zwangsverkauf', got, cheapest.b.name + ' zum halben Wert verkauft, um deine Schulden zu bedienen', 'bad');
+          report.push({ t: 'bad', text: 'Deine Gläubiger haben ' + cheapest.b.name + ' genommen. Weg für ' + U.money(got) + ', die Hälfte des Werts.' });
           s.rep = U.clamp(s.rep - 4, 0, 100);
         }
       }
@@ -253,9 +253,9 @@
       var cost = Math.round(St.bizValue(s, target) * rng.range(0.008, 0.025));
       if (cost > 0) {
         out.expense += cost;
-        line(book, 'Unplanned repairs', -cost, target.name + ' - ' +
-          rng.pick(['flooded cellar', 'fire inspection', 'broken freezer', 'roof damage',
-                    'stolen stock', 'a window and a message']), 'out');
+        line(book, 'Ungeplante Reparaturen', -cost, target.name + ' - ' +
+          rng.pick(['Keller unter Wasser', 'Brandschutzprüfung', 'defekte Kühlung', 'Dachschaden',
+                    'gestohlene Ware', 'eine Scheibe und eine Botschaft']), 'out');
       }
     }
 
@@ -266,7 +266,7 @@
       var bonus = Math.round(f.gross * rng.range(0.25, 0.7));
       if (bonus > 0) {
         out.income += bonus;
-        line(book, 'Exceptional week', bonus, star.name + ' ran far over its usual take', 'in');
+        line(book, 'Außergewöhnliche Woche', bonus, star.name + ' lag weit über dem üblichen Schnitt', 'in');
       }
     }
 
@@ -275,8 +275,8 @@
       var fine = Math.round(Math.max(2500, d.grossIncome * rng.range(0.10, 0.28)) * d.fineMul);
       out.expense += fine;
       s.stats.fines++;
-      line(book, 'Legal costs and fines', -fine, 'an investigation reached your paperwork', 'bad');
-      report.push({ t: 'bad', text: 'Investigators fined the organisation ' + U.money(fine) + '.' });
+      line(book, 'Anwaltskosten und Strafen', -fine, 'eine Ermittlung hat deine Unterlagen erreicht', 'bad');
+      report.push({ t: 'bad', text: 'Die Ermittler haben die Organisation mit ' + U.money(fine) + ' belegt.' });
     }
 
     /* Razzia ab Hitze 70: kann einen Untergrundbetrieb kosten. */
@@ -290,16 +290,16 @@
           var value = St.bizValue(s, lost);
           s.businesses = s.businesses.filter(function (x) { return x.id !== lost.id; });
           for (var i = 0; i < s.crew.length; i++) if (s.crew[i].post === lost.id) s.crew[i].post = null;
-          line(book, 'Seizure', 0, lost.name + ' was raided and taken. ' + U.money(value) + ' of assets lost.', 'bad');
-          report.push({ t: 'bad', text: 'RAID: ' + lost.name + ' is gone. ' + U.money(value) + ' written off.' });
+          line(book, 'Beschlagnahme', 0, lost.name + ' wurde durchsucht und eingezogen. ' + U.money(value) + ' an Werten verloren.', 'bad');
+          report.push({ t: 'bad', text: 'RAZZIA: ' + lost.name + ' ist weg. ' + U.money(value) + ' abgeschrieben.' });
           s.heat = U.clamp(s.heat - 12, 0, 100);
           s.rep = U.clamp(s.rep - 3, 0, 100);
         } else {
           var hit = Math.round(Math.max(6000, d.grossIncome * 0.5) * d.fineMul);
           out.expense += hit;
           s.flags.survivedRaid = true;
-          line(book, 'Raid, no charges', -hit, 'they searched, took paperwork and left', 'bad');
-          report.push({ t: 'warn', text: 'A raid came and found nothing worth charging. ' + U.money(hit) + ' in costs.' });
+          line(book, 'Razzia ohne Anklage', -hit, 'sie haben durchsucht, Unterlagen mitgenommen und sind gegangen', 'bad');
+          report.push({ t: 'warn', text: 'Eine Razzia kam und fand nichts Anklagefähiges. ' + U.money(hit) + ' an Kosten.' });
           s.heat = U.clamp(s.heat - 8, 0, 100);
         }
       }

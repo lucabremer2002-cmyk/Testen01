@@ -28,20 +28,20 @@
   var D = CE.data, U = CE.util, St = CE.state;
 
   var PHASEN = [
-    { id: 0, name: 'Open File', short: 'Filed', at: 0,
-      desc: 'A file exists with your name on it. Nothing in it sticks yet.',
+    { id: 0, name: 'Akte angelegt', short: 'Akte', at: 0,
+      desc: 'Es gibt eine Akte mit deinem Namen darauf. Noch hält nichts darin.',
       incomeCut: 0 },
-    { id: 1, name: 'Surveillance', short: 'Watched', at: 30,
-      desc: 'A federal task force is building a picture. Wiretaps, ' +
-            'photographs, a lot of patience.',
+    { id: 1, name: 'Überwachung', short: 'Beobachtet', at: 30,
+      desc: 'Eine Bundessonderkommission setzt ein Bild zusammen. Abhörwanzen, ' +
+            'Fotos, sehr viel Geduld.',
       incomeCut: 0.07 },
-    { id: 2, name: 'Grand Jury', short: 'Grand Jury', at: 62,
-      desc: 'They are presenting evidence in a sealed room. Your ' +
-            'accountants are being subpoenaed one at a time.',
+    { id: 2, name: 'Anklagekammer', short: 'Kammer', at: 62,
+      desc: 'In einem verschlossenen Raum werden Beweise vorgelegt. Deine ' +
+            'Buchhalter werden einer nach dem anderen vorgeladen.',
       incomeCut: 0.18 },
-    { id: 3, name: 'Indictment', short: 'Indicted', at: 90,
-      desc: 'Sealed indictments are signed. When they move, they take ' +
-            'everything they can carry.',
+    { id: 3, name: 'Anklage', short: 'Angeklagt', at: 90,
+      desc: 'Versiegelte Anklageschriften sind unterschrieben. Wenn sie zugreifen, ' +
+            'nehmen sie alles mit, was sie tragen können.',
       incomeCut: 0.32 }
   ];
 
@@ -86,8 +86,8 @@
 
     /* Groesse: das Grundrauschen. Je mehr Untergrund, desto mehr Spur. */
     var groesse = dirty * 0.55 + legal * 0.12;
-    if (groesse > 0) zeilen.push({ label: 'Scale of the organisation', v: groesse,
-      note: dirty + ' underground and ' + legal + ' legal sites to trace' });
+    if (groesse > 0) zeilen.push({ label: 'Größe der Organisation', v: groesse,
+      note: dirty + ' Untergrund- und ' + legal + ' legale Standorte zu verfolgen' });
 
     /* Macht an sich. Eine Kommission ermittelt nicht nur Verbrechen,
        sondern Verhaeltnisse - und ab einer gewissen Groesse ist der
@@ -96,20 +96,20 @@
        erreichte in einer ganzen Partie nie eine Anklage: das Spaetspiel
        hatte wieder keinen Gegner. */
     var macht = Math.pow(Math.max(0, d.netWorth) / 1000000, 0.7) * 0.42;
-    if (macht > 0.15) zeilen.push({ label: 'Sheer size of it', v: macht,
-      note: U.money(Math.round(d.netWorth)) + ' is not something a task force ignores' });
+    if (macht > 0.15) zeilen.push({ label: 'Schiere Größe', v: macht,
+      note: U.money(Math.round(d.netWorth)) + ' übersieht keine Sonderkommission' });
 
     /* Hitze ueber 35 ist der schnellste Weg in eine Anklage. */
     if (s.heat > 35) {
       var h = (s.heat - 35) * 0.055;
-      zeilen.push({ label: 'Police attention', v: h, note: 'heat at ' + Math.round(s.heat) });
+      zeilen.push({ label: 'Aufmerksamkeit der Polizei', v: h, note: 'Hitze bei ' + Math.round(s.heat) });
     }
 
     /* Schmutziges Geld, das nicht gewaschen wird, ist Beweismaterial. */
     if (d.launderLoss > 0) {
       var w = Math.min(3.2, d.launderLoss / 9000);
-      zeilen.push({ label: 'Unlaundered money', v: w,
-        note: U.money(Math.round(d.launderLoss)) + ' a week going through unexplained' });
+      zeilen.push({ label: 'Ungewaschenes Geld', v: w,
+        note: U.money(Math.round(d.launderLoss)) + ' pro Woche laufen unerklärt durch' });
     }
 
     /* Gegenwirkung: Anwaelte, Rechtsbeistand, saubere Bilanz. */
@@ -118,14 +118,14 @@
       if (s.crew[i].role === 'lawyer') anwalt += 0.85 * (0.6 + St.effectiveSkill(s.crew[i]) / 14);
     }
     anwalt += (s.org.retainer || 0) * 0.75;
-    if (anwalt > 0) zeilen.push({ label: 'Legal defence', v: -anwalt,
-      note: 'lawyers and retainers slowing them down' });
+    if (anwalt > 0) zeilen.push({ label: 'Rechtliche Verteidigung', v: -anwalt,
+      note: 'Anwälte und Mandate bremsen sie aus' });
 
     /* Ein sauberer Anteil hilft sichtbar. */
     if (legal > dirty && legal > 0) {
       var sauber = Math.min(2.2, (legal - dirty) * 0.3);
-      zeilen.push({ label: 'Legitimate front', v: -sauber,
-        note: 'a majority-legal portfolio is hard to characterise' });
+      zeilen.push({ label: 'Seriöse Fassade', v: -sauber,
+        note: 'ein überwiegend legaler Besitz ist schwer einzuordnen' });
     }
 
     /* Was die Kommission selbst aufgebaut hat. Das ist der Unterschied
@@ -139,20 +139,20 @@
       else if (as[i].kind === 'informant') spitzel++;
       else if (as[i].kind === 'witness') zeugen++;
     }
-    if (abhoer) zeilen.push({ label: 'Wiretaps', v: abhoer * 0.8,
-      note: abhoer + ' of your sites are being listened to' });
-    if (spitzel) zeilen.push({ label: 'Somebody is talking', v: spitzel * 1.3,
-      note: spitzel + ' informant' + (spitzel === 1 ? '' : 's') + ' inside your organisation' });
-    if (zeugen) zeilen.push({ label: 'Cooperating witnesses', v: zeugen * 1.8,
-      note: zeugen + ' named witness' + (zeugen === 1 ? '' : 'es') + ' prepared to testify' });
+    if (abhoer) zeilen.push({ label: 'Abhörwanzen', v: abhoer * 0.8,
+      note: abhoer + ' deiner Standorte werden abgehört' });
+    if (spitzel) zeilen.push({ label: 'Jemand redet', v: spitzel * 1.3,
+      note: spitzel + (spitzel === 1 ? ' Informant' : ' Informanten') + ' in deiner Organisation' });
+    if (zeugen) zeilen.push({ label: 'Kronzeugen', v: zeugen * 1.8,
+      note: zeugen + (zeugen === 1 ? ' benannter Zeuge ist' : ' benannte Zeugen sind') + ' aussagebereit' });
 
     /* Ruf oeffnet Tueren, auch im Gericht. */
-    if (s.rep >= 70) zeilen.push({ label: 'Standing in the city', v: -0.5, note: 'people vouch for you' });
-    if (d.boardCase) zeilen.push({ label: 'Board seat', v: -d.boardCase,
-      note: 'a man on a development board is not an obvious defendant' });
+    if (s.rep >= 70) zeilen.push({ label: 'Ansehen in der Stadt', v: -0.5, note: 'Leute legen für dich ein gutes Wort ein' });
+    if (d.boardCase) zeilen.push({ label: 'Aufsichtsratssitz', v: -d.boardCase,
+      note: 'wer im Bauausschuss sitzt, ist kein naheliegender Angeklagter' });
 
     /* Wer klein und ruhig ist, verliert Aufmerksamkeit. */
-    if (s.heat < 20 && dirty <= 2) zeilen.push({ label: 'Nothing new to look at', v: -1.4, note: 'quiet weeks' });
+    if (s.heat < 20 && dirty <= 2) zeilen.push({ label: 'Nichts Neues zu sehen', v: -1.4, note: 'ruhige Wochen' });
 
     var netto = 0;
     for (i = 0; i < zeilen.length; i++) netto += zeilen[i].v;
@@ -169,10 +169,10 @@
       c.open = true;
       c.opened = s.day;
       c.strength = 8;
-      report.push({ t: 'bad', banner: 'Federal Task Force',
+      report.push({ t: 'bad', banner: 'Sonderkommission des Bundes',
         ico: 'scales',
-        text: 'A joint task force has opened a file on your organisation. ' +
-              'From here, everything you build is also evidence.' });
+        text: 'Eine gemeinsame Sonderkommission hat eine Akte über deine Organisation angelegt. ' +
+              'Ab jetzt ist alles, was du aufbaust, auch Beweismaterial.' });
       return;
     }
 
@@ -200,11 +200,11 @@
     if (c.phase > altePhase) {
       var p = PHASEN[c.phase];
       report.push({ t: 'bad', banner: p.name, ico: 'scales',
-        text: p.desc + ' Revenue is down ' + U.pct(p.incomeCut) + ' while it lasts.' });
+        text: p.desc + ' Die Einnahmen liegen ' + U.pct(p.incomeCut) + ' niedriger, solange das anhält.' });
     } else if (c.phase < altePhase) {
-      report.push({ t: 'good', banner: 'Case Weakened', ico: 'scales',
-        text: 'The case has fallen back to ' + PHASEN[c.phase].name.toLowerCase() + '. ' +
-              'Whatever you paid for, it worked.' });
+      report.push({ t: 'good', banner: 'Fall geschwächt', ico: 'scales',
+        text: 'Der Fall ist zurückgefallen auf: ' + PHASEN[c.phase].name + '. ' +
+              'Wofür du auch bezahlt hast, es hat gewirkt.' });
     }
 
     /* Anklage: der Zugriff. Er nimmt viel, aber nicht alles - und er
@@ -284,9 +284,9 @@
         kand.sort(function (a, b) { return St.bizFinance(s, b).gross - St.bizFinance(s, a).gross; });
         var ziel = kand[0];
         c.assets.push({ kind: 'wiretap', ref: ziel.id, name: ziel.name, since: s.day });
-        c.lastAction = 'put a wire in ' + ziel.name;
-        report.push({ t: 'warn', text: 'Something is wrong at ' + ziel.name + '. The phones click, ' +
-          'and takings are down. Somebody is listening.' });
+        c.lastAction = 'hat ' + ziel.name + ' verwanzt';
+        report.push({ t: 'warn', text: ziel.name + ': etwas stimmt nicht. Die Telefone knacken, ' +
+          'und die Einnahmen sinken. Jemand hört mit.' });
         break;
       }
       case 'informant': {
@@ -297,10 +297,10 @@
         /* Der Name steht im Spielstand, aber die Oberflaeche zeigt ihn
            nicht: wer den Spitzel finden will, muss suchen. */
         c.assets.push({ kind: 'informant', ref: wer.id, name: wer.name, since: s.day, known: false });
-        c.lastAction = 'turned somebody inside your organisation';
-        report.push({ t: 'bad', banner: 'Somebody Is Talking', ico: 'informant',
-          text: 'Details only your own people know have reached the task force. ' +
-                'One of them is cooperating, and you do not know which.' });
+        c.lastAction = 'hat jemanden in deiner Organisation umgedreht';
+        report.push({ t: 'bad', banner: 'Jemand redet', ico: 'informant',
+          text: 'Einzelheiten, die nur deine eigenen Leute kennen, sind bei der Kommission angekommen. ' +
+                'Einer von ihnen kooperiert, und du weißt nicht, wer.' });
         break;
       }
       case 'freeze': {
@@ -309,9 +309,9 @@
         s.cash -= betrag;
         c.budget += Math.round(betrag * 0.25);      /* sie finanzieren sich daraus */
         c.assets.push({ kind: 'freeze', amount: betrag, until: s.day + 28, since: s.day });
-        c.lastAction = 'froze ' + U.money(betrag) + ' of your accounts';
-        report.push({ t: 'bad', text: U.money(betrag) + ' has been frozen pending a hearing. ' +
-          'You get it back in four weeks, if there is anything left to get.' });
+        c.lastAction = 'hat ' + U.money(betrag) + ' deiner Konten eingefroren';
+        report.push({ t: 'bad', text: U.money(betrag) + ' wurden bis zu einer Anhörung eingefroren. ' +
+          'In vier Wochen bekommst du sie zurück, falls dann noch etwas da ist.' });
         break;
       }
       case 'subpoena': {
@@ -319,20 +319,20 @@
         if (!b2) return;
         b2.damage = U.clamp((b2.damage || 0) + 0.3, 0, 0.8);
         c.strength = U.clamp(c.strength + 3, 0, 100);
-        c.lastAction = 'subpoenaed the books at ' + b2.name;
-        report.push({ t: 'warn', text: 'Investigators took four years of records out of ' + b2.name +
-          ' in cardboard boxes. It will not trade properly for a while.' });
+        c.lastAction = 'hat die Bücher von ' + b2.name + ' beschlagnahmt';
+        report.push({ t: 'warn', text: 'Die Ermittler haben vier Jahre Unterlagen in Kartons hinausgetragen - ' + b2.name +
+          ' läuft eine Weile nicht richtig.' });
         break;
       }
       case 'witness': {
-        var namen = ['a former accountant', 'somebody who used to drive for you',
-                     'a supplier you stopped paying', 'a man who owns the building next door'];
+        var namen = ['ein früherer Buchhalter', 'jemand, der früher für dich gefahren ist',
+                     'ein Lieferant, den du nicht mehr bezahlt hast', 'der Besitzer des Nachbarhauses'];
         var nm = namen[rng.int(0, namen.length - 1)];
         c.assets.push({ kind: 'witness', name: nm, since: s.day });
-        c.lastAction = 'signed up a cooperating witness';
-        report.push({ t: 'bad', banner: 'A Witness', ico: 'scales',
-          text: nm.charAt(0).toUpperCase() + nm.slice(1) + ' has agreed to testify. ' +
-                'Every week they stay on the list, the case gets heavier.' });
+        c.lastAction = 'hat einen Kronzeugen gewonnen';
+        report.push({ t: 'bad', banner: 'Ein Zeuge', ico: 'scales',
+          text: nm.charAt(0).toUpperCase() + nm.slice(1) + ' hat zugesagt auszusagen. ' +
+                'Jede Woche auf der Liste macht den Fall schwerer.' });
         break;
       }
     }
@@ -359,7 +359,7 @@
       if (a.kind === 'freeze') {
         if (s.day >= a.until) {
           s.cash += a.amount;
-          report.push({ t: 'good', text: U.money(a.amount) + ' has been released. The hearing found nothing.' });
+          report.push({ t: 'good', text: U.money(a.amount) + ' wurden freigegeben. Die Anhörung hat nichts ergeben.' });
           c.assets.splice(i, 1);
         }
         continue;
@@ -415,13 +415,13 @@
     s.flags.indicted = (s.flags.indicted || 0) + 1;
 
     if (book) {
-      CE.economy.line(book, 'Federal seizure', -frost,
-        'assets frozen under the indictment' + (verloren.length ? ', plus ' + verloren.length + ' sites taken' : ''), 'bad');
+      CE.economy.line(book, 'Beschlagnahme des Bundes', -frost,
+        'Vermögen unter der Anklage eingefroren' + (verloren.length ? ', dazu ' + verloren.length + ' Standorte genommen' : ''), 'bad');
     }
-    report.push({ t: 'bad', banner: 'The Raid', ico: 'warn',
-      text: 'They moved at dawn. ' + (verloren.length ? verloren.length + ' operations seized (' +
-        U.money(wert) + '), ' : '') + U.money(frost) + ' frozen' +
-        (verhaftet.length ? ', ' + verhaftet.join(' and ') + ' taken into custody' : '') + '.' });
+    report.push({ t: 'bad', banner: 'Der Zugriff', ico: 'warn',
+      text: 'Sie kamen im Morgengrauen. ' + (verloren.length ? verloren.length + ' Betriebe beschlagnahmt (' +
+        U.money(wert) + '), ' : '') + U.money(frost) + ' eingefroren' +
+        (verhaftet.length ? ', ' + verhaftet.join(' und ') + ' in Gewahrsam' : '') + '.' });
   }
 
   /* -------------------------------------------------- Gegenmassnahmen
@@ -433,19 +433,19 @@
     var basis = Math.max(30000, d.grossIncome * 1.1);
     var c = s.commission || fresh();
     return [
-      { id: 'records', name: 'Burn the Records',
+      { id: 'records', name: 'Die Akten verbrennen',
         cost: Math.round(basis * 0.6), strength: -9, heat: 3, rep: 0,
-        desc: 'Ledgers, drives and a very thorough afternoon. Buys time, nothing more.' },
-      { id: 'witness', name: 'Reach a Witness',
+        desc: 'Bücher, Festplatten und ein sehr gründlicher Nachmittag. Kauft Zeit, mehr nicht.' },
+      { id: 'witness', name: 'Einen Zeugen erreichen',
         cost: Math.round(basis * 1.4), strength: -19, heat: 2, rep: -4,
-        desc: 'Somebody who was going to testify remembers it differently. People notice.' },
-      { id: 'counsel', name: 'Mount a Defence',
+        desc: 'Jemand, der aussagen wollte, erinnert sich jetzt anders. Das fällt auf.' },
+      { id: 'counsel', name: 'Eine Verteidigung aufbauen',
         cost: Math.round(basis * 2.2), strength: -28, heat: -4, rep: 2,
-        desc: 'The best firm in the state, on retainer, for as long as this takes.' },
-      { id: 'divest', name: 'Divest the Worst of It',
+        desc: 'Die beste Kanzlei des Bundesstaates, auf Dauermandat, so lange es dauert.' },
+      { id: 'divest', name: 'Das Schlimmste abstoßen',
         cost: 0, strength: -22, heat: -10, rep: 3, divest: true,
-        desc: 'Sell your two most exposed underground operations at a loss. ' +
-              'Nothing weakens a case like having less to prosecute.' }
+        desc: 'Verkaufe deine zwei auffälligsten Untergrundbetriebe mit Verlust. ' +
+              'Nichts schwächt einen Fall so wie weniger, das man anklagen kann.' }
     ];
   }
 
@@ -468,39 +468,39 @@
     for (var i = 0; i < (c.assets || []).length; i++) if (c.assets[i].kind === 'freeze') frost += c.assets[i].amount;
 
     if (wires) {
-      out.push({ id: 'sweep', name: 'Sweep for Bugs', cost: Math.round(basis * 0.5 * wires),
-        desc: 'A technician, a van and an afternoon in every back office. ' +
-              'Removes all ' + wires + ' wiretap' + (wires === 1 ? '' : 's') + '.',
-        badge: wires + ' wiretap' + (wires === 1 ? '' : 's') });
+      out.push({ id: 'sweep', name: 'Nach Wanzen suchen', cost: Math.round(basis * 0.5 * wires),
+        desc: 'Ein Techniker, ein Transporter und ein Nachmittag in jedem Hinterzimmer. ' +
+              'Entfernt alle ' + wires + (wires === 1 ? ' Wanze' : ' Wanzen') + '.',
+        badge: wires + (wires === 1 ? ' Wanze' : ' Wanzen') });
     }
     if (spitzel) {
-      out.push({ id: 'leak', name: 'Find the Leak', cost: Math.round(basis * 0.9),
-        desc: 'Feed four people four different stories and see which one comes back. ' +
-              'Good odds of naming the informant. They will not stay afterwards.',
-        badge: spitzel + ' informant' + (spitzel === 1 ? '' : 's') });
+      out.push({ id: 'leak', name: 'Das Leck finden', cost: Math.round(basis * 0.9),
+        desc: 'Vier Leuten vier verschiedene Geschichten erzählen und sehen, welche zurückkommt. ' +
+              'Gute Aussicht, den Informanten zu benennen. Danach bleibt er nicht.',
+        badge: spitzel + (spitzel === 1 ? ' Informant' : ' Informanten') });
     }
     if (zeugen) {
-      out.push({ id: 'silence', name: 'Persuade a Witness', cost: Math.round(basis * 1.6),
-        desc: 'Money, a job for a relative, or a conversation. Removes one witness ' +
-              'from the list. It costs reputation and it is noticed.',
-        badge: zeugen + ' witness' + (zeugen === 1 ? '' : 'es') });
+      out.push({ id: 'silence', name: 'Einen Zeugen überzeugen', cost: Math.round(basis * 1.6),
+        desc: 'Geld, eine Stelle für einen Verwandten oder ein Gespräch. Nimmt einen Zeugen ' +
+              'von der Liste. Das kostet Ansehen, und es fällt auf.',
+        badge: zeugen + (zeugen === 1 ? ' Zeuge' : ' Zeugen') });
     }
     if (frost) {
-      out.push({ id: 'unfreeze', name: 'Fight the Freeze', cost: Math.round(basis * 0.7),
-        desc: 'An emergency motion. Releases ' + U.money(frost) + ' now instead of in four weeks.',
-        badge: U.money(frost) + ' frozen' });
+      out.push({ id: 'unfreeze', name: 'Gegen die Sperre klagen', cost: Math.round(basis * 0.7),
+        desc: 'Ein Eilantrag. Gibt ' + U.money(frost) + ' jetzt frei statt in vier Wochen.',
+        badge: U.money(frost) + ' eingefroren' });
     }
     return out;
   }
 
   function doTargeted(s, rng, id) {
     var c = s.commission;
-    if (!c || !c.open) return { ok: false, why: 'There is no case.' };
+    if (!c || !c.open) return { ok: false, why: 'Es gibt keinen Fall.' };
     var d = St.derive(s);
     var a = null, list = targeted(s, d);
     for (var i = 0; i < list.length; i++) if (list[i].id === id) a = list[i];
-    if (!a) return { ok: false, why: 'Nothing to do there.' };
-    if (s.cash < a.cost) return { ok: false, why: 'Needs ' + U.money(a.cost) + '.' };
+    if (!a) return { ok: false, why: 'Dort gibt es nichts zu tun.' };
+    if (s.cash < a.cost) return { ok: false, why: 'Benötigt ' + U.money(a.cost) + '.' };
 
     s.cash -= a.cost;
     s.stats.spent += a.cost;
@@ -510,13 +510,13 @@
       var n = 0;
       for (i = c.assets.length - 1; i >= 0; i--) if (c.assets[i].kind === 'wiretap') { c.assets.splice(i, 1); n++; }
       c.strength = U.clamp(c.strength - n * 2, 0, 100);
-      return { ok: true, text: n + ' device' + (n === 1 ? '' : 's') + ' found and destroyed. ' +
-        'Your sites are quiet again.' };
+      return { ok: true, text: n + (n === 1 ? ' Wanze wurde' : ' Wanzen wurden') + ' gefunden und zerstört. ' +
+        'Deine Betriebe sind wieder still.' };
     }
     if (id === 'leak') {
       var idx = -1;
       for (i = 0; i < c.assets.length; i++) if (c.assets[i].kind === 'informant') { idx = i; break; }
-      if (idx < 0) return { ok: false, why: 'Nobody is talking.' };
+      if (idx < 0) return { ok: false, why: 'Niemand redet.' };
       var asset = c.assets[idx];
       /* Nicht garantiert. Wer sucht, findet meistens - aber nicht immer,
          und ein Fehlschlag kostet die Mannschaft Nerven. */
@@ -529,15 +529,15 @@
           for (i = 0; i < s.crew.length; i++) if (!s.crew[i].player) {
             s.crew[i].loyalty = U.clamp(s.crew[i].loyalty - 5, 0, 100);
           }
-          return { ok: true, text: 'It was ' + wer.name + '. They are gone, and everybody knows why.' };
+          return { ok: true, text: 'Es war ' + wer.name + '. Die Person ist weg, und alle wissen warum.' };
         }
-        return { ok: true, text: 'The leak is closed.' };
+        return { ok: true, text: 'Das Leck ist geschlossen.' };
       }
       for (i = 0; i < s.crew.length; i++) if (!s.crew[i].player) {
         s.crew[i].loyalty = U.clamp(s.crew[i].loyalty - 8, 0, 100);
       }
-      return { ok: true, text: 'You interrogated four people and learned nothing. ' +
-        'All four of them remember it.' };
+      return { ok: true, text: 'Du hast vier Leute befragt und nichts erfahren. ' +
+        'Alle vier werden sich daran erinnern.' };
     }
     if (id === 'silence') {
       for (i = 0; i < c.assets.length; i++) {
@@ -548,10 +548,10 @@
           s.rep = U.clamp(s.rep - 3, 0, 100);
           s.heat = U.clamp(s.heat + 3, 0, 100);
           return { ok: true, text: nm.charAt(0).toUpperCase() + nm.slice(1) +
-            ' is no longer cooperating. Nobody asked how.' };
+            ' kooperiert nicht mehr. Niemand hat gefragt, wie das kam.' };
         }
       }
-      return { ok: false, why: 'No witness to reach.' };
+      return { ok: false, why: 'Es gibt keinen Zeugen zu erreichen.' };
     }
     if (id === 'unfreeze') {
       var summe = 0;
@@ -559,25 +559,25 @@
         if (c.assets[i].kind === 'freeze') { summe += c.assets[i].amount; c.assets.splice(i, 1); }
       }
       s.cash += summe;
-      return { ok: true, text: U.money(summe) + ' released by court order.' };
+      return { ok: true, text: U.money(summe) + ' per Gerichtsbeschluss freigegeben.' };
     }
-    return { ok: false, why: 'Unknown.' };
+    return { ok: false, why: 'Unbekannt.' };
   }
 
   function canDo(s, id) {
     var c = s.commission;
-    if (!c || !c.open) return { ok: false, why: 'There is no case to fight.' };
+    if (!c || !c.open) return { ok: false, why: 'Es gibt keinen Fall zu bekämpfen.' };
     var d = St.derive(s);
     var a = null, list = actions(s, d);
     for (var i = 0; i < list.length; i++) if (list[i].id === id) a = list[i];
-    if (!a) return { ok: false, why: 'Unknown.' };
+    if (!a) return { ok: false, why: 'Unbekannt.' };
     if (a.divest) {
       var dreck = s.businesses.filter(function (b) { return !D.byId(D.BUSINESSES, b.type).legal; });
-      if (dreck.length < 2) return { ok: false, why: 'You need at least two underground operations to give up.' };
+      if (dreck.length < 2) return { ok: false, why: 'Du brauchst mindestens zwei Untergrundbetriebe, die du aufgeben kannst.' };
     } else if (s.cash < a.cost) {
-      return { ok: false, why: 'Needs ' + U.money(a.cost) + '.' };
+      return { ok: false, why: 'Benötigt ' + U.money(a.cost) + '.' };
     }
-    if (c.strength <= 0) return { ok: false, why: 'The case is already at nothing.' };
+    if (c.strength <= 0) return { ok: false, why: 'Der Fall liegt bereits bei null.' };
     return { ok: true, act: a };
   }
 
@@ -598,12 +598,12 @@
         /* sell() zahlt 68 %, hier sind es 50 - der Rest ist der Preis der Eile. */
         s.cash -= Math.round(r.price - St.bizValue(s, dreck[i]) * 0.5);
       }
-      text = namen.join(' and ') + ' are gone, at half what they were worth.';
+      text = namen.join(' und ') + ' sind weg, für die Hälfte ihres Werts.';
     } else {
       s.cash -= a.cost;
       s.stats.spent += a.cost;
       c.spent += a.cost;
-      text = U.money(a.cost) + ' spent.';
+      text = U.money(a.cost) + ' ausgegeben.';
     }
 
     c.strength = U.clamp(c.strength + a.strength, 0, 100);
@@ -617,7 +617,7 @@
        etwas geschafft, das eigene Erwaehnung verdient. */
     if (c.reachedGrand && c.strength <= 0) s.flags.caseBeaten = true;
 
-    return { ok: true, text: a.name + ': ' + text + ' Case strength down to ' + Math.round(c.strength) + '.',
+    return { ok: true, text: a.name + ': ' + text + ' Stärke des Falls jetzt ' + Math.round(c.strength) + '.',
       strength: c.strength, phase: c.phase };
   }
 

@@ -40,7 +40,7 @@
     /* 3. Genesung. */
     for (var i = 0; i < s.crew.length; i++) {
       var c = s.crew[i];
-      if (c.hurt && c.hurt <= s.day) { c.hurt = 0; report.push({ t: 'good', text: c.name + ' is back on their feet.' }); }
+      if (c.hurt && c.hurt <= s.day) { c.hurt = 0; report.push({ t: 'good', text: c.name + ' ist wieder auf den Beinen.' }); }
     }
 
     /* 4. Wochenwechsel. */
@@ -63,9 +63,9 @@
     /* 7. Fortschritt. */
     var prog = CE.progress.check(s);
     for (i = 0; i < prog.achievements.length; i++) {
-      report.push({ t: 'good', ach: true, text: 'Achievement unlocked: ' + prog.achievements[i].name });
+      report.push({ t: 'good', ach: true, text: 'Erfolg freigeschaltet: ' + prog.achievements[i].name });
     }
-    if (prog.rank) report.push({ t: 'rank', text: 'You are now ' + prog.rank.name + '. ' + prog.rank.blurb });
+    if (prog.rank) report.push({ t: 'rank', text: 'Du bist jetzt: ' + prog.rank.name + '. ' + prog.rank.blurb });
 
     keepRng(s, rng);
     logReport(s, report);
@@ -108,13 +108,13 @@
     if (!opt || opt.disabled) return null;
     var text;
     try { text = opt.go(); }
-    catch (e) { text = 'Nothing came of it.'; }
+    catch (e) { text = 'Daraus wurde nichts.'; }
     s.event = null;
     s.log.unshift({ day: s.day, t: 'choice', text: ev.title + ': ' + text, choice: opt.label });
     while (s.log.length > 200) s.log.pop();
     var prog = CE.progress.check(s);
     for (var i = 0; i < prog.achievements.length; i++) {
-      s.log.unshift({ day: s.day, t: 'good', ach: true, text: 'Achievement unlocked: ' + prog.achievements[i].name });
+      s.log.unshift({ day: s.day, t: 'good', ach: true, text: 'Erfolg freigeschaltet: ' + prog.achievements[i].name });
     }
     return { text: text, title: ev.title, progress: prog };
   }
@@ -128,8 +128,8 @@
     keepRng(s, rng);
     s.log.unshift({
       day: 0, t: 'rank',
-      text: 'Blackhaven, ' + U.dateLabel(0) + '. One room above a laundromat, ' +
-            U.money(s.cash) + ' and nobody who owes you anything. Start in Old Town.'
+      text: 'Blackhaven, ' + U.dateLabel(0) + '. Ein Zimmer über einem Waschsalon, ' +
+            U.money(s.cash) + ' und niemand, der dir etwas schuldet. Fang in der Altstadt an.'
     });
     return s;
   }

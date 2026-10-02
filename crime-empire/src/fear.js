@@ -33,11 +33,11 @@
   var D = CE.data, U = CE.util, St = CE.state;
 
   var STUFEN = [
-    { at: 0,  name: 'Unknown',    desc: 'Nobody crosses the street when they see you.' },
-    { at: 15, name: 'Talked About', desc: 'People have heard a story or two.' },
-    { at: 30, name: 'Feared',     desc: 'Rooms go quiet. Some doors open, others close.' },
-    { at: 50, name: 'Dreaded',    desc: 'Rivals move their people rather than test you.' },
-    { at: 72, name: 'Terror',     desc: 'Nobody sane works for you, and nobody sane fights you.' }
+    { at: 0,  name: 'Unbekannt',    desc: 'Niemand wechselt die Straßenseite, wenn er dich sieht.' },
+    { at: 15, name: 'Stadtgespräch', desc: 'Die Leute haben die eine oder andere Geschichte gehört.' },
+    { at: 30, name: 'Gefürchtet',     desc: 'Räume werden still. Manche Türen öffnen sich, andere schließen sich.' },
+    { at: 50, name: 'Gefürchtet und gemieden',    desc: 'Rivalen ziehen ihre Leute ab, statt dich zu testen.' },
+    { at: 72, name: 'Schrecken',     desc: 'Niemand bei Verstand arbeitet für dich, und niemand bei Verstand legt sich mit dir an.' }
   ];
 
   /* Was die Furcht aufschliesst. Jede Zeile ist eine Handlung, keine
@@ -72,7 +72,7 @@
   }
 
   function legitimacyLabel(n) {
-    return n >= 2 ? 'Respectable' : (n === 1 ? 'Tolerated' : 'Notorious');
+    return n >= 2 ? 'Angesehen' : (n === 1 ? 'Geduldet' : 'Berüchtigt');
   }
 
   /* Woechentlich. Furcht verblasst, wenn man sie nicht naehrt - Angst
@@ -99,7 +99,7 @@
 
     var altStufe = level({ fear: vor }).name, neuStufe = level(s).name;
     if (altStufe !== neuStufe && Math.abs(vor - s.fear) > 0.01) {
-      report.push({ t: 'neutral', text: 'Your name carries less weight than it did. Now: ' + neuStufe + '.' });
+      report.push({ t: 'neutral', text: 'Dein Name wiegt weniger als vorher. Jetzt: ' + neuStufe + '.' });
     }
 
     /* Schutzgeld einsammeln. Es braucht keine Waesche - niemand meldet,
@@ -122,8 +122,8 @@
       if (!haelt) {
         s.tributes.splice(i, 1);
         r.relation = U.clamp(r.relation + 6, -100, 100);
-        report.push({ t: 'warn', text: rd.name + ' has stopped paying. They looked at your numbers ' +
-          'and decided you could not make them.' });
+        report.push({ t: 'warn', text: rd.name + ' zahlt nicht mehr. Man hat sich deine Zahlen angesehen ' +
+          'und entschieden, dass du nichts erzwingen kannst.' });
         continue;
       }
       t.weeks = (t.weeks || 0) + 1;

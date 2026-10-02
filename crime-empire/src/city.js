@@ -24,21 +24,21 @@
      infl  Faktor auf das Einflusswachstum
      heat  Faktor auf die dort erzeugte Hitze                        */
   var ZUSTAENDE = {
-    booming: { name: 'Booming', color: '#4ad98a', econ: 1.22, infl: 1.15, heat: 1.0,
-      desc: 'Money is moving. Rents are up, the bars are full and everybody wants in.' },
-    stable: { name: 'Stable', color: '#6d7280', econ: 1.0, infl: 1.0, heat: 1.0,
-      desc: 'Ordinary weeks, ordinary money.' },
-    contested: { name: 'Contested', color: '#eaa640', econ: 0.90, infl: 0.85, heat: 1.15,
-      desc: 'Two organisations are working the same streets. Nobody is earning what they should.' },
-    declining: { name: 'Declining', color: '#8b5cf6', econ: 0.82, infl: 0.9, heat: 0.9,
-      desc: 'Shutters stay down. What is left is cheap, and cheap for a reason.' },
+    booming: { name: 'Boomend', color: '#4ad98a', econ: 1.22, infl: 1.15, heat: 1.0,
+      desc: 'Das Geld bewegt sich. Die Mieten steigen, die Bars sind voll und alle wollen hierher.' },
+    stable: { name: 'Stabil', color: '#6d7280', econ: 1.0, infl: 1.0, heat: 1.0,
+      desc: 'Gewöhnliche Wochen, gewöhnliches Geld.' },
+    contested: { name: 'Umkämpft', color: '#eaa640', econ: 0.90, infl: 0.85, heat: 1.15,
+      desc: 'Zwei Organisationen arbeiten dieselben Straßen. Niemand verdient, was er verdienen sollte.' },
+    declining: { name: 'Absteigend', color: '#8b5cf6', econ: 0.82, infl: 0.9, heat: 0.9,
+      desc: 'Die Rollläden bleiben unten. Was übrig ist, ist billig, und zwar aus gutem Grund.' },
     /* Der Ausnahmezustand senkt die erzeugte Hitze, statt sie zu heben.
        Andersherum war es eine Rueckkopplung ohne Ausgang: Lockdown
        machte mehr Hitze, die Hitze hielt den Lockdown, und am Ende der
        Partie standen alle sechs Bezirke gleichzeitig still. Wenn die
        Strasse stillsteht, entsteht dort auch nichts Neues. */
-    lockdown: { name: 'Lockdown', color: '#e04141', econ: 0.65, infl: 0.6, heat: 0.7,
-      desc: 'Checkpoints and a curfew. Nothing moves here without being seen.' },
+    lockdown: { name: 'Abgeriegelt', color: '#e04141', econ: 0.65, infl: 0.6, heat: 0.7,
+      desc: 'Kontrollstellen und Ausgangssperre. Hier bewegt sich nichts, ohne gesehen zu werden.' },
 
     /* ------------------------------------------- Spaetspiel-Zustaende
 
@@ -53,12 +53,12 @@
          restive       was ein gewaltsamer Spieler erntet: eine Strasse,
                        die sich wehrt
     */
-    consolidated: { name: 'Consolidated', color: '#d4af5a', econ: 1.30, infl: 1.20, heat: 0.85,
-      desc: 'Held long enough that nobody remembers it being otherwise. ' +
-            'Rents, permits and police shifts all arrange themselves around you.' },
-    restive: { name: 'Restive', color: '#ff6b3d', econ: 0.72, infl: 0.55, heat: 1.25,
-      desc: 'People here did not choose you and have not forgotten how you arrived. ' +
-            'Staff quit, windows break, and nobody saw anything.' }
+    consolidated: { name: 'Gefestigt', color: '#d4af5a', econ: 1.30, infl: 1.20, heat: 0.85,
+      desc: 'Lange genug gehalten, dass sich niemand an etwas anderes erinnert. ' +
+            'Mieten, Genehmigungen und Polizeischichten richten sich nach dir.' },
+    restive: { name: 'Aufsässig', color: '#ff6b3d', econ: 0.72, infl: 0.55, heat: 1.25,
+      desc: 'Die Leute hier haben dich nicht gewählt und nicht vergessen, wie du gekommen bist. ' +
+            'Angestellte kündigen, Scheiben gehen zu Bruch, und niemand hat etwas gesehen.' }
   };
 
   function zustand(id) { return ZUSTAENDE[id] || ZUSTAENDE.stable; }
@@ -205,8 +205,8 @@
       if (dd.state === 'lockdown' && s.day - (dd.stateSince || 0) >= 35) {
         dd.state = 'contested';
         dd.stateSince = s.day;
-        report.push({ t: 'good', text: D.byId(D.DISTRICTS, k).name +
-          ' is open again. The checkpoints came down overnight and nobody explained why.' });
+        report.push({ t: 'good', text: D.byId(D.DISTRICTS, k).nom +
+          ' ist wieder offen. Die Kontrollstellen verschwanden über Nacht, und niemand erklärte warum.' });
         continue;
       }
 
@@ -218,13 +218,13 @@
       var alt = zustand(dd.state), neu = zustand(soll);
       dd.state = soll;
       dd.stateSince = s.day;
-      var name = D.byId(D.DISTRICTS, k).name;
+      var dd2 = D.byId(D.DISTRICTS, k), name = dd2.name;
       var schlecht = soll === 'lockdown' || soll === 'contested' || soll === 'declining';
       report.push({
         t: schlecht ? 'warn' : 'good',
-        banner: soll === 'lockdown' ? name + ' Locked Down' : null,
+        banner: soll === 'lockdown' ? name + ' abgeriegelt' : null,
         ico: 'map',
-        text: name + ' is now ' + neu.name.toLowerCase() + '. ' + neu.desc
+        text: dd2.nom + ' ist jetzt ' + neu.name.toLowerCase() + '. ' + neu.desc
       });
     }
   }

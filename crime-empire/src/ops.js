@@ -116,12 +116,12 @@
       var f = U.byId(s.offers[dk] || [], offerId);
       if (f) { offer = f; break; }
     }
-    if (!offer) return { ok: false, why: 'That job is gone.' };
-    if (!crewIds.length) return { ok: false, why: 'Send somebody.' };
+    if (!offer) return { ok: false, why: 'Dieser Auftrag ist weg.' };
+    if (!crewIds.length) return { ok: false, why: 'Schick jemanden los.' };
     for (var i = 0; i < crewIds.length; i++) {
       var c = U.byId(s.crew, crewIds[i]);
-      if (!c) return { ok: false, why: 'Unknown crew member.' };
-      if (c.busyUntil > s.day) return { ok: false, why: c.name + ' is already out.' };
+      if (!c) return { ok: false, why: 'Unbekanntes Crew-Mitglied.' };
+      if (c.busyUntil > s.day) return { ok: false, why: c.name + ' ist schon unterwegs.' };
     }
     var dur = duration(s, offer, crewIds);
     var p = odds(s, offer, crewIds);
@@ -171,7 +171,7 @@
       s.rep = U.clamp(s.rep + res.rep, 0, 100);
       s.heat = U.clamp(s.heat + res.heat, 0, 100);
       s.districts[o.district].mine = U.clamp(s.districts[o.district].mine + res.infl, 0, 100);
-      res.text = o.name + ' in ' + dist.name + ' paid out ' + U.money(res.cash) + '.';
+      res.text = o.name + ' ' + dist.wo + ' hat ' + U.money(res.cash) + ' gebracht.';
       if (o.against) {
         var r = U.byId(s.rivals, o.against);
         if (r) {
@@ -188,8 +188,8 @@
              Forderung, und die einzige andere Quelle (Druck auf einen
              Rivalen) setzt eine Organisation voraus, die man ohne
              Aggression erst spaet hat. Henne und Ei. */
-          if (o.type === 'raid') CE.fear.add(s, 1.2, 'muscled a rival corner');
-          res.text += ' ' + D.byId(D.RIVALS, r.id).name + ' lost ground and noticed.';
+          if (o.type === 'raid') CE.fear.add(s, 1.2, 'Ecke eines Rivalen übernommen');
+          res.text += ' ' + D.byId(D.RIVALS, r.id).name + ' hat Boden verloren und es gemerkt.';
         }
       }
       for (var i = 0; i < run.crew.length; i++) {
@@ -206,8 +206,8 @@
       s.cash += res.cash;
       s.heat = U.clamp(s.heat + res.heat, 0, 100);
       s.rep = U.clamp(s.rep + res.rep, 0, 100);
-      res.text = o.name + ' in ' + dist.name + ' fell apart. ' + U.money(-res.cash) +
-                 ' gone, heat +' + res.heat.toFixed(1) + '.';
+      res.text = o.name + ' ' + dist.wo + ' ist geplatzt. ' + U.money(-res.cash) +
+                 ' weg, Hitze +' + res.heat.toFixed(1) + '.';
       for (i = 0; i < run.crew.length; i++) {
         var c2 = U.byId(s.crew, run.crew[i]);
         if (c2) { c2.xp += 9; c2.loyalty = U.clamp(c2.loyalty - 3, 0, 100); }
@@ -224,7 +224,7 @@
           var hurt = U.byId(s.crew, rng.pick(pool));
           hurt.busyUntil = s.day + rng.int(5, 12);
           hurt.hurt = hurt.busyUntil;
-          res.text += ' ' + hurt.name + ' is laid up until day ' + hurt.busyUntil + '.';
+          res.text += ' ' + hurt.name + ' fällt bis Tag ' + hurt.busyUntil + ' aus.';
         }
       }
     }

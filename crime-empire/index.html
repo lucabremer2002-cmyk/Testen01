@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -19,17 +19,17 @@
     <header class="title">
       <div class="title__kicker">Blackhaven &middot; 2027</div>
       <h1 class="title__main"><span>CRIME</span><span class="title__gold">EMPIRE</span></h1>
-      <p class="title__sub">Build your empire. Control the city.</p>
+      <p class="title__sub">Bau dein Imperium. Beherrsche die Stadt.</p>
     </header>
 
     <nav class="menu__list" id="menuList">
-      <button type="button" class="mbtn" data-menu="new"><b>New Game</b><small>Start with nothing</small></button>
-      <button type="button" class="mbtn" data-menu="continue"><b>Continue</b><small id="contSub">No save found</small></button>
-      <button type="button" class="mbtn" data-menu="load"><b>Load Game</b><small>Four slots</small></button>
-      <button type="button" class="mbtn" data-menu="settings"><b>Settings</b><small>Sound, speed, motion</small></button>
-      <button type="button" class="mbtn" data-menu="credits"><b>Credits</b><small>How this was made</small></button>
+      <button type="button" class="mbtn" data-menu="new"><b>Neues Spiel</b><small>Mit nichts anfangen</small></button>
+      <button type="button" class="mbtn" data-menu="continue"><b>Fortsetzen</b><small id="contSub">Kein Spielstand gefunden</small></button>
+      <button type="button" class="mbtn" data-menu="load"><b>Spiel laden</b><small>Vier Plätze</small></button>
+      <button type="button" class="mbtn" data-menu="settings"><b>Einstellungen</b><small>Ton, Tempo, Bewegung</small></button>
+      <button type="button" class="mbtn" data-menu="credits"><b>Mitwirkende</b><small>Wie das entstanden ist</small></button>
     </nav>
-    <p class="menu__foot">No accounts, no servers. Your empire is stored in this browser.</p>
+    <p class="menu__foot">Keine Konten, keine Server. Dein Imperium liegt in diesem Browser.</p>
   </div>
 </div>
 
@@ -37,26 +37,26 @@
 <div id="game" class="game" hidden>
 
   <header class="top">
-    <button type="button" class="top__logo" id="toMenu" title="Main menu">
+    <button type="button" class="top__logo" id="toMenu" title="Hauptmenü">
       <span class="top__mark"></span><span class="top__name">CRIME<b>EMPIRE</b></span>
     </button>
 
     <div class="res" id="resStrip"></div>
 
     <div class="clock">
-      <div class="clock__date"><b id="dateLabel">—</b><small id="weekLabel">Week 1</small></div>
-      <div class="clock__ctl" role="group" aria-label="Game speed">
-        <button type="button" data-speed="0" class="sbtn" title="Pause (Space)" aria-label="Pause">&#10074;&#10074;</button>
-        <button type="button" data-speed="1" class="sbtn" title="Play (1)" aria-label="Play">&#9654;</button>
-        <button type="button" data-speed="2" class="sbtn" title="Fast (2)" aria-label="Fast">&#9654;&#9654;</button>
-        <button type="button" data-speed="3" class="sbtn" title="Fastest (3)" aria-label="Fastest">&#9654;&#9654;&#9654;</button>
+      <div class="clock__date"><b id="dateLabel">—</b><small id="weekLabel">Woche 1</small></div>
+      <div class="clock__ctl" role="group" aria-label="Spieltempo">
+        <button type="button" data-speed="0" class="sbtn" title="Pause (Leertaste)" aria-label="Pause">&#10074;&#10074;</button>
+        <button type="button" data-speed="1" class="sbtn" title="Abspielen (1)" aria-label="Abspielen">&#9654;</button>
+        <button type="button" data-speed="2" class="sbtn" title="Schnell (2)" aria-label="Schnell">&#9654;&#9654;</button>
+        <button type="button" data-speed="3" class="sbtn" title="Am schnellsten (3)" aria-label="Am schnellsten">&#9654;&#9654;&#9654;</button>
       </div>
-      <button type="button" class="btn btn--ghost btn--sm" id="nextDay" title="Advance one day (N)">Next day</button>
+      <button type="button" class="btn btn--ghost btn--sm" id="nextDay" title="Einen Tag weiter (N)">Nächster Tag</button>
     </div>
   </header>
 
   <div class="shell">
-    <nav class="nav" id="nav" aria-label="Main sections"></nav>
+    <nav class="nav" id="nav" aria-label="Hauptbereiche"></nav>
     <main class="view" id="view" tabindex="-1"></main>
   </div>
 
@@ -69,7 +69,7 @@
   <div class="modal__card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <header class="modal__head">
       <h2 id="modalTitle">—</h2>
-      <button type="button" class="modal__x" data-close="1" aria-label="Close">&times;</button>
+      <button type="button" class="modal__x" data-close="1" aria-label="Schließen">&times;</button>
     </header>
     <div class="modal__body" id="modalBody"></div>
     <footer class="modal__foot" id="modalFoot"></footer>
@@ -81,7 +81,7 @@
   <div class="event__card" role="dialog" aria-modal="true" aria-labelledby="evTitle">
     <div class="event__tone" id="evTone"></div>
     <div class="event__main">
-      <div class="event__kicker" id="evKicker">DECISION</div>
+      <div class="event__kicker" id="evKicker">ENTSCHEIDUNG</div>
       <h2 class="event__title" id="evTitle">—</h2>
       <p class="event__text" id="evText"></p>
       <div class="event__opts" id="evOpts"></div>
@@ -93,12 +93,12 @@
   <div class="modal__back" data-close="1"></div>
   <div class="modal__card">
     <header class="modal__head">
-      <h2 id="repTitle">Week 1</h2>
-      <button type="button" class="modal__x" data-close="1" aria-label="Close">&times;</button>
+      <h2 id="repTitle">Woche 1</h2>
+      <button type="button" class="modal__x" data-close="1" aria-label="Schließen">&times;</button>
     </header>
     <div class="modal__body" id="repBody"></div>
     <footer class="modal__foot">
-      <button type="button" class="btn btn--primary" data-close="1">Continue</button>
+      <button type="button" class="btn btn--primary" data-close="1">Weiter</button>
     </footer>
   </div>
 </div>
@@ -106,27 +106,27 @@
 <div id="banners" class="banners" aria-live="assertive"></div>
 <div id="toasts" class="toasts" aria-live="polite"></div>
 
-<script src="src/util.js"></script>
-<script src="src/data.js"></script>
-<script src="src/state.js"></script>
-<script src="src/crew.js"></script>
-<script src="src/ops.js"></script>
-<script src="src/empire.js"></script>
-<script src="src/economy.js"></script>
-<script src="src/rivals.js"></script>
-<script src="src/fear.js"></script>
-<script src="src/city.js"></script>
-<script src="src/commission.js"></script>
-<script src="src/people.js"></script>
-<script src="src/events.js"></script>
-<script src="src/progress.js"></script>
-<script src="src/save.js"></script>
-<script src="src/sim.js"></script>
-<script src="src/audio.js"></script>
-<script src="src/art.js"></script>
-<script src="src/charts.js"></script>
-<script src="src/skyline.js"></script>
-<script src="src/ui.js"></script>
-<script src="src/game.js"></script>
+<script charset="utf-8" src="src/util.js"></script>
+<script charset="utf-8" src="src/data.js"></script>
+<script charset="utf-8" src="src/state.js"></script>
+<script charset="utf-8" src="src/crew.js"></script>
+<script charset="utf-8" src="src/ops.js"></script>
+<script charset="utf-8" src="src/empire.js"></script>
+<script charset="utf-8" src="src/economy.js"></script>
+<script charset="utf-8" src="src/rivals.js"></script>
+<script charset="utf-8" src="src/fear.js"></script>
+<script charset="utf-8" src="src/city.js"></script>
+<script charset="utf-8" src="src/commission.js"></script>
+<script charset="utf-8" src="src/people.js"></script>
+<script charset="utf-8" src="src/events.js"></script>
+<script charset="utf-8" src="src/progress.js"></script>
+<script charset="utf-8" src="src/save.js"></script>
+<script charset="utf-8" src="src/sim.js"></script>
+<script charset="utf-8" src="src/audio.js"></script>
+<script charset="utf-8" src="src/art.js"></script>
+<script charset="utf-8" src="src/charts.js"></script>
+<script charset="utf-8" src="src/skyline.js"></script>
+<script charset="utf-8" src="src/ui.js"></script>
+<script charset="utf-8" src="src/game.js"></script>
 </body>
 </html>

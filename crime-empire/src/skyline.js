@@ -124,7 +124,7 @@
 
     /* Neonschilder */
     this.neon = [];
-    var words = ['BAR', 'HOTEL', 'CLUB', 'OPEN', 'LOANS', 'PAWN', '24H'];
+    var words = ['BAR', 'HOTEL', 'CLUB', 'OFFEN', 'KREDITE', 'PFAND', '24H'];
     for (i = 0; i < 5; i++) {
       this.neon.push({
         x: this.rng.range(this.w * 0.08, this.w * 0.95),

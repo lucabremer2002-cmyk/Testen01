@@ -20,15 +20,15 @@
   var sel = { district: 'oldtown', opCrew: {}, bizFilter: 'all', crewFilter: 'all' };
 
   var SCREENS = [
-    { id: 'overview', name: 'Overview',     icon: 'grid' },
-    { id: 'city',     name: 'City',         icon: 'map' },
-    { id: 'business', name: 'Businesses',   icon: 'building' },
+    { id: 'overview', name: 'Übersicht',     icon: 'grid' },
+    { id: 'city',     name: 'Stadt',         icon: 'map' },
+    { id: 'business', name: 'Betriebe',   icon: 'building' },
     { id: 'crew',     name: 'Crew',         icon: 'people' },
-    { id: 'org',      name: 'Organization', icon: 'org' },
-    { id: 'rivals',   name: 'Rivals',       icon: 'swords' },
-    { id: 'finance',  name: 'Finances',     icon: 'chart' },
-    { id: 'log',      name: 'Events',       icon: 'bell' },
-    { id: 'awards',   name: 'Achievements', icon: 'trophy' }
+    { id: 'org',      name: 'Organisation', icon: 'org' },
+    { id: 'rivals',   name: 'Rivalen',       icon: 'swords' },
+    { id: 'finance',  name: 'Finanzen',     icon: 'chart' },
+    { id: 'log',      name: 'Ereignisse',       icon: 'bell' },
+    { id: 'awards',   name: 'Erfolge', icon: 'trophy' }
   ];
 
   function init(game) {
@@ -67,97 +67,97 @@
     var band = St.heatBand(s.heat);
     var city = CE.progress.cityProgress(s);
 
-    h.push('<div class="page-head"><div><h2>Overview</h2>' +
+    h.push('<div class="page-head"><div><h2>Übersicht</h2>' +
       '<p>' + e(D.RANKS[d.rank].blurb) + '</p></div>' +
-      '<div class="tag tag--gold">' + city.held + '/' + city.total + ' districts controlled</div></div>');
+      '<div class="tag tag--gold">' + city.held + '/' + city.total + ' Bezirke kontrolliert</div></div>');
 
     /* Rang + Geld */
     h.push('<div class="hero">');
     h.push('<div class="card rankcard">' +
-      '<div class="card__title"><b>Standing</b><span>' + d.notoriety + ' notoriety</span></div>' +
+      '<div class="card__title"><b>Stellung</b><span>' + d.notoriety + ' Bekanntheit</span></div>' +
       '<div class="rankcard__rank">' + e(d.rankName) + '</div>' +
       '<div class="rankcard__blurb">' + e(D.RANKS[d.rank].blurb) + '</div>' +
       (d.nextRank
-        ? '<div class="rankcard__next"><span>Next: ' + e(d.nextRank.name) + '</span>' +
+        ? '<div class="rankcard__next"><span>Nächster: ' + e(d.nextRank.name) + '</span>' +
           '<span>' + d.notoriety + ' / ' + d.nextRank.at + '</span></div>' +
           bar('bar--g', d.rankProgress)
-        : '<div class="rankcard__next"><span class="gold">Highest rank reached</span></div>' + bar('bar--g', 1)) +
+        : '<div class="rankcard__next"><span class="gold">Höchster Rang erreicht</span></div>' + bar('bar--g', 1)) +
       '<div class="money-grid" style="margin-top:18px">' +
-        statBox('Cash', money(s.cash), '', 'gold') +
-        statBox('Net worth', money(d.netWorth), money(d.bizValue) + ' in assets') +
-        statBox('Net / week', U.moneySigned(d.net), '', d.net >= 0 ? 'green' : 'red') +
+        statBox('Bargeld', money(s.cash), '', 'gold') +
+        statBox('Vermögen', money(d.netWorth), money(d.bizValue) + ' an Werten') +
+        statBox('Netto / Woche', U.moneySigned(d.net), '', d.net >= 0 ? 'green' : 'red') +
       '</div></div>');
 
     /* Wochenbilanz */
     var maxFlow = Math.max(d.grossIncome, d.expenses, 1);
-    h.push('<div class="card"><div class="card__title"><b>This week</b>' +
-      '<span>' + (s.flags.layLowUntil > s.day ? '<span class="amber">Lying low</span>' : 'projected') + '</span></div>' +
+    h.push('<div class="card"><div class="card__title"><b>Diese Woche</b>' +
+      '<span>' + (s.flags.layLowUntil > s.day ? '<span class="amber">Untergetaucht</span>' : 'voraussichtlich') + '</span></div>' +
       '<div class="pnl">' +
-      pnlRow('Legal revenue', d.cleanGross, maxFlow, '#4ad98a') +
-      pnlRow('Underground revenue', d.dirtyGross, maxFlow, '#e04141') +
-      (d.launderLoss > 0 ? pnlRow('Laundering losses', -d.launderLoss, maxFlow, '#8e1f1f') : '') +
-      (d.caseLoss > 0 ? pnlRow('Federal case', -d.caseLoss, maxFlow, '#7a2020') : '') +
-      (d.heatLoss > 0 ? pnlRow('Police pressure', -d.heatLoss, maxFlow, '#8e1f1f') : '') +
-      pnlRow('Upkeep', -d.upkeep, maxFlow, '#6d7280') +
-      pnlRow('Salaries', -d.salaries, maxFlow, '#6d7280') +
+      pnlRow('Legale Einnahmen', d.cleanGross, maxFlow, '#4ad98a') +
+      pnlRow('Untergrund-Einnahmen', d.dirtyGross, maxFlow, '#e04141') +
+      (d.launderLoss > 0 ? pnlRow('Waschverluste', -d.launderLoss, maxFlow, '#8e1f1f') : '') +
+      (d.caseLoss > 0 ? pnlRow('Bundesverfahren', -d.caseLoss, maxFlow, '#7a2020') : '') +
+      (d.heatLoss > 0 ? pnlRow('Polizeidruck', -d.heatLoss, maxFlow, '#8e1f1f') : '') +
+      pnlRow('Laufende Kosten', -d.upkeep, maxFlow, '#6d7280') +
+      pnlRow('Gehälter', -d.salaries, maxFlow, '#6d7280') +
       pnlRow('Organisation', -d.orgUpkeep, maxFlow, '#6d7280') +
-      pnlRow('Districts', -d.districtCost, maxFlow, '#6d7280') +
+      pnlRow('Bezirke', -d.districtCost, maxFlow, '#6d7280') +
       '</div>' +
       '<div class="pnl__row" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)">' +
-      '<span style="font-weight:600">Net</span><b class="' + (d.net >= 0 ? 'green' : 'red') + '">' +
+      '<span style="font-weight:600">Netto</span><b class="' + (d.net >= 0 ? 'green' : 'red') + '">' +
       U.moneySigned(d.net) + '</b></div>' +
       (d.launderLoss > 0
-        ? '<div class="why">Underground revenue above ' + money(d.launderCap) + ' loses 42%. ' +
-          'Buy legal businesses or a Laundering Chain to widen capacity.</div>' : '') +
+        ? '<div class="why">Untergrund-Einnahmen über ' + money(d.launderCap) + ' verlieren 42%. ' +
+          'Kauf legale Betriebe oder eine Waschkette, um die Kapazität zu erhöhen.</div>' : '') +
       '</div>');
     h.push('</div>');
 
     /* Vier Messwerte */
     h.push('<div class="grid grid--3" style="margin-bottom:14px">');
-    h.push('<div class="card">' + statBox('Reputation', Math.floor(s.rep) + '<small class="muted"> / 100</small>', '', 'cyan') +
+    h.push('<div class="card">' + statBox('Ansehen', Math.floor(s.rep) + '<small class="muted"> / 100</small>', '', 'cyan') +
       '<div style="margin-top:10px">' + bar('bar--c', s.rep / 100) + '</div>' +
-      '<div class="why">Unlocks businesses and better recruits.</div></div>');
-    h.push('<div class="card">' + statBox('Heat', Math.round(s.heat) + '<small class="muted"> / 100</small>',
+      '<div class="why">Schaltet Betriebe und bessere Bewerber frei.</div></div>');
+    h.push('<div class="card">' + statBox('Hitze', Math.round(s.heat) + '<small class="muted"> / 100</small>',
       '<span class="' + (s.heat >= 60 ? 'red' : (s.heat >= 40 ? 'amber' : 'muted')) + '">' + e(band.name) + '</span>',
       s.heat >= 60 ? 'red' : 'amber') +
       '<div style="margin-top:10px">' + bar('bar--r', s.heat / 100) + '</div>' +
       '<div class="why">' + e(band.desc) + '</div></div>');
-    h.push('<div class="card">' + statBox('Influence', Math.round(d.totalInfluence), 'across ' + d.districtsOpen + ' districts') +
+    h.push('<div class="card">' + statBox('Einfluss', Math.round(d.totalInfluence), 'in ' + d.districtsOpen + ' Bezirken') +
       '<div style="margin-top:10px">' + bar('bar--g', d.totalInfluence / 600) + '</div>' +
-      '<div class="why">Influence makes room for more businesses.</div></div>');
-    h.push('<div class="card">' + statBox('Fear', Math.round(d.fear) + '<small class="muted"> / 100</small>',
+      '<div class="why">Einfluss schafft Platz für mehr Betriebe.</div></div>');
+    h.push('<div class="card">' + statBox('Furcht', Math.round(d.fear) + '<small class="muted"> / 100</small>',
       '<span class="' + (d.fear >= 45 ? 'red' : d.fear >= 25 ? 'amber' : 'muted') + '">' +
       e(d.fearLevel ? d.fearLevel.name : '') + '</span>', d.fear >= 45 ? 'red' : 'amber') +
       '<div style="margin-top:10px">' + bar('bar--r', d.fear / 100) + '</div>' +
-      '<div class="why">' + (d.fear >= CE.fear.TORE.seize ? 'You can take a rival&rsquo;s business outright.'
-        : d.fear >= CE.fear.TORE.muscle ? 'You can force your way into a district.'
-        : d.fear >= CE.fear.TORE.tribute ? 'You can demand tribute from weaker rivals.'
-        : 'At 25 you can demand tribute. At 40 you can take districts by force.') + '</div></div>');
-    h.push('<div class="card">' + statBox('Standing', e(CE.fear.legitimacyLabel(d.legitimacy)),
-      d.legitimacy >= 2 ? 'banks, insurers and licensing boards deal with you'
-        : d.legitimacy === 1 ? 'tolerated, not trusted'
-        : 'the respectable doors are shut', d.legitimacy >= 2 ? 'green' : d.legitimacy === 1 ? 'cyan' : 'muted') +
+      '<div class="why">' + (d.fear >= CE.fear.TORE.seize ? 'Du kannst einem Rivalen einen Betrieb einfach wegnehmen.'
+        : d.fear >= CE.fear.TORE.muscle ? 'Du kannst dich in einen Bezirk hineinzwingen.'
+        : d.fear >= CE.fear.TORE.tribute ? 'Du kannst von schwächeren Rivalen Schutzgeld fordern.'
+        : 'Ab 25 kannst du Schutzgeld fordern. Ab 40 Bezirke mit Gewalt nehmen.') + '</div></div>');
+    h.push('<div class="card">' + statBox('Stellung', e(CE.fear.legitimacyLabel(d.legitimacy)),
+      d.legitimacy >= 2 ? 'Banken, Versicherer und Behörden machen Geschäfte mit dir'
+        : d.legitimacy === 1 ? 'geduldet, aber nicht vertraut'
+        : 'die seriösen Türen sind zu', d.legitimacy >= 2 ? 'green' : d.legitimacy === 1 ? 'cyan' : 'muted') +
       '<div style="margin-top:10px">' + bar('bar--c', d.legitimacy / 2) + '</div>' +
-      '<div class="why">' + (d.legitimacy >= 2 ? '-5% expenses, +' + money(12000) + ' laundering capacity.'
-        : 'Needs 55 reputation and fear at 20 or below. Fear closes this door.') + '</div></div>');
-    h.push('<div class="card">' + statBox('Strength', d.strength, s.crew.length - 1 + ' on payroll') +
+      '<div class="why">' + (d.legitimacy >= 2 ? '-5% Ausgaben, +' + money(12000) + ' Waschkapazität.'
+        : 'Braucht 55 Ansehen und Furcht bei höchstens 20. Furcht schließt diese Tür.') + '</div></div>');
+    h.push('<div class="card">' + statBox('Stärke', d.strength, s.crew.length - 1 + ' auf der Lohnliste') +
       '<div style="margin-top:10px">' + bar('bar--v', U.clamp(d.strength / 260, 0, 1)) + '</div>' +
-      '<div class="why">Decides how rivals treat you.</div></div>');
+      '<div class="why">Entscheidet, wie Rivalen dich behandeln.</div></div>');
     h.push('</div>');
 
     /* Was jetzt zu tun ist */
     h.push('<div class="grid grid--2">');
-    h.push('<div class="card card--pad0"><div class="card__title" style="padding:16px 16px 0"><b>What to do next</b></div>' +
+    h.push('<div class="card card--pad0"><div class="card__title" style="padding:16px 16px 0"><b>Was als Nächstes</b></div>' +
       '<div class="rowlist">' + advice(s, d) + '</div></div>');
 
     /* Laufende Auftraege */
     var runs = s.ops;
-    h.push('<div class="card card--pad0"><div class="card__title" style="padding:16px 16px 0"><b>Operations under way</b>' +
-      '<span>' + runs.length + ' running</span></div>');
+    h.push('<div class="card card--pad0"><div class="card__title" style="padding:16px 16px 0"><b>Laufende Operationen</b>' +
+      '<span>' + runs.length + ' aktiv</span></div>');
     if (!runs.length) {
-      h.push('<div class="empty"><b>Nobody is working</b><p>Take a job from the City Map. ' +
-        'Operations are how you earn before your businesses can carry you.</p>' +
-        '<div style="margin-top:12px">' + btn('Open the city', 'go', { data: { screen: 'city' }, cls: 'btn--primary btn--sm' }) + '</div></div>');
+      h.push('<div class="empty"><b>Niemand arbeitet</b><p>Nimm einen Auftrag von der Stadtkarte. ' +
+        'Operationen sind dein Einkommen, bevor die Betriebe dich tragen.</p>' +
+        '<div style="margin-top:12px">' + btn('Zur Stadt', 'go', { data: { screen: 'city' }, cls: 'btn--primary btn--sm' }) + '</div></div>');
     } else {
       h.push('<div class="rowlist">');
       runs.forEach(function (r) {
@@ -167,8 +167,8 @@
           '<div class="row__t">' + e(r.offer.name) + '</div>' +
           '<div class="row__s">' + e(D.byId(D.DISTRICTS, r.offer.district).name) + ' &middot; ' + e(names.join(', ')) + '</div></div>' +
           '<div class="running__bar" style="flex:1">' + bar('bar--c', 1 - left / Math.max(1, total)) +
-          '<div class="row__s" style="margin-top:3px">' + (left <= 0 ? 'resolving' : left + ' day' + (left === 1 ? '' : 's') + ' left') +
-          ' &middot; ' + Math.round(r.odds * 100) + '% odds</div></div>' +
+          '<div class="row__s" style="margin-top:3px">' + (left <= 0 ? 'wird abgeschlossen' : left + ' day' + (left === 1 ? '' : 's') + ' left') +
+          ' &middot; ' + Math.round(r.odds * 100) + '% Aussicht</div></div>' +
           '<div class="num gold">' + money(r.offer.pay) + '</div></div>');
       });
       h.push('</div>');
@@ -178,8 +178,8 @@
 
     /* Letzte Meldungen */
     h.push('<div class="card card--pad0" style="margin-top:14px">' +
-      '<div class="card__title" style="padding:16px 16px 0"><b>Recent activity</b>' +
-      btn('Full log', 'go', { data: { screen: 'log' }, cls: 'btn--sm btn--ghost' }) + '</div>');
+      '<div class="card__title" style="padding:16px 16px 0"><b>Letzte Ereignisse</b>' +
+      btn('Volles Protokoll', 'go', { data: { screen: 'log' }, cls: 'btn--sm btn--ghost' }) + '</div>');
     h.push('<div class="rowlist">' + logLines(s, 7) + '</div></div>');
 
     return h.join('');
@@ -209,32 +209,32 @@
              D.byId(D.ROLES, c.role).slot === 'business';
     });
 
-    if (s.event) tips.push(tip('A decision is waiting', 'Nothing moves until you answer it.', 'Open', 'showEvent', {}, 'gold'));
+    if (s.event) tips.push(tip('Eine Entscheidung wartet', 'Nichts geht weiter, bis du sie beantwortest.', 'Öffnen', 'showEvent', {}, 'gold'));
     if (muessig.length) {
-      tips.push(tip(muessig.length + ' ' + (muessig.length === 1 ? 'person has' : 'people have') + ' no posting',
-        'Operators and managers earn nothing until you post them to a business.', 'Assign', 'go', { screen: 'crew' }, 'amber'));
+      tips.push(tip(muessig.length + ' ' + (muessig.length === 1 ? 'Person hat' : 'Leute haben') + ' keinen Einsatzort',
+        'Betriebsleiter und Geschäftsführer bringen nichts, solange sie keinem Betrieb zugeteilt sind.', 'Einsetzen', 'go', { screen: 'crew' }, 'amber'));
     }
     if (free.length && CE.ops.allOffers(s).length) {
-      tips.push(tip(free.length + ' ' + (free.length === 1 ? 'person is' : 'people are') + ' free for a job',
-        'Operations are the fastest money you have and they build influence.', 'City map', 'go', { screen: 'city' }, 'cyan'));
+      tips.push(tip(free.length + ' ' + (free.length === 1 ? 'Person ist' : 'Leute sind') + ' frei für einen Auftrag',
+        'Operationen sind dein schnellstes Geld und bringen Einfluss.', 'Stadtkarte', 'go', { screen: 'city' }, 'cyan'));
     }
     if (s.heat >= 55) {
-      tips.push(tip('Heat is at ' + Math.round(s.heat), 'Police pressure is eating ' +
-        U.pct(St.heatPenalty(s.heat)) + ' of your revenue.', 'Handle it', 'go', { screen: 'org' }, 'red'));
+      tips.push(tip('Die Hitze liegt bei ' + Math.round(s.heat), 'Der Polizeidruck frisst ' +
+        U.pct(St.heatPenalty(s.heat)) + ' deiner Einnahmen.', 'Kümmer dich darum', 'go', { screen: 'org' }, 'red'));
     }
     var kom = s.commission;
     if (kom && kom.open) {
       var kf = CE.commission.feed(s, d);
       if (kom.strength > 55 || (kf.netto > 0 && kom.strength > 25)) {
         var bis = kf.netto > 0 ? Math.ceil((100 - kom.strength) / kf.netto) : null;
-        tips.push(tip('Federal case at ' + Math.round(kom.strength),
-          CE.commission.phase(s).name + (bis !== null ? ' - indictment in about ' + bis + ' weeks' : ''),
-          'Fight it', 'go', { screen: 'org' }, 'red'));
+        tips.push(tip('Bundesverfahren bei ' + Math.round(kom.strength),
+          CE.commission.phase(s).name + (bis !== null ? ' - Anklage in etwa ' + bis + ' weeks' : ''),
+          'Dagegen vorgehen', 'go', { screen: 'org' }, 'red'));
       }
     }
     if (d.launderLoss > 500) {
-      tips.push(tip('You are burning ' + money(d.launderLoss) + ' a week',
-        'Dirty money above your laundering capacity loses 42%.', 'Fix it', 'go', { screen: 'org' }, 'amber'));
+      tips.push(tip('Du verbrennst ' + money(d.launderLoss) + ' pro Woche',
+        'Schmutziges Geld über deiner Waschkapazität verliert 42%.', 'In Ordnung bringen', 'go', { screen: 'org' }, 'amber'));
     }
     var under = s.businesses.filter(function (b) { return b._f && b._f.understaffed > 0; });
     /* Nur melden, wenn es sich auch abstellen laesst. Wer 48 Standorte
@@ -243,18 +243,18 @@
        dem Fall ist die Mannschaftsgrenze die eigentliche Nachricht. */
     var bezahlt = s.crew.filter(function (c) { return !c.player; }).length;
     if (under.length && muessig.length) {
-      tips.push(tip(under.length + ' business' + (under.length === 1 ? '' : 'es') + ' short of staff',
-        'You have ' + muessig.length + ' unposted ' + (muessig.length === 1 ? 'person' : 'people') +
-        ' who could fill them.', 'Assign', 'go', { screen: 'crew' }, 'amber'));
+      tips.push(tip(under.length + (under.length === 1 ? ' Betrieb' : ' Betriebe') + ' unterbesetzt',
+        'Du hast ' + muessig.length + ' unposted ' + (muessig.length === 1 ? 'person' : 'people') +
+        ', die sie besetzen könnten.', 'Einsetzen', 'go', { screen: 'crew' }, 'amber'));
     } else if (under.length > 3 && bezahlt >= d.crewCap) {
-      tips.push(tip('Your empire has outgrown your crew',
-        under.length + ' sites are short-staffed and every position is filled. ' +
-        'A Safe House or the next rank raises the ceiling.', 'Organization', 'go', { screen: 'org' }, 'amber'));
+      tips.push(tip('Dein Imperium ist deiner Crew entwachsen',
+        under.length + ' Betriebe sind unterbesetzt, und jede Stelle ist vergeben. ' +
+        'Ein Unterschlupf oder der nächste Rang hebt die Grenze.', 'Organisation', 'go', { screen: 'org' }, 'amber'));
     }
     var unhappy = s.crew.filter(function (c) { return !c.player && c.loyalty < 35; });
     if (unhappy.length) {
-      tips.push(tip(unhappy.length + ' ' + (unhappy.length === 1 ? 'person is' : 'people are') + ' close to walking',
-        'Below 14 loyalty they leave, and some of them talk.', 'Crew', 'go', { screen: 'crew' }, 'red'));
+      tips.push(tip(unhappy.length + ' ' + (unhappy.length === 1 ? 'Person ist' : 'Leute sind') + ' kurz davor zu gehen',
+        'Unter 14 Loyalität gehen sie, und manche reden.', 'Crew', 'go', { screen: 'crew' }, 'red'));
     }
     /* Kaufbares */
     var best = null;
@@ -268,20 +268,20 @@
       }
     }
     if (best && tips.length < 4) {
-      tips.push(tip('You can afford a ' + best.def.name,
-        money(best.cost) + ' in ' + D.byId(D.DISTRICTS, best.k).name + '.', 'Buy', 'go', { screen: 'business' }, 'gold'));
+      tips.push(tip('Du kannst dir leisten: ' + best.def.name,
+        money(best.cost) + ' ' + D.byId(D.DISTRICTS, best.k).wo + '.', 'Kaufen', 'go', { screen: 'business' }, 'gold'));
     }
     for (k in s.districts) {
       if (s.districts[k].open) continue;
       var co = CE.empire.canOpenDistrict(s, k);
       if (co.ok && tips.length < 5) {
-        tips.push(tip('You can move into ' + D.byId(D.DISTRICTS, k).name,
-          money(co.cost) + ' to establish a foothold.', 'City map', 'go', { screen: 'city' }, 'cyan'));
+        tips.push(tip('Du kannst ' + D.byId(D.DISTRICTS, k).wohin,
+          'für ' + money(co.cost) + ' hinein und dort Fuß fassen.', 'Stadtkarte', 'go', { screen: 'city' }, 'cyan'));
         break;
       }
     }
     if (!tips.length) {
-      tips.push(tip('Everything is running', 'No fires. Build influence, or let the week finish.', 'Finances', 'go', { screen: 'finance' }, ''));
+      tips.push(tip('Alles läuft', 'Keine Brände. Bau Einfluss auf oder lass die Woche zu Ende gehen.', 'Finanzen', 'go', { screen: 'finance' }, ''));
     }
     return tips.slice(0, 5).join('');
   }
@@ -301,18 +301,18 @@
   function city(s, d) {
     var h = [];
     h.push('<div class="page-head"><div><h2>Blackhaven</h2>' +
-      '<p>Six districts. Influence decides how much of each one answers to you &mdash; ' +
-      'and how many businesses it will carry.</p></div></div>');
+      '<p>Sechs Bezirke. Der Einfluss entscheidet, wie viel von jedem dir gehorcht &mdash; ' +
+      'und wie viele Betriebe er trägt.</p></div></div>');
 
     h.push('<div class="mapwrap"><div><div class="mapbox">' + mapSvg(s, d) +
       '<div class="mapbox__legend">' +
-      '<span><i style="background:#d4af5a"></i>You</span>' +
+      '<span><i style="background:#d4af5a"></i>Du</span>' +
       D.RIVALS.map(function (r) { return '<span><i style="background:' + r.color + '"></i>' + e(r.name) + '</span>'; }).join('') +
-      '<span><i style="background:#2a2f3d"></i>Unclaimed</span></div></div>');
+      '<span><i style="background:#2a2f3d"></i>Frei</span></div></div>');
 
     /* Einflussuebersicht */
-    h.push('<div class="card" style="margin-top:14px"><div class="card__title"><b>Influence by district</b>' +
-      '<span>' + Math.round(d.totalInfluence) + ' / 600 total</span></div><div class="infl-rows">');
+    h.push('<div class="card" style="margin-top:14px"><div class="card__title"><b>Einfluss nach Bezirk</b>' +
+      '<span>' + Math.round(d.totalInfluence) + ' / 600 gesamt</span></div><div class="infl-rows">');
     D.DISTRICTS.forEach(function (dist) {
       var dd = s.districts[dist.id];
       var rivalSum = 0;
@@ -324,8 +324,8 @@
         '%;background:rgba(224,65,65,.4)"></i></div>' +
         '<b class="' + (dd.mine > rivalSum ? 'gold' : 'muted') + '">' + Math.round(dd.mine) + '</b></div>');
     });
-    h.push('</div><div class="why">Gold is you, red is every rival combined. ' +
-      'Over 100 together means the district is fully contested.</div></div>');
+    h.push('</div><div class="why">Gold bist du, Rot sind alle Rivalen zusammen. ' +
+      'Über 100 zusammen heißt: der Bezirk ist voll umkämpft.</div></div>');
     h.push('</div>');
 
     /* Bezirkstafel */
@@ -373,7 +373,7 @@
         e((dist.short || dist.name).toUpperCase()) + '</text>');
       if (!dd.open) {
         o.push('<text class="lock" x="' + lx + '" y="' + (ly + 3.4) + '">' +
-          (CE.empire.canOpenDistrict(s, dist.id).ok ? 'available &middot; ' + money(CE.empire.entryCost(s, dist.id))
+          (CE.empire.canOpenDistrict(s, dist.id).ok ? 'offen &middot; ' + money(CE.empire.entryCost(s, dist.id))
             : 'locked &middot; ' + e(D.RANKS[dist.rank].name)) + '</text>');
       } else {
         /* Balken: Spieler in Gold, Rivalen in ihren Farben */
@@ -431,7 +431,7 @@
     var bd = d.byDistrict[id];
 
     h.push('<div class="card"><div class="card__title"><b>' + e(dist.name) + '</b>' +
-      '<span class="tag ' + (dd.open ? 'tag--gold' : '') + '">' + (dd.open ? 'Established' : 'Not yours') + '</span></div>');
+      '<span class="tag ' + (dd.open ? 'tag--gold' : '') + '">' + (dd.open ? 'Etabliert' : 'Nicht deiner') + '</span></div>');
     h.push('<p style="margin:0 0 6px;font-size:.84rem;color:var(--ink2);line-height:1.55">' + e(dist.desc) + '</p>');
     h.push('<p style="margin:0 0 10px;font-size:.76rem;color:var(--gold)">' + e(dist.tag) + '</p>');
     if (dd.open && dd.state) {
@@ -440,20 +440,20 @@
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">' +
         '<b style="font-size:.86rem;color:' + z.color + '">' + e(z.name) + '</b>' +
         (z.econ !== 1 ? '<span class="tag ' + (z.econ > 1 ? 'tag--green' : 'tag--red') + '">' +
-          (z.econ > 1 ? '+' : '') + Math.round((z.econ - 1) * 100) + '% income</span>' : '') +
+          (z.econ > 1 ? '+' : '') + Math.round((z.econ - 1) * 100) + '% Ertrag</span>' : '') +
         (z.infl !== 1 ? '<span class="tag ' + (z.infl > 1 ? 'tag--green' : 'tag--red') + '">' +
-          (z.infl > 1 ? '+' : '') + Math.round((z.infl - 1) * 100) + '% influence</span>' : '') +
+          (z.infl > 1 ? '+' : '') + Math.round((z.infl - 1) * 100) + '% Einfluss</span>' : '') +
         '</div><div class="op__desc">' + e(z.desc) + '</div></div>');
     }
 
     h.push('<div class="money-grid" style="margin-bottom:14px">' +
-      statBox('Population', U.group(dist.pop)) +
-      statBox('Economy', Math.round(dist.econ * 100) + '%', 'income multiplier') +
-      statBox('Police', Math.round(dist.lawEye * 100) + '%', 'heat multiplier') +
+      statBox('Einwohner', U.group(dist.pop)) +
+      statBox('Wirtschaft', Math.round(dist.econ * 100) + '%', 'Ertragsfaktor') +
+      statBox('Polizei', Math.round(dist.lawEye * 100) + '%', 'Hitzefaktor') +
       '</div>');
 
     h.push('<div class="infl-rows" style="margin-bottom:14px">');
-    h.push('<div class="infl-row"><span>Your influence</span>' + bar('bar--g', dd.mine / 100) +
+    h.push('<div class="infl-row"><span>Dein Einfluss</span>' + bar('bar--g', dd.mine / 100) +
       '<b class="gold">' + Math.round(dd.mine) + '</b></div>');
     s.rivals.forEach(function (r) {
       var v = r.infl[id] || 0;
@@ -467,9 +467,9 @@
 
     if (!dd.open) {
       var can = CE.empire.canOpenDistrict(s, id);
-      h.push('<div class="why">Establishing a foothold costs ' + money(CE.empire.entryCost(s, id)) +
-        (rivalSum > 0 ? ' &mdash; raised by the ' + Math.round(rivalSum) + ' influence rivals already hold here.' : '.') + '</div>');
-      h.push('<div style="margin-top:10px">' + btn('Move into ' + e(dist.name), 'openDistrict',
+      h.push('<div class="why">Dort Fuß zu fassen kostet ' + money(CE.empire.entryCost(s, id)) +
+        (rivalSum > 0 ? ' &mdash; erhöht um den ' + Math.round(rivalSum) + ' Einfluss, den Rivalen hier schon halten.' : '.') + '</div>');
+      h.push('<div style="margin-top:10px">' + btn('Hinein ' + e(dist.wohin), 'openDistrict',
         { data: { id: id }, cls: 'btn--primary btn--block', disabled: !can.ok, title: can.why || '' }) + '</div>');
       if (!can.ok) h.push('<div class="why why--bad">' + e(can.why) + '</div>');
 
@@ -477,13 +477,13 @@
       var mus = CE.empire.canMuscleIn(s, id);
       h.push('<div class="card card--flat" style="margin-top:12px;padding:12px;border-left:3px solid var(--red)">' +
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:5px">' +
-        '<b style="flex:1;font-size:.88rem">Force your way in</b>' +
-        (mus.ok ? '<span class="tag tag--red">' + Math.round(mus.odds * 100) + '% chance</span>' : '') +
-        '<span class="tag">no entry cost</span></div>' +
-        '<div class="op__desc" style="margin-bottom:9px">No payment, no permission. Costs strength, ' +
-        '12 heat and 4 reputation, makes enemies of everyone holding ground here, and the ' +
-        'district starts contested.</div>' +
-        btn('Go in', 'muscleIn', { data: { id: id }, cls: 'btn--sm btn--danger btn--block',
+        '<b style="flex:1;font-size:.88rem">Mit Gewalt hinein</b>' +
+        (mus.ok ? '<span class="tag tag--red">' + Math.round(mus.odds * 100) + '% Aussicht</span>' : '') +
+        '<span class="tag">kein Eintrittsgeld</span></div>' +
+        '<div class="op__desc" style="margin-bottom:9px">Keine Zahlung, keine Erlaubnis. Kostet Stärke, ' +
+        '12 Hitze und 4 Ansehen, macht jeden, der hier Boden hält, zum Feind, und der ' +
+        'Bezirk startet umkämpft.</div>' +
+        btn('Reingehen', 'muscleIn', { data: { id: id }, cls: 'btn--sm btn--danger btn--block',
           disabled: !mus.ok, title: mus.why || '' }) +
         (mus.ok ? '' : '<div class="why">' + e(mus.why) + '</div>') + '</div>');
       h.push('</div>');
@@ -493,24 +493,24 @@
     /* Wirtschaft im Bezirk */
     var room = CE.empire.maxBusinesses(s, id, d.rank);
     h.push('<div class="money-grid" style="margin-bottom:12px">' +
-      statBox('Businesses', owned.length + ' / ' + room, room > owned.length ? 'room to grow' : 'at capacity') +
-      statBox('Weekly gross', bd ? money(bd.gross) : '$0') +
-      statBox('Weekly heat', bd ? '+' + bd.heat.toFixed(1) : '0') + '</div>');
+      statBox('Betriebe', owned.length + ' / ' + room, room > owned.length ? 'Platz zum Wachsen' : 'Kapazität erreicht') +
+      statBox('Ertrag je Woche', bd ? money(bd.gross) : '$0') +
+      statBox('Hitze je Woche', bd ? '+' + bd.heat.toFixed(1) : '0') + '</div>');
     if (owned.length >= room) {
-      h.push('<div class="why">Capacity rises with influence: every 22 points makes room for one more site.</div>');
+      h.push('<div class="why">Die Kapazität wächst mit dem Einfluss: je 22 Punkte ein weiterer Betrieb.</div>');
     }
     h.push('<div style="display:flex;gap:6px;margin-bottom:6px">' +
-      btn('Buy a business here', 'go', { data: { screen: 'business', district: id }, cls: 'btn--sm' }) +
-      btn('Pressure a rival', 'pressureDialog', { data: { district: id }, cls: 'btn--sm' }) + '</div>');
+      btn('Hier einen Betrieb kaufen', 'go', { data: { screen: 'business', district: id }, cls: 'btn--sm' }) +
+      btn('Einen Rivalen verdrängen', 'pressureDialog', { data: { district: id }, cls: 'btn--sm' }) + '</div>');
     h.push('</div>');
 
     /* Auftraege */
     var offers = s.offers[id] || [];
     h.push('<div class="card card--pad0" style="margin-top:14px">' +
-      '<div class="card__title" style="padding:16px 16px 0"><b>Available operations</b>' +
-      '<span>' + offers.length + ' this week</span></div>');
+      '<div class="card__title" style="padding:16px 16px 0"><b>Verfügbare Aufträge</b>' +
+      '<span>' + offers.length + ' diese Woche</span></div>');
     if (!offers.length) {
-      h.push('<div class="empty"><p>Nothing on offer here right now. New work appears every week.</p></div>');
+      h.push('<div class="empty"><p>Hier gibt es gerade nichts. Jede Woche kommt neue Arbeit.</p></div>');
     } else {
       h.push('<div style="padding:0 16px 16px;display:flex;flex-direction:column;gap:12px">');
       offers.forEach(function (o) { h.push(opCard(s, d, o)); });
@@ -533,16 +533,16 @@
       '<div class="op__desc">' + e(o.desc) + '</div></div>' +
       '<div class="tag tag--gold">' + money(o.pay) + '</div></div>');
     h.push('<div class="op__stats">' +
-      '<span>Time <b>' + days + 'd</b></span>' +
+      '<span>Dauer <b>' + days + 'd</b></span>' +
       '<span>Crew <b>' + o.crewNeed + '</b></span>' +
-      '<span>Heat <b class="' + (o.heat > 0 ? 'amber' : 'green') + '">' + (o.heat > 0 ? '+' : '') + o.heat.toFixed(1) + '</b></span>' +
-      '<span>Influence <b class="cyan">+' + o.infl.toFixed(1) + '</b></span>' +
-      (o.rep ? '<span>Rep <b class="cyan">+' + o.rep + '</b></span>' : '') +
-      (against ? '<span class="tag tag--red">vs ' + e(against.name) + '</span>' : '') + '</div>');
+      '<span>Hitze <b class="' + (o.heat > 0 ? 'amber' : 'green') + '">' + (o.heat > 0 ? '+' : '') + o.heat.toFixed(1) + '</b></span>' +
+      '<span>Einfluss <b class="cyan">+' + o.infl.toFixed(1) + '</b></span>' +
+      (o.rep ? '<span>Ansehen <b class="cyan">+' + o.rep + '</b></span>' : '') +
+      (against ? '<span class="tag tag--red">gegen ' + e(against.name) + '</span>' : '') + '</div>');
 
     h.push('<div class="op__crew">');
     if (!free.length) {
-      h.push('<span class="why">Everyone is busy or posted to a business.</span>');
+      h.push('<span class="why">Alle sind beschäftigt oder einem Betrieb zugeteilt.</span>');
     } else {
       free.forEach(function (c) {
         var on = picked.indexOf(c.id) >= 0;
@@ -557,12 +557,12 @@
     h.push('<div class="odds">' +
       (picked.length
         ? '<b class="' + (odds > 0.7 ? 'green' : odds > 0.45 ? 'amber' : 'red') + '">' + Math.round(odds * 100) + '%</b>' +
-          '<span class="why" style="margin:0">chance of success</span>'
-        : '<span class="why" style="margin:0">Pick who goes.</span>') +
+          '<span class="why" style="margin:0">Erfolgsaussicht</span>'
+        : '<span class="why" style="margin:0">Wähl aus, wer geht.</span>') +
       '<div style="margin-left:auto">' +
-      btn('Send them', 'startOp', { data: { op: o.id }, cls: 'btn--primary btn--sm', disabled: !enough,
-        title: enough ? '' : 'This job needs ' + o.crewNeed + ' people.' }) + '</div></div>');
-    if (picked.length && !enough) h.push('<div class="why why--bad">Needs ' + o.crewNeed + ' people &mdash; going short cuts your odds badly.</div>');
+      btn('Losschicken', 'startOp', { data: { op: o.id }, cls: 'btn--primary btn--sm', disabled: !enough,
+        title: enough ? '' : 'Dieser Auftrag braucht ' + o.crewNeed + ' people.' }) + '</div></div>');
+    if (picked.length && !enough) h.push('<div class="why why--bad">Braucht ' + o.crewNeed + ' Leute &mdash; mit weniger sinkt die Aussicht stark.</div>');
     h.push('</div>');
     return h.join('');
   }
@@ -571,12 +571,12 @@
 
   function business(s, d) {
     var h = [];
-    h.push('<div class="page-head"><div><h2>Businesses</h2>' +
-      '<p>Legal sites launder money and build reputation. Underground sites pay far better and ' +
-      'attract exactly the attention you would expect.</p></div>' +
+    h.push('<div class="page-head"><div><h2>Betriebe</h2>' +
+      '<p>Legale Betriebe waschen Geld und bringen Ansehen. Untergrundbetriebe zahlen weit besser und ' +
+      'ziehen genau die Aufmerksamkeit an, die man erwartet.</p></div>' +
       '<div style="display:flex;gap:6px">' +
-      filterBtn('bizFilter', 'all', 'All') + filterBtn('bizFilter', 'legal', 'Legal') +
-      filterBtn('bizFilter', 'dirty', 'Underground') + '</div></div>');
+      filterBtn('bizFilter', 'all', 'Alle') + filterBtn('bizFilter', 'legal', 'Legal') +
+      filterBtn('bizFilter', 'dirty', 'Untergrund') + '</div></div>');
 
     /* Besitz */
     var owned = s.businesses.filter(function (b) {
@@ -585,17 +585,17 @@
     });
 
     h.push('<div class="card" style="margin-bottom:14px"><div class="money-grid">' +
-      statBox('Owned', s.businesses.length, d.districtsOpen + ' districts') +
-      statBox('Weekly gross', money(d.cleanGross + d.dirtyGross)) +
-      statBox('Laundering', money(d.dirtyGross) + ' / ' + money(d.launderCap),
-        d.launderLoss > 0 ? '<span class="red">losing ' + money(d.launderLoss) + '</span>' : '<span class="green">within capacity</span>') +
+      statBox('Im Besitz', s.businesses.length, d.districtsOpen + ' Bezirken') +
+      statBox('Ertrag je Woche', money(d.cleanGross + d.dirtyGross)) +
+      statBox('Wäsche', money(d.dirtyGross) + ' / ' + money(d.launderCap),
+        d.launderLoss > 0 ? '<span class="red">Verlust ' + money(d.launderLoss) + '</span>' : '<span class="green">innerhalb der Kapazität</span>') +
       '</div>' +
       '<div style="margin-top:12px">' + bar(d.dirtyGross > d.launderCap ? 'bar--r' : 'bar--g',
         d.launderCap ? d.dirtyGross / d.launderCap : 0) + '</div></div>');
 
     if (!s.businesses.length) {
-      h.push('<div class="card"><div class="empty"><b>You own nothing yet</b>' +
-        '<p>A Corner Restaurant in Old Town is the cheapest way in. Until then, operations pay the bills.</p></div></div>');
+      h.push('<div class="card"><div class="empty"><b>Du besitzt noch nichts</b>' +
+        '<p>Ein Eckrestaurant in der Altstadt ist der günstigste Einstieg. Bis dahin zahlen Aufträge die Rechnungen.</p></div></div>');
     } else {
       h.push('<div class="grid grid--3" style="margin-bottom:22px">');
       owned.forEach(function (b) { h.push(bizCard(s, d, b)); });
@@ -604,16 +604,16 @@
 
     /* Markt */
     h.push('<h3 style="font-family:var(--disp);letter-spacing:.06em;text-transform:uppercase;' +
-      'font-size:1.1rem;margin:4px 0 12px">For sale</h3>');
+      'font-size:1.1rem;margin:4px 0 12px">Zu kaufen</h3>');
     var districts = D.DISTRICTS.filter(function (x) { return s.districts[x.id].open; });
     if (!districts.length) {
-      h.push('<div class="card"><div class="empty"><p>You have no district to build in.</p></div></div>');
+      h.push('<div class="card"><div class="empty"><p>Du hast keinen Bezirk, in dem du bauen kannst.</p></div></div>');
     }
     districts.forEach(function (dist) {
       var room = CE.empire.maxBusinesses(s, dist.id, d.rank);
       var have = s.businesses.filter(function (b) { return b.district === dist.id; }).length;
       h.push('<div class="card__title" style="margin-top:14px"><b>' + e(dist.name) + '</b>' +
-        '<span>' + have + ' / ' + room + ' sites used</span></div>');
+        '<span>' + have + ' / ' + room + ' Plätze belegt</span></div>');
       h.push('<div class="grid grid--4">');
       D.BUSINESSES.forEach(function (def) {
         if (sel.bizFilter !== 'all' && (sel.bizFilter === 'legal') !== def.legal) return;
@@ -623,15 +623,15 @@
         h.push('<div class="card card--flat biz' + (def.legal ? '' : ' biz--dirty') + '">' +
           '<div class="biz__top"><div class="biz__ico">' + A.icon(def.icon) + '</div>' +
           '<div style="flex:1;min-width:0"><div class="biz__name">' + e(def.name) + '</div>' +
-          '<div class="biz__where">' + (def.legal ? 'Legal' : '<span class="red">Underground</span>') +
-          ' &middot; ' + def.staff + ' staff</div></div></div>' +
+          '<div class="biz__where">' + (def.legal ? 'Legal' : '<span class="red">Untergrund</span>') +
+          ' &middot; ' + def.staff + ' Stellen</div></div></div>' +
           '<div class="op__desc">' + e(def.blurb) + '</div>' +
           '<div class="biz__nums">' +
-          '<div class="biz__num"><b class="gold">' + money(cost) + '</b><small>Price</small></div>' +
-          '<div class="biz__num"><b class="green">' + money(def.income * dist.econ) + '</b><small>Gross/wk</small></div>' +
+          '<div class="biz__num"><b class="gold">' + money(cost) + '</b><small>Preis</small></div>' +
+          '<div class="biz__num"><b class="green">' + money(def.income * dist.econ) + '</b><small>Ertrag/Wo</small></div>' +
           '<div class="biz__num"><b class="' + (def.heat ? 'amber' : 'muted') + '">' +
-          (def.heat ? '+' + (def.heat * dist.lawEye).toFixed(1) : '&mdash;') + '</b><small>Heat</small></div></div>' +
-          '<div class="biz__acts">' + btn('Buy', 'buyBiz', { data: { district: dist.id, type: def.id },
+          (def.heat ? '+' + (def.heat * dist.lawEye).toFixed(1) : '&mdash;') + '</b><small>Hitze</small></div></div>' +
+          '<div class="biz__acts">' + btn('Kaufen', 'buyBiz', { data: { district: dist.id, type: def.id },
             cls: 'btn--primary btn--block btn--sm', disabled: !can.ok, title: can.why || '' }) + '</div>' +
           (can.ok ? '' : '<div class="why">' + e(can.why) + '</div>') + '</div>');
       });
@@ -650,34 +650,34 @@
 
     h.push('<div class="biz__top"><div class="biz__ico">' + A.icon(def.icon) + '</div>' +
       '<div style="flex:1;min-width:0"><div class="biz__name">' + e(b.name) + '</div>' +
-      '<div class="biz__where">' + e(dist.name) + ' &middot; Level ' + b.level + '</div>' +
+      '<div class="biz__where">' + e(dist.name) + ' &middot; Stufe ' + b.level + '</div>' +
       '<div class="biz__lvl">' + [1, 2, 3, 4, 5].map(function (i) {
         return '<i class="' + (i <= b.level ? 'on' : '') + '"></i>'; }).join('') + '</div></div></div>');
 
     h.push('<div class="biz__nums">' +
-      '<div class="biz__num"><b class="green">' + money(f.gross) + '</b><small>Gross</small></div>' +
-      '<div class="biz__num"><b class="muted">' + money(f.upkeep) + '</b><small>Upkeep</small></div>' +
-      '<div class="biz__num"><b class="' + (f.net >= 0 ? 'gold' : 'red') + '">' + U.moneySigned(f.net) + '</b><small>Net</small></div></div>');
+      '<div class="biz__num"><b class="green">' + money(f.gross) + '</b><small>Ertrag</small></div>' +
+      '<div class="biz__num"><b class="muted">' + money(f.upkeep) + '</b><small>Kosten</small></div>' +
+      '<div class="biz__num"><b class="' + (f.net >= 0 ? 'gold' : 'red') + '">' + U.moneySigned(f.net) + '</b><small>Netto</small></div></div>');
 
     /* Personal */
     var posted = s.crew.filter(function (c) { return c.post === b.id; });
-    h.push('<div class="biz__staff"><span>Staff</span>');
+    h.push('<div class="biz__staff"><span>Personal</span>');
     for (var i = 0; i < f.slots; i++) {
       var c = posted[i];
       h.push(c ? '<span class="slot filled" title="' + e(c.name) + ' (' + e(D.byId(D.ROLES, c.role).name) + ')">' +
         e(c.name.charAt(0)) + '</span>' : '<span class="slot" title="Empty position">+</span>');
     }
     h.push('<span style="margin-left:auto">' + (f.understaffed
-      ? '<span class="amber">-' + U.pct(f.staffPenalty) + ' income</span>'
+      ? '<span class="amber">-' + U.pct(f.staffPenalty) + ' Ertrag</span>'
       : '<span class="green">+' + U.pct(f.staffBonus) + '</span>') + '</span></div>');
 
-    if (f.wiretap) h.push('<div class="biz__warn red">Wiretapped &mdash; 12% less income until you sweep for bugs.</div>');
-    if (b.damage > 0) h.push('<div class="biz__warn">Damaged &mdash; output down ' + U.pct(b.damage) + ', recovering weekly.</div>');
-    if (def.heat) h.push('<div class="biz__warn">Draws ' + f.heat.toFixed(1) + ' heat a week.</div>');
-    if (b.boost) h.push('<div class="row__s green">Improved: +' + U.pct(b.boost) + ' income, permanently.</div>');
+    if (f.wiretap) h.push('<div class="biz__warn red">Verwanzt &mdash; 12% weniger Ertrag, bis du nach Wanzen suchst.</div>');
+    if (b.damage > 0) h.push('<div class="biz__warn">Beschädigt &mdash; Ertrag ' + U.pct(b.damage) + ' niedriger, erholt sich wöchentlich.</div>');
+    if (def.heat) h.push('<div class="biz__warn">Zieht ' + f.heat.toFixed(1) + ' Hitze pro Woche.</div>');
+    if (b.boost) h.push('<div class="row__s green">Verbessert: +' + U.pct(b.boost) + ' Ertrag, dauerhaft.</div>');
 
     h.push('<div class="biz__acts">' +
-      btn(up.ok ? 'Upgrade ' + money(up.cost) : (b.level >= 5 ? 'Max level' : 'Upgrade'), 'upgradeBiz',
+      btn(up.ok ? 'Ausbauen ' + money(up.cost) : (b.level >= 5 ? 'Höchste Stufe' : 'Ausbauen'), 'upgradeBiz',
         { data: { id: b.id }, cls: 'btn--sm', disabled: !up.ok, title: up.why || '' }) +
       btn('Details', 'bizDetail', { data: { id: b.id }, cls: 'btn--sm btn--ghost' }) + '</div>');
     h.push('</div>');
@@ -690,18 +690,18 @@
     var h = [];
     var paid = s.crew.filter(function (c) { return !c.player; });
     h.push('<div class="page-head"><div><h2>Crew</h2>' +
-      '<p>' + paid.length + ' of ' + d.crewCap + ' positions filled. Loyalty falls when people are ' +
-      'underpaid, idle, or watching the heat climb.</p></div>' +
+      '<p>' + paid.length + ' von ' + d.crewCap + ' Stellen besetzt. Die Loyalität sinkt, wenn Leute ' +
+      'unterbezahlt oder unbeschäftigt sind oder die Hitze steigen sehen.</p></div>' +
       '<div style="display:flex;gap:6px">' +
-      filterBtn('crewFilter', 'all', 'All') + filterBtn('crewFilter', 'free', 'Unassigned') +
-      filterBtn('crewFilter', 'risk', 'At risk') +
-      btn('Recruit', 'recruitDialog', { cls: 'btn--primary btn--sm' }) + '</div></div>');
+      filterBtn('crewFilter', 'all', 'Alle') + filterBtn('crewFilter', 'free', 'Nicht eingesetzt') +
+      filterBtn('crewFilter', 'risk', 'Gefährdet') +
+      btn('Anwerben', 'recruitDialog', { cls: 'btn--primary btn--sm' }) + '</div></div>');
 
     h.push('<div class="card" style="margin-bottom:14px"><div class="money-grid">' +
-      statBox('Payroll', money(d.salaries) + '<small class="muted">/wk</small>') +
-      statBox('Strength', d.strength) +
-      statBox('Capacity', paid.length + ' / ' + d.crewCap,
-        paid.length >= d.crewCap ? '<span class="amber">full &mdash; build a Safe House</span>' : 'room for more') +
+      statBox('Lohnkosten', money(d.salaries) + '<small class="muted">/Wo</small>') +
+      statBox('Stärke', d.strength) +
+      statBox('Plätze', paid.length + ' / ' + d.crewCap,
+        paid.length >= d.crewCap ? '<span class="amber">voll &mdash; bau einen Unterschlupf</span>' : 'Platz für mehr') +
       '</div></div>');
 
     var list = s.crew.filter(function (c) {
@@ -711,9 +711,9 @@
     });
 
     if (!list.length) {
-      h.push('<div class="card"><div class="empty"><b>Nobody here</b>' +
-        '<p>You are the whole organisation. Hire someone so two jobs can run at once.</p>' +
-        '<div style="margin-top:12px">' + btn('Find people', 'recruitDialog', { cls: 'btn--primary btn--sm' }) + '</div></div></div>');
+      h.push('<div class="card"><div class="empty"><b>Niemand hier</b>' +
+        '<p>Du bist die ganze Organisation. Stell jemanden ein, damit zwei Aufträge gleichzeitig laufen können.</p>' +
+        '<div style="margin-top:12px">' + btn('Leute suchen', 'recruitDialog', { cls: 'btn--primary btn--sm' }) + '</div></div></div>');
       return h.join('');
     }
 
@@ -733,20 +733,20 @@
 
     h.push('<div class="crew__top"><div class="crew__av">' + A.portrait(c.face, 46) + '</div>' +
       '<div class="crew__id"><div class="crew__name">' + e(c.name) +
-      (c.player ? ' <span class="tag tag--gold">You</span>' : '') + '</div>' +
+      (c.player ? ' <span class="tag tag--gold">Du</span>' : '') + '</div>' +
       '<div class="crew__role">' + e(role.name) + '</div>' +
-      (c.player ? '<div class="crew__pay muted">No salary</div>'
+      (c.player ? '<div class="crew__pay muted">Kein Gehalt</div>'
                 : '<div class="crew__pay">' + money(c.salary) + '/wk' +
-                  (c.salary < fair * 0.85 ? ' <span class="red">&middot; underpaid</span>' :
-                   c.salary > fair * 1.2 ? ' <span class="muted">&middot; generous</span>' : '') + '</div>') +
+                  (c.salary < fair * 0.85 ? ' <span class="red">&middot; unterbezahlt</span>' :
+                   c.salary > fair * 1.2 ? ' <span class="muted">&middot; großzügig</span>' : '') + '</div>') +
       '</div></div>');
 
     h.push('<div class="crew__meters">' +
-      '<div class="meter"><span>Skill</span>' + bar('bar--c', eff / 12) + '<b>' + eff + '</b></div>' +
+      '<div class="meter"><span>Können</span>' + bar('bar--c', eff / 12) + '<b>' + eff + '</b></div>' +
       (c.player ? '' :
-      '<div class="meter"><span>Loyalty</span>' + bar(c.loyalty < 30 ? 'bar--r' : 'bar--g', c.loyalty / 100) +
+      '<div class="meter"><span>Loyalität</span>' + bar(c.loyalty < 30 ? 'bar--r' : 'bar--g', c.loyalty / 100) +
       '<b class="mood-' + (c.mood || 'steady') + '">' + Math.round(c.loyalty) + '</b></div>') +
-      '<div class="meter"><span>Growth</span>' + bar('bar--v', (eff - 1) / Math.max(1, c.potential - 1)) +
+      '<div class="meter"><span>Entwicklung</span>' + bar('bar--v', (eff - 1) / Math.max(1, c.potential - 1)) +
       '<b>' + c.potential + '</b></div></div>');
 
     if (c.traits.length) {
@@ -759,16 +759,16 @@
     }
 
     h.push('<div class="crew__post">' +
-      (busy ? '<span class="cyan">On a job until day ' + c.busyUntil + '</span>'
-            : post ? 'Posted to <b>' + e(post.name) + '</b>'
+      (busy ? '<span class="cyan">Auf Auftrag bis Tag ' + c.busyUntil + '</span>'
+            : post ? 'Eingesetzt in <b>' + e(post.name) + '</b>'
             : role.slot === 'org' ? '<span class="muted">' + e(role.desc) + '</span>'
-            : '<span class="amber">Unassigned &mdash; earning nothing</span>') + '</div>');
+            : '<span class="amber">Nicht eingesetzt &mdash; bringt nichts</span>') + '</div>');
 
     if (!c.player) {
       h.push('<div class="crew__acts">' +
-        btn('Manage', 'crewDialog', { data: { id: c.id }, cls: 'btn--sm' }) +
+        btn('Verwalten', 'crewDialog', { data: { id: c.id }, cls: 'btn--sm' }) +
         (role.slot === 'business'
-          ? btn(post ? 'Reassign' : 'Assign', 'assignDialog', { data: { id: c.id }, cls: 'btn--sm btn--ghost', disabled: busy })
+          ? btn(post ? 'Umsetzen' : 'Einsetzen', 'assignDialog', { data: { id: c.id }, cls: 'btn--sm btn--ghost', disabled: busy })
           : '') + '</div>');
     }
     h.push('</div>');
@@ -780,27 +780,27 @@
   function org(s, d) {
     var h = [];
     var band = St.heatBand(s.heat);
-    h.push('<div class="page-head"><div><h2>Organization</h2>' +
-      '<p>Permanent investments in the machine behind the money &mdash; and the levers that ' +
-      'keep the police at arm&rsquo;s length.</p></div></div>');
+    h.push('<div class="page-head"><div><h2>Organisation</h2>' +
+      '<p>Dauerhafte Investitionen in die Maschine hinter dem Geld &mdash; und die Hebel, die ' +
+      'die Polizei auf Abstand halten.</p></div></div>');
 
     /* Hitze */
     h.push('<div class="card" style="margin-bottom:14px">' +
-      '<div class="card__title"><b>Police attention</b><span class="tag ' +
+      '<div class="card__title"><b>Aufmerksamkeit der Polizei</b><span class="tag ' +
       (s.heat >= 60 ? 'tag--red' : s.heat >= 40 ? 'tag--gold' : '') + '">' + e(band.name) + '</span></div>');
     h.push('<div class="grid grid--2" style="gap:18px;align-items:start">');
-    h.push('<div>' + statBox('Heat', Math.round(s.heat) + '<small class="muted"> / 100</small>',
+    h.push('<div>' + statBox('Hitze', Math.round(s.heat) + '<small class="muted"> / 100</small>',
       e(band.desc), s.heat >= 60 ? 'red' : 'amber') +
       '<div style="margin-top:10px">' + bar('bar--r', s.heat / 100) + '</div>' +
       '<div class="pnl" style="margin-top:14px">' +
-      '<div class="pnl__row"><span class="muted">Generated by your sites</span><b class="red">+' + d.heatGain.toFixed(1) + '</b></div>' +
-      '<div class="pnl__row"><span class="muted">Bled off each week</span><b class="green">-' + d.heatDecay.toFixed(1) + '</b></div>' +
+      '<div class="pnl__row"><span class="muted">Von deinen Betrieben erzeugt</span><b class="red">+' + d.heatGain.toFixed(1) + '</b></div>' +
+      '<div class="pnl__row"><span class="muted">Jede Woche abgebaut</span><b class="green">-' + d.heatDecay.toFixed(1) + '</b></div>' +
       '<div class="pnl__row" style="border-top:1px solid var(--line);padding-top:6px">' +
-      '<span style="font-weight:600">Net change</span><b class="' + (d.heatNet > 0 ? 'red' : 'green') + '">' +
-      (d.heatNet > 0 ? '+' : '') + d.heatNet.toFixed(1) + '/wk</b></div></div>' +
-      (d.heatPenalty > 0 ? '<div class="why why--bad">At this level you lose ' + U.pct(d.heatPenalty) +
-        ' of all revenue, and investigations cost money on top.</div>'
-        : '<div class="why">Below 40 heat there is no revenue penalty.</div>') + '</div>');
+      '<span style="font-weight:600">Nettoveränderung</span><b class="' + (d.heatNet > 0 ? 'red' : 'green') + '">' +
+      (d.heatNet > 0 ? '+' : '') + d.heatNet.toFixed(1) + '/Wo</b></div></div>' +
+      (d.heatPenalty > 0 ? '<div class="why why--bad">Auf diesem Stand verlierst du ' + U.pct(d.heatPenalty) +
+        ' aller Einnahmen, und Ermittlungen kosten obendrauf Geld.</div>'
+        : '<div class="why">Unter 40 Hitze gibt es keinen Abzug.</div>') + '</div>');
 
     h.push('<div style="display:flex;flex-direction:column;gap:8px">');
     CE.empire.heatActions(s).forEach(function (a) {
@@ -808,12 +808,12 @@
       h.push('<div class="card card--flat" style="padding:12px">' +
         '<div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">' +
         '<b style="flex:1;font-size:.9rem">' + e(a.name) + '</b>' +
-        '<span class="tag tag--green">' + a.heat + ' heat</span>' +
-        (a.rep ? '<span class="tag tag--red">' + a.rep + ' rep</span>' : '') + '</div>' +
+        '<span class="tag tag--green">' + a.heat + ' Hitze</span>' +
+        (a.rep ? '<span class="tag tag--red">' + a.rep + ' Ansehen</span>' : '') + '</div>' +
         '<div class="op__desc" style="margin-bottom:9px">' + e(a.desc) + '</div>' +
-        btn(a.cost ? 'Pay ' + money(a.cost) : 'Shut down for a week', 'heatAction',
+        btn(a.cost ? 'Zahlen ' + money(a.cost) : 'Eine Woche dichtmachen', 'heatAction',
           { data: { id: a.id }, cls: 'btn--sm btn--block', disabled: !can,
-            title: s.cash < a.cost ? 'Not enough cash.' : (a.shut && s.flags.layLowUntil > s.day ? 'Already lying low.' : '') }) +
+            title: s.cash < a.cost ? 'Nicht genug Bargeld.' : (a.shut && s.flags.layLowUntil > s.day ? 'Du bist bereits untergetaucht.' : '') }) +
         '</div>');
     });
     h.push('</div></div></div>');
@@ -822,7 +822,7 @@
     h.push(commissionPanel(s, d));
 
     /* Ausbauten */
-    h.push('<div class="card__title"><b>Infrastructure</b><span>' + money(d.orgUpkeep) + '/wk upkeep</span></div>');
+    h.push('<div class="card__title"><b>Infrastruktur</b><span>' + money(d.orgUpkeep) + '/Wo Kosten</span></div>');
     h.push('<div class="grid grid--3">');
     D.ORG_UPGRADES.forEach(function (up) {
       var lv = s.org[up.id] || 0;
@@ -830,13 +830,13 @@
       h.push('<div class="card biz">' +
         '<div class="biz__top"><div class="biz__ico">' + A.icon(up.icon) + '</div>' +
         '<div style="flex:1"><div class="biz__name">' + e(up.name) + '</div>' +
-        '<div class="biz__where">Level ' + lv + ' of ' + up.max + '</div>' +
+        '<div class="biz__where">Stufe ' + lv + ' von ' + up.max + '</div>' +
         '<div class="biz__lvl">' + [1, 2, 3].map(function (i) {
           return '<i class="' + (i <= lv ? 'on' : '') + '"></i>'; }).join('') + '</div></div></div>' +
         '<div class="op__desc">' + e(up.desc) + '</div>' +
         '<div class="tag tag--cyan" style="align-self:flex-start">' + e(up.effect) + '</div>' +
-        (lv ? '<div class="row__s">Currently costing ' + money(up.upkeep.slice(0, lv).reduce(function (a, b) { return a + b; }, 0)) + '/wk</div>' : '') +
-        '<div class="biz__acts">' + btn(lv >= up.max ? 'Fully built' : 'Build level ' + (lv + 1) + ' &middot; ' + money(up.cost[lv]),
+        (lv ? '<div class="row__s">Kostet derzeit ' + money(up.upkeep.slice(0, lv).reduce(function (a, b) { return a + b; }, 0)) + '/Wo</div>' : '') +
+        '<div class="biz__acts">' + btn(lv >= up.max ? 'Vollständig ausgebaut' : 'Stufe bauen: ' + (lv + 1) + ' &middot; ' + money(up.cost[lv]),
           'upgradeOrg', { data: { id: up.id }, cls: 'btn--sm btn--block' + (can.ok ? ' btn--primary' : ''),
             disabled: !can.ok, title: can.why || '' }) + '</div>' +
         (can.ok || lv >= up.max ? '' : '<div class="why">' + e(can.why) + '</div>') + '</div>');
@@ -855,9 +855,9 @@
 
     if (!c.open) {
       return '<div class="card" style="margin-bottom:14px;opacity:.65">' +
-        '<div class="card__title"><b>Federal interest</b><span class="tag">No file</span></div>' +
-        '<div class="why" style="margin:0">Nobody has opened a file yet. That changes once an ' +
-        'organisation gets large enough to be worth the paperwork.</div></div>';
+        '<div class="card__title"><b>Interesse des Bundes</b><span class="tag">Keine Akte</span></div>' +
+        '<div class="why" style="margin:0">Noch hat niemand eine Akte angelegt. Das ändert sich, sobald eine ' +
+        'Organisation groß genug ist, dass sich der Papierkram lohnt.</div></div>';
     }
 
     var f = K.feed(s, d);
@@ -865,14 +865,14 @@
 
     h.push('<div class="card" style="margin-bottom:14px;border-color:' +
       (c.phase >= 2 ? 'rgba(224,65,65,.4)' : 'var(--line)') + '">');
-    h.push('<div class="card__title"><b>The Commission</b>' +
+    h.push('<div class="card__title"><b>Die Kommission</b>' +
       '<span class="tag ' + (c.phase >= 2 ? 'tag--red' : c.phase === 1 ? 'tag--gold' : '') + '">' +
       e(p.name) + '</span></div>');
 
     h.push('<div class="grid grid--2" style="gap:18px;align-items:start">');
 
     /* Links: Stand und Naehrboden */
-    h.push('<div>' + statBox('Case strength', Math.round(c.strength) + '<small class="muted"> / 100</small>',
+    h.push('<div>' + statBox('Stärke des Falls', Math.round(c.strength) + '<small class="muted"> / 100</small>',
       e(p.desc), c.phase >= 2 ? 'red' : 'amber') +
       '<div style="margin-top:10px">' + bar('bar--r', c.strength / 100) + '</div>');
 
@@ -883,39 +883,39 @@
         '<b class="' + (z.v > 0 ? 'red' : 'green') + '">' + (z.v > 0 ? '+' : '') + z.v.toFixed(1) + '</b></div>');
     });
     h.push('<div class="pnl__row" style="border-top:1px solid var(--line);padding-top:6px;margin-top:4px">' +
-      '<span style="font-weight:600">Net each week</span><b class="' + (f.netto > 0 ? 'red' : 'green') + '">' +
+      '<span style="font-weight:600">Netto je Woche</span><b class="' + (f.netto > 0 ? 'red' : 'green') + '">' +
       (f.netto > 0 ? '+' : '') + f.netto.toFixed(1) + '</b></div></div>');
 
     if (wochenBis !== null && c.strength < 100) {
-      h.push('<div class="why ' + (wochenBis < 12 ? 'why--bad' : '') + '">At this rate they indict in about ' +
-        wochenBis + ' week' + (wochenBis === 1 ? '' : 's') + '. An indictment seizes underground ' +
-        'operations, freezes cash and takes people.</div>');
+      h.push('<div class="why ' + (wochenBis < 12 ? 'why--bad' : '') + '">In diesem Tempo klagen sie in etwa ' +
+        wochenBis + (wochenBis === 1 ? ' Woche' : ' Wochen') + ' an. Eine Anklage beschlagnahmt Untergrund' +
+        'betriebe, friert Bargeld ein und nimmt Leute mit.</div>');
     } else if (f.netto <= 0) {
-      h.push('<div class="why green">The case is going backwards. Keep it that way.</div>');
+      h.push('<div class="why green">Der Fall geht zurück. Halte das so.</div>');
     }
-    if (c.raids) h.push('<div class="why why--bad">Indicted ' + c.raids + ' time' + (c.raids === 1 ? '' : 's') + ' so far.</div>');
+    if (c.raids) h.push('<div class="why why--bad">Angeklagt ' + c.raids + ' time' + (c.raids === 1 ? '' : 's') + ' bisher.</div>');
 
     /* Was sie aufgebaut haben. Der Spitzel bleibt namenlos - ihn zu
        finden ist eine eigene Handlung, keine Anzeige. */
     if (c.assets && c.assets.length) {
-      h.push('<div class="card__title" style="margin-top:14px"><b>What they have</b>' +
-        (c.target ? '<span>focused on ' + e(D.byId(D.DISTRICTS, c.target).name) + '</span>' : '') + '</div>');
+      h.push('<div class="card__title" style="margin-top:14px"><b>Was sie haben</b>' +
+        (c.target ? '<span>Schwerpunkt ' + e(D.byId(D.DISTRICTS, c.target).name) + '</span>' : '') + '</div>');
       h.push('<div class="rowlist" style="border:1px solid var(--line);border-radius:var(--r)">');
       c.assets.forEach(function (a) {
         var txt, ico;
-        if (a.kind === 'wiretap') { txt = 'A wire in <b>' + e(a.name) + '</b> &mdash; 12% less income there'; ico = 'eye'; }
-        else if (a.kind === 'informant') { txt = '<b>Someone on your payroll</b> is cooperating'; ico = 'informant'; }
-        else if (a.kind === 'witness') { txt = '<b>' + e(a.name.charAt(0).toUpperCase() + a.name.slice(1)) + '</b> will testify'; ico = 'scales'; }
-        else if (a.kind === 'freeze') { txt = '<b>' + money(a.amount) + '</b> frozen until day ' + a.until; ico = 'cash'; }
+        if (a.kind === 'wiretap') { txt = 'Eine Wanze in <b>' + e(a.name) + '</b> &mdash; 12% weniger Ertrag dort'; ico = 'eye'; }
+        else if (a.kind === 'informant') { txt = '<b>Jemand auf deiner Lohnliste</b> kooperiert'; ico = 'informant'; }
+        else if (a.kind === 'witness') { txt = '<b>' + e(a.name.charAt(0).toUpperCase() + a.name.slice(1)) + '</b> wird aussagen'; ico = 'scales'; }
+        else if (a.kind === 'freeze') { txt = '<b>' + money(a.amount) + '</b> eingefroren bis Tag ' + a.until; ico = 'cash'; }
         else return;
         h.push('<div class="row" style="padding:8px 12px">' +
           '<span style="width:18px;color:var(--red)">' + A.icon(ico) + '</span>' +
           '<div class="row__main"><div class="row__s" style="color:var(--ink2)">' + txt + '</div></div>' +
-          '<span class="row__s muted">day ' + a.since + '</span></div>');
+          '<span class="row__s muted">Tag ' + a.since + '</span></div>');
       });
       h.push('</div>');
     } else {
-      h.push('<div class="why">They have nothing on the board right now. That will not last.</div>');
+      h.push('<div class="why">Sie haben gerade nichts auf dem Brett. Das bleibt nicht so.</div>');
     }
     h.push('</div>');
 
@@ -926,8 +926,8 @@
 
     var gezielt = K.targeted(s, d);
     if (gezielt.length) {
-      h.push('<div class="card__title" style="margin:0 0 2px"><b>On the board</b>' +
-        '<span>' + (c.budget ? money(c.budget) + ' in their budget' : '') + '</span></div>');
+      h.push('<div class="card__title" style="margin:0 0 2px"><b>Auf dem Brett</b>' +
+        '<span>' + (c.budget ? money(c.budget) + ' in ihrem Budget' : '') + '</span></div>');
       gezielt.forEach(function (a) {
         var bezahlbar = s.cash >= a.cost;
         h.push('<div class="card card--flat" style="padding:12px;border-left:3px solid var(--red)">' +
@@ -935,11 +935,11 @@
           '<b style="flex:1;font-size:.9rem">' + e(a.name) + '</b>' +
           '<span class="tag tag--red">' + e(a.badge) + '</span></div>' +
           '<div class="op__desc" style="margin-bottom:9px">' + e(a.desc) + '</div>' +
-          btn('Pay ' + money(a.cost), 'caseTargeted',
+          btn('Zahlen ' + money(a.cost), 'caseTargeted',
             { data: { id: a.id }, cls: 'btn--sm btn--block btn--primary', disabled: !bezahlbar,
-              title: bezahlbar ? '' : 'Not enough cash.' }) + '</div>');
+              title: bezahlbar ? '' : 'Nicht genug Bargeld.' }) + '</div>');
       });
-      h.push('<div class="card__title" style="margin:10px 0 2px"><b>General defence</b></div>');
+      h.push('<div class="card__title" style="margin:10px 0 2px"><b>Allgemeine Verteidigung</b></div>');
     }
 
     K.actions(s, d).forEach(function (a) {
@@ -947,13 +947,13 @@
       h.push('<div class="card card--flat" style="padding:12px">' +
         '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">' +
         '<b style="flex:1;font-size:.9rem">' + e(a.name) + '</b>' +
-        '<span class="tag tag--green">' + a.strength + ' case</span>' +
+        '<span class="tag tag--green">' + a.strength + ' Fall</span>' +
         (a.rep ? '<span class="tag ' + (a.rep > 0 ? 'tag--cyan' : 'tag--red') + '">' +
-          (a.rep > 0 ? '+' : '') + a.rep + ' rep</span>' : '') +
+          (a.rep > 0 ? '+' : '') + a.rep + ' Ansehen</span>' : '') +
         (a.heat ? '<span class="tag ' + (a.heat > 0 ? 'tag--red' : 'tag--green') + '">' +
-          (a.heat > 0 ? '+' : '') + a.heat + ' heat</span>' : '') + '</div>' +
+          (a.heat > 0 ? '+' : '') + a.heat + ' Hitze</span>' : '') + '</div>' +
         '<div class="op__desc" style="margin-bottom:9px">' + e(a.desc) + '</div>' +
-        btn(a.divest ? 'Give them up' : 'Pay ' + money(a.cost), 'caseAction',
+        btn(a.divest ? 'Aufgeben' : 'Zahlen ' + money(a.cost), 'caseAction',
           { data: { id: a.id }, cls: 'btn--sm btn--block' + (can.ok && c.strength > 40 ? ' btn--primary' : ''),
             disabled: !can.ok, title: can.why || '' }) +
         (can.ok ? '' : '<div class="why">' + e(can.why) + '</div>') + '</div>');
@@ -968,14 +968,14 @@
 
   function rivals(s, d) {
     var h = [];
-    h.push('<div class="page-head"><div><h2>Rivals &amp; Contacts</h2>' +
-      '<p>Four organisations, all of them older than yours, and the people in this city ' +
-      'who know your name.</p></div></div>');
+    h.push('<div class="page-head"><div><h2>Rivalen &amp; Kontakte</h2>' +
+      '<p>Vier Organisationen, alle älter als deine, und die Leute dieser Stadt, ' +
+      'die deinen Namen kennen.</p></div></div>');
 
     /* Die Figuren zuerst - sie sind das Persoenlichere. */
     h.push(peoplePanel(s, d));
 
-    h.push('<div class="card__title"><b>Organisations</b></div>');
+    h.push('<div class="card__title"><b>Organisationen</b></div>');
     h.push('<div class="grid grid--2">');
     s.rivals.forEach(function (r) {
       var rd = D.byId(D.RIVALS, r.id);
@@ -996,7 +996,7 @@
         '<span class="tag ' + (r.allied ? 'tag--green' : r.relation < -40 ? 'tag--red' : '') + '">' + e(rel) + '</span></div>');
       h.push('<p class="rival__desc">' + e(rd.desc) + '</p>');
 
-      h.push('<div class="rel"><span class="row__s" style="width:62px">Relations</span>' +
+      h.push('<div class="rel"><span class="row__s" style="width:62px">Verhältnis</span>' +
         '<div class="rel__bar"><span class="rel__mid"></span>' +
         (r.relation >= 0
           ? '<i style="left:50%;width:' + (r.relation / 2) + '%;background:linear-gradient(90deg,#2d7a50,#4ad98a)"></i>'
@@ -1004,44 +1004,44 @@
         '</div><b class="num" style="width:34px;text-align:right">' + Math.round(r.relation) + '</b></div>');
 
       h.push('<div class="money-grid" style="margin-bottom:12px">' +
-        statBox('Influence', Math.round(infl)) +
-        statBox('Strength', Math.round(r.strength),
-          r.strength > d.strength ? '<span class="red">stronger than you</span>' : '<span class="green">weaker than you</span>') +
-        statBox('Businesses', r.biz) + '</div>');
+        statBox('Einfluss', Math.round(infl)) +
+        statBox('Stärke', Math.round(r.strength),
+          r.strength > d.strength ? '<span class="red">stärker als du</span>' : '<span class="green">schwächer als du</span>') +
+        statBox('Betriebe', r.biz) + '</div>');
 
       /* Wo sie sitzen */
       var where = D.DISTRICTS.filter(function (x) { return (r.infl[x.id] || 0) > 3; })
         .sort(function (a, b) { return r.infl[b.id] - r.infl[a.id]; }).slice(0, 3);
       if (where.length) {
-        h.push('<div class="row__s" style="margin-bottom:10px">Strongest in ' +
+        h.push('<div class="row__s" style="margin-bottom:10px">Am stärksten in ' +
           where.map(function (x) { return '<b>' + e(x.name) + '</b> (' + Math.round(r.infl[x.id]) + ')'; }).join(', ') + '</div>');
       }
       var ziel = CE.rivals.zielText(s, r);
       if (ziel) {
         h.push('<div class="row__s" style="margin-bottom:6px">' +
-          '<span class="tag tag--violet">Current aim</span> ' + e(ziel) + '</div>');
+          '<span class="tag tag--violet">Aktuelles Ziel</span> ' + e(ziel) + '</div>');
       }
-      if (r.lastAct) h.push('<div class="row__s muted" style="margin-bottom:10px">Last week they ' + e(r.lastAct) + '.</div>');
-      if (truce) h.push('<div class="tag tag--cyan" style="margin-bottom:10px">Truce until day ' + r.truceUntil + '</div>');
+      if (r.lastAct) h.push('<div class="row__s muted" style="margin-bottom:10px">Letzte Woche: ' + e(r.lastAct) + '.</div>');
+      if (truce) h.push('<div class="tag tag--cyan" style="margin-bottom:10px">Waffenruhe bis Tag ' + r.truceUntil + '</div>');
 
       h.push('<div class="crew__acts">' +
-        btn('Negotiate &middot; ' + money(negCost), 'negotiate', { data: { id: r.id }, cls: 'btn--sm',
-          disabled: s.cash < negCost || truce, title: s.cash < negCost ? 'Not enough cash.'
-            : (truce ? 'A truce is already running. Send a tribute instead.' : '') }) +
+        btn('Verhandeln &middot; ' + money(negCost), 'negotiate', { data: { id: r.id }, cls: 'btn--sm',
+          disabled: s.cash < negCost || truce, title: s.cash < negCost ? 'Nicht genug Bargeld.'
+            : (truce ? 'Es läuft bereits eine Waffenruhe. Schick stattdessen ein Geschenk.' : '') }) +
         (r.allied ? '' :
           /* "Gift" statt "Tribute": das diplomatische Geschenk und das
              erpresste Schutzgeld standen beide als "Tribute" auf
              derselben Karte - zwei gegensaetzliche Handlungen unter
              einem Namen. */
-          btn('Send a gift &middot; ' + money(tribCost), 'tribute', { data: { id: r.id }, cls: 'btn--sm',
-            disabled: s.cash < tribCost, title: s.cash < tribCost ? 'Not enough cash.'
-              : 'A small, repeatable gesture. +9 relations, no truce needed.' })) +
+          btn('Geschenk schicken &middot; ' + money(tribCost), 'tribute', { data: { id: r.id }, cls: 'btn--sm',
+            disabled: s.cash < tribCost, title: s.cash < tribCost ? 'Nicht genug Bargeld.'
+              : 'Eine kleine, wiederholbare Geste. +9 Verhältnis, ohne Waffenruhe.' })) +
         (r.allied
-          ? btn('Break alliance', 'breakAlly', { data: { id: r.id }, cls: 'btn--sm btn--danger' })
-          : btn('Propose alliance', 'ally', { data: { id: r.id }, cls: 'btn--sm btn--primary',
+          ? btn('Bündnis brechen', 'breakAlly', { data: { id: r.id }, cls: 'btn--sm btn--danger' })
+          : btn('Bündnis vorschlagen', 'ally', { data: { id: r.id }, cls: 'btn--sm btn--primary',
               disabled: !canA.ok, title: canA.why || '' })) +
-        btn('Pressure', 'pressureDialog', { data: { rival: r.id }, cls: 'btn--sm btn--ghost', disabled: r.allied,
-          title: r.allied ? 'You are allied.' : '' }) +
+        btn('Druck machen', 'pressureDialog', { data: { rival: r.id }, cls: 'btn--sm btn--ghost', disabled: r.allied,
+          title: r.allied ? 'Ihr seid verbündet.' : '' }) +
         '</div>');
 
       /* Die aggressiven Wege. Sie erscheinen nur, wenn die Furcht dafuer
@@ -1055,34 +1055,34 @@
         var tb = CE.fear.tributeIncome(s, d).zeilen.filter(function (x) { return x.rival === r.id; })[0];
         h.push('<div class="card card--flat" style="margin-top:8px;padding:10px 12px;border-left:3px solid var(--gold)">' +
           '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
-          '<b style="flex:1;font-size:.86rem" class="gold">Paying you protection</b>' +
-          '<span class="tag tag--gold">' + money(tb ? tb.amount : 0) + '/wk</span></div>' +
-          '<div class="op__desc" style="margin:4px 0 8px">Straight into your pocket. Nobody launders ' +
-          'protection money, because nobody reports it.</div>' +
-          btn('Let them off', 'stopTribute', { data: { id: r.id }, cls: 'btn--sm btn--ghost' }) + '</div>');
+          '<b style="flex:1;font-size:.86rem" class="gold">Zahlt dir Schutzgeld</b>' +
+          '<span class="tag tag--gold">' + money(tb ? tb.amount : 0) + '/Wo</span></div>' +
+          '<div class="op__desc" style="margin:4px 0 8px">Direkt in deine Tasche. Niemand wäscht ' +
+          'Schutzgeld, weil es niemand meldet.</div>' +
+          btn('Laufen lassen', 'stopTribute', { data: { id: r.id }, cls: 'btn--sm btn--ghost' }) + '</div>');
       } else if (fearGen >= CE.fear.TORE.tribute - 10 || canT.ok) {
         h.push('<div class="crew__acts" style="margin-top:6px">' +
-          btn('Demand protection' + (canT.ok ? ' &middot; ' + Math.round(canT.odds * 100) + '%' : ''),
+          btn('Schutzgeld fordern' + (canT.ok ? ' &middot; ' + Math.round(canT.odds * 100) + '%' : ''),
             'demandTribute', { data: { id: r.id }, cls: 'btn--sm btn--danger',
               disabled: !canT.ok, title: canT.why || '' }) +
-          btn('Take a site', 'seizeDialog', { data: { rival: r.id }, cls: 'btn--sm btn--danger',
+          btn('Betrieb nehmen', 'seizeDialog', { data: { rival: r.id }, cls: 'btn--sm btn--danger',
             disabled: fearGen < CE.fear.TORE.seize,
-            title: fearGen < CE.fear.TORE.seize ? 'Needs ' + CE.fear.TORE.seize + ' fear.' : '' }) +
+            title: fearGen < CE.fear.TORE.seize ? 'Benötigt ' + CE.fear.TORE.seize + ' fear.' : '' }) +
           '</div>');
         if (!canT.ok && canT.why) h.push('<div class="why">' + e(canT.why) + '</div>');
       }
       if (!r.allied && !canA.ok && canA.why) {
         h.push('<div class="why">' + e(canA.why) +
-          (r.relation < 42 ? ' Negotiating lifts relations by 14-22, a tribute by up to 11 ' +
-            '(less the friendlier they already are). Working against them in operations pushes it back down.' : '') +
+          (r.relation < 42 ? ' Verhandeln hebt das Verhältnis um 14-22, ein Geschenk um bis zu 11 ' +
+            '(weniger, je freundlicher es schon ist). Aufträge gegen sie drücken es wieder herunter.' : '') +
           '</div>');
       }
       if (r.allied) {
-        h.push('<div class="why green">Allied: they stay out of your districts, stop contesting your ' +
-          'influence, and pay you ' + money(Math.round(infl * 58 * (0.7 + s.rep / 250))) + ' a week.</div>');
+        h.push('<div class="why green">Verbündet: sie halten sich aus deinen Bezirken heraus, bestreiten deinen ' +
+          'Einfluss nicht mehr und zahlen dir ' + money(Math.round(infl * 58 * (0.7 + s.rep / 250))) + ' pro Woche.</div>');
       } else if (canA.ok) {
-        h.push('<div class="why">An alliance would pay about ' +
-          money(Math.round(infl * 58 * (0.7 + s.rep / 250))) + ' a week and stop them contesting your districts.</div>');
+        h.push('<div class="why">Ein Bündnis brächte etwa ' +
+          money(Math.round(infl * 58 * (0.7 + s.rep / 250))) + ' pro Woche und ein Ende des Streits um deine Bezirke.</div>');
       }
       h.push('</div>');
     });
@@ -1098,13 +1098,13 @@
     var leute = P.known(s);
     if (!leute.length) {
       return '<div class="card" style="margin-bottom:16px;opacity:.6">' +
-        '<div class="card__title"><b>People</b><span>nobody yet</span></div>' +
-        '<div class="why" style="margin:0">As you become someone worth knowing, ' +
-        'people in this city will introduce themselves. They remember how it went.</div></div>';
+        '<div class="card__title"><b>Leute</b><span>noch niemand</span></div>' +
+        '<div class="why" style="margin:0">Sobald du jemand bist, den man kennen sollte, ' +
+        'stellen sich dir Leute vor. Sie erinnern sich, wie es gelaufen ist.</div></div>';
     }
     var h = ['<div class="card card--pad0" style="margin-bottom:16px">' +
-      '<div class="card__title" style="padding:16px 16px 0"><b>People</b>' +
-      '<span>' + leute.length + ' of ' + P.CAST.length + ' met</span></div>' +
+      '<div class="card__title" style="padding:16px 16px 0"><b>Leute</b>' +
+      '<span>' + leute.length + ' von ' + P.CAST.length + ' getroffen</span></div>' +
       '<div class="grid grid--2" style="padding:12px 16px 16px">'];
     leute.forEach(function (x) {
       var pd = x.def, st = x.state;
@@ -1116,11 +1116,11 @@
         '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
         '<b style="font-size:.92rem">' + e(pd.name) + '</b>' +
         '<span class="tag ' + cls + '">' + e(lbl) + '</span>' +
-        (st.done ? '<span class="tag">story ended</span>' : '') + '</div>' +
+        (st.done ? '<span class="tag">Geschichte beendet</span>' : '') + '</div>' +
         '<div class="row__s" style="color:' + pd.color + '">' + e(pd.role) + '</div>' +
         '<div class="op__desc" style="margin:6px 0">' + e(pd.blurb) + '</div>' +
         '<div class="meter" style="grid-template-columns:44px 1fr 34px">' +
-        '<span>Trust</span><div class="bar ' + (st.trust >= 0 ? 'bar--g' : 'bar--r') + '">' +
+        '<span>Vertrauen</span><div class="bar ' + (st.trust >= 0 ? 'bar--g' : 'bar--r') + '">' +
         '<i style="width:' + Math.abs(st.trust) + '%"></i></div>' +
         '<b>' + Math.round(st.trust) + '</b></div>' +
         (st.flags && Object.keys(st.flags).length
@@ -1135,16 +1135,16 @@
   /* Was zwischen euch steht, in einem Satz. */
   function flagText(id, f) {
     var teile = [];
-    if (f.bribed) teile.push('you tried to buy them');
-    if (f.channel) teile.push('there is a line open');
-    if (f.fed) teile.push('you gave them a rival');
-    if (f.closed) teile.push('you shut the door');
-    if (f.ally) teile.push('they buried their own file');
-    if (f.destroyed) teile.push('you ended their career');
-    if (f.gavePenn) teile.push('you gave up the councilman');
-    if (f.saved) teile.push('you paid for their defence');
-    if (f.silenced) teile.push('they will not be testifying');
-    if (f.network) teile.push('their whole network works for you');
+    if (f.bribed) teile.push('du wolltest sie kaufen');
+    if (f.channel) teile.push('es gibt eine offene Leitung');
+    if (f.fed) teile.push('du hast ihr einen Rivalen geliefert');
+    if (f.closed) teile.push('du hast die Tür zugemacht');
+    if (f.ally) teile.push('sie hat ihre eigene Akte begraben');
+    if (f.destroyed) teile.push('du hast ihre Laufbahn beendet');
+    if (f.gavePenn) teile.push('du hast den Stadtrat preisgegeben');
+    if (f.saved) teile.push('du hast seine Verteidigung bezahlt');
+    if (f.silenced) teile.push('er wird nicht aussagen');
+    if (f.network) teile.push('sein ganzes Netz arbeitet für dich');
     return teile.join(' \u00b7 ');
   }
 
@@ -1152,52 +1152,52 @@
 
   function finance(s, d) {
     var h = [];
-    h.push('<div class="page-head"><div><h2>Finances</h2>' +
-      '<p>Every dollar that moves is listed here with a reason. Weeks run Monday to Sunday.</p></div></div>');
+    h.push('<div class="page-head"><div><h2>Finanzen</h2>' +
+      '<p>Jeder Dollar, der sich bewegt, steht hier mit Begründung. Die Woche läuft von Montag bis Sonntag.</p></div></div>');
 
     h.push('<div class="grid grid--4" style="margin-bottom:14px">' +
-      '<div class="card">' + statBox('Cash', money(s.cash), '', s.cash < 0 ? 'red' : 'gold') + '</div>' +
-      '<div class="card">' + statBox('Weekly income', money(d.grossIncome), '', 'green') + '</div>' +
-      '<div class="card">' + statBox('Weekly expenses', money(d.expenses), '', 'red') + '</div>' +
-      '<div class="card">' + statBox('Net', U.moneySigned(d.net),
-        d.net !== 0 ? (d.net > 0 ? 'doubling in ~' + Math.max(1, Math.ceil(Math.max(0, s.cash) / d.net)) + ' weeks' : 'losing money')
+      '<div class="card">' + statBox('Bargeld', money(s.cash), '', s.cash < 0 ? 'red' : 'gold') + '</div>' +
+      '<div class="card">' + statBox('Einnahmen je Woche', money(d.grossIncome), '', 'green') + '</div>' +
+      '<div class="card">' + statBox('Ausgaben je Woche', money(d.expenses), '', 'red') + '</div>' +
+      '<div class="card">' + statBox('Netto', U.moneySigned(d.net),
+        d.net !== 0 ? (d.net > 0 ? 'Verdopplung in ~' + Math.max(1, Math.ceil(Math.max(0, s.cash) / d.net)) + ' weeks' : 'Verlust')
         : '', d.net >= 0 ? 'green' : 'red') + '</div></div>');
 
     /* Verlauf */
     h.push('<div class="grid grid--2" style="margin-bottom:14px">');
-    h.push('<div class="card"><div class="card__title"><b>Net worth and cash</b><span>' +
-      s.history.length + ' weeks</span></div>' +
+    h.push('<div class="card"><div class="card__title"><b>Vermögen und Bargeld</b><span>' +
+      s.history.length + ' Wochen</span></div>' +
       '<div class="chartbox"><canvas data-chart="worth" height="180"></canvas></div>' +
       '<div style="display:flex;gap:14px;margin-top:8px;font-size:.74rem">' +
-      '<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#d4af5a;margin-right:5px"></i>Net worth</span>' +
-      '<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#4bd6e8;margin-right:5px"></i>Cash</span></div></div>');
-    h.push('<div class="card"><div class="card__title"><b>Income against expenses</b></div>' +
+      '<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#d4af5a;margin-right:5px"></i>Vermögen</span>' +
+      '<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#4bd6e8;margin-right:5px"></i>Bargeld</span></div></div>');
+    h.push('<div class="card"><div class="card__title"><b>Einnahmen gegen Ausgaben</b></div>' +
       '<div class="chartbox"><canvas data-chart="flow" height="180"></canvas></div>' +
       '<div style="display:flex;gap:14px;margin-top:8px;font-size:.74rem">' +
-      '<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#4ad98a;margin-right:5px"></i>Income</span>' +
-      '<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e04141;margin-right:5px"></i>Expenses</span></div></div>');
+      '<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#4ad98a;margin-right:5px"></i>Einnahmen</span>' +
+      '<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e04141;margin-right:5px"></i>Ausgaben</span></div></div>');
     h.push('</div>');
 
     h.push('<div class="grid grid--2" style="margin-bottom:14px">');
-    h.push('<div class="card"><div class="card__title"><b>Gross income by district</b></div>' +
+    h.push('<div class="card"><div class="card__title"><b>Ertrag nach Bezirk</b></div>' +
       '<div class="chartbox"><canvas data-chart="districts"></canvas></div></div>');
-    h.push('<div class="card"><div class="card__title"><b>Heat and reputation</b></div>' +
+    h.push('<div class="card"><div class="card__title"><b>Hitze und Ansehen</b></div>' +
       '<div class="chartbox"><canvas data-chart="heat" height="180"></canvas></div>' +
       '<div style="display:flex;gap:14px;margin-top:8px;font-size:.74rem">' +
-      '<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e04141;margin-right:5px"></i>Heat</span>' +
-      '<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#4bd6e8;margin-right:5px"></i>Reputation</span></div></div>');
+      '<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e04141;margin-right:5px"></i>Hitze</span>' +
+      '<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#4bd6e8;margin-right:5px"></i>Ansehen</span></div></div>');
     h.push('</div>');
 
     /* Buchungen */
-    h.push('<div class="card card--pad0"><div class="card__title" style="padding:16px 16px 0"><b>Weekly statements</b>' +
-      '<span>' + s.ledger.length + ' on file</span></div>');
+    h.push('<div class="card card--pad0"><div class="card__title" style="padding:16px 16px 0"><b>Wochenabrechnungen</b>' +
+      '<span>' + s.ledger.length + ' vorhanden</span></div>');
     if (!s.ledger.length) {
-      h.push('<div class="empty"><p>The first statement arrives at the end of week 1.</p></div>');
+      h.push('<div class="empty"><p>Die erste Abrechnung kommt am Ende von Woche 1.</p></div>');
     } else {
       s.ledger.slice(0, 6).forEach(function (L, idx) {
         h.push('<div style="padding:0 16px 8px">' +
           '<div style="display:flex;align-items:center;gap:10px;padding:12px 0 8px;border-top:1px solid var(--line)">' +
-          '<b style="font-family:var(--disp);letter-spacing:.06em">WEEK ' + L.week + '</b>' +
+          '<b style="font-family:var(--disp);letter-spacing:.06em">WOCHE ' + L.week + '</b>' +
           '<span class="row__s">' + e(U.dateLabel(L.day)) + '</span>' +
           '<span style="margin-left:auto" class="num ' + (L.net >= 0 ? 'green' : 'red') + '">' +
           U.moneySigned(L.net) + '</span>' +
@@ -1208,7 +1208,7 @@
             '<td class="r ' + (line.amount >= 0 ? 'green' : (line.kind === 'bad' ? 'red' : 'muted')) + '">' +
             (line.amount === 0 ? '&mdash;' : U.moneySigned(line.amount)) + '</td></tr>');
         });
-        h.push('<tr class="sum"><td>Net for the week</td><td class="r ' + (L.net >= 0 ? 'green' : 'red') + '">' +
+        h.push('<tr class="sum"><td>Netto für die Woche</td><td class="r ' + (L.net >= 0 ? 'green' : 'red') + '">' +
           U.moneySigned(L.net) + '</td></tr>');
         h.push('</tbody></table></div>');
       });
@@ -1221,17 +1221,17 @@
 
   function log(s) {
     var h = [];
-    h.push('<div class="page-head"><div><h2>Events</h2>' +
-      '<p>Everything that happened, newest first. Decisions you made are marked in blue.</p></div></div>');
+    h.push('<div class="page-head"><div><h2>Ereignisse</h2>' +
+      '<p>Alles, was passiert ist, das Neueste zuerst. Deine Entscheidungen sind blau markiert.</p></div></div>');
     h.push('<div class="card card--pad0"><div class="rowlist">' + logLines(s, 200) + '</div></div>');
     return h.join('');
   }
 
   function logLines(s, n) {
-    if (!s.log.length) return '<div class="empty"><p>Nothing has happened yet.</p></div>';
+    if (!s.log.length) return '<div class="empty"><p>Noch ist nichts passiert.</p></div>';
     return s.log.slice(0, n).map(function (L) {
       return '<div class="logline t-' + e(L.t) + '">' +
-        '<div class="logline__day">' + (L.day === 0 ? 'Day 0' : 'Day ' + L.day) + '</div>' +
+        '<div class="logline__day">' + (L.day === 0 ? 'Tag 0' : 'Tag ' + L.day) + '</div>' +
         '<div class="logline__dot"></div>' +
         '<div class="logline__txt">' + e(L.text) +
         (L.choice ? ' <span class="tag tag--cyan">' + e(L.choice) + '</span>' : '') + '</div></div>';
@@ -1243,14 +1243,14 @@
   function awards(s, d) {
     var got = CE.progress.earned(s).length;
     var h = [];
-    h.push('<div class="page-head"><div><h2>Achievements</h2>' +
-      '<p>' + got + ' of ' + D.ACHIEVEMENTS.length + ' earned.</p></div></div>');
+    h.push('<div class="page-head"><div><h2>Erfolge</h2>' +
+      '<p>' + got + ' von ' + D.ACHIEVEMENTS.length + ' erreicht.</p></div></div>');
 
     h.push('<div class="card" style="margin-bottom:14px">' + bar('bar--g', got / D.ACHIEVEMENTS.length) +
       '<div class="money-grid" style="margin-top:14px">' +
-      statBox('Operations', s.stats.opsWon + ' / ' + s.stats.opsRun, 'succeeded') +
-      statBox('Raids survived', s.stats.raids) +
-      statBox('Fines paid', s.stats.fines) + '</div></div>');
+      statBox('Operationen', s.stats.opsWon + ' / ' + s.stats.opsRun, 'erfolgreich') +
+      statBox('Razzien überstanden', s.stats.raids) +
+      statBox('Strafen gezahlt', s.stats.fines) + '</div></div>');
 
     h.push('<div class="grid grid--3">');
     D.ACHIEVEMENTS.forEach(function (a) {
@@ -1259,21 +1259,21 @@
         '<div class="ach__medal">' + A.icon(when !== undefined ? 'trophy' : 'lock') + '</div>' +
         '<div><div class="ach__n">' + e(a.name) + '</div>' +
         '<div class="ach__d">' + e(a.desc) + '</div>' +
-        (when !== undefined ? '<div class="row__s gold">Day ' + when + '</div>' : '') + '</div></div>');
+        (when !== undefined ? '<div class="row__s gold">Tag ' + when + '</div>' : '') + '</div></div>');
     });
     h.push('</div>');
 
     /* Siegesstand */
     var city = CE.progress.cityProgress(s);
-    h.push('<div class="card" style="margin-top:14px"><div class="card__title"><b>The city</b>' +
-      '<span>' + city.held + ' / ' + city.total + ' districts at majority control</span></div>' +
+    h.push('<div class="card" style="margin-top:14px"><div class="card__title"><b>Die Stadt</b>' +
+      '<span>' + city.held + ' / ' + city.total + ' Bezirke mehrheitlich kontrolliert</span></div>' +
       bar('bar--g', city.held / city.total) +
-      '<div class="why">Hold 60 influence or more in all six districts as an Underworld Legend. ' +
-      'Then either keep the federal case below 60, or be feared at 65 or above &mdash; ' +
-      'control by standing or control by dread, either one holds the city.' +
+      '<div class="why">Halte als Legende der Unterwelt in allen sechs Bezirken mindestens 60 Einfluss. ' +
+      'Dann halte entweder das Bundesverfahren unter 60 oder sei bei 65 oder mehr gefürchtet &mdash; ' +
+      'Kontrolle durch Ansehen oder Kontrolle durch Schrecken, beides hält die Stadt.' +
       (s.commission && s.commission.open && s.commission.strength >= 60
-        ? ' <b class="red">The case is at ' + Math.round(s.commission.strength) +
-          ' &mdash; you do not control a city that is about to seize you.</b>' : '') + (s.flags.won ? ' <b class="gold">Achieved on day ' + s.flags.won + '.</b>' : '') + '</div></div>');
+        ? ' <b class="red">Der Fall steht bei ' + Math.round(s.commission.strength) +
+          ' &mdash; man kontrolliert keine Stadt, die einen gleich hochnimmt.</b>' : '') + (s.flags.won ? ' <b class="gold">Erreicht an Tag ' + s.flags.won + '.</b>' : '') + '</div></div>');
     return h.join('');
   }
 
@@ -1306,19 +1306,19 @@
       var hist = s.history;
       if (kind === 'worth') {
         CE.charts.line(c, [
-          { name: 'Net worth', color: '#d4af5a', values: hist.map(function (x) { return x.worth; }) },
-          { name: 'Cash', color: '#4bd6e8', values: hist.map(function (x) { return x.cash; }), fill: false }
-        ], { zero: true, xLast: 'Week ' + U.weekOf(s.day) });
+          { name: 'Vermögen', color: '#d4af5a', values: hist.map(function (x) { return x.worth; }) },
+          { name: 'Bargeld', color: '#4bd6e8', values: hist.map(function (x) { return x.cash; }), fill: false }
+        ], { zero: true, xLast: 'Woche ' + U.weekOf(s.day) });
       } else if (kind === 'flow') {
         CE.charts.line(c, [
-          { name: 'Income', color: '#4ad98a', values: hist.map(function (x) { return x.income; }) },
-          { name: 'Expenses', color: '#e04141', values: hist.map(function (x) { return x.expense; }), fill: false }
-        ], { zero: true, xLast: 'Week ' + U.weekOf(s.day) });
+          { name: 'Einnahmen', color: '#4ad98a', values: hist.map(function (x) { return x.income; }) },
+          { name: 'Ausgaben', color: '#e04141', values: hist.map(function (x) { return x.expense; }), fill: false }
+        ], { zero: true, xLast: 'Woche ' + U.weekOf(s.day) });
       } else if (kind === 'heat') {
         CE.charts.line(c, [
-          { name: 'Heat', color: '#e04141', values: hist.map(function (x) { return x.heat; }) },
-          { name: 'Reputation', color: '#4bd6e8', values: hist.map(function (x) { return x.rep; }), fill: false }
-        ], { min: 0, fmt: function (v) { return Math.round(v); }, xLast: 'Week ' + U.weekOf(s.day) });
+          { name: 'Hitze', color: '#e04141', values: hist.map(function (x) { return x.heat; }) },
+          { name: 'Ansehen', color: '#4bd6e8', values: hist.map(function (x) { return x.rep; }), fill: false }
+        ], { min: 0, fmt: function (v) { return Math.round(v); }, xLast: 'Woche ' + U.weekOf(s.day) });
       } else if (kind === 'districts') {
         var rows = [];
         D.DISTRICTS.forEach(function (dist) {
@@ -1326,7 +1326,7 @@
           if (bd && bd.gross > 0) rows.push({ label: dist.name, value: Math.round(bd.gross), color: '#d4af5a' });
         });
         rows.sort(function (a, b) { return b.value - a.value; });
-        CE.charts.bars(c, rows, { empty: 'No businesses yet' });
+        CE.charts.bars(c, rows, { empty: 'Noch keine Betriebe' });
       }
     }
   }

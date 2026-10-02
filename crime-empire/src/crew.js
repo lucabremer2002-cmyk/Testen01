@@ -82,19 +82,19 @@
 
   function hire(s, recruitId, salary) {
     var r = U.byId(s.recruits, recruitId);
-    if (!r) return { ok: false, why: 'That person is no longer available.' };
+    if (!r) return { ok: false, why: 'Diese Person ist nicht mehr zu haben.' };
     var d = St.derive(s);
     var paid = s.crew.filter(function (c) { return !c.player; }).length;
-    if (paid >= d.crewCap) return { ok: false, why: 'No room. Buy a Safe House to raise your crew capacity.' };
+    if (paid >= d.crewCap) return { ok: false, why: 'Kein Platz. Kauf einen Unterschlupf, um mehr Leute führen zu können.' };
 
     salary = Math.round(salary === undefined ? r.ask : salary);
     var signing = Math.round(r.ask * 1.6);
-    if (s.cash < signing) return { ok: false, why: 'You cannot cover the signing payment of ' + U.money(signing) + '.' };
+    if (s.cash < signing) return { ok: false, why: 'Du kannst die Antrittszahlung von ' + U.money(signing) + ' nicht aufbringen.' };
 
     /* Wer unter Forderung anbietet, bekommt weniger Loyalitaet - oder
        eine Absage. Beides wird vorher angezeigt. */
     var ratio = salary / r.ask;
-    if (ratio < 0.7) return { ok: false, why: 'They laughed at ' + U.money(salary) + ' and walked.' };
+    if (ratio < 0.7) return { ok: false, why: 'Über ' + U.money(salary) + ' hat die Person nur gelacht und ist gegangen.' };
     var loyalty = U.clamp(Math.round(r.loyalty + (ratio - 1) * 70), 5, 100);
 
     s.cash -= signing;
@@ -134,15 +134,15 @@
       if (!run.crew.length) {
         s.ops.splice(i, 1);
         if (report) {
-          report.push({ t: 'bad', text: run.offer.name + ' collapsed - ' + weg.name +
-            ' was the only one on it and they are gone.' });
+          report.push({ t: 'bad', text: run.offer.name + ' ist geplatzt - ' + weg.name +
+            ' war allein darauf angesetzt und ist weg.' });
         }
       } else {
         /* Weniger Leute, schlechtere Aussicht. */
         run.odds = U.clamp(run.odds - 0.18, 0.04, 0.93);
         if (report) {
-          report.push({ t: 'warn', text: weg.name + ' walked off ' + run.offer.name +
-            '. The rest are going ahead at ' + Math.round(run.odds * 100) + '%.' });
+          report.push({ t: 'warn', text: weg.name + ' ist bei ' + run.offer.name +
+            ' ausgestiegen. Der Rest macht mit ' + Math.round(run.odds * 100) + '% weiter.' });
         }
       }
     }
@@ -151,9 +151,9 @@
 
   function fire(s, crewId) {
     var c = U.byId(s.crew, crewId);
-    if (!c || c.player) return { ok: false, why: 'You cannot dismiss yourself.' };
+    if (!c || c.player) return { ok: false, why: 'Dich selbst kannst du nicht entlassen.' };
     var severance = Math.round(c.salary * 2);
-    if (s.cash < severance) return { ok: false, why: 'Severance of ' + U.money(severance) + ' is more than you have.' };
+    if (s.cash < severance) return { ok: false, why: 'Die Abfindung von ' + U.money(severance) + ' ist mehr, als du hast.' };
     s.cash -= severance;
     remove(s, crewId);
     /* Andere sehen zu. Wer Leute rauswirft, verliert etwas Vertrauen. */
@@ -163,7 +163,7 @@
 
   function setSalary(s, crewId, salary) {
     var c = U.byId(s.crew, crewId);
-    if (!c || c.player) return { ok: false, why: 'Not applicable.' };
+    if (!c || c.player) return { ok: false, why: 'Nicht möglich.' };
     var old = c.salary;
     var fair = fairSalary(c);
     salary = Math.max(100, Math.round(salary));
@@ -185,16 +185,16 @@
 
   function assign(s, crewId, bizId) {
     var c = U.byId(s.crew, crewId);
-    if (!c) return { ok: false, why: 'Unknown crew member.' };
-    if (c.player) return { ok: false, why: 'You run the organisation, not a counter.' };
-    if (c.busyUntil > s.day) return { ok: false, why: c.name + ' is out on a job.' };
+    if (!c) return { ok: false, why: 'Unbekanntes Crew-Mitglied.' };
+    if (c.player) return { ok: false, why: 'Du führst die Organisation, du stehst nicht hinter der Theke.' };
+    if (c.busyUntil > s.day) return { ok: false, why: c.name + ' ist auf einem Auftrag unterwegs.' };
     if (bizId === null) { c.post = null; return { ok: true }; }
     var b = U.byId(s.businesses, bizId);
-    if (!b) return { ok: false, why: 'Unknown business.' };
+    if (!b) return { ok: false, why: 'Unbekannter Betrieb.' };
     var role = D.byId(D.ROLES, c.role);
-    if (role.slot !== 'business') return { ok: false, why: role.name + 's work for the organisation, not a single site.' };
+    if (role.slot !== 'business') return { ok: false, why: role.name + ' arbeitet für die Organisation, nicht für einen einzelnen Betrieb.' };
     var f = St.bizFinance(s, b);
-    if (f.filled >= f.slots && c.post !== bizId) return { ok: false, why: 'No open position there.' };
+    if (f.filled >= f.slots && c.post !== bizId) return { ok: false, why: 'Dort ist keine Stelle frei.' };
     c.post = bizId;
     return { ok: true };
   }
@@ -235,7 +235,7 @@
         var loss = Math.round(c.salary * rng.range(2, 6));
         if (loss > 0 && s.cash > loss) {
           s.cash -= loss;
-          report.push({ t: 'bad', text: c.name + ' lost ' + U.money(loss) + ' of organisation money on a card table.' });
+          report.push({ t: 'bad', text: c.name + ' hat ' + U.money(loss) + ' aus der Kasse am Kartentisch verloren.' });
           c.loyalty = U.clamp(c.loyalty - 3, 0, 100);
         }
       }
@@ -248,11 +248,11 @@
     for (var j = 0; j < quitters.length; j++) {
       var q = quitters[j];
       remove(s, q.id, report);
-      report.push({ t: 'bad', text: q.name + ' walked out. Loyalty had been in the ground for weeks.' });
+      report.push({ t: 'bad', text: q.name + ' ist gegangen. Die Loyalität lag seit Wochen am Boden.' });
       /* Wer verbittert geht, redet manchmal. */
       if (rng.chance(0.3)) {
         s.heat = U.clamp(s.heat + 4, 0, 100);
-        report.push({ t: 'bad', text: 'Word is ' + q.name + ' has been talking. Heat +4.' });
+        report.push({ t: 'bad', text: 'Es heißt, ' + q.name + ' redet. Hitze +4.' });
       }
     }
     return quitters;
@@ -270,9 +270,9 @@
   /* Bonuszahlung: schnelles Mittel gegen Unmut, kostet Geld. */
   function bonus(s, crewId) {
     var c = U.byId(s.crew, crewId);
-    if (!c || c.player) return { ok: false, why: 'Not applicable.' };
+    if (!c || c.player) return { ok: false, why: 'Nicht möglich.' };
     var amount = Math.round(c.salary * 4);
-    if (s.cash < amount) return { ok: false, why: 'You need ' + U.money(amount) + '.' };
+    if (s.cash < amount) return { ok: false, why: 'Du brauchst ' + U.money(amount) + '.' };
     s.cash -= amount;
     c.loyalty = U.clamp(c.loyalty + 16, 0, 100);
     return { ok: true, amount: amount };
@@ -281,10 +281,10 @@
   /* Befoerderung: teurer Dauerposten, aber ein grosser Sprung. */
   function promote(s, crewId) {
     var c = U.byId(s.crew, crewId);
-    if (!c || c.player) return { ok: false, why: 'Not applicable.' };
-    if (St.effectiveSkill(c) >= c.potential) return { ok: false, why: c.name + ' has nothing left to learn in this role.' };
+    if (!c || c.player) return { ok: false, why: 'Nicht möglich.' };
+    if (St.effectiveSkill(c) >= c.potential) return { ok: false, why: c.name + ' kann in dieser Rolle nichts mehr dazulernen.' };
     var cost = Math.round(fairSalary(c) * 3);
-    if (s.cash < cost) return { ok: false, why: 'Training and a new title cost ' + U.money(cost) + '.' };
+    if (s.cash < cost) return { ok: false, why: 'Schulung und neuer Titel kosten ' + U.money(cost) + '.' };
     s.cash -= cost;
     c.skill = Math.min(c.potential, c.skill + 1);
     c.loyalty = U.clamp(c.loyalty + 12, 0, 100);
