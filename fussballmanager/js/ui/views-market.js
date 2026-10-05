@@ -47,7 +47,7 @@
     var st = FM.state, b = FM.budget(st, club), room = b.wage - FM.annualWages(st, club);
     function fig(k, v, sub, cls) { return '<div class="bs-fig"><div class="k">' + k + '</div><div class="v ' + (cls || '') + '">' + v + '</div><div class="s">' + sub + '</div></div>'; }
     return '<div class="budget-strip">' +
-      fig('Transferbudget', b.austerity ? 'Sparkurs' : FM.fmtMoney(b.transfer), 'Ablöse + Beraterhonorar', b.austerity ? 'bad' : '') +
+      fig('Transferbudget', b.austerity && !b.pot ? 'Sparkurs' : FM.fmtMoney(b.transfer), b.pot ? 'inkl. ' + FM.fmtMoney(b.pot) + ' Sponsorentopf' : 'Ablöse + Beraterhonorar', b.austerity ? 'bad' : '') +
       fig('Gehaltsspielraum', FM.fmtMoney(room), 'pro Jahr, Budget ' + FM.fmtMoney(b.wage), room < 0 ? 'bad' : '') +
       fig('Beraterhonorar', Math.round(FM.agentRate(club) * 100) + ' %', 'Scouting Stufe ' + FM.facLevel(club, 'scouting')) +
       fig('Kader', club.squad.length + '/34', 'Spieler unter Vertrag') +
@@ -62,7 +62,7 @@
       var p = st.players[pid];
       if (p.club === uc) return;
       if (s.free && p.club) return;
-      if (p.club && st.clubs[p.club].league === 'rl' && s.league !== 'rl' && s.league !== 'all') return;
+      if (p.club && !FM.isSimLeague(st.clubs[p.club].league) && s.league === 'all' && p.ovr < 50) return;
       if (s.league !== 'all' && (!p.club || st.clubs[p.club].league !== s.league)) return;
       if (s.grp !== 'all' && FM.mainGroup(p) !== s.grp) return;
       if (s.pos !== 'all' && p.pos.indexOf(s.pos) < 0) return;
@@ -81,7 +81,7 @@
     var filters = '<div class="card" style="margin-bottom:14px"><div class="card-b" style="padding-top:14px"><div class="filters" style="margin-bottom:0">' +
       '<div class="field" style="min-width:200px;flex:1"><label for="t-q">Suche</label><input class="input" id="t-q" placeholder="Spieler oder Verein" value="' + esc(s.q) + '"></div>' +
       sel('Position', 'pos', posOpts, s.pos) +
-      sel('Liga', 'league', [['all', 'Alle Ligen'], ['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rl', 'Regionalliga']], s.league) +
+      sel('Liga', 'league', [['all', 'Alle Ligen'], ['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rlw', 'Regionalliga West'], ['rl', 'Andere Regionalligen'], ['olw', 'Oberliga']], s.league) +
       sel('Stärke ab', 'minOvr', [[0, 'beliebig'], [60, '60+'], [65, '65+'], [70, '70+'], [75, '75+'], [80, '80+'], [85, '85+']], s.minOvr) +
       sel('Alter bis', 'maxAge', [[40, 'beliebig'], [21, '21'], [23, '23'], [25, '25'], [28, '28'], [31, '31']], s.maxAge) +
       sel('Ablöse bis', 'maxPrice', [[0, 'beliebig'], [250000, '250 Tsd.'], [1000000, '1 Mio.'], [3000000, '3 Mio.'], [10000000, '10 Mio.'], [25000000, '25 Mio.'], [60000000, '60 Mio.']], s.maxPrice) +
@@ -161,7 +161,7 @@
   function transferPanel(club, b) {
     var st = FM.state;
     var total = b.start + b.earned + b.extra;
-    var rows = [['Zum Saisonstart', b.start], ['Aus Verkäufen', b.earned], ['Nachschlag des Vorstands', b.extra], ['Ausgegeben', -b.spent], ['Für Infrastruktur gekürzt', -b.infra]]
+    var rows = [['Zum Saisonstart', b.start - (b.potStart || 0)], ['Sponsorentopf', b.potStart || 0], ['Aus Verkäufen', b.earned], ['Nachschlag des Vorstands', b.extra], ['Ausgegeben', -b.spent], ['Für Infrastruktur gekürzt', -b.infra]]
       .filter(function (r, i) { return i === 0 || r[1]; });
     var shifted = b.transfer - (total - b.spent - b.infra);
     if (Math.abs(shifted) >= 1000) rows.push(['Umgeschichtet / Winter', shifted]);
@@ -169,7 +169,7 @@
       '<button class="btn sm" data-action="requestBudget"' + (b.austerity ? ' disabled' : '') + '>' + UI.icon('board') + ' Nachschlag beantragen</button>';
     void st;
     return '<section class="bpanel"><div class="bp-k">Transferbudget</div><div class="bp-v' + (b.austerity ? ' bad' : '') + '">' + FM.fmtMoney(b.transfer) + '</div>' +
-      '<div class="bp-s">verfügbar für Ablösen, Beraterhonorare und Handgelder</div>' +
+      '<div class="bp-s">verfügbar für Ablösen, Beraterhonorare und Handgelder' + (b.pot ? ', davon ' + FM.fmtMoney(b.pot) + ' aus dem Sponsorentopf' : '') + '</div>' +
       '<dl class="bp-rows">' + rows.map(function (r) { return '<dt>' + r[0] + '</dt><dd class="' + (r[1] < 0 ? 'neg' : '') + '">' + (r[1] > 0 && r[0] !== 'Zum Saisonstart' ? '+' : '') + FM.fmtMoney(r[1]) + '</dd>'; }).join('') + '</dl>' +
       '<div class="bp-a">' + req + '</div></section>';
   }
@@ -231,13 +231,14 @@
       ['Freigabequote ' + Math.round((p.quote || 0) * 100) + ' % (Vertrauen ' + conf + ')', null, 'q'],
       [p.winter ? 'Neu ermitteltes Transferbudget' : 'Transferbudget', p.transfer != null ? p.transfer : p.free > 0 ? Math.round(p.free * p.quote) : 0, 'sum']
     ];
+    if (b.potStart) rows.push(['Sponsorentopf (Regionalliga)', b.potStart, ''], ['Verfügbar zum Saisonstart', b.start, 'sum']);
     return '<section class="card"><div class="card-h"><h3>So rechnet der Vorstand</h3><span class="muted small">' + (p.winter ? 'Neubewertung im Winter' : 'Festlegung zum Saisonstart') + '</span></div>' +
       '<div class="card-b"><table class="calc"><tbody>' + rows.map(function (r) {
         return '<tr class="' + r[2] + '"><td>' + r[0] + '</td><td class="num">' + (r[1] == null ? '× ' + FM.fmtDec(p.quote || 0, 2) : FM.fmtMoney(r[1] || 0)) + '</td></tr>';
       }).join('') + '</tbody></table>' +
       (p.winter ? '<p class="muted small" style="margin-top:8px">Zum Winter gibt der Vorstand die Hälfte des Zuwachses gegenüber dem verbliebenen Budget frei. Liegt der neue Wert darunter, wird das Budget auf ihn gekürzt.</p>' : '') +
-      (p.cashLimited ? '<p class="muted small" style="margin-top:8px">Begrenzt durch den Kontostand: Der Überschuss kommt erst im Saisonverlauf herein, die halbe Reserve muss immer auf dem Konto bleiben. Zum Wintertransferfenster rechnet der Vorstand neu.</p>' : '') +
-      '<p class="muted small" style="margin-top:8px">Gehaltsbudget: aktuelle Gehälter plus 3 %, höchstens aber ' + ({ bl: 58, bl2: 62, l3: 66, rl: 70 }[club.league] || 60) + ' % der erwarteten Einnahmen, falls das mehr ist. Bei erwartetem Fehlbetrag gibt es keine Erhöhung.</p></div></section>';
+      (p.cashLimited ? '<p class="muted small" style="margin-top:8px">Begrenzt durch den Kontostand: Der Überschuss kommt erst im Saisonverlauf herein. Verfügbar ist der Kontostand plus die Monatsrate aus TV und Sponsoring, die noch im Transferfenster eingeht; die halbe Reserve bleibt immer auf dem Konto. Zum Wintertransferfenster rechnet der Vorstand neu.</p>' : '') +
+      '<p class="muted small" style="margin-top:8px">Gehaltsbudget: aktuelle Gehälter plus 3 %, höchstens aber ' + Math.round((FM.WAGE_RATIO[club.league] || 0.6) * 100) + ' % der erwarteten Einnahmen, falls das mehr ist. Bei erwartetem Fehlbetrag gibt es keine Erhöhung.</p></div></section>';
   }
 
   function forecastCard(club) {
@@ -258,6 +259,7 @@
       ['Nachschlag', b.requested ? 'bereits beantragt' : 'einmal pro Halbserie', 'Nur bei Vertrauen ab 40 und Saisonziel in Reichweite. Bewilligt kostet er 4 Punkte Vertrauen, abgelehnt 2 bis 3.'],
       ['Investitionen', 'aus den freien Mitteln', 'Bauen über das nicht verplante Geld hinaus kürzt das Transferbudget.']
     ];
+    if (b.potStart) items.unshift(['Sponsorentopf', FM.fmtMoney(b.potStart) + ' pro Saison', 'Der Hauptsponsor zahlt Ablösen, Handgelder und Umschichtungen direkt. Was bis zum Saisonende nicht genutzt ist, verfällt; der Topf steht auch im Sparkurs bereit.']);
     return '<section class="card"><div class="card-h"><h3>Regeln des Vorstands</h3></div><div class="list">' + items.map(function (it) {
       return '<div class="li"><div class="grow"><div class="row between"><span class="strong">' + it[0] + '</span><span class="small">' + it[1] + '</span></div><div class="muted small">' + it[2] + '</div></div></div>';
     }).join('') + '</div></section>';

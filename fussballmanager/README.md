@@ -1,6 +1,7 @@
-# Matchplan – Fußballmanager 1. bis 3. Liga
+# Matchplan – Fußballmanager 1. bis 3. Liga und Regionalliga West
 
-Ein Fußballmanager für den Browser mit **Bundesliga, 2. Bundesliga und 3. Liga**
+Ein Fußballmanager für den Browser mit **Bundesliga, 2. Bundesliga, 3. Liga und
+Regionalliga West**
 in der Zusammensetzung der Saison **2026/27**, mit den **echten Kadern** und den
 Spielerwerten aus **EA SPORTS FC 27**. Reines HTML, CSS und JavaScript – ohne
 Build-Schritt, ohne Server.
@@ -85,6 +86,42 @@ python3 tools/bundle.py dist/matchplan.html
 - Spielerwerte in den FC-Kartenstufen Bronze (bis 64), Silber (65–74),
   Gold (ab 75) und seltenes Gold (ab 85); Taktiktafel mit Trikots in
   Vereinsfarben
+
+## Regionalliga West
+
+Als Bonus ist die **Regionalliga West 2026/27** komplett simuliert: 18 Vereine
+mit echten Kadern (465 Spieler), u. a. Rot-Weiß Oberhausen, FC Gütersloh,
+Sportfreunde Siegen, 1. FC Bocholt, Bonner SC, die Zweitvertretungen von Dortmund,
+Schalke, Köln, Gladbach, Bochum und Paderborn sowie die Aufsteiger Westfalia Rhynern,
+SG Wattenscheid, SV Bergisch Gladbach und VfB 03 Hilden.
+
+- **Kader**: recherchiert über sport.de, kicker und Vereinsmeldungen, Stand
+  Saisonbeginn 2026/27. Wo nur der Kader 2025/26 auffindbar war, sind die bekannten
+  Zu- und Abgänge eingearbeitet. EA SPORTS FC führt keine Regionalliga, die
+  Stärkewerte sind deshalb geschätzt (≈) und so kalibriert, dass die Spitzenteams
+  knapp unter den schwächsten Drittligisten liegen. Kleine Lücken füllt die Akademie
+  mit fiktiven Talenten auf.
+- **Wirtschaft**: Halbprofis mit niedrigeren Gehältern (Mindestgehalt 12.000 €),
+  Zuschauerschnitte wie in der Realität (Oberhausen ≈ 4.300, Wattenscheid ≈ 2.800,
+  Hilden ≈ 550), kleine fiktive Kassen.
+- **Sponsorentopf**: Jeder Regionalligist bekommt pro Saison einen fiktiven,
+  zweckgebundenen Topf vom Hauptsponsor bzw. Förderkreis (70.000 € bei Hilden bis
+  350.000 € bei Rödinghausen, Zweitvertretungen 120.000 € von den Profis). Der
+  Sponsor zahlt erst, wenn das Geld für Ablösen, Handgelder oder Gehaltsspielraum
+  genutzt wird; Reste verfallen am Saisonende. So bleibt der Markt lebendig, ohne
+  dass sich Geld anhäuft. Startbudgets: rund 170.000 € bis 780.000 €.
+- **Auf- und Abstieg**: Der Meister steigt direkt in die 3. Liga auf (Reserveteams
+  nur, wenn die Profis höher als in der 3. Liga spielen). Westvereine, die aus der
+  3. Liga absteigen, kommen in die Regionalliga West, alle anderen in die übrigen
+  Regionalligen. Zwei Oberliga-Meister steigen auf; wie viele in die Oberliga
+  absteigen, ergibt sich daraus (die Liga bleibt bei 18 Vereinen). Der Oberliga-Pool
+  (Wuppertaler SV, KFC Uerdingen, Fortuna Düsseldorf II, Rot Weiss Ahlen) wird nicht
+  simuliert; seine Kader sind fiktiv.
+- **DFB-Pokal**: Die freien Plätze im 64er-Feld gehen an die bestplatzierten
+  Westvereine der Vorsaison (stellvertretend für die Landespokalsieger). Unterklassige
+  haben Heimrecht, gegen Klubs aus höheren Ligen strömen deutlich mehr Zuschauer.
+- **Karriere von unten**: Wer im Westen startet, beginnt mit kleinem Etat, sucht
+  Schnäppchen unter den Vereinslosen und kann sich bis in die Bundesliga hocharbeiten.
 
 ## Budget des Vorstands
 
@@ -216,4 +253,5 @@ js/ui/                  Oberfläche (Übersicht, Kader, Taktik, Spieltag,
 js/vendor/              lz-string
 data-src/               Rohdaten und Build-Skript für js/data.js
 tools/bundle.py         Bündelt alles zu einer einzigen HTML-Datei
+data-src/rlw_squads.py  Kader der Regionalliga West (erzeugt raw/rlw_*.md)
 ```

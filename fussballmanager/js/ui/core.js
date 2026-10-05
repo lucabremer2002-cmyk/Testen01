@@ -188,8 +188,8 @@
   };
   UI.srcMark = function (p) {
     if (p.src === 'v' || p.src === 'o') return '';
-    var t = p.src === 'f' ? 'FC 26' : p.src === 'y' ? 'Akademie' : 'geschätzt';
-    return ' <span class="muted tiny" title="' + esc(FM.SRC_LABEL[p.src]) + '">' + (p.src === 'e' ? '≈' : p.src === 'f' ? '²⁶' : '') + '</span>' + (p.src === 'y' ? ' <span class="tag info" title="' + esc(FM.SRC_LABEL.y) + '">' + t + '</span>' : '');
+    var t = p.src === 'f' ? 'FC 26' : p.src === 'y' ? 'Akademie' : p.src === 'a' ? 'fiktiv' : 'geschätzt';
+    return ' <span class="muted tiny" title="' + esc(FM.SRC_LABEL[p.src]) + '">' + (p.src === 'e' ? '≈' : p.src === 'f' ? '²⁶' : '') + '</span>' + (p.src === 'y' || p.src === 'a' ? ' <span class="tag info" title="' + esc(FM.SRC_LABEL[p.src]) + '">' + t + '</span>' : '');
   };
   UI.status = function (p) {
     var out = [];
@@ -289,7 +289,7 @@
     document.getElementById('app').innerHTML =
       '<div class="shell" id="shell">' +
       '<aside class="sidebar">' +
-      '<div class="crest">' + UI.badge(club, 46) + '<div class="crest-t"><div class="crest-name' + (club.name.split(' ').some(function (w) { return w.length > 12; }) ? ' long' : '') + '">' + esc(club.name) + '</div><div class="crest-sub">' + esc(league.name) + (pos ? ' · ' + pos + '. Platz' : '') + '</div></div></div>' +
+      '<div class="crest">' + UI.badge(club, 46) + '<div class="crest-t"><div class="crest-name' + (club.name.split(' ').some(function (w) { return w.length > 10; }) ? ' long' : '') + '">' + esc(club.name) + '</div><div class="crest-sub">' + esc(league.name) + (pos ? ' · ' + pos + '. Platz' : '') + '</div></div></div>' +
       '<nav class="nav" aria-label="Hauptnavigation">' + nav + '</nav>' +
       '<div class="sidebar-foot nav"><button data-action="saveGame">' + UI.icon('save') + '<span>Speichern</span></button>' +
       '<button data-action="settings">' + UI.icon('settings') + '<span>Einstellungen</span></button></div>' +

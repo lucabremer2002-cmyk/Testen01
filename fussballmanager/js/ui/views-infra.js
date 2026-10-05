@@ -32,7 +32,7 @@
       var st = FM.state, club = st.clubs[st.user.club];
       var b = FM.budget(st, club), reserve = FM.cashReserve(st, club);
       var investable = Math.max(0, club.money - reserve);
-      var unplanned = Math.max(0, investable - b.transfer);
+      var unplanned = Math.max(0, investable - (b.transfer - (b.pot || 0)));
       var html = '<div class="page-h"><div><div class="eyebrow">Investitionen</div><h1>Infrastruktur</h1></div>' +
         '<p class="muted small" style="max-width:52ch">Ausbauten werden sofort bezahlt und wirken nach der Bauzeit. Stufe 3 entspricht dem Ligadurchschnitt. Jede Stufe über dem Ausgangsniveau kostet jährlichen Unterhalt.</p></div>';
       html += '<div class="budget-strip">' +
@@ -57,7 +57,7 @@
     if (!q) return '<div class="muted small">Höchste Ausbaustufe erreicht.</div>';
     var b = FM.budget(FM.state, club);
     var blocked = b.austerity ? 'Während des Sparkurses gesperrt' : q.cost > investable ? 'Fehlen ' + FM.fmtMoney(q.cost - investable) + ' über der Reserve' : '';
-    var cut = !blocked && q.cost > unplanned ? '<div class="muted small">Kürzt das Transferbudget um ' + FM.fmtMoney(Math.min(b.transfer, q.cost - unplanned)) + '.</div>' : '';
+    var cut = !blocked && q.cost > unplanned ? '<div class="muted small">Kürzt das Transferbudget um ' + FM.fmtMoney(Math.min(b.transfer - (b.pot || 0), q.cost - unplanned)) + '.</div>' : '';
     return cut + '<button class="btn club sm" data-action="build" data-k="' + key + '"' + (blocked ? ' disabled' : '') + '>' + UI.icon('crane') + ' Ausbauen für ' + FM.fmtMoney(q.cost) + '</button>' +
       (blocked ? '<div class="small bad">' + blocked + '</div>' : '');
   }
@@ -125,8 +125,8 @@
     var q = FM.facQuote(club, key);
     if (!q) return;
     var b = FM.budget(st, club), reserve = FM.cashReserve(st, club);
-    var unplanned = Math.max(0, club.money - reserve - b.transfer);
-    var cut = Math.max(0, Math.min(b.transfer, q.cost - unplanned));
+    var unplanned = Math.max(0, club.money - reserve - (b.transfer - (b.pot || 0)));
+    var cut = Math.max(0, Math.min(b.transfer - (b.pot || 0), q.cost - unplanned));
     UI.confirm(FM.FACILITIES[key].name + ' ausbauen?',
       (key === 'stadium' ? '+' + FM.fmtInt(q.seats) + ' Plätze' : 'Ausbau auf Stufe ' + q.toLevel) + ' für ' + FM.fmtMoney(q.cost) + ', fertig in ' + q.weeks + ' Wochen.' +
       (q.upkeep ? ' Danach ' + FM.fmtMoney(q.upkeep) + ' Unterhalt pro Jahr.' : '') + (cut ? ' Das Transferbudget sinkt um ' + FM.fmtMoney(cut) + '.' : ''),

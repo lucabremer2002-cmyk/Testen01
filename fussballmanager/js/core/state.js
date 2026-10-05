@@ -39,7 +39,7 @@
     data.clubs.forEach(function (c) {
       var club = {
         id: c.id, name: c.name, short: c.short, abbr: c.abbr, colors: c.colors, stadium: c.stadium, cap: c.cap,
-        rep: c.rep, league: c.league, reserve: c.reserve || null,
+        rep: c.rep, league: c.league, reserve: c.reserve || null, region: c.region || null, fans: c.fans || null, pot: c.pot != null ? Math.round(c.pot * 1e6) : null,
         money: Math.round(c.money * 1e6),
         squad: [], formation: null, tactics: FM.defaultTactics(), lineup: null,
         hist: [], fin: FM.emptyLedger(), finPrev: null, expect: null
@@ -67,7 +67,7 @@
 
     FM.startSeason(state, true);
     FM.addNews(state, {
-      type: 'board', title: 'Willkommen beim ' + uc.name,
+      type: 'board', title: 'Willkommen ' + FM.atClub(uc.name),
       body: 'Der Vorstand begrüßt dich als neuen Cheftrainer. ' + FM.expectationText(state, uc.id) + ' ' + FM.budgetText(FM.budget(state, uc)) +
         ' Das Transferfenster ist bis zum 31. August geöffnet – nutze die Vorbereitung, um den Kader zu schärfen.',
       action: { kind: 'budget' }
@@ -81,15 +81,17 @@
     var players = FM.clubPlayers(state, cid);
     var gks = players.filter(FM.isGK).length;
     var added = [];
-    var min = club.league === 'rl' ? 20 : FM.MIN_SQUAD;
-    while (gks < 2) { added.push(FM.makeYouth(club, state, { pos: 'GK', age: FM.rng.int(17, 19) })); gks++; }
+    var min = club.league === 'rl' || club.league === 'olw' ? 20 : FM.MIN_SQUAD;
+    // Oberliga-Pool: erwachsene Amateure statt Akademie-Talente
+    var make = club.league === 'olw' ? FM.makeAmateur : FM.makeYouth;
+    while (gks < 2) { added.push(make(club, state, { pos: 'GK', age: club.league === 'olw' ? undefined : FM.rng.int(17, 19) })); gks++; }
     var need = min - players.length - added.length;
     for (var i = 0; i < need; i++) {
       var groups = { DEF: 0, MID: 0, ATT: 0 };
       players.concat(added).forEach(function (p) { if (!FM.isGK(p)) groups[FM.mainGroup(p)]++; });
       var g = groups.DEF < 7 ? 'DEF' : groups.MID < 7 ? 'MID' : groups.ATT < 4 ? 'ATT' : null;
       var pos = g === 'DEF' ? FM.rng.pick(['CB', 'CB', 'LB', 'RB']) : g === 'MID' ? FM.rng.pick(['CM', 'CDM', 'CAM', 'LM', 'RM']) : g === 'ATT' ? FM.rng.pick(['ST', 'LW', 'RW']) : null;
-      added.push(FM.makeYouth(club, state, pos ? { pos: pos } : {}));
+      added.push(make(club, state, pos ? { pos: pos } : {}));
     }
     added.forEach(function (p) {
       state.players[p.id] = p;

@@ -29,15 +29,17 @@
     infra: 'Infrastruktur (Bau & Unterhalt)', other: 'Sonstiges'
   };
 
-  var MIN_COMMERCIAL = { bl: 8e6, bl2: 2.5e6, l3: 0.6e6, rl: 0.2e6 };
+  var MIN_COMMERCIAL = { bl: 8e6, bl2: 2.5e6, l3: 0.6e6, rlw: 0.12e6, rl: 0.2e6, olw: 0.05e6 };
 
   function tvAndOps(club) {
     var rep = club.rep, l = club.league, tv, ops;
     if (l === 'bl') { tv = 25e6 + (rep - 50) * 0.7e6; ops = 14e6 + (rep - 50) * 0.5e6; }
     else if (l === 'bl2') { tv = 9e6 + (rep - 50) * 0.25e6; ops = 4e6 + (rep - 50) * 0.1e6; }
     else if (l === 'l3') { tv = 1.6e6 + (rep - 40) * 0.03e6; ops = 1.3e6 + (rep - 40) * 0.03e6; }
+    else if (l === 'rlw') { tv = 0.15e6; ops = 0.26e6 + (rep - 30) * 0.008e6; }
+    else if (l === 'olw') { tv = 0.02e6; ops = 0.12e6; }
     else { tv = 0.2e6; ops = 0.35e6; }
-    return { tv: Math.max(0.1e6, tv), ops: Math.max(0.2e6, ops) };
+    return { tv: Math.max(l === 'olw' ? 0.02e6 : 0.1e6, tv), ops: Math.max(l === 'olw' || l === 'rlw' ? 0.1e6 : 0.2e6, ops) };
   }
 
   /* Sponsoring/Marketing wird beim Spielstart so kalibriert, dass jeder Verein mit
@@ -58,21 +60,21 @@
 
   /* Ligawechsel/Erfolg wirken sich auf die Vermarktung aus */
   FM.adjustCommercial = function (club, oldLeague, newLeague, repDelta) {
-    var lv = { bl: 1, bl2: 2, l3: 3, rl: 4 };
+    var lv = FM.LEVEL;
     var f = 1 + (repDelta || 0) * 0.02;
     if (lv[newLeague] < lv[oldLeague]) f *= 1.45;
     if (lv[newLeague] > lv[oldLeague]) f *= 0.62;
     club.commercial = Math.round(Math.max(MIN_COMMERCIAL[newLeague] || 0.2e6, (club.commercial || 0) * f));
   };
 
-  FM.ticketPrice = { bl: 36, bl2: 24, l3: 15, rl: 10 };
+  FM.ticketPrice = { bl: 36, bl2: 24, l3: 15, rlw: 10, rl: 10, olw: 7 };
 
   /* Zuschauer = Nachfrage, begrenzt durch die (waehrend eines Ausbaus reduzierte) Kapazitaet */
   FM.attendance = function (state, homeId, awayId, comp) {
     var c = state.clubs[homeId], a = state.clubs[awayId];
     var cap0 = c.cap0 || c.cap;
-    var demand = FM.fanDemand(c, a.rep, comp) + cap0 * R.range(-0.04, 0.04);
-    return Math.round(FM.clamp(demand, cap0 * 0.25, FM.effectiveCap(c)));
+    var demand = FM.fanDemand(c, a.rep, comp, FM.levelOf(state, homeId) - FM.levelOf(state, awayId)) + cap0 * R.range(-0.04, 0.04);
+    return Math.round(FM.clamp(demand, cap0 * 0.12, FM.effectiveCap(c)));
   };
 
   FM.book = function (club, key, amount) {
@@ -121,11 +123,12 @@
   var EXPECT = {
     bl: [[1, 1, 'Deutsche Meisterschaft'], [4, 4, 'Champions-League-Platz'], [6, 6, 'Europapokal-Teilnahme'], [10, 10, 'Gesichertes Mittelfeld'], [18, 15, 'Klassenerhalt']],
     bl2: [[3, 2, 'Aufstieg in die Bundesliga'], [7, 6, 'Obere Tabellenhälfte'], [12, 11, 'Gesichertes Mittelfeld'], [18, 15, 'Klassenerhalt']],
-    l3: [[3, 2, 'Aufstieg in die 2. Bundesliga'], [8, 7, 'Obere Tabellenhälfte'], [14, 13, 'Gesichertes Mittelfeld'], [20, 16, 'Klassenerhalt']]
+    l3: [[3, 2, 'Aufstieg in die 2. Bundesliga'], [8, 7, 'Obere Tabellenhälfte'], [14, 13, 'Gesichertes Mittelfeld'], [20, 16, 'Klassenerhalt']],
+    rlw: [[2, 1, 'Meisterschaft und Aufstieg in die 3. Liga'], [5, 5, 'Spitzengruppe'], [11, 10, 'Gesichertes Mittelfeld'], [18, 14, 'Klassenerhalt']]
   };
 
   FM.computeExpectations = function (state) {
-    ['bl', 'bl2', 'l3'].forEach(function (lid) {
+    FM.simLeagues(state).forEach(function (lid) {
       var ranked = state.leagues[lid].clubs.slice().sort(function (a, b) { return FM.teamStrength(state, b) - FM.teamStrength(state, a); });
       ranked.forEach(function (cid, i) {
         var rank = i + 1, table = EXPECT[lid], e = table[table.length - 1];
@@ -145,7 +148,7 @@
     var user = state.user;
     var gf = userSide === 0 ? res.hg : res.ag, ga = userSide === 0 ? res.ag : res.hg;
     var delta = 0;
-    if (fx.comp === 'bl' || fx.comp === 'bl2' || fx.comp === 'l3') {
+    if (FM.isSimLeague(fx.comp)) {
       var pts = gf > ga ? 3 : gf === ga ? 1 : 0;
       var exp = fx.expPts != null ? fx.expPts : 1.4;
       delta = (pts - exp) * 2.4;
@@ -354,7 +357,7 @@
       var value = FM.marketValue(p);
       var buyers = Object.keys(state.clubs).filter(function (cid) {
         var c = state.clubs[cid];
-        return cid !== uc.id && c.league !== 'rl' && !c.reserve && c.money > value * 1.1 &&
+        return cid !== uc.id && FM.isSimLeague(c.league) && !c.reserve && c.money > value * 1.1 &&
           (p.listed ? Math.abs(c.rep - uc.rep) < 25 : c.rep >= uc.rep - 3) && FM.interest(state, p, cid) >= 40;
       });
       if (!buyers.length) return;
@@ -409,14 +412,14 @@
     var userClub = state.user.club;
     var clubs = R.shuffle(Object.keys(state.clubs).filter(function (cid) {
       var c = state.clubs[cid];
-      return cid !== userClub && c.league !== 'rl' && !c.reserve;
+      return cid !== userClub && FM.isSimLeague(c.league) && !c.reserve;
     }));
     var deals = 0;
     var allPlayers = Object.keys(state.players).map(function (k) { return state.players[k]; });
     for (var i = 0; i < clubs.length && deals < maxDeals; i++) {
       var cid = clubs[i], club = state.clubs[cid];
       if (!R.chance(0.35)) continue;
-      var budget = Math.max(0, club.money * 0.45);
+      var budget = Math.max(0, club.money * 0.45) + (club.league === 'rlw' ? club.aiPot || 0 : 0);
       var weak = weakestSlot(state, cid);
       if (!weak) continue;
       var need = weak.v + 2;
@@ -440,6 +443,7 @@
       }
       if (!best) continue;
       var rec = FM.executeTransfer(state, best.p, cid, best.price, best.wage, R.int(2, 4));
+      if (club.aiPot && rec.cost) { var sp = Math.min(club.aiPot, rec.cost); club.aiPot -= sp; FM.book(club, 'sponsor', sp); }
       deals++;
       FM.aiTrimSquad(state, cid);
       var ul = state.clubs[userClub].league;

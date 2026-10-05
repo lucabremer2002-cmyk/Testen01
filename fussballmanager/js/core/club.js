@@ -6,10 +6,11 @@
   var D = FM.date;
 
   /* Kostenniveau je Liga (Bau- und Unterhaltskosten skalieren mit der Liga) */
-  var LEAGUE_SCALE = { bl: 1, bl2: 0.35, l3: 0.12, rl: 0.06 };
+  var LEAGUE_SCALE = { bl: 1, bl2: 0.35, l3: 0.12, rlw: 0.05, rl: 0.06, olw: 0.02 };
   /* Anteil der Einnahmen, den der Vorstand hoechstens fuer Gehaelter freigibt */
-  var WAGE_RATIO = { bl: 0.58, bl2: 0.62, l3: 0.66, rl: 0.7 };
-  var HOME_GAMES = { bl: 17, bl2: 17, l3: 19, rl: 17 };
+  var WAGE_RATIO = { bl: 0.58, bl2: 0.62, l3: 0.66, rlw: 0.72, rl: 0.7, olw: 0.75 };
+  FM.WAGE_RATIO = WAGE_RATIO;
+  var HOME_GAMES = { bl: 17, bl2: 17, l3: 19, rlw: 17, rl: 17, olw: 17 };
 
   FM.SIGNING_BONUS = 0.25;   // Handgeld fuer Vereinslose: Anteil eines Jahresgehalts
   FM.WAGE_SHIFT_COST = 2;    // 2 € Transferbudget ergeben 1 € Gehaltsspielraum pro Jahr
@@ -31,7 +32,8 @@
 
   /* Fehlende Felder anlegen (neues Spiel und aeltere Spielstaende) */
   FM.ensureClub = function (club) {
-    if (club.cap0 == null) club.cap0 = club.cap;
+    // Fanbasis: bei Amateurvereinen aus dem Zuschauerschnitt abgeleitet (grosse alte Stadien bleiben leer)
+    if (club.cap0 == null) club.cap0 = club.fans ? Math.round(club.fans / baseFill(club)) : club.cap;
     if (!club.fac) {
       var l = startLevel(club);
       club.fac = { training: l, youth: l, medical: l, scouting: Math.max(1, l - 1), commercial: l };
@@ -65,16 +67,19 @@
   };
 
   /* ---------- Stadion & Zuschauer ---------- */
-  var LEAGUE_FILL = { bl: 0.25, bl2: 0.12, l3: 0, rl: -0.1 };
+  var LEAGUE_FILL = { bl: 0.25, bl2: 0.12, l3: 0, rlw: -0.25, rl: -0.1, olw: -0.35 };
+  function baseFill(club) { return Math.max(0.12, 0.55 + (club.rep - 40) / 100 + (LEAGUE_FILL[club.league] || 0)); }
 
   /* Zuschauernachfrage: die Fanbasis bemisst sich an der urspruenglichen Stadiongroesse,
      die Auslastung an Reputation, Liga und Gegner. Mehr Plaetze bringen nur etwas,
      wenn die Nachfrage die Kapazitaet uebersteigt. */
-  FM.fanDemand = function (club, oppRep, comp) {
+  FM.fanDemand = function (club, oppRep, comp, levelGap) {
     var cap0 = club.cap0 || club.cap;
     var fill = 0.55 + (club.rep - 40) / 100 + (LEAGUE_FILL[club.league] || 0);
     if (oppRep != null) fill += (oppRep - 60) / 400;
     if (comp === 'cup' || comp === 'po1' || comp === 'po2') fill += 0.15;
+    // Pokalknaller: der Kleine empfaengt einen Klub aus hoeherer Liga
+    if (comp === 'cup' && levelGap > 0) fill += 0.22 * levelGap;
     if (club.league !== 'bl') fill *= Math.min(1, 45000 / cap0 + 0.25);
     return cap0 * fill;
   };
@@ -88,7 +93,7 @@
   FM.expectedAttendance = function (club, cap) {
     var c = cap != null ? cap : FM.effectiveCap(club);
     var cap0 = club.cap0 || club.cap;
-    return Math.round(FM.clamp(FM.fanDemand(club, 60), cap0 * 0.25, c));
+    return Math.round(FM.clamp(FM.fanDemand(club, 60), cap0 * 0.12, c));
   };
 
   FM.homeGames = function (club) { return HOME_GAMES[club.league] || 17; };
@@ -106,7 +111,7 @@
     return Math.round(sum);
   };
 
-  var SEAT_COST = { bl: 4000, bl2: 3000, l3: 2200, rl: 1800 };
+  var SEAT_COST = { bl: 4000, bl2: 3000, l3: 2200, rlw: 1500, rl: 1800, olw: 1200 };
   FM.STADIUM_MAX = 85000;
 
   FM.facQuote = function (club, key) {
@@ -188,7 +193,9 @@
     if (transfer > free) transfer = Math.max(0, Math.floor(free / 10000) * 10000);
     /* Der Ueberschuss kommt erst im Saisonverlauf herein: ausgegeben werden kann nur, was auf dem
        Konto liegt – mindestens die halbe Reserve bleibt immer stehen. */
-    var cashCap = Math.max(0, Math.floor((club.money - reserve * 0.5) / 10000) * 10000);
+    // ... plus die Monatsrate aus TV und Sponsoring, die noch im laufenden Transferfenster eingeht
+    var installment = (fc.tv + fc.sponsor) / 10;
+    var cashCap = Math.max(0, Math.floor((club.money - reserve * 0.5 + installment) / 10000) * 10000);
     var cashLimited = transfer > cashCap;
     if (cashLimited) transfer = cashCap;
     var ratioCap = fc.revenue * (WAGE_RATIO[club.league] || 0.6);
@@ -213,24 +220,28 @@
     var b;
     if (winter && old) {
       b = old;
-      var before = b.transfer;
-      if (plan.transfer > b.transfer) b.transfer += FM.niceRound((plan.transfer - b.transfer) * 0.5);
-      else b.transfer = Math.max(0, Math.min(b.transfer, plan.transfer));
+      var before = b.transfer, pot = b.pot || 0, regular = b.transfer - pot;
+      if (plan.transfer > regular) regular += FM.niceRound((plan.transfer - regular) * 0.5);
+      else regular = Math.max(0, Math.min(regular, plan.transfer));
+      b.transfer = regular + pot;
       // bereits bezahlter (umgeschichteter) Spielraum bleibt erhalten
       b.wage = Math.max(plan.wage, b.wage);
       b.requested = false;
       b.austerity = club.money < 0;
-      if (b.austerity) b.transfer = 0;
+      if (b.austerity) b.transfer = pot;
       logBudget(b, state, 'winter', b.transfer - before, 'Neubewertung zum Wintertransferfenster');
     } else {
+      var potNew = FM.potBase(club);
       b = club.budget = {
         season: state.season.year,
-        transfer: plan.transfer, start: plan.transfer, wage: plan.wage, wageStart: plan.wage,
+        transfer: plan.transfer + potNew, start: plan.transfer + potNew, wage: plan.wage, wageStart: plan.wage,
+        pot: potNew, potStart: potNew,
         spent: 0, earned: 0, extra: 0, infra: 0,
         requested: false, austerity: club.money < 0, log: []
       };
-      if (b.austerity) b.transfer = 0;
-      logBudget(b, state, 'start', b.transfer, 'Budget zum Saisonstart');
+      if (b.austerity) b.transfer = potNew;
+      logBudget(b, state, 'start', b.transfer - potNew, 'Budget zum Saisonstart');
+      if (potNew) logBudget(b, state, 'pot', potNew, 'Sponsorentopf für die Saison');
     }
     b.plan = {
       reserve: plan.reserve, projected: Math.round(plan.projected), counted: Math.round(plan.counted), free: Math.round(plan.free),
@@ -262,13 +273,13 @@
   /* Pruefung gegen beide Budgets; liefert eine Fehlermeldung oder null */
   FM.checkBudget = function (state, club, cost, addWage, minusWage) {
     var b = FM.budget(state, club);
-    if (b.austerity && cost.total > 0) return 'Der Verein ist auf Sparkurs – das Transferbudget ist eingefroren. Verkaufe zuerst Spieler.';
+    if (b.austerity && cost.total > (b.pot || 0)) return 'Der Verein ist auf Sparkurs – nur der Sponsorentopf (' + FM.fmtMoney(b.pot || 0) + ') steht zur Verfügung. Verkaufe zuerst Spieler.';
     if (cost.total > b.transfer) {
       return 'Das Transferbudget reicht nicht: benötigt ' + FM.fmtMoney(cost.total) +
         (cost.agent ? ' (inkl. ' + FM.fmtMoney(cost.agent) + ' Beraterhonorar)' : cost.bonus ? ' (Handgeld)' : '') +
         ', verfügbar ' + FM.fmtMoney(b.transfer) + '.';
     }
-    if (cost.total > club.money) return 'Dafür reicht der Kontostand nicht aus.';
+    if (cost.total > club.money + (b.pot || 0)) return 'Dafür reicht der Kontostand nicht aus.';
     var room = b.wage - FM.annualWages(state, club) + (minusWage || 0);
     if (addWage > room) {
       return 'Das Gehaltsbudget reicht nicht: Spielraum ' + FM.fmtMoney(Math.max(0, room)) + ' pro Jahr, benötigt ' + FM.fmtMoney(addWage) +
@@ -281,7 +292,8 @@
     var b = FM.budget(state, club);
     b.transfer = Math.max(0, b.transfer - cost);
     b.spent += cost;
-    logBudget(b, state, 'buy', -cost, text || 'Transfer');
+    var fromPot = usePot(state, club, cost);
+    logBudget(b, state, 'buy', -cost, (text || 'Transfer') + (fromPot ? ' (Sponsor zahlt ' + FM.fmtMoney(fromPot) + ')' : ''));
   };
 
   FM.creditSale = function (state, club, fee, text) {
@@ -305,6 +317,7 @@
       amount = Math.min(amount, b.transfer);
       var gain = Math.round(amount / FM.WAGE_SHIFT_COST);
       b.transfer -= amount; b.wage += gain;
+      usePot(state, club, amount);
       logBudget(b, state, 'shift', -amount, 'Umgeschichtet: +' + FM.fmtMoney(gain) + ' Gehaltsbudget pro Jahr');
       return { ok: true, msg: FM.fmtMoney(amount) + ' Transferbudget → +' + FM.fmtMoney(gain) + ' Gehaltsspielraum pro Jahr.' };
     }
@@ -337,7 +350,7 @@
       return { ok: false, msg: 'Abgelehnt. Das Vertrauen in deine Arbeit reicht dafür nicht.' };
     }
     var reserve = FM.cashReserve(state, club);
-    var unallocated = club.money - reserve - b.transfer;
+    var unallocated = club.money - reserve - (b.transfer - (b.pot || 0));
     if (unallocated < Math.max(50000, b.start * 0.1)) {
       return { ok: false, msg: 'Abgelehnt. Über dem Transferbudget hinaus ist kein Geld frei – die Liquiditätsreserve von ' + FM.fmtMoney(reserve) + ' bleibt unangetastet.' };
     }
@@ -356,8 +369,8 @@
     if (club.money < 0) {
       if (!b.austerity) {
         b.austerity = true;
-        logBudget(b, state, 'freeze', -b.transfer, 'Sparkurs: Transferbudget eingefroren');
-        b.transfer = 0;
+        logBudget(b, state, 'freeze', -(b.transfer - (b.pot || 0)), 'Sparkurs: Transferbudget eingefroren');
+        b.transfer = b.pot || 0;
         FM.addNews(state, {
           type: 'board', important: true, title: 'Sparkurs verordnet',
           body: 'Das Vereinskonto steht im Minus (' + FM.fmtMoney(club.money) + '). Der Vorstand friert das Transferbudget ein. Von Verkaufserlösen fließt nur noch ein Viertel ins Budget, bis die Finanzen wieder stimmen.'
@@ -384,7 +397,7 @@
       return { ok: false, msg: 'Der Vorstand lehnt ab: Danach läge der Kontostand unter der Liquiditätsreserve von ' + FM.fmtMoney(reserve) + '.' };
     }
     FM.book(club, 'infra', -q.cost);
-    var cap = Math.max(0, club.money - reserve);
+    var cap = Math.max(0, club.money - reserve) + (b.pot || 0);
     if (b.transfer > cap) {
       var cut = b.transfer - Math.floor(cap / 10000) * 10000;
       b.transfer -= cut; b.infra += cut;
@@ -426,7 +439,7 @@
   FM.aiInvest = function (state) {
     Object.keys(state.clubs).forEach(function (cid) {
       var club = state.clubs[cid];
-      if (cid === state.user.club || club.reserve || club.league === 'rl' || club.builds.length) return;
+      if (cid === state.user.club || club.reserve || !FM.isSimLeague(club.league) || club.builds.length) return;
       if (!R.chance(0.25)) return;
       var opts = ['training', 'youth', 'medical', 'scouting'].filter(function (k) {
         return club.fac[k] < Math.min(FM.FAC_MAX, club.facBase[k] + 2);
@@ -439,11 +452,29 @@
     });
   };
 
+  /* Sponsorentopf der Regionalliga: zweckgebundenes Geld des Hauptsponsors bzw. Foerderkreises.
+     Es wird erst ausgezahlt, wenn es fuer Abloesen, Handgelder oder Gehaltsspielraum genutzt wird,
+     und verfaellt am Saisonende. */
+  FM.potBase = function (club) {
+    if (club.league !== 'rlw') return 0;
+    if (club.pot != null) return club.pot;
+    return Math.round((40 + club.rep * 1.5) / 10) * 10000;
+  };
+  function usePot(state, club, amount) {
+    var b = club.budget;
+    if (!b || !b.pot || amount <= 0) return 0;
+    var use = Math.min(b.pot, amount);
+    b.pot -= use;
+    FM.book(club, 'sponsor', use);
+    return use;
+  }
+
   /* Kurzfassung fuer Nachrichten */
   FM.budgetText = function (b) {
     if (!b) return '';
-    if (b.austerity) return 'Wegen des Kontostands im Minus gilt Sparkurs: kein Transferbudget, Gehaltsbudget ' + FM.fmtMoney(b.wage) + ' pro Jahr.';
-    return 'Transferbudget: ' + FM.fmtMoney(b.transfer) + ', Gehaltsbudget: ' + FM.fmtMoney(b.wage) + ' pro Jahr.';
+    var pot = b.pot ? ' (davon ' + FM.fmtMoney(b.pot) + ' Sponsorentopf)' : '';
+    if (b.austerity) return 'Wegen des Kontostands im Minus gilt Sparkurs: Transferbudget nur aus dem Sponsorentopf (' + FM.fmtMoney(b.pot || 0) + '), Gehaltsbudget ' + FM.fmtMoney(b.wage) + ' pro Jahr.';
+    return 'Transferbudget: ' + FM.fmtMoney(b.transfer) + pot + ', Gehaltsbudget: ' + FM.fmtMoney(b.wage) + ' pro Jahr.';
   };
 
   /* Zuschauerstatistik der laufenden Saison */

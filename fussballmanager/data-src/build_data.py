@@ -78,9 +78,11 @@ def norm_pos(pos):
     return "/".join(out)
 
 
-def guess_age(name, ovr, club_top, src):
+def guess_age(name, ovr, club_top, src, club=None):
     gap = club_top - ovr
     r = h(name, "age")
+    if club and club.get("reserve") and club["league"] == "rlw":
+        return 19 + r % 4
     if gap >= 14:
         return 18 + r % 4
     if gap >= 9:
@@ -126,6 +128,9 @@ def parse_file(path):
                 parts = [p.strip() for p in line.split("|")]
                 age = int(parts[3]) if len(parts) > 3 and parts[3] else None
                 players.append(dict(name=parts[0], pos=norm_pos(parts[1]), ovr=int(parts[2]), stats=None, src="e", age=age))
+                continue
+            if line.startswith("#"):
+                continue
     for p in players:
         if p["name"] in patches:
             new = patches[p["name"]]
@@ -142,6 +147,9 @@ def main():
     out_players = {}
     stats = {"v": 0, "o": 0, "f": 0, "e": 0}
     for club in CLUBS:
+        if not club["file"]:
+            out_players[club["id"]] = []  # Kader wird im Spiel erzeugt (Oberliga-Pool)
+            continue
         path = os.path.join(HERE, "raw", club["file"] + ".md")
         plist = parse_file(path)
         top = max(p["ovr"] for p in plist)
@@ -154,7 +162,7 @@ def main():
             age = AGE_OVERRIDE.get((key, club["id"])) or p["age"] or AGES.get(key)
             age_known = age is not None
             if not age_known:
-                age = guess_age(key, p["ovr"], top, p["src"])
+                age = guess_age(key, p["ovr"], top, p["src"], club)
             st = p["stats"] or derive_stats(key, p["pos"], p["ovr"])
             src = p["src"]
             if src == "v" and p["stats"] is None:
@@ -188,6 +196,9 @@ def main():
     print("Quellen:", stats)
     for c in CLUBS:
         rows = out_players[c["id"]]
+        if not rows:
+            print(f"  {c['id']:5}   0 Spieler  (Oberliga-Pool, Kader im Spiel erzeugt)")
+            continue
         gk = sum(1 for r in rows if r[1].startswith("GK"))
         print(f"  {c['id']:5} {len(rows):3} Spieler  GK={gk}  Top={rows[0][2]}  Schnitt11={sum(r[2] for r in rows[:11])/11:.1f}")
 

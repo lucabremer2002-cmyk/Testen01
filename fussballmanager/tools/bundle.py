@@ -25,7 +25,7 @@ def main():
     scripts = re.findall(r'<script src="([^"]+)"></script>', html)
     parts = [
         '<title>Matchplan</title>',
-        '<meta name="description" content="Fußballmanager für Bundesliga, 2. Bundesliga und 3. Liga mit den Kadern 2026/27.">',
+        '<meta name="description" content="Fußballmanager für Bundesliga, 2. Bundesliga, 3. Liga und Regionalliga West mit den Kadern 2026/27.">',
         '<link rel="preconnect" href="https://fonts.googleapis.com">',
         '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
         '<link rel="stylesheet" href="' + fonts + '">',

@@ -3,14 +3,18 @@
   'use strict';
   var FM = window.FM, UI = FM.ui, esc = FM.esc, D = FM.date;
 
-  var LEAGUE_TABS = [['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga']];
+  var ALL_TABS = [['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rlw', 'RL West']];
+  var LEAGUE_TABS = ALL_TABS;
+  function tabs() { LEAGUE_TABS = ALL_TABS.filter(function (t) { return FM.state.leagues[t[0]]; }); return LEAGUE_TABS; }
+  function ownLeague(st) { var l = st.clubs[st.user.club].league; return FM.isSimLeague(l) ? l : 'l3'; }
 
   /* ================= Tabellen ================= */
   UI.views.table = {
     title: 'Tabellen',
     render: function () {
       var st = FM.state;
-      var s = UI.vs('table', { lid: st.clubs[st.user.club].league === 'rl' ? 'l3' : st.clubs[st.user.club].league, mode: 'all' });
+      tabs();
+      var s = UI.vs('table', { lid: ownLeague(st), mode: 'all' });
       var t = FM.table(st, s.lid, { mode: s.mode === 'all' ? '' : s.mode });
       var zones = FM.ZONES[s.lid];
       var rows = t.map(function (r, i) {
@@ -21,9 +25,11 @@
       }).join('');
       var legendKeys = s.lid === 'bl' ? ['cl', 'el', 'ecl', 'po', 'down'] : ['up', 'poUp', 'po', 'down'];
       if (s.lid === 'l3') legendKeys = ['up', 'poUp', 'down'];
+      if (s.lid === 'rlw') legendKeys = ['up', 'down'];
       var colors = { cl: '#2b67c9', el: '#e08a00', ecl: '#18a39a', up: 'var(--good)', poUp: '#7cc79c', po: '#f0a24a', down: 'var(--bad)' };
-      var legend = '<div class="legend">' + legendKeys.map(function (k) { return '<span><i style="background:' + colors[k] + '"></i>' + FM.ZONE_LABEL[k] + '</span>'; }).join('') +
-        (s.lid === 'l3' ? '<span class="muted">Reserveteams dürfen nicht aufsteigen</span>' : '') + '</div>';
+      var legend = '<div class="legend">' + legendKeys.map(function (k) { return '<span><i style="background:' + colors[k] + '"></i>' + (s.lid === 'rlw' && k === 'up' ? 'Aufstieg in die 3. Liga' : s.lid === 'rlw' && k === 'down' ? 'Abstieg in die Oberliga' : FM.ZONE_LABEL[k]) + '</span>'; }).join('') +
+        (s.lid === 'l3' ? '<span class="muted">Reserveteams dürfen nicht aufsteigen</span>' : '') +
+        (s.lid === 'rlw' ? '<span class="muted">Die Zahl der Absteiger hängt davon ab, wie viele Westvereine aus der 3. Liga absteigen (meist zwei bis vier). Reserveteams steigen nur auf, wenn die Profis höher als in der 3. Liga spielen.</span>' : '') + '</div>';
       var round = FM.playedRounds(st, s.lid);
       return '<div class="page-h"><div><h1>' + esc(st.leagues[s.lid].name) + '</h1><div class="sub">Saison ' + st.season.year + '/' + String(st.season.year + 1).slice(2) + ' · ' + round + '. Spieltag gespielt</div></div>' +
         '<div class="row wrap">' + UI.seg('lid', LEAGUE_TABS, s.lid) + UI.seg('mode', [['all', 'Gesamt'], ['home', 'Heim'], ['away', 'Auswärts']], s.mode) + '</div></div>' +
@@ -44,7 +50,8 @@
     title: 'Spielplan',
     render: function () {
       var st = FM.state, uc = st.user.club;
-      var s = UI.vs('fixtures', { tab: 'mine', lid: st.clubs[uc].league === 'rl' ? 'l3' : st.clubs[uc].league, round: null });
+      tabs();
+      var s = UI.vs('fixtures', { tab: 'mine', lid: ownLeague(st), round: null });
       var html = '<div class="page-h"><div><h1>Spielplan</h1><div class="sub">Saison ' + st.season.year + '/' + String(st.season.year + 1).slice(2) + '</div></div>' +
         UI.seg('tab', [['mine', 'Meine Spiele'], ['rounds', 'Spieltage'], ['cup', 'DFB-Pokal']], s.tab) + '</div>';
       if (s.tab === 'mine') {
@@ -105,7 +112,8 @@
     title: 'Statistiken',
     render: function () {
       var st = FM.state;
-      var s = UI.vs('stats', { lid: st.clubs[st.user.club].league === 'rl' ? 'l3' : st.clubs[st.user.club].league });
+      tabs();
+      var s = UI.vs('stats', { lid: ownLeague(st) });
       function board(kind, title, fmt) {
         var list = FM.leagueLeaders(st, s.lid, kind, 12);
         return '<div class="card"><div class="card-h"><h3>' + title + '</h3></div><div class="card-b flush">' + (list.length ? '<table class="tbl compact"><tbody>' + list.map(function (x, i) {

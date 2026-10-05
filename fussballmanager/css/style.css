@@ -487,6 +487,9 @@ input[type="range"] { accent-color: var(--club-text); width: 100%; }
 
 /* ================= Anzeigetafel ================= */
 .board, .board-card {
+  /* dunkle Flaeche: Vereinsfarbe wie im dunklen Modus (schwarze Vereine weichen der Zweitfarbe) */
+  --club: var(--club-d);
+  --club-ink: var(--club-d-ink);
   --surface: var(--board-2);
   --surface-2: rgba(255, 255, 255, .04);
   --surface-3: rgba(255, 255, 255, .1);

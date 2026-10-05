@@ -15,10 +15,13 @@
     o: 'EA SPORTS FC 27 – Gesamtwert (Kartenwerte abgeleitet)',
     f: 'EA SPORTS FC 26 – letzter verfügbarer Datenstand',
     e: 'Geschätzt (echter Kaderspieler 2026/27, Wert nicht in der FC-27-Datenbank gefunden)',
-    y: 'Nachwuchsspieler aus der Vereinsakademie (fiktiv)'
+    y: 'Nachwuchsspieler aus der Vereinsakademie (fiktiv)',
+    a: 'Oberliga-Spieler (fiktiv)'
   };
 
-  var LEAGUE_WAGE = { bl: 1, bl2: 0.72, l3: 0.5, rl: 0.32 };
+  var LEAGUE_WAGE = { bl: 1, bl2: 0.72, l3: 0.5, rlw: 0.3, rl: 0.32, olw: 0.15 };
+  /* Mindestgehalt: Profis ab 25.000 EUR, in der Regionalliga Halbprofis, darunter Amateure */
+  var WAGE_FLOOR = { bl: 25000, bl2: 25000, l3: 25000, rlw: 12000, rl: 20000, olw: 6000 };
 
   /* Kartenwerte aus Position + Gesamtwert ableiten (gleiche Logik wie im Build-Skript) */
   FM.deriveStats = function (pos, ovr, seedName) {
@@ -98,7 +101,7 @@
     var w = 0.13e6 * Math.pow(1.19, p.ovr - 60) * lf;
     if (p.age >= 30) w *= 1.08;
     if (p.age <= 20) w *= 0.75;
-    return niceRound(Math.max(25000, w));
+    return niceRound(Math.max(WAGE_FLOOR[leagueId] || 25000, w));
   };
 
   FM.seasonYear = function () { return FM.state ? FM.state.season.year : 2026; };
@@ -169,8 +172,10 @@
   /* Nachwuchsspieler (fiktiv) */
   FM.makeYouth = function (club, state, opts) {
     opts = opts || {};
-    var lvl = { bl: [54, 64], bl2: [49, 60], l3: [46, 57], rl: [42, 52] }[club.league] || [46, 56];
-    var ovr = R.int(lvl[0], lvl[1]) + Math.round((club.rep - 60) / 15) + FM.facYouthOvr(club);
+    // Reserveteams bekommen Talente aus der Akademie des Profivereins
+    var src = club.reserve && state.clubs[club.reserve] ? state.clubs[club.reserve] : club;
+    var lvl = { bl: [54, 64], bl2: [49, 60], l3: [46, 57], rlw: [42, 52], rl: [42, 52], olw: [40, 49] }[src.league] || [46, 56];
+    var ovr = R.int(lvl[0], lvl[1]) + Math.round((src.rep - 60) / 15) + FM.facYouthOvr(src) - (src !== club ? 3 : 0);
     var age = opts.age || R.int(16, 18);
     var pos = opts.pos || R.weighted(['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST'],
       function (x) { return { GK: 1, CB: 2, LB: 1, RB: 1, CDM: 1, CM: 1.6, CAM: 1, LM: 0.8, RM: 0.8, LW: 0.8, RW: 0.8, ST: 1.4 }[x]; });
@@ -194,10 +199,24 @@
       joined: state.season.year, minutesRecent: 0, youth: true
     };
     var talent = R.next();
-    var potGain = (talent > 0.97 ? R.int(26, 34) : talent > 0.85 ? R.int(18, 26) : R.int(8, 20)) + FM.facYouthPot(club);
+    var potGain = (talent > 0.97 ? R.int(26, 34) : talent > 0.85 ? R.int(18, 26) : R.int(8, 20)) + FM.facYouthPot(src);
     p.pot = FM.clamp(p.ovr + potGain, p.ovr, 93);
     p.s = FM.deriveStats(pos, p.ovr, name);
-    p.contract = { until: state.season.year + 3, wage: Math.max(20000, Math.round(FM.wageDemand(p, club.league) * 0.6 / 5000) * 5000) };
+    p.contract = { until: state.season.year + 3, wage: Math.max(club.league === 'rlw' || club.league === 'olw' ? 8000 : 20000, Math.round(FM.wageDemand(p, club.league) * 0.6 / 5000) * 5000) };
+    return p;
+  };
+
+  /* Erwachsener Amateurspieler (Oberliga-Kader, fiktiv) */
+  FM.makeAmateur = function (club, state, opts) {
+    opts = opts || {};
+    var p = FM.makeYouth(club, state, opts);
+    p.age = opts.age || R.int(19, 32);
+    p.ovr = FM.clamp(R.int(45, 54) + Math.round((club.rep - 30) / 8), 40, 60);
+    p.pot = FM.clamp(p.ovr + (p.age <= 22 ? R.int(2, 9) : R.int(0, 2)), p.ovr, 75);
+    p.s = FM.deriveStats(p.pos[0], p.ovr, p.name);
+    p.src = 'a';
+    p.youth = false;
+    p.contract = { until: state.season.year + R.int(1, 2), wage: FM.wageDemand(p, club.league) };
     return p;
   };
 

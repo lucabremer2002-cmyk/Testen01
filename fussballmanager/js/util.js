@@ -76,6 +76,14 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   };
 
+  /* "beim FC …", "bei der SG …", "bei den Sportfreunden …", "bei Borussia …" */
+  FM.atClub = function (name) {
+    if (/^(SG|TSG|SpVgg)\b/.test(name)) return 'bei der ' + name;
+    if (/^Sportfreunde\b/.test(name)) return 'bei den ' + name.replace(/^Sportfreunde/, 'Sportfreunden');
+    if (/^(1\. )?(FC|SC|SV|VfB|VfL|TSV|FSV|KFC|SSV|MSV|BSC)\b/.test(name) || /\b(SV|SC)$/.test(name)) return 'beim ' + name;
+    return 'bei ' + name;
+  };
+
   /* ---------- Formatierung (deutsch) ---------- */
   var nf0 = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 });
   var nf1 = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });

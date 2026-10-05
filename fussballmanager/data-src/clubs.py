@@ -6,8 +6,13 @@ LEAGUES = [
     {"id": "bl", "name": "Bundesliga", "short": "BL", "level": 1},
     {"id": "bl2", "name": "2. Bundesliga", "short": "2. BL", "level": 2},
     {"id": "l3", "name": "3. Liga", "short": "3. Liga", "level": 3},
-    {"id": "rl", "name": "Regionalliga", "short": "RL", "level": 4},
+    {"id": "rlw", "name": "Regionalliga West", "short": "RL West", "level": 4},
+    {"id": "rl", "name": "Regionalliga (andere Staffeln)", "short": "RL", "level": 4},
+    {"id": "olw", "name": "Oberliga (Westen)", "short": "OL", "level": 5},
 ]
+
+# Vereine aus Nordrhein-Westfalen: steigen aus der 3. Liga in die Regionalliga West ab
+WEST = {"bvb", "b04", "bmg", "koe", "s04", "scp", "boc", "dsc", "msv", "rwe", "aac", "f95", "scv", "fko", "prm", "vik"}
 
 CLUBS = [
     # --- Bundesliga ---
@@ -74,4 +79,32 @@ CLUBS = [
     dict(id="aue", file="rau", league="rl", name="FC Erzgebirge Aue", short="Aue", abbr="AUE", colors=["#5B2D8B", "#FFFFFF"], stadium="Erzgebirgsstadion", cap=16485, rep=44, money=1),
     dict(id="ulm", file="rulm", league="rl", name="SSV Ulm 1846", short="Ulm", abbr="ULM", colors=["#111111", "#FFFFFF"], stadium="Donaustadion", cap=17400, rep=42, money=1),
     dict(id="sw05", file="rsw", league="rl", name="1. FC Schweinfurt 05", short="Schweinfurt", abbr="S05", colors=["#009639", "#FFFFFF"], stadium="Sachs-Stadion", cap=15060, rep=34, money=0.6),
+    # --- Regionalliga West (simuliert). fans: Zuschauerschnitt, money: fiktive Kasse, pot: fiktiver Sponsorentopf pro Saison (Mio. EUR) ---
+    dict(id="rwo", file="rlw_rwo", league="rlw", name="Rot-Weiß Oberhausen", short="Oberhausen", abbr="RWO", colors=["#E2001A", "#FFFFFF"], stadium="Stadion Niederrhein", cap=21318, rep=46, money=0.9, fans=4300, pot=0.3),
+    dict(id="fcg", file="rlw_fcg", league="rlw", name="FC Gütersloh", short="Gütersloh", abbr="FCG", colors=["#1E5AA8", "#2E9B4F"], stadium="Heidewaldstadion", cap=12500, rep=36, money=0.6, fans=1700, pot=0.2),
+    dict(id="bvb2", file="rlw_bvb2", league="rlw", name="Borussia Dortmund II", short="Dortmund II", abbr="BVB2", colors=["#FDE100", "#111111"], stadium="Stadion Rote Erde", cap=9999, rep=40, money=0.5, fans=1400, reserve="bvb", pot=0.12),
+    dict(id="s042", file="rlw_s042", league="rlw", name="FC Schalke 04 II", short="Schalke II", abbr="S042", colors=["#004D9D", "#FFFFFF"], stadium="Parkstadion", cap=3500, rep=38, money=0.5, fans=1000, reserve="s04", pot=0.12),
+    dict(id="boh", file="rlw_boh", league="rlw", name="1. FC Bocholt", short="Bocholt", abbr="FCB", colors=["#111111", "#FFFFFF"], stadium="Stadion am Hünting", cap=6500, rep=38, money=0.7, fans=2100, pot=0.25),
+    dict(id="sfs", file="rlw_sfs", league="rlw", name="Sportfreunde Siegen", short="Siegen", abbr="SFS", colors=["#E2001A", "#FFFFFF"], stadium="Leimbachstadion", cap=18500, rep=40, money=0.5, fans=2700, pot=0.18),
+    dict(id="svr", file="rlw_svr", league="rlw", name="SV Rödinghausen", short="Rödinghausen", abbr="SVR", colors=["#1B8A3C", "#FFFFFF"], stadium="Häcker Wiehenstadion", cap=2489, rep=34, money=1.0, fans=800, pot=0.35),
+    dict(id="sgw", file="rlw_sgw", league="rlw", name="SG Wattenscheid 09", short="Wattenscheid", abbr="SGW", colors=["#111111", "#FFFFFF"], stadium="Lohrheidestadion", cap=16233, rep=40, money=0.35, fans=2800, pot=0.15),
+    dict(id="sfl", file="rlw_sfl", league="rlw", name="Sportfreunde Lotte", short="Lotte", abbr="SFL", colors=["#004C99", "#FFFFFF"], stadium="Stadion am Lotter Kreuz", cap=10059, rep=36, money=0.45, fans=1500, pot=0.15),
+    dict(id="bon", file="rlw_bon", league="rlw", name="Bonner SC", short="Bonn", abbr="BSC", colors=["#E2001A", "#111111"], stadium="Sportpark Nord", cap=10164, rep=36, money=0.45, fans=1900, pot=0.15),
+    dict(id="koe2", file="rlw_koe2", league="rlw", name="1. FC Köln II", short="Köln II", abbr="KOE2", colors=["#ED1C24", "#FFFFFF"], stadium="Franz-Kremer-Stadion", cap=5457, rep=36, money=0.5, fans=900, reserve="koe", pot=0.12),
+    dict(id="bmg2", file="rlw_bmg2", league="rlw", name="Borussia Mönchengladbach II", short="Gladbach II", abbr="BMG2", colors=["#111111", "#1A9F3D"], stadium="Grenzlandstadion", cap=10000, rep=36, money=0.5, fans=700, reserve="bmg", pot=0.12),
+    dict(id="scp2", file="rlw_scp2", league="rlw", name="SC Paderborn 07 II", short="Paderborn II", abbr="SCP2", colors=["#005CA9", "#111111"], stadium="Paderkampfbahn", cap=3000, rep=32, money=0.4, fans=450, reserve="scp", pot=0.12),
+    dict(id="scw", file="rlw_scw", league="rlw", name="SC Wiedenbrück", short="Wiedenbrück", abbr="SCW", colors=["#111111", "#1D5FB4"], stadium="Jahnstadion", cap=3700, rep=32, money=0.4, fans=900, pot=0.1),
+    dict(id="boc2", file="rlw_boc2", league="rlw", name="VfL Bochum II", short="Bochum II", abbr="BOC2", colors=["#005CA9", "#FFFFFF"], stadium="Stadion Hiltrop", cap=3000, rep=32, money=0.4, fans=500, reserve="boc", pot=0.12),
+    dict(id="rhy", file="rlw_rhy", league="rlw", name="Westfalia Rhynern", short="Rhynern", abbr="SVW", colors=["#E2001A", "#FFFFFF"], stadium="Papenloh", cap=2500, rep=26, money=0.35, fans=650, pot=0.08),
+    dict(id="bgl", file="rlw_bgl", league="rlw", name="SV Bergisch Gladbach 09", short="Bergisch Gladbach", abbr="SVB", colors=["#E2001A", "#FFFFFF"], stadium="BELKAW-Arena", cap=4000, rep=26, money=0.35, fans=650, pot=0.09),
+    dict(id="hil", file="rlw_hil", league="rlw", name="VfB 03 Hilden", short="Hilden", abbr="VFB", colors=["#111111", "#FFFFFF"], stadium="Stadion Hoffeldstraße", cap=3000, rep=24, money=0.3, fans=550, pot=0.07),
+    # --- Oberliga-Pool Westen (nicht simuliert, Kader fiktiv) ---
+    dict(id="wsv", file="", league="olw", name="Wuppertaler SV", short="Wuppertal", abbr="WSV", colors=["#E30613", "#0A3D91"], stadium="Stadion am Zoo", cap=23067, rep=38, money=0.3, fans=1900),
+    dict(id="kfc", file="", league="olw", name="KFC Uerdingen 05", short="Uerdingen", abbr="KFC", colors=["#E30613", "#003E7E"], stadium="Grotenburg-Stadion", cap=12000, rep=34, money=0.25, fans=1600),
+    dict(id="f952", file="", league="olw", name="Fortuna Düsseldorf II", short="Düsseldorf II", abbr="F952", colors=["#DA251D", "#FFFFFF"], stadium="Paul-Janes-Stadion", cap=7200, rep=30, money=0.3, fans=400, reserve="f95"),
+    dict(id="rwa", file="", league="olw", name="Rot Weiss Ahlen", short="Ahlen", abbr="RWA", colors=["#E2001A", "#FFFFFF"], stadium="Wersestadion", cap=10500, rep=30, money=0.2, fans=900),
 ]
+
+for _c in CLUBS:
+    if _c["id"] in WEST or _c["league"] in ("rlw", "olw"):
+        _c["region"] = "west"
