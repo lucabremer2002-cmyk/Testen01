@@ -1,4 +1,3 @@
-| 1 | Felix Lohkemper | ST/LM/RM/LW | 67 | 77 | 66 | 57 | 68 | 34 | 57 |
 | 2 | Arianit Ferati | CAM/CM | 66 | 71 | 56 | 68 | 71 | 53 | 64 |
 | 3 | Terrence Boyd | ST | 66 | 57 | 66 | 46 | 61 | 33 | 77 |
 | 4 | Lukas Klünter | CB/RB/RM | 66 | 81 | 41 | 58 | 63 | 63 | 75 |

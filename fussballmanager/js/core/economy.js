@@ -29,17 +29,17 @@
     infra: 'Infrastruktur (Bau & Unterhalt)', other: 'Sonstiges'
   };
 
-  var MIN_COMMERCIAL = { bl: 8e6, bl2: 2.5e6, l3: 0.6e6, rlw: 0.12e6, rl: 0.2e6, olw: 0.05e6 };
+  var MIN_COMMERCIAL = { bl: 8e6, bl2: 2.5e6, l3: 0.6e6, rlw: 0.12e6, rlsw: 0.12e6, rl: 0.2e6, olw: 0.05e6, olsw: 0.05e6 };
 
   function tvAndOps(club) {
     var rep = club.rep, l = club.league, tv, ops;
     if (l === 'bl') { tv = 25e6 + (rep - 50) * 0.7e6; ops = 14e6 + (rep - 50) * 0.5e6; }
     else if (l === 'bl2') { tv = 9e6 + (rep - 50) * 0.25e6; ops = 4e6 + (rep - 50) * 0.1e6; }
     else if (l === 'l3') { tv = 1.6e6 + (rep - 40) * 0.03e6; ops = 1.3e6 + (rep - 40) * 0.03e6; }
-    else if (l === 'rlw') { tv = 0.15e6; ops = 0.26e6 + (rep - 30) * 0.008e6; }
-    else if (l === 'olw') { tv = 0.02e6; ops = 0.12e6; }
+    else if (FM.isRegional(l)) { tv = 0.15e6; ops = 0.26e6 + (rep - 30) * 0.008e6; }
+    else if (FM.isOberliga(l)) { tv = 0.02e6; ops = 0.12e6; }
     else { tv = 0.2e6; ops = 0.35e6; }
-    return { tv: Math.max(l === 'olw' ? 0.02e6 : 0.1e6, tv), ops: Math.max(l === 'olw' || l === 'rlw' ? 0.1e6 : 0.2e6, ops) };
+    return { tv: Math.max(FM.isOberliga(l) ? 0.02e6 : 0.1e6, tv), ops: Math.max(FM.isOberliga(l) || FM.isRegional(l) ? 0.1e6 : 0.2e6, ops) };
   }
 
   /* Sponsoring/Marketing wird beim Spielstart so kalibriert, dass jeder Verein mit
@@ -67,7 +67,7 @@
     club.commercial = Math.round(Math.max(MIN_COMMERCIAL[newLeague] || 0.2e6, (club.commercial || 0) * f));
   };
 
-  FM.ticketPrice = { bl: 36, bl2: 24, l3: 15, rlw: 10, rl: 10, olw: 7 };
+  FM.ticketPrice = { bl: 36, bl2: 24, l3: 15, rlw: 10, rlsw: 11, rl: 10, olw: 7, olsw: 7 };
 
   /* Zuschauer = Nachfrage, begrenzt durch die (waehrend eines Ausbaus reduzierte) Kapazitaet */
   FM.attendance = function (state, homeId, awayId, comp) {
@@ -113,6 +113,16 @@
       if (cid !== state.user.club) {
         var reserve = Math.max(FM.annualWages(state, club) * 0.6, plan.tv * 0.5);
         if (club.money > reserve) FM.book(club, 'other', -(club.money - reserve) * 0.06);
+        // Nicht simulierte Pools (andere Regionalligen, Oberliga) haben keine Heimspiele im Spiel:
+        // ihre Zuschauereinnahmen werden pauschal angenommen, damit die Kasse nicht ausblutet
+        if (!FM.isSimLeague(club.league) && club.money < 0.05e6) FM.book(club, 'tickets', 0.05e6 - club.money);
+        // Zweitvertretungen traegt der Profiverein: er gleicht Fehlbetraege aus
+        var parent = club.reserve && state.clubs[club.reserve];
+        if (parent && club.money < 0 && parent.id !== state.user.club) {
+          var gap = -club.money + 0.05e6;
+          FM.book(parent, 'other', -gap);
+          FM.book(club, 'other', gap);
+        }
       }
     });
     FM.payUpkeep(state);
@@ -126,6 +136,7 @@
     l3: [[3, 2, 'Aufstieg in die 2. Bundesliga'], [8, 7, 'Obere Tabellenhälfte'], [14, 13, 'Gesichertes Mittelfeld'], [20, 16, 'Klassenerhalt']],
     rlw: [[2, 1, 'Meisterschaft und Aufstieg in die 3. Liga'], [5, 5, 'Spitzengruppe'], [11, 10, 'Gesichertes Mittelfeld'], [18, 14, 'Klassenerhalt']]
   };
+  EXPECT.rlsw = EXPECT.rlw;
 
   FM.computeExpectations = function (state) {
     FM.simLeagues(state).forEach(function (lid) {
@@ -419,7 +430,7 @@
     for (var i = 0; i < clubs.length && deals < maxDeals; i++) {
       var cid = clubs[i], club = state.clubs[cid];
       if (!R.chance(0.35)) continue;
-      var budget = Math.max(0, club.money * 0.45) + (club.league === 'rlw' ? club.aiPot || 0 : 0);
+      var budget = Math.max(0, club.money * 0.45) + (FM.isRegional(club.league) ? club.aiPot || 0 : 0);
       var weak = weakestSlot(state, cid);
       if (!weak) continue;
       var need = weak.v + 2;

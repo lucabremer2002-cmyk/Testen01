@@ -81,7 +81,7 @@ def norm_pos(pos):
 def guess_age(name, ovr, club_top, src, club=None):
     gap = club_top - ovr
     r = h(name, "age")
-    if club and club.get("reserve") and club["league"] == "rlw":
+    if club and club.get("reserve") and club["league"] in ("rlw", "rlsw"):
         return 19 + r % 4
     if gap >= 14:
         return 18 + r % 4

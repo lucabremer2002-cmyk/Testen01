@@ -6,11 +6,11 @@
   var D = FM.date;
 
   /* Kostenniveau je Liga (Bau- und Unterhaltskosten skalieren mit der Liga) */
-  var LEAGUE_SCALE = { bl: 1, bl2: 0.35, l3: 0.12, rlw: 0.05, rl: 0.06, olw: 0.02 };
+  var LEAGUE_SCALE = { bl: 1, bl2: 0.35, l3: 0.12, rlw: 0.05, rlsw: 0.05, rl: 0.06, olw: 0.02, olsw: 0.02 };
   /* Anteil der Einnahmen, den der Vorstand hoechstens fuer Gehaelter freigibt */
-  var WAGE_RATIO = { bl: 0.58, bl2: 0.62, l3: 0.66, rlw: 0.72, rl: 0.7, olw: 0.75 };
+  var WAGE_RATIO = { bl: 0.58, bl2: 0.62, l3: 0.66, rlw: 0.72, rlsw: 0.72, rl: 0.7, olw: 0.75, olsw: 0.75 };
   FM.WAGE_RATIO = WAGE_RATIO;
-  var HOME_GAMES = { bl: 17, bl2: 17, l3: 19, rlw: 17, rl: 17, olw: 17 };
+  var HOME_GAMES = { bl: 17, bl2: 17, l3: 19, rlw: 17, rlsw: 17, rl: 17, olw: 17, olsw: 17 };
 
   FM.SIGNING_BONUS = 0.25;   // Handgeld fuer Vereinslose: Anteil eines Jahresgehalts
   FM.WAGE_SHIFT_COST = 2;    // 2 € Transferbudget ergeben 1 € Gehaltsspielraum pro Jahr
@@ -67,7 +67,7 @@
   };
 
   /* ---------- Stadion & Zuschauer ---------- */
-  var LEAGUE_FILL = { bl: 0.25, bl2: 0.12, l3: 0, rlw: -0.25, rl: -0.1, olw: -0.35 };
+  var LEAGUE_FILL = { bl: 0.25, bl2: 0.12, l3: 0, rlw: -0.25, rlsw: -0.25, rl: -0.1, olw: -0.35, olsw: -0.35 };
   function baseFill(club) { return Math.max(0.12, 0.55 + (club.rep - 40) / 100 + (LEAGUE_FILL[club.league] || 0)); }
 
   /* Zuschauernachfrage: die Fanbasis bemisst sich an der urspruenglichen Stadiongroesse,
@@ -111,7 +111,7 @@
     return Math.round(sum);
   };
 
-  var SEAT_COST = { bl: 4000, bl2: 3000, l3: 2200, rlw: 1500, rl: 1800, olw: 1200 };
+  var SEAT_COST = { bl: 4000, bl2: 3000, l3: 2200, rlw: 1500, rlsw: 1500, rl: 1800, olw: 1200, olsw: 1200 };
   FM.STADIUM_MAX = 85000;
 
   FM.facQuote = function (club, key) {
@@ -456,7 +456,7 @@
      Es wird erst ausgezahlt, wenn es fuer Abloesen, Handgelder oder Gehaltsspielraum genutzt wird,
      und verfaellt am Saisonende. */
   FM.potBase = function (club) {
-    if (club.league !== 'rlw') return 0;
+    if (!FM.isRegional(club.league)) return 0;
     if (club.pot != null) return club.pot;
     return Math.round((40 + club.rep * 1.5) / 10) * 10000;
   };

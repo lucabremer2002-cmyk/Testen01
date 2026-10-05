@@ -80,7 +80,8 @@
   FM.atClub = function (name) {
     if (/^(SG|TSG|SpVgg)\b/.test(name)) return 'bei der ' + name;
     if (/^Sportfreunde\b/.test(name)) return 'bei den ' + name.replace(/^Sportfreunde/, 'Sportfreunden');
-    if (/^(1\. )?(FC|SC|SV|VfB|VfL|TSV|FSV|KFC|SSV|MSV|BSC)\b/.test(name) || /\b(SV|SC)$/.test(name)) return 'beim ' + name;
+    if (/^(1\. )?(FC|SC|SV|VfB|VfL|VfR|TSV|FSV|KFC|SSV|MSV|BSC|KSV|SGV|TuS|FK)\b/.test(name) || /\b(SV|SC)$/.test(name)) return 'beim ' + name;
+    if (/ Kickers$/.test(name)) return 'bei den ' + name;
     return 'bei ' + name;
   };
 

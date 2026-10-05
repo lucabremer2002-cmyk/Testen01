@@ -81,10 +81,10 @@
     var players = FM.clubPlayers(state, cid);
     var gks = players.filter(FM.isGK).length;
     var added = [];
-    var min = club.league === 'rl' || club.league === 'olw' ? 20 : FM.MIN_SQUAD;
+    var min = club.league === 'rl' || FM.isOberliga(club.league) ? 20 : FM.MIN_SQUAD;
     // Oberliga-Pool: erwachsene Amateure statt Akademie-Talente
-    var make = club.league === 'olw' ? FM.makeAmateur : FM.makeYouth;
-    while (gks < 2) { added.push(make(club, state, { pos: 'GK', age: club.league === 'olw' ? undefined : FM.rng.int(17, 19) })); gks++; }
+    var make = FM.isOberliga(club.league) ? FM.makeAmateur : FM.makeYouth;
+    while (gks < 2) { added.push(make(club, state, { pos: 'GK', age: FM.isOberliga(club.league) ? undefined : FM.rng.int(17, 19) })); gks++; }
     var need = min - players.length - added.length;
     for (var i = 0; i < need; i++) {
       var groups = { DEF: 0, MID: 0, ATT: 0 };

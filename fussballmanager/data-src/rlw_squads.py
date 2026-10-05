@@ -213,7 +213,6 @@ Matthis Harsman;GK;;
 Alexander Höck;CB;;
 Dennis-Adam Gorka;CB;;
 Viktor Miftaraj;LB;;
-Tim Corsten;RB;;
 Maxim Gresler;CB;;
 Leon Tia;CB;;
 Marius Bauer;LB;;

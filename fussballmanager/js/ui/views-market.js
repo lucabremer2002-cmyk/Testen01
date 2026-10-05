@@ -63,7 +63,7 @@
       if (p.club === uc) return;
       if (s.free && p.club) return;
       if (p.club && !FM.isSimLeague(st.clubs[p.club].league) && s.league === 'all' && p.ovr < 50) return;
-      if (s.league !== 'all' && (!p.club || st.clubs[p.club].league !== s.league)) return;
+      if (s.league !== 'all' && (!p.club || (s.league === 'ol' ? !FM.isOberliga(st.clubs[p.club].league) : st.clubs[p.club].league !== s.league))) return;
       if (s.grp !== 'all' && FM.mainGroup(p) !== s.grp) return;
       if (s.pos !== 'all' && p.pos.indexOf(s.pos) < 0) return;
       if (p.ovr < s.minOvr || p.age > s.maxAge) return;
@@ -81,7 +81,7 @@
     var filters = '<div class="card" style="margin-bottom:14px"><div class="card-b" style="padding-top:14px"><div class="filters" style="margin-bottom:0">' +
       '<div class="field" style="min-width:200px;flex:1"><label for="t-q">Suche</label><input class="input" id="t-q" placeholder="Spieler oder Verein" value="' + esc(s.q) + '"></div>' +
       sel('Position', 'pos', posOpts, s.pos) +
-      sel('Liga', 'league', [['all', 'Alle Ligen'], ['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rlw', 'Regionalliga West'], ['rl', 'Andere Regionalligen'], ['olw', 'Oberliga']], s.league) +
+      sel('Liga', 'league', [['all', 'Alle Ligen'], ['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rlw', 'Regionalliga West'], ['rlsw', 'Regionalliga Südwest'], ['rl', 'Andere Regionalligen'], ['ol', 'Oberliga']], s.league) +
       sel('Stärke ab', 'minOvr', [[0, 'beliebig'], [60, '60+'], [65, '65+'], [70, '70+'], [75, '75+'], [80, '80+'], [85, '85+']], s.minOvr) +
       sel('Alter bis', 'maxAge', [[40, 'beliebig'], [21, '21'], [23, '23'], [25, '25'], [28, '28'], [31, '31']], s.maxAge) +
       sel('Ablöse bis', 'maxPrice', [[0, 'beliebig'], [250000, '250 Tsd.'], [1000000, '1 Mio.'], [3000000, '3 Mio.'], [10000000, '10 Mio.'], [25000000, '25 Mio.'], [60000000, '60 Mio.']], s.maxPrice) +

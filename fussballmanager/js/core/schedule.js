@@ -5,13 +5,31 @@
   var D = FM.date;
   var R = FM.rng;
 
-  FM.COMP_NAME = { bl: 'Bundesliga', bl2: '2. Bundesliga', l3: '3. Liga', rlw: 'Regionalliga West', rl: 'Regionalliga', olw: 'Oberliga', cup: 'DFB-Pokal', po1: 'Relegation', po2: 'Relegation' };
-  FM.LEVEL = { bl: 1, bl2: 2, l3: 3, rlw: 4, rl: 4, olw: 5 };
-  /* Simulierte Ligen (die Regionalliga West fehlt in Spielstaenden aelterer Versionen) */
-  FM.SIM = ['bl', 'bl2', 'l3', 'rlw'];
+  FM.COMP_NAME = { bl: 'Bundesliga', bl2: '2. Bundesliga', l3: '3. Liga', rlw: 'Regionalliga West', rlsw: 'Regionalliga Südwest', rl: 'Regionalliga', olw: 'Oberliga', olsw: 'Oberliga', cup: 'DFB-Pokal', po1: 'Relegation', po2: 'Relegation' };
+  FM.LEVEL = { bl: 1, bl2: 2, l3: 3, rlw: 4, rlsw: 4, rl: 4, olw: 5, olsw: 5 };
+  /* Simulierte Regionalliga-Staffeln: Region ihrer Vereine und zugehoeriger Oberliga-Pool */
+  FM.REGIONAL = {
+    rlw: { region: 'west', ol: 'olw', name: 'Regionalliga West', short: 'RL West', area: 'Westvereine' },
+    rlsw: { region: 'suedwest', ol: 'olsw', name: 'Regionalliga Südwest', short: 'RL Südwest', area: 'Südwestvereine' }
+  };
+  /* Simulierte Ligen (Regionalligen fehlen in Spielstaenden aelterer Versionen) */
+  FM.SIM = ['bl', 'bl2', 'l3', 'rlw', 'rlsw'];
   FM.simLeagues = function (state) { return FM.SIM.filter(function (l) { return state.leagues[l] && state.leagues[l].clubs.length; }); };
   FM.isSimLeague = function (lid) { return FM.SIM.indexOf(lid) >= 0; };
-  FM.isWest = function (club) { return !!club && club.region === 'west'; };
+  FM.isRegional = function (lid) { return !!FM.REGIONAL[lid]; };
+  FM.isOberliga = function (lid) { return lid === 'olw' || lid === 'olsw'; };
+  /* Halbprofi-/Amateurbereich: alle Ligen unterhalb der 3. Liga */
+  FM.isAmateurLeague = function (lid) { return (FM.LEVEL[lid] || 5) >= 4; };
+  FM.regionals = function (state) {
+    return Object.keys(FM.REGIONAL).filter(function (l) { return state.leagues[l] && state.leagues[l].clubs.length; });
+  };
+  /* Regionalliga, in die ein Verein aus der 3. Liga absteigt: die simulierte Staffel seiner
+     Region, sonst der Pool der uebrigen Staffeln */
+  FM.regionLeague = function (state, club) {
+    var regs = FM.regionals(state);
+    for (var i = 0; i < regs.length; i++) if (club && club.region === FM.REGIONAL[regs[i]].region) return regs[i];
+    return 'rl';
+  };
   FM.CUP_ROUNDS = ['1. Runde', '2. Runde', 'Achtelfinale', 'Viertelfinale', 'Halbfinale', 'Finale'];
   FM.CUP_PRIZE = [210000, 420000, 840000, 1700000, 3400000, 4300000];
 
@@ -90,7 +108,7 @@
     if (leagueId === 'bl') {
       return pickDates(frame.pre, rounds, true, cupAvoid).concat(pickDates(frame.post.slice(1), rounds, false, cupAvoid));
     }
-    if (leagueId === 'bl2' || leagueId === 'rlw') {
+    if (leagueId === 'bl2' || FM.isRegional(leagueId)) {
       return pickDates(frame.pre, rounds, false, cupAvoid).concat(pickDates(frame.post.slice(1), rounds, false, cupAvoid));
     }
     return pickDates(frame.pre, rounds, false, cupAvoid).concat(pickDates(frame.post, rounds, false, cupAvoid));
@@ -131,34 +149,37 @@
   };
 
   /* ---------- DFB-Pokal ---------- */
-  /* Teilnehmer: alle Profivereine (ohne Reserveteams), vier Regionalligisten anderer Staffeln
-     und die bestplatzierten Vereine der Regionalliga West der Vorsaison (stellvertretend fuer
-     die Landespokalsieger), bis 64 Teams erreicht sind. */
+  /* Teilnehmer: alle Profivereine (ohne Reserveteams), die staerksten Regionalligisten der
+     nicht simulierten Staffeln und abwechselnd die bestplatzierten Vereine der simulierten
+     Regionalligen der Vorsaison (stellvertretend fuer die Landespokalsieger), bis 64 Teams. */
   FM.cupEligible = function (state) {
     var ids = [];
     function first(cid) { return !state.clubs[cid].reserve; }
     ['bl', 'bl2', 'l3'].forEach(function (lid) {
       state.leagues[lid].clubs.forEach(function (cid) { if (first(cid)) ids.push(cid); });
     });
+    var regs = FM.regionals(state);
     var others = state.leagues.rl.clubs.filter(first).sort(function (a, b) { return state.clubs[b].rep - state.clubs[a].rep; });
-    ids = ids.concat(others.slice(0, state.leagues.rlw ? 4 : others.length));
-    if (state.leagues.rlw && ids.length < 64) {
-      ids = ids.concat(FM.rlwCupOrder(state).slice(0, 64 - ids.length));
+    ids = ids.concat(others.slice(0, regs.length === 0 ? others.length : regs.length === 1 ? 4 : 2));
+    var orders = regs.map(function (lid) { return FM.regCupOrder(state, lid); });
+    for (var k = 0; ids.length < 64 && orders.some(function (o) { return o.length > k; }); k++) {
+      orders.forEach(function (o) { if (ids.length < 64 && o[k]) ids.push(o[k]); });
     }
     return ids;
   };
 
-  /* Reihenfolge der Westvereine fuer die Pokalplaetze: Platzierung der Vorsaison, Absteiger aus
+  /* Reihenfolge einer Staffel fuer die Pokalplaetze: Platzierung der Vorsaison, Absteiger aus
      der 3. Liga zuerst, Aufsteiger aus der Oberliga zuletzt; in der ersten Saison nach Staerke. */
-  FM.rlwCupOrder = function (state) {
-    var seed = state.rlwSeed || null;
+  FM.regCupOrder = function (state, lid) {
+    var seeds = state.regSeed || (state.rlwSeed ? { rlw: state.rlwSeed } : {});
+    var seed = seeds[lid] || null;
     function key(cid) {
       var c = state.clubs[cid];
       if (seed && seed[cid] != null) return seed[cid];
       if (seed) return c.prevLeague === 'l3' ? 0 : 50;
       return 30 - FM.teamStrength(state, cid) / 3 - c.rep / 20;
     }
-    return state.leagues.rlw.clubs.filter(function (cid) { return !state.clubs[cid].reserve; })
+    return state.leagues[lid].clubs.filter(function (cid) { return !state.clubs[cid].reserve; })
       .sort(function (a, b) { return key(a) - key(b); });
   };
 

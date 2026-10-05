@@ -68,7 +68,8 @@
     bl2: function (pos) { return pos <= 2 ? 'up' : pos === 3 ? 'poUp' : pos === 16 ? 'po' : pos >= 17 ? 'down' : ''; },
     l3: function (pos) { return pos <= 2 ? 'up' : pos === 3 ? 'poUp' : pos >= 17 ? 'down' : ''; },
     // Meister steigt auf; wie viele absteigen, haengt von den Absteigern aus der 3. Liga ab (meist 2–4)
-    rlw: function (pos) { return pos === 1 ? 'up' : pos >= 16 ? 'down' : ''; }
+    rlw: function (pos) { return pos === 1 ? 'up' : pos >= 16 ? 'down' : ''; },
+    rlsw: function (pos) { return pos === 1 ? 'up' : pos >= 16 ? 'down' : ''; }
   };
   FM.ZONE_LABEL = {
     cl: 'Champions League', el: 'Europa League', ecl: 'Conference League', po: 'Relegation', down: 'Abstieg',
@@ -119,7 +120,7 @@
     } else if (state.cup && state.cup.byes.indexOf(state.user.club) >= 0) {
       FM.addNews(state, { type: 'cup', title: 'DFB-Pokal: Freilos', body: 'Dein Team steigt erst in der 2. Runde in den DFB-Pokal ein.' });
     } else if (state.cup && state.cup.alive.indexOf(state.user.club) < 0 && !state.clubs[state.user.club].reserve) {
-      FM.addNews(state, { type: 'cup', title: 'DFB-Pokal: nicht qualifiziert', body: 'Aus der Regionalliga West spielen die bestplatzierten Vereine der Vorsaison im DFB-Pokal. Dein Team ist diesmal nicht dabei – eine starke Saison sichert den Platz im nächsten Jahr.' });
+      FM.addNews(state, { type: 'cup', title: 'DFB-Pokal: nicht qualifiziert', body: 'Aus der ' + (FM.COMP_NAME[state.clubs[state.user.club].league] || 'Regionalliga') + ' spielen die bestplatzierten Vereine der Vorsaison im DFB-Pokal. Dein Team ist diesmal nicht dabei – eine starke Saison sichert den Platz im nächsten Jahr.' });
     }
   };
 
@@ -462,9 +463,9 @@
   }
   FM.eligibleUp = eligibleUp;
 
-  /* Aufstiegsberechtigte der Regionalliga West: Reserveteams nur, wenn die Profis hoeher als
+  /* Aufstiegsberechtigte einer Regionalliga: Reserveteams nur, wenn die Profis hoeher als
      in der 3. Liga spielen */
-  function rlwEligible(state, table) {
+  function regEligible(state, table) {
     return table.map(function (r) { return r.club; }).filter(function (cid) {
       var c = state.clubs[cid];
       if (!c.reserve) return true;
@@ -472,7 +473,7 @@
       return !first || FM.levelOf(state, first.id) < 3;
     });
   }
-  FM.rlwEligible = rlwEligible;
+  FM.regEligible = regEligible;
 
   function seasonComplete(state) {
     var sims = FM.simLeagues(state);
@@ -619,42 +620,59 @@
     down2.forEach(function (c) { move(c, 'l3'); });
     up3.forEach(function (c) { move(c, 'bl2'); });
 
-    // 2. Unterbau: Westvereine steigen in die simulierte Regionalliga West ab, die anderen in
-    //    den Pool der uebrigen Regionalligen. Vier Aufsteiger in die 3. Liga: der Westmeister
-    //    plus drei aus den anderen Staffeln (fehlen dort Kandidaten, rueckt der Westen nach).
-    var hasW = !!(state.leagues.rlw && state.leagues.rlw.clubs.length);
-    var tW = hasW ? FM.table(state, 'rlw', { noCache: true }) : null;
-    var down3W = hasW ? down3.filter(function (c) { return FM.isWest(state.clubs[c]); }) : [];
-    var down3O = down3.filter(function (c) { return down3W.indexOf(c) < 0; });
-    var candW = hasW ? rlwEligible(state, tW) : [];
-    var upW = candW.slice(0, 1);
-    var needOther = down3.length - upW.length;
+    // 2. Unterbau: Absteiger aus der 3. Liga gehen in die simulierte Regionalliga ihrer Region
+    //    (West, Suedwest), die anderen in den Pool der uebrigen Staffeln. Vier Aufsteiger in die
+    //    3. Liga: die Meister der simulierten Staffeln, der Rest aus dem Pool (fehlen dort
+    //    Kandidaten, ruecken die Zweiten, Dritten ... der simulierten Staffeln abwechselnd nach).
+    var regs = FM.regionals(state), REG = {};
+    regs.forEach(function (lid) {
+      var t = FM.table(state, lid, { noCache: true });
+      REG[lid] = { t: t, cand: regEligible(state, t), up: [], upOL: [], down: [] };
+      REG[lid].in3 = down3.filter(function (c) { return FM.regionLeague(state, state.clubs[c]) === lid; });
+      REG[lid].up = REG[lid].cand.slice(0, 1);
+    });
+    var down3O = down3.filter(function (c) { return FM.regionLeague(state, state.clubs[c]) === 'rl'; });
+    function nUpReg() { return regs.reduce(function (n, lid) { return n + REG[lid].up.length; }, 0); }
+    var needOther = Math.max(0, down3.length - nUpReg());
     var upRL = byStrength(state.leagues.rl.clubs.filter(function (c) { return !state.clubs[c].reserve; })).slice(0, needOther);
-    if (upRL.length < needOther) upW = upW.concat(candW.slice(1, 1 + needOther - upRL.length));
-    var upOL = [], downW = [];
-    if (hasW) {
-      state.rlwSeed = {};
-      tW.forEach(function (r, i) { state.rlwSeed[r.club] = i + 1; });
-      var olPool = byStrength(state.leagues.olw.clubs.filter(function (c) {
+    for (var k = 1; upRL.length + nUpReg() < down3.length && k < 20; k++) {
+      regs.forEach(function (lid) {
+        if (upRL.length + nUpReg() < down3.length && REG[lid].cand[k]) REG[lid].up.push(REG[lid].cand[k]);
+      });
+    }
+    state.regSeed = state.regSeed || {};
+    delete state.rlwSeed;
+    regs.forEach(function (lid) {
+      var r = REG[lid], ol = FM.REGIONAL[lid].ol;
+      state.regSeed[lid] = {};
+      r.t.forEach(function (row, i) { state.regSeed[lid][row.club] = i + 1; });
+      var olPool = byStrength((state.leagues[ol] ? state.leagues[ol].clubs : []).filter(function (c) {
         var club = state.clubs[c], first = club.reserve && state.clubs[club.reserve];
         return !first || FM.levelOf(state, first.id) < 4;
       }));
-      upOL = olPool.slice(0, 2);
-      // Liga bleibt bei 18 Vereinen: Absteiger = Zugaenge minus Aufsteiger
-      while (down3W.length + upOL.length - upW.length < 0 && olPool.length > upOL.length) upOL.push(olPool[upOL.length]);
-      var nDown = Math.max(0, down3W.length + upOL.length - upW.length);
-      downW = tW.map(function (r) { return r.club; }).filter(function (c) { return upW.indexOf(c) < 0; }).reverse().slice(0, nDown);
-    }
-    down3W.forEach(function (c) { move(c, 'rlw'); });
+      r.upOL = olPool.slice(0, 2);
+      // Staffel bleibt bei 18 Vereinen: Absteiger = Zugaenge minus Aufsteiger
+      while (r.in3.length + r.upOL.length - r.up.length < 0 && olPool.length > r.upOL.length) r.upOL.push(olPool[r.upOL.length]);
+      var nDown = Math.max(0, r.in3.length + r.upOL.length - r.up.length);
+      r.down = r.t.map(function (row) { return row.club; }).filter(function (c) { return r.up.indexOf(c) < 0; }).reverse().slice(0, nDown);
+    });
     down3O.forEach(function (c) { move(c, 'rl'); });
-    upW.forEach(function (c) { move(c, 'l3'); });
     upRL.forEach(function (c) { move(c, 'l3'); });
-    downW.forEach(function (c) { move(c, 'olw'); });
-    upOL.forEach(function (c) { move(c, 'rlw'); });
+    regs.forEach(function (lid) {
+      var r = REG[lid], ol = FM.REGIONAL[lid].ol;
+      r.in3.forEach(function (c) { move(c, lid); });
+      r.up.forEach(function (c) { move(c, 'l3'); });
+      r.down.forEach(function (c) { move(c, ol); });
+      r.upOL.forEach(function (c) { move(c, lid); });
+    });
+    function all(key) { return regs.reduce(function (a, lid) { return a.concat(REG[lid][key]); }, []); }
+    var upReg = all('up'), upOL = all('upOL'), downReg = all('down');
 
     // Reserveteams duerfen nicht in derselben oder einer hoeheren Liga als die Profis spielen
     function lowerOf(c) {
-      return { bl: 'bl2', bl2: 'l3', l3: hasW && FM.isWest(c) ? 'rlw' : 'rl', rlw: 'olw' }[c.league] || null;
+      if (c.league === 'l3') return FM.regionLeague(state, c);
+      if (FM.isRegional(c.league)) return FM.REGIONAL[c.league].ol;
+      return { bl: 'bl2', bl2: 'l3' }[c.league] || null;
     }
     Object.keys(state.clubs).forEach(function (cid) {
       var c = state.clubs[cid], first = c.reserve && state.clubs[c.reserve];
@@ -667,9 +685,10 @@
         if (swap && FM.isSimLeague(from)) move(swap, from);
       }
     });
-    summary.moves.up = upBL.concat(up3, upW, upRL, upOL);
-    summary.moves.down = downBL.concat(down2, down3, downW);
-    summary.groups = { toBL: upBL, toBL2: downBL.concat(up3), toL3: down2.concat(upW, upRL), toRL: down3O, toRLW: down3W.concat(upOL), toOL: downW };
+    summary.moves.up = upBL.concat(up3, upReg, upRL, upOL);
+    summary.moves.down = downBL.concat(down2, down3, downReg);
+    summary.groups = { toBL: upBL, toBL2: downBL.concat(up3), toL3: down2.concat(upReg, upRL), toRL: down3O, toOL: downReg };
+    regs.forEach(function (lid) { summary.groups['to_' + lid] = REG[lid].in3.concat(REG[lid].upOL); });
 
     // Europapokal-Praemien & Reputation
     tBL.forEach(function (r, i) {
@@ -754,6 +773,8 @@
           var mates = FM.clubPlayers(state, p.club).sort(function (a, b) { return b.ovr - a.ovr; });
           var rank = mates.indexOf(p) + 1;
           var keep = rank <= 6 && p.age <= 34 ? 0.95 : p.age <= 30 ? (rank <= 18 ? 0.85 : 0.55) : p.age <= 33 ? (rank <= 14 ? 0.65 : 0.3) : 0.25;
+          // Verein im Minus: Sparkurs, nur Leistungstraeger werden gehalten
+          if (club.money < 0 && rank > 11) keep *= 0.5;
           if (R.chance(keep)) p.contract = { until: y + 1 + R.int(1, p.age >= 31 ? 1 : 3), wage: FM.wageDemand(p, club.league) };
           else { removeFromClub(state, p); state.free.push(p.id); }
         }
@@ -782,7 +803,7 @@
     var youthUser = [];
     Object.keys(state.clubs).forEach(function (cid) {
       var club = state.clubs[cid];
-      var amateur = club.league === 'rl' || club.league === 'rlw' || club.league === 'olw';
+      var amateur = FM.isAmateurLeague(club.league);
       var n = (club.reserve ? R.int(2, 3) : amateur ? R.int(1, 2) : R.int(2, club.rep > 70 ? 4 : 3)) + FM.facYouthExtra(club);
       for (var i = 0; i < n; i++) {
         var p = FM.makeYouth(club, state);

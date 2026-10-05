@@ -19,9 +19,9 @@
     a: 'Oberliga-Spieler (fiktiv)'
   };
 
-  var LEAGUE_WAGE = { bl: 1, bl2: 0.72, l3: 0.5, rlw: 0.3, rl: 0.32, olw: 0.15 };
+  var LEAGUE_WAGE = { bl: 1, bl2: 0.72, l3: 0.5, rlw: 0.3, rlsw: 0.3, rl: 0.32, olw: 0.15, olsw: 0.15 };
   /* Mindestgehalt: Profis ab 25.000 EUR, in der Regionalliga Halbprofis, darunter Amateure */
-  var WAGE_FLOOR = { bl: 25000, bl2: 25000, l3: 25000, rlw: 12000, rl: 20000, olw: 6000 };
+  var WAGE_FLOOR = { bl: 25000, bl2: 25000, l3: 25000, rlw: 12000, rlsw: 12000, rl: 20000, olw: 6000, olsw: 6000 };
 
   /* Kartenwerte aus Position + Gesamtwert ableiten (gleiche Logik wie im Build-Skript) */
   FM.deriveStats = function (pos, ovr, seedName) {
@@ -174,7 +174,7 @@
     opts = opts || {};
     // Reserveteams bekommen Talente aus der Akademie des Profivereins
     var src = club.reserve && state.clubs[club.reserve] ? state.clubs[club.reserve] : club;
-    var lvl = { bl: [54, 64], bl2: [49, 60], l3: [46, 57], rlw: [42, 52], rl: [42, 52], olw: [40, 49] }[src.league] || [46, 56];
+    var lvl = { bl: [54, 64], bl2: [49, 60], l3: [46, 57], rlw: [42, 52], rlsw: [42, 52], rl: [42, 52], olw: [40, 49], olsw: [40, 49] }[src.league] || [46, 56];
     var ovr = R.int(lvl[0], lvl[1]) + Math.round((src.rep - 60) / 15) + FM.facYouthOvr(src) - (src !== club ? 3 : 0);
     var age = opts.age || R.int(16, 18);
     var pos = opts.pos || R.weighted(['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST'],
@@ -202,7 +202,7 @@
     var potGain = (talent > 0.97 ? R.int(26, 34) : talent > 0.85 ? R.int(18, 26) : R.int(8, 20)) + FM.facYouthPot(src);
     p.pot = FM.clamp(p.ovr + potGain, p.ovr, 93);
     p.s = FM.deriveStats(pos, p.ovr, name);
-    p.contract = { until: state.season.year + 3, wage: Math.max(club.league === 'rlw' || club.league === 'olw' ? 8000 : 20000, Math.round(FM.wageDemand(p, club.league) * 0.6 / 5000) * 5000) };
+    p.contract = { until: state.season.year + 3, wage: Math.max(FM.isRegional(club.league) || FM.isOberliga(club.league) ? 8000 : 20000, Math.round(FM.wageDemand(p, club.league) * 0.6 / 5000) * 5000) };
     return p;
   };
 

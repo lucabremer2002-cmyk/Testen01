@@ -1,7 +1,6 @@
 #src mixed
 | 1 | Manuel Riemann | GK | 69 |
 | 2 | Mika Schroers | ST | 67 |
-| 3 | Gianluca Gaudino | CM | 64 |
 #est
 Tom Hendriks | GK | 58 | 24
 Stefan Bajic | GK | 60 | 24

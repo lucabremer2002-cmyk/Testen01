@@ -6,7 +6,6 @@ Matthis Harsman | GK | 56 |
 Alexander Höck | CB | 58 | 
 Dennis-Adam Gorka | CB | 58 | 
 Viktor Miftaraj | LB | 57 | 
-Tim Corsten | RB | 54 | 
 Maxim Gresler | CB | 58 | 
 Leon Tia | CB | 56 | 
 Marius Bauer | LB | 56 | 

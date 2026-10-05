@@ -1,7 +1,7 @@
-# Matchplan – Fußballmanager 1. bis 3. Liga und Regionalliga West
+# Matchplan – Fußballmanager 1. bis 3. Liga und Regionalligen West und Südwest
 
-Ein Fußballmanager für den Browser mit **Bundesliga, 2. Bundesliga, 3. Liga und
-Regionalliga West**
+Ein Fußballmanager für den Browser mit **Bundesliga, 2. Bundesliga, 3. Liga,
+Regionalliga West und Regionalliga Südwest**
 in der Zusammensetzung der Saison **2026/27**, mit den **echten Kadern** und den
 Spielerwerten aus **EA SPORTS FC 27**. Reines HTML, CSS und JavaScript – ohne
 Build-Schritt, ohne Server.
@@ -41,7 +41,8 @@ python3 tools/bundle.py dist/matchplan.html
   Verlängerung, Elfmeterschießen und Finale in Berlin
 - **Relegation** (Hin- und Rückspiel) zwischen 1./2. und 2./3. Liga
 - Auf- und Abstieg; Reserveteams dürfen nicht aufsteigen; Absteiger aus der
-  3. Liga wechseln in einen Regionalliga-Pool (1860, Aue, Ulm, Schweinfurt …)
+  3. Liga gehen in die Regionalliga ihrer Region (West, Südwest) oder in einen
+  Pool der übrigen Staffeln (1860, Aue, Schweinfurt …)
 - Europapokal-Plätze mit Prämien, Torschützenlisten, Meister, Pokalsieger
 
 **Spieltag**
@@ -90,7 +91,7 @@ python3 tools/bundle.py dist/matchplan.html
 ## Regionalliga West
 
 Als Bonus ist die **Regionalliga West 2026/27** komplett simuliert: 18 Vereine
-mit echten Kadern (465 Spieler), u. a. Rot-Weiß Oberhausen, FC Gütersloh,
+mit echten Kadern (446 Spieler), u. a. Rot-Weiß Oberhausen, FC Gütersloh,
 Sportfreunde Siegen, 1. FC Bocholt, Bonner SC, die Zweitvertretungen von Dortmund,
 Schalke, Köln, Gladbach, Bochum und Paderborn sowie die Aufsteiger Westfalia Rhynern,
 SG Wattenscheid, SV Bergisch Gladbach und VfB 03 Hilden.
@@ -122,6 +123,42 @@ SG Wattenscheid, SV Bergisch Gladbach und VfB 03 Hilden.
   haben Heimrecht, gegen Klubs aus höheren Ligen strömen deutlich mehr Zuschauer.
 - **Karriere von unten**: Wer im Westen startet, beginnt mit kleinem Etat, sucht
   Schnäppchen unter den Vereinslosen und kann sich bis in die Bundesliga hocharbeiten.
+
+## Regionalliga Südwest
+
+Ebenfalls komplett simuliert: die **Regionalliga Südwest 2026/27** mit 18 Vereinen
+und echten Kadern (473 Spieler) – Kickers Offenbach, der Absteiger SSV Ulm 1846,
+SV Sandhausen, Stuttgarter Kickers, KSV Hessen Kassel, FC 08 Homburg, Eintracht Trier,
+SGV Heilbronn-Freiberg, FSV Frankfurt, TSV Steinbach Haiger, VfR Aalen,
+FC-Astoria Walldorf, SG Barockstadt Fulda-Lehnerz, VfR Mannheim und die
+Zweitvertretungen von Freiburg, Mainz, Frankfurt und Kaiserslautern.
+
+- **Die stärkste Staffel**: Mehrere Ex-Zweit- und Drittligisten machen den Südwesten
+  teurer und ausgeglichener als den Westen. Die Spitzenteams liegen auf
+  Drittliga-Niveau, Offenbach, Ulm und Sandhausen starten als Favoriten.
+- **Kader**: sport.de (Offenbach, Ulm, Stuttgarter Kickers, Sandhausen), weltfussball
+  und kicker (u. a. Steinbach Haiger, FSV Frankfurt, Heilbronn-Freiberg, Reserveteams),
+  die kicker-Liste der Sommer-Zugänge sowie Vereinsmeldungen. Für Kassel, Homburg,
+  Trier und Aalen ist der Kader 2025/26 um die Transfers 2026/27 bereinigt. Spieler,
+  die schon bei einem anderen Verein im Datensatz stehen, bleiben dort – außer bei
+  belegten Sommerwechseln (Lohkemper nach Sandhausen, Gaudino nach Aalen, Corsten
+  nach Trier). Werte geschätzt (≈) wie im Westen.
+- **Zuschauer und Geld**: Offenbach ≈ 7.200, Ulm ≈ 5.000, Stuttgarter Kickers ≈ 4.300,
+  Trier ≈ 3.600 – Reserveteams und Walldorf deutlich weniger. Fiktive Sponsorentöpfe
+  von 100.000 € (Lautern II) bis 500.000 € (Offenbach mit Aufstiegsambitionen).
+- **Auf- und Abstieg**: Wie im Westen steigt der Meister direkt auf; Südwestvereine
+  aus der 3. Liga (z. B. Waldhof, Saarbrücken, Wiesbaden, Großaspach, die Reserven
+  von Stuttgart und Hoffenheim) steigen in den Südwesten ab. Oberliga-Pool:
+  TSV Schott Mainz, Wormatia Worms, TuS Koblenz, FK Pirmasens (Kader fiktiv).
+- **Vier Aufsteiger in die 3. Liga**: die Meister West und Südwest plus zwei aus den
+  übrigen Staffeln. Fehlen dort Kandidaten, rücken abwechselnd die Zweiten der
+  simulierten Staffeln nach.
+- **DFB-Pokal**: Die freien Plätze werden abwechselnd an die bestplatzierten Vereine
+  aus West und Südwest vergeben (dazu zwei Vereine der übrigen Staffeln).
+- **Zweitvertretungen**: Gerät eine Reserve ins Minus (etwa nach dem Abstieg mit
+  Drittliga-Gehältern), gleicht der Profiverein den Fehlbetrag aus.
+- Ältere Spielstände laufen ohne die Südweststaffel weiter; für die neue Liga bitte
+  eine neue Karriere starten.
 
 ## Budget des Vorstands
 
@@ -196,15 +233,15 @@ Jeder Spieler trägt deshalb eine Herkunftskennung, die im Spiel sichtbar ist:
 
 | Kennung | Bedeutung | Spieler |
 | --- | --- | ---: |
-| – | FC 27: Gesamtwert **und** alle sechs Kartenwerte | 759 |
-| – | FC 27: Gesamtwert, Kartenwerte aus der Position abgeleitet | 90 |
+| – | FC 27: Gesamtwert **und** alle sechs Kartenwerte | 758 |
+| – | FC 27: Gesamtwert, Kartenwerte aus der Position abgeleitet | 89 |
 | ²⁶ | Letzter verfügbarer FC-26-Datenstand (Freiburg, Stuttgart, Hoffenheim, Wolfsburg; bekannte FC-27-Änderungen eingearbeitet) | 98 |
-| ≈ | Echter Spieler im Kader 2026/27, Wert geschätzt | 507 |
+| ≈ | Echter Spieler im Kader 2026/27, Wert geschätzt (u. a. alle Regionalligisten) | 1.409 |
 | Akademie | Fiktive Nachwuchsspieler aus der Vereinsakademie | – |
 
 Nach Ligen: In der **Bundesliga** sind 405 von 492 Spielern direkt aus FC 27
 belegt (dazu 72 FC-26-Werte), in der 2. Bundesliga 242 von 432, in der
-3. Liga 202 von 465. Nahezu vollständig mit FC-27-Kartenwerten sind u. a.
+3. Liga 200 von 463. Nahezu vollständig mit FC-27-Kartenwerten sind u. a.
 Bayern, Dortmund, Leverkusen, Leipzig, Frankfurt, Bremen, Augsburg, Union,
 Gladbach, Köln, HSV, Schalke, Elversberg, Paderborn, St. Pauli, Hannover,
 Bochum, Dresden, Kiel, Braunschweig, Cottbus, Duisburg, Viktoria Köln,
@@ -254,4 +291,5 @@ js/vendor/              lz-string
 data-src/               Rohdaten und Build-Skript für js/data.js
 tools/bundle.py         Bündelt alles zu einer einzigen HTML-Datei
 data-src/rlw_squads.py  Kader der Regionalliga West (erzeugt raw/rlw_*.md)
+data-src/rlsw_squads.py Kader der Regionalliga Südwest (erzeugt raw/rlsw_*.md)
 ```

@@ -18,7 +18,7 @@
     var s = UI.vs('start', { league: 'bl', club: null, name: '' });
     var data = window.FM_DATA;
     var clubs = data.clubs.filter(function (c) { return c.league === s.league; });
-    var nClubs = data.clubs.filter(function (c) { return ['bl', 'bl2', 'l3', 'rlw'].indexOf(c.league) >= 0; }).length;
+    var nClubs = data.clubs.filter(function (c) { return FM.isSimLeague(c.league); }).length;
     var strengths = {};
     clubs.forEach(function (c) { strengths[c.id] = dataStrength(c.id); });
     var vals = clubs.map(function (c) { return strengths[c.id]; });
@@ -57,15 +57,16 @@
       '<div class="start">' +
       '<header class="start-hero board"><div class="floodlights" aria-hidden="true"></div>' +
       '<div class="start-brand"><div class="eyebrow">Fußballmanager · Saison 2026/27</div><h1>Matchplan</h1>' +
-      '<p>Bundesliga, 2. Bundesliga, 3. Liga und Regionalliga West mit den echten Kadern 2026/27 und den Spielerwerten aus EA SPORTS FC 27. Du führst den Verein: Aufstellung, Taktik, Transfers mit dem Budget des Vorstands, Stadion und Nachwuchs. Wer es schwer mag, startet ganz unten im Westen.</p></div>' +
-      '<dl class="start-facts"><div><dt>Vereine</dt><dd>' + nClubs + '</dd></div><div><dt>Spieler</dt><dd>' + FM.fmtInt(nPlayers) + '</dd></div><div><dt>Ligen</dt><dd>4</dd></div></dl>' +
+      '<p>Bundesliga, 2. Bundesliga, 3. Liga sowie die Regionalligen West und Südwest mit den echten Kadern 2026/27 und den Spielerwerten aus EA SPORTS FC 27. Du führst den Verein: Aufstellung, Taktik, Transfers mit dem Budget des Vorstands, Stadion und Nachwuchs. Wer es schwer mag, startet ganz unten in der Regionalliga.</p></div>' +
+      '<dl class="start-facts"><div><dt>Vereine</dt><dd>' + nClubs + '</dd></div><div><dt>Spieler</dt><dd>' + FM.fmtInt(nPlayers) + '</dd></div><div><dt>Ligen</dt><dd>' + FM.SIM.filter(function (l) { return data.clubs.some(function (c) { return c.league === l; }); }).length + '</dd></div></dl>' +
       '</header>' +
       '<div class="start-body">' +
       (anySave ? '<section class="start-sec"><div class="sec-h"><h2>Spielstände</h2><label class="btn sm ghost">' + UI.icon('upload') + ' Datei importieren<input type="file" accept="application/json" id="import-file" hidden></label></div><div class="save-grid">' + saveHtml + '</div></section>' : '') +
-      '<section class="start-sec"><div class="sec-h"><div><h2>Neue Karriere</h2><p class="muted small">' + (s.league === 'rlw' ? 'Regionalliga West: Halbprofis, kleine Etats und ein Sponsorentopf für Transfers. Nur der Meister steigt auf; die besten Westvereine spielen im DFB-Pokal. Die Stärkewerte sind geschätzt, da EA SPORTS FC die Regionalliga nicht führt.' : 'Die Vereine sind nach Kaderstärke sortiert. Die Kasse bestimmt, wie viel Budget dir der Vorstand gibt.') + '</p></div>' +
+      '<section class="start-sec"><div class="sec-h"><div><h2>Neue Karriere</h2><p class="muted small">' + (s.league === 'rlw' ? 'Regionalliga West: Halbprofis, kleine Etats und ein Sponsorentopf für Transfers. Nur der Meister steigt auf; die besten Westvereine spielen im DFB-Pokal. Die Stärkewerte sind geschätzt, da EA SPORTS FC die Regionalliga nicht führt.' :
+        s.league === 'rlsw' ? 'Regionalliga Südwest: die stärkste und teuerste Staffel – Traditionsvereine wie Offenbach, Ulm, Kassel und Trier, dazu vier Reserveteams. Nur der Meister steigt auf. Sponsorentopf für Transfers; die Stärkewerte sind geschätzt.' : 'Die Vereine sind nach Kaderstärke sortiert. Die Kasse bestimmt, wie viel Budget dir der Vorstand gibt.') + '</p></div>' +
       (anySave ? '' : '<label class="btn sm ghost">' + UI.icon('upload') + ' Spielstand importieren<input type="file" accept="application/json" id="import-file" hidden></label>') + '</div>' +
       '<div class="filters"><div class="field" style="min-width:220px"><label for="mgr">Dein Name</label><input class="input" id="mgr" maxlength="40" placeholder="z. B. Alex Weber" value="' + esc(s.name) + '"></div>' +
-      '<div class="field"><label>Liga</label>' + UI.seg('league', [['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rlw', 'Regionalliga West']], s.league, 'start') + '</div></div>' +
+      '<div class="field"><label>Liga</label>' + UI.seg('league', [['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rlw', 'RL West'], ['rlsw', 'RL Südwest']], s.league, 'start') + '</div></div>' +
       '<div class="club-grid">' + grid + '</div>' +
       '<div class="start-go"><div class="small">' + (sel ? '<span class="muted">Dein Verein:</span> <b>' + esc(sel.name) + '</b>' : '<span class="muted">Wähle einen Verein aus.</span>') + '</div>' +
       '<button class="btn club lg" data-action="startGame"' + (sel ? '' : ' disabled') + '>Karriere starten ' + UI.icon('next') + '</button></div></section>' +
@@ -467,14 +468,17 @@
       '<div class="grid g3">' + tile('Abschlussplatz', (u.pos || '–') + '.', esc(FM.COMP_NAME[u.league] || '')) + tile('Saisonziel', 'Platz ' + u.target, esc(u.expect)) +
       tile('Bewertung', ok ? 'Ziel erreicht' : 'Ziel verfehlt', 'Vorstand: ' + FM.confLabel(u.conf)) + '</div>' + banner +
       (u.cupWinner ? '<div class="note good"><b>DFB-Pokalsieger!</b> Dein Team holt den Pott.</div>' : '') +
-      '<div class="card"><div class="list">' + champ('bl') + champ('bl2') + champ('l3') + champ('rlw') +
+      '<div class="card"><div class="list">' + champ('bl') + champ('bl2') + champ('l3') + champ('rlw') + champ('rlsw') +
       '<div class="li">' + UI.badge(st.clubs[sm.awards.cup], 30) + '<div class="grow"><div class="strong">' + esc(st.clubs[sm.awards.cup].name) + '</div><div class="muted small">DFB-Pokalsieger</div></div></div></div></div>' +
       (sm.groups ? '<div class="grid g2">' +
         '<div><h4>Neu in der Bundesliga</h4><p class="dim small" style="margin-top:4px">' + names(sm.groups.toBL) + '</p></div>' +
         '<div><h4>Neu in der 2. Bundesliga</h4><p class="dim small" style="margin-top:4px">' + names(sm.groups.toBL2) + '</p></div>' +
         '<div><h4>Neu in der 3. Liga</h4><p class="dim small" style="margin-top:4px">' + names(sm.groups.toL3) + '</p></div>' +
-        (sm.groups.toRLW ? '<div><h4>Neu in der Regionalliga West</h4><p class="dim small" style="margin-top:4px">' + (names(sm.groups.toRLW) || '–') + '</p></div>' +
-          '<div><h4>Abstieg in die Oberliga</h4><p class="dim small" style="margin-top:4px">' + (names(sm.groups.toOL) || '–') + '</p></div>' : '') +
+        Object.keys(FM.REGIONAL).map(function (lid) {
+          var g = sm.groups['to_' + lid] || (lid === 'rlw' ? sm.groups.toRLW : null);
+          return g ? '<div><h4>Neu in der ' + esc(FM.REGIONAL[lid].name) + '</h4><p class="dim small" style="margin-top:4px">' + (names(g) || '–') + '</p></div>' : '';
+        }).join('') +
+        (sm.groups.toOL ? '<div><h4>Abstieg in die Oberliga</h4><p class="dim small" style="margin-top:4px">' + (names(sm.groups.toOL) || '–') + '</p></div>' : '') +
         '<div><h4>In andere Regionalligen</h4><p class="dim small" style="margin-top:4px">' + (names(sm.groups.toRL) || '–') + '</p></div></div>' :
       '<div class="grid g2"><div><h4>Aufsteiger</h4><p class="dim small" style="margin-top:4px">' + names(sm.moves.up) + '</p></div><div><h4>Absteiger</h4><p class="dim small" style="margin-top:4px">' + names(sm.moves.down) + '</p></div></div>') +
       '<p class="muted small">Verträge sind ausgelaufen, Spieler sind ein Jahr älter geworden, die Akademie hat neue Talente geschickt. Das Transferfenster ist geöffnet.</p>' +

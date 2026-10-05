@@ -3,9 +3,9 @@
   'use strict';
   var FM = window.FM, UI = FM.ui, esc = FM.esc, D = FM.date;
 
-  var ALL_TABS = [['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rlw', 'RL West']];
+  var ALL_TABS = [['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rlw', 'RL West'], ['rlsw', 'RL Südwest']];
   var LEAGUE_TABS = ALL_TABS;
-  function tabs() { LEAGUE_TABS = ALL_TABS.filter(function (t) { return FM.state.leagues[t[0]]; }); return LEAGUE_TABS; }
+  function tabs() { LEAGUE_TABS = ALL_TABS.filter(function (t) { var l = FM.state.leagues[t[0]]; return l && l.clubs.length; }); return LEAGUE_TABS; }
   function ownLeague(st) { var l = st.clubs[st.user.club].league; return FM.isSimLeague(l) ? l : 'l3'; }
 
   /* ================= Tabellen ================= */
@@ -25,11 +25,12 @@
       }).join('');
       var legendKeys = s.lid === 'bl' ? ['cl', 'el', 'ecl', 'po', 'down'] : ['up', 'poUp', 'po', 'down'];
       if (s.lid === 'l3') legendKeys = ['up', 'poUp', 'down'];
-      if (s.lid === 'rlw') legendKeys = ['up', 'down'];
+      var reg = FM.REGIONAL[s.lid];
+      if (reg) legendKeys = ['up', 'down'];
       var colors = { cl: '#2b67c9', el: '#e08a00', ecl: '#18a39a', up: 'var(--good)', poUp: '#7cc79c', po: '#f0a24a', down: 'var(--bad)' };
-      var legend = '<div class="legend">' + legendKeys.map(function (k) { return '<span><i style="background:' + colors[k] + '"></i>' + (s.lid === 'rlw' && k === 'up' ? 'Aufstieg in die 3. Liga' : s.lid === 'rlw' && k === 'down' ? 'Abstieg in die Oberliga' : FM.ZONE_LABEL[k]) + '</span>'; }).join('') +
+      var legend = '<div class="legend">' + legendKeys.map(function (k) { return '<span><i style="background:' + colors[k] + '"></i>' + (reg && k === 'up' ? 'Aufstieg in die 3. Liga' : reg && k === 'down' ? 'Abstieg in die Oberliga' : FM.ZONE_LABEL[k]) + '</span>'; }).join('') +
         (s.lid === 'l3' ? '<span class="muted">Reserveteams dürfen nicht aufsteigen</span>' : '') +
-        (s.lid === 'rlw' ? '<span class="muted">Die Zahl der Absteiger hängt davon ab, wie viele Westvereine aus der 3. Liga absteigen (meist zwei bis vier). Reserveteams steigen nur auf, wenn die Profis höher als in der 3. Liga spielen.</span>' : '') + '</div>';
+        (reg ? '<span class="muted">Die Zahl der Absteiger hängt davon ab, wie viele ' + reg.area + ' aus der 3. Liga absteigen (meist zwei bis vier). Reserveteams steigen nur auf, wenn die Profis höher als in der 3. Liga spielen.</span>' : '') + '</div>';
       var round = FM.playedRounds(st, s.lid);
       return '<div class="page-h"><div><h1>' + esc(st.leagues[s.lid].name) + '</h1><div class="sub">Saison ' + st.season.year + '/' + String(st.season.year + 1).slice(2) + ' · ' + round + '. Spieltag gespielt</div></div>' +
         '<div class="row wrap">' + UI.seg('lid', LEAGUE_TABS, s.lid) + UI.seg('mode', [['all', 'Gesamt'], ['home', 'Heim'], ['away', 'Auswärts']], s.mode) + '</div></div>' +
