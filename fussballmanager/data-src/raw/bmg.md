@@ -1,0 +1,26 @@
+| 1 | Tim Kleindienst | ST | 80 | 67 | 81 | 62 | 70 | 45 | 87 |
+| 2 | Franck Honorat | RM/RW | 80 | 82 | 77 | 79 | 79 | 54 | 63 |
+| 3 | Rocco Reitz | CM/CDM | 77 | 71 | 70 | 74 | 78 | 77 | 68 |
+| 4 | Robin Hack | LM/CAM/ST | 77 | 78 | 76 | 71 | 80 | 33 | 60 |
+| 5 | Moritz Nicolas | GK | 77 | 81 | 78 | 75 | 78 | 21 | 77 |
+| 6 | Nico Elvedi | CB | 76 | 70 | 39 | 62 | 63 | 77 | 76 |
+| 7 | Kevin Diks | CB/RB | 76 | 74 | 64 | 70 | 70 | 75 | 79 |
+| 8 | Florian Neuhaus | CM/CAM | 75 | 72 | 71 | 75 | 76 | 65 | 67 |
+| 9 | Philipp Sander | CDM/CM | 75 | 68 | 65 | 74 | 74 | 74 | 69 |
+| 10 | Joe Scally | RB/LB | 75 | 83 | 53 | 60 | 69 | 73 | 77 |
+| 11 | Haris Tabaković | ST | 75 | 60 | 74 | 52 | 67 | 33 | 80 |
+| 12 | Kevin Stöger | CAM/CM | 74 | 55 | 71 | 77 | 75 | 64 | 61 |
+| 13 | Jens Castrop | CM/RM/RB | 74 | 80 | 66 | 71 | 77 | 66 | 71 |
+| 14 | Shuto Machino | ST/LM | 73 | 81 | 73 | 68 | 73 | 40 | 73 |
+| 15 | Giovanni Reyna | CAM/RM | 73 | 67 | 71 | 72 | 77 | 38 | 66 |
+| 16 | Lukas Ullrich | LB/LM | 73 | 71 | 56 | 63 | 72 | 72 | 71 |
+| 18 | Marvin Friedrich | CB | 72 | 58 | 41 | 54 | 50 | 74 | 71 |
+| 19 | Nathan Ngoumou | RM/RW | 72 | 89 | 70 | 64 | 71 | 33 | 64 |
+| 20 | Kota Takai | CB | 72 | 62 | 32 | 55 | 62 | 72 | 69 |
+| 21 | Hugo Bolin | LM/LW | 71 | 76 | 70 | 65 | 75 | 46 | 58 |
+| 22 | Fabio Chiarodia | CB | 69 | 67 | 33 | 50 | 58 | 71 | 68 |
+| 23 | Jan Olschowsky | GK | 67 | 69 | 68 | 68 | 68 | 20 | 66 |
+| 24 | Tiago Pereira Cardoso | GK | 67 | 71 | 66 | 68 | 70 | 21 | 65 |
+| 25 | Tobias Sippel | GK | 64 | 60 | 60 | 74 | 62 | 47 | 64 |
+| 26 | Alejo Sarco | ST | 64 | 72 | 64 | 51 | 63 | 28 | 60 |
+| 27 | Niklas Swider | CM | 60 | 53 | 55 | 58 | 59 | 59 | 62 |

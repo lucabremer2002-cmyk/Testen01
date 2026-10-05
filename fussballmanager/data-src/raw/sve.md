@@ -1,0 +1,26 @@
+| 1 | Nicolas Kristof | GK | 72 | 72 | 72 | 71 | 73 | 28 | 71 |
+| 2 | Lukas Petkov | RM/CAM/RW | 71 | 81 | 68 | 66 | 70 | 56 | 63 |
+| 3 | Lukas Pinckert | CB/RB | 70 | 75 | 41 | 57 | 61 | 69 | 77 |
+| 4 | Tom Zimmerschied | LM/LW | 70 | 71 | 61 | 66 | 71 | 39 | 62 |
+| 5 | Maximilian Rohr | CB/CDM | 70 | 55 | 53 | 64 | 61 | 69 | 76 |
+| 6 | Immanuel Pherai | CAM/CM | 69 | 81 | 58 | 65 | 73 | 38 | 50 |
+| 7 | Florian Le Joncour | CB | 69 | 58 | 38 | 42 | 41 | 70 | 76 |
+| 8 | Łukasz Poręba | CM/CDM | 69 | 67 | 53 | 64 | 67 | 66 | 70 |
+| 9 | Bambasé Conté | ST/RM/CAM | 69 | 75 | 63 | 63 | 72 | 34 | 61 |
+| 10 | Jan Gyamerah | RB/LB/RM | 68 | 75 | 48 | 57 | 65 | 64 | 69 |
+| 11 | Lasse Günther | LB/LM | 68 | 85 | 62 | 63 | 68 | 60 | 63 |
+| 12 | Amara Condé | CM/CDM | 68 | 59 | 59 | 66 | 70 | 64 | 72 |
+| 13 | Felix Keidel | LB/CM | 68 | 74 | 48 | 69 | 69 | 62 | 62 |
+| 14 | Luca Schnellbacher | ST | 67 | 69 | 66 | 53 | 67 | 41 | 71 |
+| 15 | Frederik Schmahl | CM/CDM/CB | 67 | 63 | 59 | 67 | 68 | 57 | 67 |
+| 16 | Luca Pfeiffer | ST/CAM | 67 | 41 | 66 | 50 | 59 | 33 | 77 |
+| 17 | Carlo Sickinger | CDM/CB | 66 | 57 | 49 | 59 | 64 | 65 | 66 |
+| 18 | Manuel Feil | RM/RW | 65 | 60 | 55 | 62 | 71 | 42 | 51 |
+| 19 | David Mokwa | ST | 65 | 67 | 65 | 49 | 64 | 27 | 55 |
+| 20 | Nicholas Mickelson | RB/LB/RM | 65 | 72 | 33 | 52 | 61 | 60 | 69 |
+| 21 | Tim Boss | GK | 64 | 67 | 62 | 60 | 64 | 48 | 62 |
+| 22 | Jarzinho Malanga | LM/CAM/LW | 64 | 72 | 57 | 58 | 65 | 26 | 57 |
+| 23 | Frank Lehmann | GK | 61 | 63 | 62 | 65 | 60 | 33 | 57 |
+| 24 | Mohammad Mahmoud | ST | 59 | 55 | 59 | 50 | 55 | 28 | 65 |
+| 25 | Daniel Pantschenko | CDM/RB/CM | 58 | 67 | 37 | 53 | 58 | 56 | 52 |
+| 26 | Luis Seifert | CB | 58 | 56 | 32 | 42 | 46 | 60 | 60 |

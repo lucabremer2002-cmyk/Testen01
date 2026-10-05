@@ -1,0 +1,20 @@
+| 1 | Tolcay Ciğerci | CAM/CM | 70 | 63 | 66 | 69 | 75 | 43 | 67 |
+| 2 | Erik Engelhardt | ST/CAM | 67 | 69 | 65 | 53 | 63 | 39 | 85 |
+| 3 | Dominik Pelivan | CDM/CB | 66 | 62 | 51 | 63 | 58 | 64 | 75 |
+| 4 | Timmy Thiele | ST | 65 | 73 | 64 | 50 | 61 | 22 | 74 |
+| 5 | Axel Borgmann | CM/LB/LM | 65 | 71 | 56 | 64 | 64 | 60 | 73 |
+| 7 | Henry Rorig | RB/RM | 65 | 85 | 56 | 65 | 64 | 54 | 68 |
+| 8 | Leon Guwara | LB/LM | 64 | 80 | 39 | 54 | 62 | 59 | 69 |
+| 9 | Tim Campulka | CB | 64 | 37 | 31 | 48 | 47 | 65 | 68 |
+| 10 | King Samuel Manu | CB | 64 | 71 | 31 | 40 | 49 | 62 | 76 |
+| 11 | Moritz Hannemann | RW/RM | 64 | 77 | 61 | 58 | 62 | 48 | 70 |
+| 12 | Nyamekye Awortwie-Grant | CB | 64 | 75 | 27 | 41 | 48 | 62 | 75 |
+| 13 | Jonas Hofmann | CM/CDM | 63 | 68 | 53 | 63 | 63 | 61 | 57 |
+| 14 | Lukas Michelbrink | CM | 63 | 68 | 50 | 63 | 66 | 57 | 60 |
+| 15 | Dennis Slamar | CB/RB | 62 | 72 | 40 | 54 | 55 | 61 | 67 |
+| 16 | Justin Butler | ST/LW/RW/LM | 62 | 81 | 58 | 51 | 62 | 23 | 67 |
+| 17 | Jannis Boziaris | CAM/LW/CM | 62 | 81 | 59 | 60 | 65 | 36 | 53 |
+| 18 | Janis Juckel | CM | 61 | 67 | 50 | 59 | 62 | 57 | 64 |
+| 19 | Erik Tallig | CM/RW/RM | 61 | 67 | 59 | 63 | 66 | 51 | 53 |
+| 20 | Ted Tattermusch | ST | 61 | 65 | 58 | 48 | 59 | 50 | 74 |
+| 21 | Alexander Sebald | GK | 60 | 60 | 61 | 57 | 65 | 35 | 56 |

@@ -1,0 +1,27 @@
+| 1 | John Tolkin | LB/LM/LW | 71 | 83 | 48 | 68 | 69 | 61 | 67 |
+| 2 | Jonas Meffert | CDM/CM | 71 | 51 | 48 | 63 | 66 | 69 | 75 |
+| 3 | David Zec | CB | 71 | 65 | 40 | 49 | 58 | 70 | 77 |
+| 4 | Steven Skrzybski | CAM/ST/CM | 70 | 76 | 74 | 65 | 71 | 40 | 65 |
+| 5 | Giorgi Kvilitaia | ST | 70 | 63 | 68 | 59 | 68 | 36 | 74 |
+| 6 | Phil Harres | ST | 70 | 73 | 71 | 50 | 60 | 33 | 73 |
+| 7 | Jonas Therkelsen | CAM/LM/ST/CM | 69 | 84 | 61 | 64 | 74 | 53 | 67 |
+| 8 | Adrián Kaprálik | RM/ST/CAM/RW | 69 | 87 | 61 | 59 | 71 | 33 | 63 |
+| 9 | Timon Weiner | GK | 68 | 70 | 67 | 63 | 71 | 50 | 65 |
+| 10 | Lasse Rosenboom | RB/RM/RW | 68 | 70 | 47 | 58 | 61 | 67 | 74 |
+| 11 | Kasper Davidsen | CDM/CM | 68 | 63 | 48 | 60 | 64 | 62 | 73 |
+| 12 | Marko Ivezić | CB | 68 | 66 | 39 | 56 | 56 | 68 | 74 |
+| 13 | Hiroki Sekine | RB/RM | 68 | 73 | 31 | 54 | 61 | 65 | 73 |
+| 14 | Ivan Nekić | CB/RB | 68 | 67 | 36 | 49 | 52 | 67 | 74 |
+| 15 | Guillermo Balzi | CAM/CM | 67 | 67 | 65 | 62 | 68 | 54 | 60 |
+| 16 | Gyan de Regt | LW/ST/LM/CAM | 67 | 88 | 63 | 59 | 69 | 28 | 66 |
+| 17 | Faride Alidou | RM/LW/ST/RW | 66 | 81 | 59 | 58 | 70 | 28 | 63 |
+| 18 | Sebastian Schonlau | CB | 66 | 43 | 41 | 53 | 58 | 67 | 69 |
+| 19 | Taisei Abe | CDM/CM/CB | 65 | 70 | 50 | 57 | 65 | 60 | 68 |
+| 20 | Andu Kelati | CAM/CM | 65 | 62 | 56 | 64 | 69 | 33 | 38 |
+| 21 | Frederik Roslyng | CB | 64 | 59 | 27 | 41 | 48 | 64 | 67 |
+| 22 | Marcel Engelhardt | GK | 63 | 67 | 58 | 61 | 65 | 46 | 64 |
+| 23 | Ikem Ugoh | CDM/CM | 63 | 64 | 51 | 59 | 64 | 62 | 60 |
+| 24 | Marcus Müller | ST | 63 | 52 | 62 | 46 | 58 | 35 | 84 |
+| 25 | Hamza Muqaj | CM/CDM | 61 | 65 | 40 | 60 | 60 | 57 | 64 |
+| 26 | Lio Rothenhagen | GK | 60 | 62 | 59 | 57 | 62 | 17 | 59 |
+| 27 | Leon Parduzi | LB/LM | 59 | 71 | 34 | 53 | 63 | 56 | 51 |

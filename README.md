@@ -1,3 +1,10 @@
+# Testen01
+
+| Projekt | Ordner | Start |
+| --- | --- | --- |
+| **Matchplan – Fußballmanager 1.–3. Liga** (Saison 2026/27, EA SPORTS FC 27 Werte) | [`fussballmanager/`](fussballmanager/README.md) | `fussballmanager/index.html` öffnen |
+| Tetris | Wurzelverzeichnis | `index.html` öffnen |
+
 # Tetris
 
 Ein vollstaendiges Tetris fuer den Browser – reines HTML, CSS und JavaScript,
