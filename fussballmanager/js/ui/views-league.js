@@ -137,10 +137,10 @@
     var head = '<div class="modal-h">' + UI.badge(c, 44) + '<div class="grow"><h2>' + esc(c.name) + '</h2><div class="muted small">' + esc(st.leagues[c.league].name) + (pos ? ' · Platz ' + pos : '') + ' · ' + esc(c.stadium) + ' (' + FM.fmtInt(c.cap) + ')</div></div>' +
       '<button class="btn ghost icon" data-action="closeModal" aria-label="Schließen">' + UI.icon('x') + '</button></div>';
     var body = '<div class="grid g4" style="gap:8px;margin-bottom:14px">' +
-      '<div class="card stat"><div class="label">Kaderstärke</div><div class="value">' + FM.teamStrength(st, cid).toFixed(1) + '</div></div>' +
-      '<div class="card stat"><div class="label">Reputation</div><div class="value">' + c.rep + '</div></div>' +
-      '<div class="card stat"><div class="label">Marktwert</div><div class="value" style="font-size:18px">' + FM.fmtMoney(value) + '</div></div>' +
-      '<div class="card stat"><div class="label">Formation</div><div class="value" style="font-size:18px">' + esc(c.formation || '–') + '</div></div></div>';
+      '<div class="stat"><div class="label">Kaderstärke</div><div class="value">' + FM.teamStrength(st, cid).toFixed(1) + '</div></div>' +
+      '<div class="stat"><div class="label">Reputation</div><div class="value">' + c.rep + '</div></div>' +
+      '<div class="stat"><div class="label">Marktwert</div><div class="value" style="font-size:18px">' + FM.fmtMoney(value) + '</div></div>' +
+      '<div class="stat"><div class="label">Formation</div><div class="value" style="font-size:18px">' + esc(c.formation || '–') + '</div></div></div>';
     if (recent.length) body += '<div class="row wrap" style="margin-bottom:14px;gap:6px">' + recent.map(function (f) {
       var opp = f.home === cid ? f.away : f.home;
       return '<span class="tag" title="' + esc(UI.compLabel(f)) + '">' + (f.home === cid ? 'H' : 'A') + ' ' + esc(st.clubs[opp].short) + ' ' + resultTag(f, cid) + '</span>';
@@ -194,7 +194,7 @@
           rows.map(function (x) {
             var name = x.p ? x.p.name : '(ehemaliger Spieler)';
             return '<tr' + (x.p ? ' class="click" data-action="player" data-id="' + x.pid + '"' : '') + '><td>' + UI.posTag(x.r.pos) + '</td><td>' + esc(name) + (r.motm === x.pid ? ' <span class="tag accent" title="Spieler des Spiels">★</span>' : '') +
-              (x.r.gl ? ' <span class="small">' + '⚽'.repeat(Math.min(x.r.gl, 4)) + '</span>' : '') + (x.r.yc ? ' <span class="card-y"></span>' : '') + (x.r.rc ? ' <span class="card-r"></span>' : '') + '</td><td class="num muted small">' + Math.min(x.r.mi, r.aet ? 120 : 90) + '\'</td><td class="num">' + UI.grade(x.r.g) + '</td></tr>';
+              (x.r.gl ? ' ' + UI.goalMark(x.r.gl) : '') + (x.r.yc ? ' <span class="card-y"></span>' : '') + (x.r.rc ? ' <span class="card-r"></span>' : '') + '</td><td class="num muted small">' + Math.min(x.r.mi, r.aet ? 120 : 90) + '\'</td><td class="num">' + UI.grade(x.r.g) + '</td></tr>';
           }).join('') + '</tbody></table></div></div>';
       }).join('') + '</div>';
     }
@@ -202,7 +202,7 @@
   };
 
   UI.eventIcon = function (e) {
-    if (e.t === 'goal') return '<span title="Tor">⚽</span>';
+    if (e.t === 'goal') return UI.goalMark(1);
     if (e.t === 'yc') return '<span class="card-y" title="Gelb"></span>';
     if (e.t === 'yc2' || e.t === 'rc') return '<span class="card-r" title="Rot"></span>';
     if (e.t === 'inj') return '<span class="bad">' + UI.icon('medic').replace('<svg', '<svg width="16" height="16"') + '</span>';

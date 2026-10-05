@@ -14,6 +14,7 @@
   }
 
   UI.renderStart = function () {
+    UI.clubTheme(null);
     var s = UI.vs('start', { league: 'bl', club: null, name: '' });
     var data = window.FM_DATA;
     var clubs = data.clubs.filter(function (c) { return c.league === s.league; });
@@ -23,43 +24,52 @@
     var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
     clubs.sort(function (a, b) { return strengths[b.id] - strengths[a.id]; });
     var saves = [1, 2, 3].map(function (i) { return { slot: i, info: FM.saveInfo(i) }; });
-    var anySave = saves.some(function (x) { return x.info && !x.info.incompatible; });
+    var anySave = saves.some(function (x) { return x.info; });
+    var nPlayers = 0;
+    data.clubs.forEach(function (c) { nPlayers += (data.players[c.id] || []).length; });
 
-    var grid = clubs.map(function (c) {
+    var grid = clubs.map(function (c, idx) {
       var stars = 1 + 4 * (strengths[c.id] - mn) / Math.max(1, mx - mn);
-      var cnt = (data.players[c.id] || []).length;
-      return '<button class="club-card ' + (s.club === c.id ? 'sel' : '') + '" data-action="pickClub" data-id="' + c.id + '">' + UI.badge(c, 38) +
-        '<div style="min-width:0"><div class="n">' + esc(c.name) + '</div>' +
-        '<div class="s">' + UI.stars(Math.round(stars * 2) / 2) + ' · Ø ' + strengths[c.id].toFixed(1) + '</div>' +
-        '<div class="s">' + esc(c.stadium) + '</div></div></button>';
+      return '<button class="club-card ' + (s.club === c.id ? 'sel' : '') + '" data-action="pickClub" data-id="' + c.id + '" aria-pressed="' + (s.club === c.id) + '">' +
+        UI.scarf(c, 'top') +
+        '<span class="cc-rank">' + (idx + 1) + '</span>' + UI.badge(c, 40) +
+        '<span class="cc-body"><span class="n">' + esc(c.name) + '</span>' +
+        '<span class="s">' + UI.stars(Math.round(stars * 2) / 2) + ' <span class="tnum">Ø ' + strengths[c.id].toFixed(1) + '</span></span>' +
+        '<span class="s">' + esc(c.stadium) + ' · ' + FM.fmtInt(c.cap) + '</span>' +
+        '<span class="s">Kasse ' + FM.fmtMoney(c.money * 1e6) + '</span></span></button>';
     }).join('');
 
     var saveHtml = saves.map(function (x) {
       var i = x.info;
-      if (!i) return '<div class="card save-card"><div class="news-ico">' + UI.icon('save') + '</div><div class="grow"><div class="strong">Slot ' + x.slot + '</div><div class="muted small">Leer</div></div></div>';
-      if (i.incompatible) return '<div class="card save-card"><div class="news-ico">' + UI.icon('alert') + '</div><div class="grow"><div class="strong">Slot ' + x.slot + '</div><div class="muted small">Alte Version – nicht ladbar</div></div><button class="btn sm ghost" data-action="deleteSave" data-slot="' + x.slot + '">' + UI.icon('trash') + '</button></div>';
+      if (!i) return '<div class="save-card empty"><span class="slot-no">' + x.slot + '</span><div class="grow"><div class="strong">Freier Speicherplatz</div><div class="muted small">Wird beim nächsten Start belegt</div></div></div>';
+      if (i.incompatible) return '<div class="save-card"><span class="slot-no">' + x.slot + '</span><div class="grow"><div class="strong">Ältere Version</div><div class="muted small">Nicht mehr ladbar</div></div><button class="btn sm ghost icon" data-action="deleteSave" data-slot="' + x.slot + '" aria-label="Löschen">' + UI.icon('trash') + '</button></div>';
       var c = window.FM_DATA.clubs.filter(function (k) { return k.id === i.clubId; })[0] || { name: i.club, abbr: i.abbr, colors: i.colors, id: i.clubId };
-      return '<div class="card save-card">' + UI.badge({ name: i.club, abbr: i.abbr, colors: i.colors, id: 's' + x.slot, reserve: c.reserve }, 34) +
-        '<div class="grow" style="min-width:0"><div class="strong ellipsis">' + esc(i.club) + '</div><div class="muted small">' + esc(i.manager) + ' · ' + D.fmt(i.date) + '</div></div>' +
-        '<button class="btn sm primary" data-action="loadSave" data-slot="' + x.slot + '">Laden</button>' +
-        '<button class="btn sm ghost icon" data-action="deleteSave" data-slot="' + x.slot + '" aria-label="Löschen">' + UI.icon('trash') + '</button></div>';
+      return '<div class="save-card">' + UI.scarf({ colors: i.colors }, 'side') + UI.badge({ name: i.club, abbr: i.abbr, colors: i.colors, id: 's' + x.slot, reserve: c.reserve }, 34) +
+        '<div class="grow"><div class="strong ellipsis">' + esc(i.club) + '</div><div class="muted small">' + esc(i.manager) + ' · ' + D.fmt(i.date) + '</div></div>' +
+        '<button class="btn sm club" data-action="loadSave" data-slot="' + x.slot + '">Laden</button>' +
+        '<button class="btn sm ghost icon" data-action="deleteSave" data-slot="' + x.slot + '" aria-label="Spielstand ' + x.slot + ' löschen">' + UI.icon('trash') + '</button></div>';
     }).join('');
 
     var sel = s.club ? data.clubs.filter(function (c) { return c.id === s.club; })[0] : null;
+    if (sel) UI.clubTheme(sel);
     document.getElementById('app').innerHTML =
       '<div class="start">' +
-      '<div class="hero"><div class="row" style="justify-content:center;margin-bottom:14px"><div class="brand-mark" style="width:44px;height:44px;border-radius:13px">' + UI.icon('ball') + '</div></div>' +
-      '<h1>Matchplan</h1><p>Der Fußballmanager für Bundesliga, 2. Bundesliga und 3. Liga – mit den echten Kadern der Saison 2026/27 und den Spielerwerten aus EA SPORTS FC 27.</p></div>' +
-      (anySave || saves.some(function (x) { return x.info; }) ? '<div class="panel"><div class="row between" style="margin-bottom:10px"><h3>Spielstände</h3><label class="btn sm ghost">' + UI.icon('upload') + ' Datei importieren<input type="file" accept="application/json" id="import-file" hidden></label></div><div class="grid g3">' + saveHtml + '</div></div>' : '') +
-      '<div class="panel card"><div class="card-h"><div><h2>Neues Spiel</h2><div class="muted small" style="margin-top:3px">Wähle deinen Verein – die Sterne zeigen die Kaderstärke innerhalb der Liga.</div></div>' +
+      '<header class="start-hero board"><div class="floodlights" aria-hidden="true"></div>' +
+      '<div class="start-brand"><div class="eyebrow">Fußballmanager · Saison 2026/27</div><h1>Matchplan</h1>' +
+      '<p>Bundesliga, 2. Bundesliga und 3. Liga mit den echten Kadern und den Spielerwerten aus EA SPORTS FC 27. Du führst den Verein: Aufstellung, Taktik, Transfers mit dem Budget des Vorstands, Stadion und Nachwuchs.</p></div>' +
+      '<dl class="start-facts"><div><dt>Vereine</dt><dd>' + data.clubs.length + '</dd></div><div><dt>Spieler</dt><dd>' + FM.fmtInt(nPlayers) + '</dd></div><div><dt>Ligen</dt><dd>3</dd></div></dl>' +
+      '</header>' +
+      '<div class="start-body">' +
+      (anySave ? '<section class="start-sec"><div class="sec-h"><h2>Spielstände</h2><label class="btn sm ghost">' + UI.icon('upload') + ' Datei importieren<input type="file" accept="application/json" id="import-file" hidden></label></div><div class="save-grid">' + saveHtml + '</div></section>' : '') +
+      '<section class="start-sec"><div class="sec-h"><div><h2>Neue Karriere</h2><p class="muted small">Die Vereine sind nach Kaderstärke sortiert. Die Kasse bestimmt, wie viel Budget dir der Vorstand gibt.</p></div>' +
       (anySave ? '' : '<label class="btn sm ghost">' + UI.icon('upload') + ' Spielstand importieren<input type="file" accept="application/json" id="import-file" hidden></label>') + '</div>' +
-      '<div class="card-b"><div class="filters"><div class="field" style="min-width:240px"><label for="mgr">Dein Name</label><input class="input" id="mgr" maxlength="40" placeholder="z. B. Alex Weber" value="' + esc(s.name) + '"></div>' +
+      '<div class="filters"><div class="field" style="min-width:220px"><label for="mgr">Dein Name</label><input class="input" id="mgr" maxlength="40" placeholder="z. B. Alex Weber" value="' + esc(s.name) + '"></div>' +
       '<div class="field"><label>Liga</label>' + UI.seg('league', [['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga']], s.league, 'start') + '</div></div>' +
-      '<div class="club-grid">' + grid + '</div></div>' +
-      '<div class="modal-f" style="justify-content:space-between;align-items:center"><div class="muted small">' + (sel ? 'Ausgewählt: <b class="dim">' + esc(sel.name) + '</b>' : 'Noch kein Verein ausgewählt') + '</div>' +
-      '<button class="btn primary lg" data-action="startGame"' + (sel ? '' : ' disabled') + '>Karriere starten ' + UI.icon('next') + '</button></div></div>' +
-      '<div class="panel muted small" style="text-align:center;max-width:760px">Spielerwerte: EA SPORTS FC 27 (Launch-Ratings, Recherche über fcratings.com). Wo ein Spieler dort nicht auffindbar war, ist der Wert als geschätzt markiert (≈). Inoffizielles Fanprojekt ohne Vereinswappen – alle Marken gehören ihren Inhabern.</div>' +
-      '</div>';
+      '<div class="club-grid">' + grid + '</div>' +
+      '<div class="start-go"><div class="small">' + (sel ? '<span class="muted">Dein Verein:</span> <b>' + esc(sel.name) + '</b>' : '<span class="muted">Wähle einen Verein aus.</span>') + '</div>' +
+      '<button class="btn club lg" data-action="startGame"' + (sel ? '' : ' disabled') + '>Karriere starten ' + UI.icon('next') + '</button></div></section>' +
+      '<p class="start-note muted small">Spielerwerte: EA SPORTS FC 27 (Launch-Ratings, Recherche über fcratings.com). Wo ein Spieler dort nicht auffindbar war, ist der Wert als geschätzt markiert (≈). Inoffizielles Fanprojekt ohne Vereinswappen, alle Marken gehören ihren Inhabern.</p>' +
+      '</div></div>';
     var inp = document.getElementById('mgr');
     inp.addEventListener('input', function () { s.name = inp.value; });
     var f = document.getElementById('import-file');
@@ -90,7 +100,7 @@
     var s = UI.vs('start');
     if (!s.club) return;
     var name = (s.name || '').trim() || 'Trainer';
-    document.getElementById('app').innerHTML = '<div class="start"><div class="hero"><h1>Saison wird vorbereitet …</h1><p>Kader, Spielpläne und DFB-Pokal werden angelegt.</p></div></div>';
+    document.getElementById('app').innerHTML = '<div class="start"><header class="start-hero board"><div class="floodlights" aria-hidden="true"></div><div class="start-brand"><div class="eyebrow">Einen Moment</div><h1>Anpfiff wird vorbereitet</h1><p>Kader, Spielpläne, DFB-Pokal und Budgets werden angelegt.</p></div></header></div>';
     setTimeout(function () {
       FM.newGame({ club: s.club, manager: name });
       UI.slot = firstFreeSlot();
@@ -143,39 +153,26 @@
     title: 'Übersicht',
     render: function () {
       var st = FM.state, uc = st.user.club, club = st.clubs[uc];
-      var lid = club.league, pos = FM.playedRounds(st, lid) ? FM.clubPosition(st, uc) : null;
-      var table = FM.table(st, lid);
-      var row = table.filter(function (r) { return r.club === uc; })[0];
+      var lid = club.league;
       var next = FM.nextUserFixture(st);
-      var conf = st.user.conf;
-      var confCls = conf >= 45 ? '' : conf >= 25 ? 'warn' : 'bad';
       var players = FM.clubPlayers(st, uc);
-      var strength = FM.teamStrength(st, uc);
-      var lr = FM.table(st, lid).map(function (r) { return FM.teamStrength(st, r.club); }).sort(function (a, b) { return b - a; });
-      var sRank = lr.indexOf(strength) + 1;
-
-      var html = '<div class="grid g4" style="margin-bottom:16px">' +
-        tile('Tabellenplatz', pos ? pos + '.' : '–', row ? row.pts + ' Punkte · ' + row.p + ' Spiele' : st.leagues[lid].name) +
-        tile('Vorstand', FM.confLabel(conf), '<div class="meter ' + confCls + '" style="margin-top:6px" role="meter" aria-valuenow="' + Math.round(conf) + '" aria-valuemin="0" aria-valuemax="100"><i style="width:' + Math.round(conf) + '%"></i></div>') +
-        tile('Kontostand', FM.fmtMoney(club.money), 'Gehälter ' + FM.fmtMoney(FM.annualWages(st, club)) + ' / Jahr') +
-        tile('Kaderstärke', strength.toFixed(1), 'Rang ' + sRank + ' in der Liga · ' + players.length + ' Spieler') +
-        '</div>';
-
+      var html = '<div class="dash-top">' + nextMatchBoard(next) + situationCard() + '</div>';
       html += '<div class="grid dash"><div class="stack">';
-      html += nextMatchCard(next);
       html += newsCard();
+      html += topPerformersCard(players);
       html += '</div><div class="stack">';
       html += miniTable(lid, uc);
       html += squadStatusCard(players);
-      html += topPerformersCard(players);
+      html += buildsCard(club);
       html += '</div></div>';
       return html;
     }
   };
 
   function tile(label, value, meta) {
-    return '<div class="card stat"><div class="label">' + label + '</div><div class="value">' + value + '</div><div class="meta">' + meta + '</div></div>';
+    return '<div class="stat"><div class="label">' + label + '</div><div class="value">' + value + '</div><div class="meta">' + meta + '</div></div>';
   }
+  UI.tile = tile;
 
   UI.compLabel = function (fx) {
     if (fx.comp === 'cup') return 'DFB-Pokal · ' + FM.CUP_ROUNDS[fx.round - 1];
@@ -183,29 +180,77 @@
     return FM.COMP_NAME[fx.comp] + ' · ' + fx.round + '. Spieltag';
   };
 
-  function nextMatchCard(fx) {
+  /* Naechstes Spiel als Anzeigetafel */
+  function nextMatchBoard(fx) {
     var st = FM.state;
-    if (!fx) return '<div class="card"><div class="card-h"><h3>Nächstes Spiel</h3></div><div class="empty">Kein Spiel angesetzt. Weiter zur nächsten Saison.</div></div>';
+    if (!fx) return '<section class="board next"><div class="floodlights" aria-hidden="true"></div><div class="board-h"><span class="board-comp">Spielfrei</span></div><div class="board-empty">Kein Spiel angesetzt. Weiter zur nächsten Saison.</div></section>';
     var h = st.clubs[fx.home], a = st.clubs[fx.away], uc = st.user.club;
     var today = fx.date === st.date;
-    function teamCol(c) {
+    function team(c, side) {
       var t = FM.ZONES[c.league] ? FM.table(st, c.league).filter(function (r) { return r.club === c.id; })[0] : null;
       var p = FM.playedRounds(st, c.league) ? FM.clubPosition(st, c.id) : null;
-      return '<div class="team">' + UI.badge(c, 54) + '<div class="n">' + esc(c.name) + '</div>' +
-        '<div class="muted small">' + (p ? p + '. ' + esc(st.leagues[c.league].short) : esc(st.leagues[c.league].name)) + '</div>' + (t ? UI.formDots(t.form) : '') + '</div>';
+      return '<div class="bt ' + side + '">' + UI.badge(c, 60) + '<div class="bt-name">' + esc(c.short) + '</div>' +
+        '<div class="bt-sub">' + (p ? p + '. ' + esc(st.leagues[c.league].short) : esc(st.leagues[c.league].name)) + ' · Stärke ' + FM.teamStrength(st, c.id).toFixed(1) + '</div>' + (t && t.form.length ? UI.formDots(t.form) : '') + '</div>';
     }
     var days = D.diff(st.date, fx.date);
     var when = days === 0 ? 'Heute' : days === 1 ? 'Morgen' : 'in ' + days + ' Tagen';
-    var sh = FM.teamStrength(st, fx.home), sa = FM.teamStrength(st, fx.away);
-    return '<div class="card"><div class="card-h"><h3>Nächstes Spiel</h3><span class="muted small">' + esc(UI.compLabel(fx)) + '</span></div>' +
-      '<div class="next-match">' + teamCol(h) + '<div class="vs"><div class="big">' + (fx.res ? FM.scoreText(fx) : 'vs') + '</div><div class="muted small">' + D.fmtLong(fx.date) + '</div><div class="tag accent" style="margin-top:6px">' + when + '</div></div>' + teamCol(a) + '</div>' +
-      '<div class="match-meta"><span class="tag">' + (fx.home === uc ? 'Heimspiel' : fx.neutral ? 'Neutraler Ort' : 'Auswärtsspiel') + '</span>' +
-      '<span class="tag">Stärke ' + sh.toFixed(1) + ' : ' + sa.toFixed(1) + '</span>' +
-      (fx.agg ? '<span class="tag warn">Hinspiel ' + fx.agg[1] + ':' + fx.agg[0] + '</span>' : '') + '</div>' +
-      '<div class="modal-f" style="border-top:1px solid var(--line)"><button class="btn" data-action="go" data-view="tactics">' + UI.icon('tactics') + ' Aufstellung</button>' +
-      (today ? '<button class="btn primary" data-action="go" data-view="match" data-params=\'{"fid":"' + fx.id + '"}\'>' + UI.icon('whistle') + ' Zum Spiel</button>' : '<button class="btn primary" data-action="continue">Bis zum Spieltag ' + UI.icon('next') + '</button>') +
-      '</div></div>';
+    return '<section class="board next" aria-label="Nächstes Spiel"><div class="floodlights" aria-hidden="true"></div>' +
+      '<div class="board-h"><span class="board-comp">' + esc(UI.compLabel(fx)) + '</span><span class="board-when">' + D.fmtLong(fx.date) + ' · <b>' + when + '</b></span></div>' +
+      '<div class="board-teams">' + team(h, 'home') + '<div class="bt-mid"><div class="bt-vs">' + (fx.res ? FM.scoreText(fx) : 'VS') + '</div><div class="bt-venue">' + esc(fx.neutral ? 'Olympiastadion Berlin' : h.stadium) + '</div></div>' + team(a, 'away') + '</div>' +
+      '<div class="board-f"><div class="board-tags"><span>' + (fx.home === uc ? 'Heimspiel' : fx.neutral ? 'Neutraler Ort' : 'Auswärtsspiel') + '</span>' +
+      (fx.agg ? '<span class="hot">Hinspiel ' + fx.agg[1] + ':' + fx.agg[0] + '</span>' : '') + '</div>' +
+      '<div class="row"><button class="btn board-btn" data-action="go" data-view="tactics">' + UI.icon('tactics') + ' Aufstellung</button>' +
+      (today ? '<button class="btn club" data-action="go" data-view="match" data-params=\'{"fid":"' + fx.id + '"}\'>' + UI.icon('whistle') + ' Zum Spiel</button>' : '<button class="btn club" data-action="continue">Bis zum Spieltag ' + UI.icon('next') + '</button>') +
+      '</div></div></section>';
   }
+
+  /* Lage des Vereins: Tabelle, Vorstand, Budgets, Kader */
+  function situationCard() {
+    var st = FM.state, uc = st.user.club, club = st.clubs[uc], lid = club.league;
+    var pos = FM.playedRounds(st, lid) ? FM.clubPosition(st, uc) : null;
+    var row = FM.ZONES[lid] ? FM.table(st, lid).filter(function (r) { return r.club === uc; })[0] : null;
+    var conf = st.user.conf, b = FM.budget(st, club);
+    var wages = FM.annualWages(st, club), room = b.wage - wages;
+    var strength = FM.teamStrength(st, uc);
+    var lr = (st.leagues[lid].clubs || []).map(function (c) { return FM.teamStrength(st, c); }).sort(function (x, y) { return y - x; });
+    var e = club.expect || {};
+    function line(k, v, sub, extra) { return '<div class="sit"><div class="sit-k">' + k + '</div><div class="sit-v">' + v + '</div><div class="sit-s">' + sub + '</div>' + (extra || '') + '</div>'; }
+    return '<section class="card situation"><div class="card-h"><h3>Lage</h3><span class="muted small">' + esc(st.leagues[lid].name) + '</span></div><div class="sit-grid">' +
+      line('Tabelle', pos ? pos + '.' : '–', row ? row.pts + ' Punkte · Ziel: Platz ' + (e.target || '–') : 'Ziel: ' + esc(e.label || '–')) +
+      line('Vorstand', FM.confLabel(conf), 'Vertrauen ' + Math.round(conf) + ' von 100', UI.meter(conf, conf >= 45 ? '' : conf >= 25 ? 'warn' : 'bad')) +
+      line('Transferbudget', b.austerity ? '<span class="bad">Sparkurs</span>' : FM.fmtMoney(b.transfer), 'von ' + FM.fmtMoney(b.start + b.earned + b.extra) + ' in dieser Saison', '<button class="link-btn" data-action="go" data-view="finances">Budget verwalten</button>') +
+      line('Gehaltsbudget', FM.fmtMoney(room) + '<small> frei</small>', FM.fmtMoney(wages) + ' von ' + FM.fmtMoney(b.wage) + ' pro Jahr', UI.meter(Math.min(100, wages / Math.max(1, b.wage) * 100), room < 0 ? 'bad' : room < b.wage * 0.02 ? 'warn' : '', true)) +
+      line('Kaderstärke', strength.toFixed(1), 'Rang ' + (lr.indexOf(strength) + 1) + ' in der Liga · ' + club.squad.length + ' Spieler') +
+      line('Kontostand', FM.fmtMoney(club.money), 'Reserve ' + FM.fmtMoney(FM.cashReserve(st, club))) +
+      '</div></section>';
+  }
+
+  UI.meter = function (v, cls, usage) {
+    return '<div class="meter ' + (cls || '') + (usage ? ' usage' : '') + '" role="meter" aria-valuenow="' + Math.round(v) + '" aria-valuemin="0" aria-valuemax="100"><i style="width:' + FM.clamp(Math.round(v), 0, 100) + '%"></i></div>';
+  };
+
+  function buildsCard(club) {
+    var st = FM.state;
+    var items = (club.builds || []).map(function (bd) {
+      var f = FM.FACILITIES[bd.fac], done = Math.round((1 - bd.weeks / bd.total) * 100);
+      return '<div class="li">' + UI.icon('crane', 'li-ico') + '<div class="grow"><div class="row between"><span class="strong">' + esc(f.name) + '</span><span class="muted small">noch ' + bd.weeks + ' Wo.</span></div>' +
+        '<div class="muted small">' + (bd.fac === 'stadium' ? '+' + FM.fmtInt(bd.seats) + ' Plätze' : 'Ausbau auf Stufe ' + bd.toLevel) + '</div>' + UI.meter(done, 'build') + '</div></div>';
+    }).join('');
+    var lv = ['training', 'youth', 'medical', 'scouting', 'commercial'].map(function (k) {
+      return '<span class="fac-mini" title="' + esc(FM.FACILITIES[k].name) + ' – Stufe ' + club.fac[k] + '">' + esc(FM.FACILITIES[k].short) + ' ' + UI.pips(club.fac[k]) + '</span>';
+    }).join('');
+    void st;
+    return '<section class="card"><div class="card-h"><h3>Infrastruktur</h3><button class="btn sm ghost" data-action="go" data-view="infra">Ausbauen ' + UI.icon('next') + '</button></div>' +
+      (items ? '<div class="list">' + items + '</div>' : '') +
+      '<div class="card-b fac-minis">' + lv + '</div></section>';
+  }
+
+  UI.pips = function (lvl, max) {
+    max = max || FM.FAC_MAX;
+    var out = '';
+    for (var i = 1; i <= max; i++) out += '<i class="' + (i <= lvl ? 'on' : '') + '"></i>';
+    return '<span class="pips" aria-label="Stufe ' + lvl + ' von ' + max + '">' + out + '</span>';
+  };
 
   var NEWS_ICON = { match: 'ball', transfer: 'transfer', offer: 'transfer', market: 'transfer', injury: 'medic', board: 'board', cup: 'trophy', league: 'trophy', training: 'training', youth: 'youth', info: 'info' };
   UI.newsIcon = function (n) { return '<div class="news-ico ' + n.type + '">' + UI.icon(NEWS_ICON[n.type] || 'info') + '</div>'; };
@@ -213,12 +258,12 @@
   function newsCard() {
     var st = FM.state;
     var items = st.news.slice(0, 6);
-    return '<div class="card"><div class="card-h"><h3>Neuigkeiten</h3><button class="btn sm ghost" data-action="go" data-view="inbox">Alle ' + UI.icon('next') + '</button></div>' +
+    return '<section class="card"><div class="card-h"><h3>Neuigkeiten</h3><button class="btn sm ghost" data-action="go" data-view="inbox">Alle ' + UI.icon('next') + '</button></div>' +
       '<div class="list">' + (items.length ? items.map(function (n) {
         return '<div class="li click" data-action="openNews" data-id="' + n.id + '">' + UI.newsIcon(n) +
           '<div class="grow"><div class="row between"><span class="strong ellipsis">' + esc(n.title) + '</span><span class="muted small nowrap">' + D.fmtShort(n.date) + '</span></div>' +
           '<div class="dim small ellipsis">' + esc(n.body) + '</div></div>' + (n.read ? '' : '<span class="unread-dot"></span>') + '</div>';
-      }).join('') : '<div class="empty">Noch keine Nachrichten.</div>') + '</div></div>';
+      }).join('') : '<div class="empty">Noch keine Nachrichten.</div>') + '</div></section>';
   }
 
   function miniTable(lid, uc) {
@@ -293,6 +338,9 @@
         act = '<div class="card-b"><span class="tag">' + ({ accepted: 'Angenommen', declined: 'Abgelehnt', expired: 'Abgelaufen' }[o.status] || o.status) + '</span></div>';
       }
     }
+    if (n.action && n.action.kind === 'budget') {
+      act = '<div class="modal-f"><button class="btn club" data-action="go" data-view="finances">' + UI.icon('wallet') + ' Budget ansehen</button></div>';
+    }
     if (n.ref && st.fixtures[n.ref] && st.fixtures[n.ref].res && st.fixtures[n.ref].res.pl) {
       act = '<div class="modal-f"><button class="btn" data-action="matchReport" data-id="' + n.ref + '">Spielbericht ansehen</button></div>';
     }
@@ -332,7 +380,9 @@
         '<p class="muted small" style="margin-top:12px">Das Vertrauen steigt mit Ergebnissen über den Erwartungen und sinkt bei Pleiten gegen schwächere Gegner. Fällt es zu tief, wirst du entlassen.</p></div></div>';
       html += '<div class="card"><div class="card-h"><h3>Verein</h3></div><div class="card-b"><dl class="kv">' +
         '<dt>Reputation</dt><dd>' + UI.stars(c.rep / 20) + ' ' + c.rep + '</dd><dt>Stadion</dt><dd>' + esc(c.stadium) + '</dd><dt>Kapazität</dt><dd>' + FM.fmtInt(c.cap) + '</dd>' +
-        '<dt>Kontostand</dt><dd>' + FM.fmtMoney(c.money) + '</dd><dt>Kader</dt><dd>' + c.squad.length + ' Spieler</dd><dt>Trainer</dt><dd>' + esc(st.user.name) + ' (seit ' + st.user.joined + ')</dd></dl></div></div></div>';
+        '<dt>Kontostand</dt><dd>' + FM.fmtMoney(c.money) + '</dd><dt>Transferbudget</dt><dd>' + FM.fmtMoney(FM.budget(st, c).transfer) + '</dd><dt>Gehaltsbudget</dt><dd>' + FM.fmtMoney(FM.budget(st, c).wage) + '</dd>' +
+        '<dt>Kader</dt><dd>' + c.squad.length + ' Spieler</dd><dt>Trainer</dt><dd>' + esc(st.user.name) + ' (seit ' + st.user.joined + ')</dd></dl>' +
+        '<div class="row wrap" style="margin-top:14px"><button class="btn sm" data-action="go" data-view="finances">' + UI.icon('wallet') + ' Budget</button><button class="btn sm" data-action="go" data-view="infra">' + UI.icon('stadium') + ' Infrastruktur</button></div></div></div></div>';
       var hist = c.hist.slice().reverse();
       html += '<div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-h"><h3>Vereinshistorie (im Spiel)</h3></div><div class="card-b flush">' +
         (hist.length ? '<table class="tbl"><thead><tr><th>Saison</th><th>Liga</th><th class="num">Platz</th><th class="num">Punkte</th></tr></thead><tbody>' +
@@ -364,7 +414,7 @@
       '<div class="seg">' + [['auto', 'System'], ['light', 'Hell'], ['dark', 'Dunkel']].map(function (o) { return '<button data-action="setTheme" data-v="' + o[0] + '" class="' + (theme === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div></div>' +
       '<div><h4 style="margin-bottom:8px">Live-Spiel Geschwindigkeit</h4><div class="seg">' + [[0, 'Langsam'], [1, 'Normal'], [2, 'Schnell'], [3, 'Turbo']].map(function (o) { return '<button data-action="setSpeed" data-v="' + o[0] + '" class="' + (st.settings.speed === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div></div>' +
       '<div><h4 style="margin-bottom:8px">Spielstände</h4><div class="card"><div class="list">' + slots + '</div></div>' +
-      '<div class="row wrap" style="margin-top:10px"><button class="btn sm" data-action="exportSave">' + UI.icon('download') + ' Als Datei exportieren</button>' +
+      '<div class="row wrap" style="margin-top:10px">' + (window.FM_ARTIFACT ? '' : '<button class="btn sm" data-action="exportSave">' + UI.icon('download') + ' Als Datei exportieren</button>') +
       '<label class="btn sm">' + UI.icon('upload') + ' Datei importieren<input type="file" accept="application/json" id="import-file2" hidden></label></div>' +
       '<p class="muted small" style="margin-top:8px">Der Spielstand wird nach jedem Spieltag automatisch im aktiven Slot gesichert (Browser-Speicher).</p></div>' +
       '<div><h4 style="margin-bottom:6px">Datenquellen</h4><p class="muted small" style="line-height:1.6">Kader und Ligen: Saison 2026/27. Spielerwerte: EA SPORTS FC 27 Launch-Ratings (recherchiert über fcratings.com, ergänzt um EA-/FUTBIN-Angaben). ' +

@@ -92,17 +92,20 @@
     FM.invalidateTables();
     Object.keys(state.clubs).forEach(function (cid) {
       var c = state.clubs[cid];
-      if (!first) { c.finPrev = c.fin; c.fin = FM.emptyLedger(); }
+      FM.ensureClub(c);
+      if (!first) { c.finPrev = c.fin; c.fin = FM.emptyLedger(); c.attPrev = c.attS; c.attS = { n: 0, sum: 0, full: 0 }; }
       c.formation = c.id === state.user.club ? c.formation : FM.bestFormation(FM.clubPlayers(state, cid), c.formation);
     });
     Object.keys(state.players).forEach(function (pid) { state.players[pid].ovr0 = state.players[pid].ovr; });
     FM.buildLeagueSchedules(state);
     FM.drawCupRound1(state);
     FM.computeExpectations(state);
+    var ub = FM.setBudgets(state, state.clubs[state.user.club], 'season');
     if (!first) {
       FM.addNews(state, {
-        type: 'board', title: 'Saison ' + state.season.year + '/' + String(state.season.year + 1).slice(2) + ' – die Ziele',
-        body: 'Der Vorstand hat die Erwartungen festgelegt. ' + FM.expectationText(state, state.user.club) + ' Das Transferfenster ist geöffnet.'
+        type: 'board', important: true, title: 'Saison ' + state.season.year + '/' + String(state.season.year + 1).slice(2) + ' – Ziele und Budget',
+        body: 'Der Vorstand hat die Erwartungen festgelegt. ' + FM.expectationText(state, state.user.club) + ' ' + FM.budgetText(ub) + ' Das Transferfenster ist geöffnet.',
+        action: { kind: 'budget' }
       });
     }
     var uf = Object.keys(state.fixtures).map(function (k) { return state.fixtures[k]; })
@@ -202,6 +205,7 @@
     if (!fx.neutral) {
       var price = FM.ticketPrice[state.clubs[fx.home].league] || 15;
       FM.book(state.clubs[fx.home], 'tickets', att * price);
+      if (league) FM.recordAttendance(state.clubs[fx.home], att);
     } else {
       var share = att * 45 / 2;
       FM.book(state.clubs[fx.home], 'tickets', share);
@@ -238,6 +242,7 @@
       p.mor = FM.clamp(p.mor + (gd > 0 ? 3 : gd < 0 ? -3 : 0) + (r.st ? 1 : 0), 5, 100);
       if (r.inj) {
         var inj = pickInjury();
+        inj.days = Math.max(1, Math.round(inj.days * FM.facInjuryDays(state.clubs[p.club])));
         p.injury = inj;
         if (p.club === uc) FM.addNews(state, { type: 'injury', title: p.name + ' verletzt', body: p.name + ' fällt mit ' + inj.type + ' voraussichtlich ' + FM.injuryDuration(inj.days) + ' aus.', important: inj.days > 14 });
       }
@@ -313,8 +318,8 @@
     Object.keys(state.players).forEach(function (pid) {
       var p = state.players[pid];
       if (!p.club) return;
-      var isUser = p.club === uc;
-      var regen = isUser ? tr.regen * it.regen : 1.05;
+      var isUser = p.club === uc, club = state.clubs[p.club];
+      var regen = (isUser ? tr.regen * it.regen : 1.05) * FM.facRegen(club);
       p.fit = Math.min(100, p.fit + 5.5 * regen * (p.age >= 32 ? 0.85 : 1));
       if (p.injury) {
         p.injury.days--;
@@ -324,8 +329,8 @@
         }
       } else if (isUser) {
         // Trainingsverletzungen (selten)
-        if (R.chance(0.00035 * tr.inj * it.inj)) {
-          var inj = pickInjury(); inj.days = Math.min(inj.days, 21);
+        if (R.chance(0.00035 * tr.inj * it.inj * FM.facTrainingInj(club))) {
+          var inj = pickInjury(); inj.days = Math.max(1, Math.round(Math.min(inj.days, 21) * FM.facInjuryDays(club)));
           p.injury = inj;
           FM.addNews(state, { type: 'injury', title: 'Trainingsverletzung: ' + p.name, body: p.name + ' hat sich im Training verletzt (' + inj.type + ') und fällt ' + FM.injuryDuration(inj.days) + ' aus.' });
         }
@@ -342,7 +347,7 @@
       var p = state.players[pid];
       if (!p.club) { p.fit = 100; return; }
       var isUser = p.club === uc;
-      var f = isUser ? tr.dev * it.dev : 1;
+      var f = (isUser ? tr.dev * it.dev : 1) * FM.facDev(state.clubs[p.club]);
       var d = FM.developWeekly(p, f);
       if (isUser && d) changes.push({ p: p, d: d });
       p.minutesRecent = Math.round(p.minutesRecent * 0.5);
@@ -353,6 +358,7 @@
       else p.mor = p.mor + (70 - p.mor) * 0.06;
     });
     FM.payWeekly(state);
+    FM.progressBuilds(state);
     var ucl = state.clubs[uc];
     ucl.bal = ucl.bal || [];
     ucl.bal.push([state.date, Math.round(ucl.money)]);
@@ -376,7 +382,14 @@
       FM.generateOffersForUser(state);
     }
     if (m === 9 && day === 1) FM.addNews(state, { type: 'market', title: 'Transferfenster geschlossen', body: 'Das Sommer-Transferfenster ist geschlossen. Vereinslose Spieler können weiterhin verpflichtet werden.' });
-    if (m === 1 && day === 1) FM.addNews(state, { type: 'market', title: 'Wintertransferfenster geöffnet', body: 'Bis zum 31. Januar kannst du Spieler kaufen und verkaufen.', important: false });
+    if (m === 1 && day === 1) {
+      var wb = FM.setBudgets(state, state.clubs[state.user.club], 'winter');
+      FM.addNews(state, {
+        type: 'board', important: true, title: 'Wintertransferfenster: Budget neu bewertet',
+        body: 'Bis zum 31. Januar kannst du Spieler kaufen und verkaufen. Der Vorstand hat die Finanzen zur Halbserie geprüft. ' + FM.budgetText(wb),
+        action: { kind: 'budget' }
+      });
+    }
     if (m === 2 && day === 1) FM.addNews(state, { type: 'market', title: 'Transferfenster geschlossen', body: 'Das Wintertransferfenster ist geschlossen.' });
     if (m === 4 && day === 1) {
       var exp = FM.clubPlayers(state, state.user.club).filter(function (p) { return p.contract.until <= state.season.year + 1; });
@@ -542,7 +555,8 @@
     state.user.joined = state.season.year;
     var club = state.clubs[cid];
     club.lineup = FM.autoLineup(state, cid, club.formation);
-    FM.addNews(state, { type: 'board', title: 'Neuer Job: ' + club.name, body: 'Du bist neuer Cheftrainer von ' + club.name + '. ' + FM.expectationText(state, cid) });
+    var jb = FM.setBudgets(state, club, 'season');
+    FM.addNews(state, { type: 'board', title: 'Neuer Job: ' + club.name, body: 'Du bist neuer Cheftrainer von ' + club.name + '. ' + FM.expectationText(state, cid) + ' ' + FM.budgetText(jb), action: { kind: 'budget' } });
   };
 
   /* ---------- Saisonende ---------- */
@@ -713,7 +727,7 @@
     var youthUser = [];
     Object.keys(state.clubs).forEach(function (cid) {
       var club = state.clubs[cid];
-      var n = R.int(club.league === 'rl' ? 1 : 2, club.rep > 70 ? 4 : 3);
+      var n = R.int(club.league === 'rl' ? 1 : 2, club.rep > 70 ? 4 : 3) + FM.facYouthExtra(club);
       for (var i = 0; i < n; i++) {
         var p = FM.makeYouth(club, state);
         state.players[p.id] = p;
@@ -728,6 +742,7 @@
     if (retired.length) FM.addNews(state, { type: 'info', title: 'Karriereende', body: retired.join(', ') + ' beende' + (retired.length > 1 ? 'n' : 't') + ' die Karriere.' });
     if (youthUser.length) FM.addNews(state, { type: 'youth', title: 'Neue Talente aus der Akademie', body: 'Der Nachwuchs rückt auf: ' + youthUser.join(', ') + '.' });
 
+    FM.aiInvest(state);
     state.season.year = y + 1;
     state.date = D.iso(y + 1, 7, 1);
     var clubLineup = state.clubs[uc];

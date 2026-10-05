@@ -51,7 +51,18 @@
     download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
     trash: '<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
     up: '<path d="m18 15-6-6-6 6"/>',
-    down: '<path d="m6 9 6 6 6-6"/>'
+    down: '<path d="m6 9 6 6 6-6"/>',
+    stadium: '<ellipse cx="12" cy="13" rx="10" ry="6"/><ellipse cx="12" cy="13" rx="5.5" ry="2.8"/><path d="M2 13v3c0 3.3 4.5 6 10 6s10-2.7 10-6v-3"/><path d="M5 5v4M19 5v4M5 5l2-1M19 5l-2-1"/>',
+    crane: '<path d="M4 21V5l8-2v18"/><path d="M12 3l9 3H4"/><path d="M18 6v6"/><path d="M16.5 12h3v2.5h-3z"/><path d="M2 21h12"/>',
+    wallet: '<path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 8h-5a3 3 0 0 0 0 6h5z"/><path d="M16 11h.01"/>',
+    shirt: '<path d="M8 3 4 5 2 9l3 2 1-1.5V21h12V9.5l1 1.5 3-2-2-4-4-2c-.5 1.5-2 2.5-4 2.5S8.5 4.5 8 3z"/>'
+  };
+  /* Kleiner Ball fuer Tore (statt Emoji) */
+  UI.goalMark = function (n) {
+    var one = '<svg class="goalmark" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="var(--ball)" stroke="var(--ink)" stroke-width="1.6"/><path d="m12 7.2 4.3 3.1-1.6 5.1H9.3l-1.6-5.1z" fill="var(--ink)"/></svg>';
+    var out = '';
+    for (var i = 0; i < Math.min(n || 1, 4); i++) out += one;
+    return '<span class="goals" title="' + (n || 1) + ' Tor' + ((n || 1) > 1 ? 'e' : '') + '">' + out + '</span>';
   };
   UI.icon = function (name, cls) {
     return '<svg class="' + (cls || '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (IC[name] || '') + '</svg>';
@@ -65,7 +76,56 @@
     function f(c) { return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
     return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
   }
-  UI.ink = function (hex) { return lum(hex) > 0.42 ? '#111827' : '#ffffff'; };
+  UI.ink = function (hex) { return lum(hex) > 0.42 ? '#121614' : '#ffffff'; };
+  UI.lum = lum;
+
+  function contrast(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  function mix(hex, to, t) {
+    var h = hex.replace('#', ''), g = to.replace('#', '');
+    var out = '#';
+    for (var i = 0; i < 3; i++) {
+      var a = parseInt(h.slice(i * 2, i * 2 + 2), 16), b = parseInt(g.slice(i * 2, i * 2 + 2), 16);
+      var v = Math.round(a + (b - a) * t).toString(16);
+      out += v.length < 2 ? '0' + v : v;
+    }
+    return out;
+  }
+  /* Vereinsfarbe, die auf einem Untergrund lesbar ist (Farbton bleibt erhalten) */
+  function readable(colors, bg, toward) {
+    var c1 = colors[0], c2 = colors[1] || colors[0];
+    var first = lum(c1) > 0.6 && toward === '#000000' && contrast(c2, bg) >= 4.5 ? c2 : c1;
+    for (var t = 0; t <= 0.7; t += 0.05) {
+      var c = mix(first, toward, t);
+      if (contrast(c, bg) >= 4.5) return c;
+    }
+    return contrast(c2, bg) >= 4.5 ? c2 : (toward === '#000000' ? '#1b1f1d' : '#f2f5f3');
+  }
+  /* Flaechenfarbe des Vereins: zu helle (weisse) Primaerfarben weichen der Zweitfarbe,
+     im dunklen Modus auch zu dunkle (schwarze). */
+  function fill(colors, dark) {
+    var c1 = colors[0], c2 = colors[1] || colors[0];
+    if (lum(c1) > 0.8) return c2;
+    if (dark && lum(c1) < 0.02 && lum(c2) > 0.02) return lum(c2) > 0.8 ? '#e9ece9' : c2;
+    return c1;
+  }
+  UI.clubTheme = function (club) {
+    var r = document.documentElement.style;
+    if (!club) {
+      ['--club-l', '--club-l-ink', '--club-d', '--club-d-ink', '--club-text-l', '--club-text-d', '--club-c1', '--club-c2'].forEach(function (k) { r.removeProperty(k); });
+      return;
+    }
+    var cols = club.colors, fl = fill(cols, false), fd = fill(cols, true);
+    r.setProperty('--club-l', fl); r.setProperty('--club-l-ink', UI.ink(fl));
+    r.setProperty('--club-d', fd); r.setProperty('--club-d-ink', UI.ink(fd));
+    r.setProperty('--club-text-l', readable(cols, '#ffffff', '#000000'));
+    r.setProperty('--club-text-d', readable(cols, '#171d1a', '#ffffff'));
+    r.setProperty('--club-c1', cols[0]); r.setProperty('--club-c2', cols[1] || cols[0]);
+  };
+  /* Schal-Streifen in Vereinsfarben (Deko fuer Karten und Leisten) */
+  UI.scarf = function (club, cls) {
+    var c1 = club.colors[0], c2 = club.colors[1] || '#ffffff';
+    return '<span class="scarf ' + (cls || '') + '" style="--s1:' + c1 + ';--s2:' + c2 + '" aria-hidden="true"></span>';
+  };
 
   /* Vereinswappen-Ersatz: Schild in Vereinsfarben mit Kuerzel (keine Originalwappen) */
   UI.badge = function (club, size) {
@@ -82,13 +142,15 @@
       '<g clip-path="url(#' + id + ')"><rect width="40" height="45" fill="' + c1 + '"/>' +
       '<path d="M0 33 40 25V45H0z" fill="' + c2 + '" opacity="' + (c2.toLowerCase() === c1.toLowerCase() ? 0 : 0.95) + '"/></g>' +
       '<path d="M20 1.5 37.5 6.5V22c0 11.5-7.7 18.6-17.5 21.8C10.2 40.6 2.5 33.5 2.5 22V6.5z" fill="none" stroke="' + (light ? 'rgba(0,0,0,.22)' : 'rgba(0,0,0,.12)') + '" stroke-width="1.2"/>' +
-      '<text x="20" y="22" text-anchor="middle" dominant-baseline="middle" font-family="Inter,system-ui,sans-serif" font-weight="800" font-size="' + fs + '" fill="' + ink + '" letter-spacing="-.3">' + esc(txt) + '</text>' +
-      (club.reserve ? '<text x="20" y="35.5" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-weight="800" font-size="7.5" fill="' + UI.ink(c2) + '">II</text>' : '') +
+      '<text x="20" y="22" text-anchor="middle" dominant-baseline="middle" font-family="Archivo,system-ui,sans-serif" font-weight="800" font-size="' + fs + '" fill="' + ink + '" letter-spacing="-.3">' + esc(txt) + '</text>' +
+      (club.reserve ? '<text x="20" y="35.5" text-anchor="middle" font-family="Archivo,system-ui,sans-serif" font-weight="800" font-size="7.5" fill="' + UI.ink(c2) + '">II</text>' : '') +
       '</svg>';
   };
 
-  UI.tier = function (v) { return v >= 85 ? 'r1' : v >= 80 ? 'r2' : v >= 75 ? 'r3' : v >= 70 ? 'r4' : v >= 65 ? 'r5' : 'r6'; };
-  UI.pill = function (v, cls) { return '<span class="pill ' + UI.tier(v) + ' ' + (cls || '') + '">' + v + '</span>'; };
+  /* Kartenstufen wie in EA SPORTS FC: Bronze bis 64, Silber 65–74, Gold ab 75 (ab 85 seltenes Gold) */
+  UI.tier = function (v) { return v >= 85 ? 'rare' : v >= 75 ? 'gold' : v >= 65 ? 'silver' : 'bronze'; };
+  var TIER_NAME = { rare: 'Gold (selten)', gold: 'Gold', silver: 'Silber', bronze: 'Bronze' };
+  UI.pill = function (v, cls) { var t = UI.tier(v); return '<span class="pill ' + t + ' ' + (cls || '') + '" title="Stärke ' + v + ' · ' + TIER_NAME[t] + '">' + v + '</span>'; };
   UI.posTag = function (pos) { return '<span class="pos ' + FM.posGroup(pos) + '" title="' + esc(FM.POS_NAME[pos] || pos) + '">' + (FM.POS_LABEL[pos] || pos) + '</span>'; };
   UI.gradeCls = function (g) { return g == null ? '' : g <= 1.5 ? 'g1' : g <= 2.5 ? 'g2' : g <= 3.5 ? 'g3' : g <= 4.5 ? 'g4' : 'g5'; };
   UI.grade = function (g) { return g == null ? '<span class="muted">–</span>' : '<span class="grade ' + UI.gradeCls(g) + '">' + FM.fmtGrade(g) + '</span>'; };
@@ -140,7 +202,8 @@
   };
   UI.potRange = function (p) {
     if (p.club === FM.state.user.club || p.age >= 27) return String(p.pot);
-    var spread = p.age <= 20 ? 4 : 2;
+    var spread = Math.round((p.age <= 20 ? 4 : 2) * FM.facScoutSpread(FM.state.clubs[FM.state.user.club]));
+    if (!spread) return String(p.pot);
     var h = FM.hash(p.id + 'scout') % (spread + 1);
     var lo = Math.max(p.ovr, p.pot - h), hi = Math.min(95, lo + spread);
     return lo === hi ? String(lo) : lo + '–' + hi;
@@ -200,44 +263,53 @@
     ['stats', 'Statistiken', 'chart'],
     null,
     ['transfers', 'Transfermarkt', 'transfer'],
-    ['finances', 'Finanzen', 'euro'],
+    ['finances', 'Finanzen & Budget', 'wallet'],
+    ['infra', 'Infrastruktur', 'stadium'],
     ['club', 'Verein & Vorstand', 'board']
   ];
   var MOBILE = [['dashboard', 'Übersicht', 'home'], ['squad', 'Kader', 'users'], ['tactics', 'Taktik', 'tactics'], ['table', 'Tabelle', 'table'], ['transfers', 'Transfers', 'transfer']];
 
   UI.renderShell = function () {
     var st = FM.state, club = st.clubs[st.user.club];
+    UI.clubTheme(club);
     var unread = FM.unreadCount(st);
     var nav = NAV.map(function (n) {
       if (!n) return '<div class="nav-sep"></div>';
       var count = n[0] === 'inbox' && unread ? '<span class="count">' + (unread > 99 ? '99+' : unread) + '</span>' : '';
-      return '<button data-action="go" data-view="' + n[0] + '" class="' + (UI.view === n[0] ? 'active' : '') + '">' + UI.icon(n[2]) + '<span>' + n[1] + '</span>' + count + '</button>';
+      var building = n[0] === 'infra' && club.builds && club.builds.length ? '<span class="count dot" title="Bauarbeiten laufen">' + club.builds.length + '</span>' : '';
+      return '<button data-action="go" data-view="' + n[0] + '" class="' + (UI.view === n[0] ? 'active' : '') + '"' + (UI.view === n[0] ? ' aria-current="page"' : '') + '>' + UI.icon(n[2]) + '<span>' + n[1] + '</span>' + count + building + '</button>';
     }).join('');
     var mob = MOBILE.map(function (n) {
       return '<button data-action="go" data-view="' + n[0] + '" class="' + (UI.view === n[0] ? 'active' : '') + '">' + UI.icon(n[2]) + '<span>' + n[1] + '</span></button>';
     }).join('');
     var league = st.leagues[club.league];
     var pos = FM.playedRounds(st, club.league) ? FM.clubPosition(st, club.id) : null;
+    var b = FM.budget(st, club);
+    var room = b.wage - FM.annualWages(st, club);
     document.getElementById('app').innerHTML =
       '<div class="shell" id="shell">' +
       '<aside class="sidebar">' +
-      '<div class="brand"><div class="brand-mark">' + UI.icon('ball') + '</div><div><div class="brand-name">Matchplan</div><div class="brand-sub">Fußballmanager 26/27</div></div></div>' +
-      '<div class="club-chip">' + UI.badge(club, 30) + '<div style="min-width:0"><div class="name ellipsis">' + esc(club.name) + '</div><div class="sub">' + esc(league.name) + (pos ? ' · Platz ' + pos : '') + '</div></div></div>' +
-      '<nav class="nav">' + nav + '</nav>' +
+      '<div class="crest">' + UI.badge(club, 46) + '<div class="crest-t"><div class="crest-name' + (club.name.split(' ').some(function (w) { return w.length > 12; }) ? ' long' : '') + '">' + esc(club.name) + '</div><div class="crest-sub">' + esc(league.name) + (pos ? ' · ' + pos + '. Platz' : '') + '</div></div></div>' +
+      '<nav class="nav" aria-label="Hauptnavigation">' + nav + '</nav>' +
       '<div class="sidebar-foot nav"><button data-action="saveGame">' + UI.icon('save') + '<span>Speichern</span></button>' +
       '<button data-action="settings">' + UI.icon('settings') + '<span>Einstellungen</span></button></div>' +
+      '<div class="fringe" aria-hidden="true"></div>' +
       '</aside>' +
       '<div class="main">' +
       '<header class="topbar"><button class="btn ghost icon menu-btn" data-action="toggleNav" aria-label="Menü">' + UI.icon('menu') + '</button>' +
-      '<div><div class="title" id="view-title"></div></div>' +
+      '<div class="tb-title"><div class="tb-eyebrow">Matchplan · ' + st.season.year + '/' + String(st.season.year + 1).slice(2) + '</div><div class="title" id="view-title"></div></div>' +
       '<div class="spacer"></div>' +
-      '<div class="date"><span class="wd">' + FM.date.weekdayName(st.date) + ',</span> ' + FM.date.fmt(st.date) + '</div>' +
-      '<div class="money-wrap"><span class="tag ' + (club.money < 0 ? 'bad' : '') + ' money" title="Kontostand">' + FM.fmtMoney(club.money) + '</span></div>' +
-      '<button class="btn primary btn-continue" id="btn-continue" data-action="continue">' + continueLabel() + '</button>' +
+      '<div class="tb-figs">' +
+      '<div class="tb-fig"><span class="k">Datum</span><span class="v">' + FM.date.fmtLong(st.date) + '</span></div>' +
+      '<button class="tb-fig link" data-action="go" data-view="finances" title="Transferbudget und Gehaltsspielraum"><span class="k">Transferbudget</span><span class="v' + (b.austerity ? ' bad' : '') + '">' + (b.austerity ? 'Sparkurs' : FM.fmtMoney(b.transfer)) + '</span></button>' +
+      '<button class="tb-fig link hide-md" data-action="go" data-view="finances"><span class="k">Gehaltsspielraum</span><span class="v' + (room < 0 ? ' bad' : '') + '">' + FM.fmtMoney(room) + '</span></button>' +
+      '<div class="tb-fig hide-md"><span class="k">Konto</span><span class="v' + (club.money < 0 ? ' bad' : '') + '">' + FM.fmtMoney(club.money) + '</span></div>' +
+      '</div>' +
+      '<button class="btn club btn-continue" id="btn-continue" data-action="continue">' + continueLabel() + '</button>' +
       '</header>' +
       '<main class="content" id="view"></main>' +
       '</div>' +
-      '<nav class="mobile-nav">' + mob + '</nav>' +
+      '<nav class="mobile-nav" aria-label="Schnellnavigation">' + mob + '</nav>' +
       '</div>';
   };
 
@@ -279,6 +351,10 @@
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && UI.modalOpen) UI.closeModal();
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.getAttribute && e.target.getAttribute('role') === 'button' && e.target.hasAttribute('data-action')) {
+      e.preventDefault();
+      e.target.click();
+    }
   });
 
   UI.actions.go = function (el) {

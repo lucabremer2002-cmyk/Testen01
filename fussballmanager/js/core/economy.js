@@ -21,11 +21,12 @@
 
   /* ---------- Finanzen ---------- */
   FM.emptyLedger = function () {
-    return { tv: 0, tickets: 0, sponsor: 0, prize: 0, sales: 0, wages: 0, buys: 0, ops: 0, other: 0 };
+    return { tv: 0, tickets: 0, sponsor: 0, prize: 0, sales: 0, wages: 0, buys: 0, fees: 0, ops: 0, infra: 0, other: 0 };
   };
   FM.LEDGER_LABEL = {
     tv: 'TV-Gelder', tickets: 'Zuschauereinnahmen', sponsor: 'Sponsoring & Marketing', prize: 'Prämien',
-    sales: 'Transfererlöse', wages: 'Gehälter', buys: 'Ablösesummen', ops: 'Betriebskosten', other: 'Sonstiges'
+    sales: 'Transfererlöse', wages: 'Gehälter', buys: 'Ablösesummen', fees: 'Berater & Handgelder', ops: 'Betriebskosten',
+    infra: 'Infrastruktur (Bau & Unterhalt)', other: 'Sonstiges'
   };
 
   var MIN_COMMERCIAL = { bl: 8e6, bl2: 2.5e6, l3: 0.6e6, rl: 0.2e6 };
@@ -43,10 +44,7 @@
      seinem echten Kader wirtschaftlich solide (leichter Ueberschuss) startet. */
   FM.calibrateCommercial = function (state, club) {
     var base = tvAndOps(club);
-    var homeGames = club.league === 'l3' ? 19 : 17;
-    var fill = FM.clamp(0.55 + (club.rep - 40) / 100 + ({ bl: 0.25, bl2: 0.12, l3: 0, rl: -0.1 }[club.league]), 0.25, 1);
-    if (club.league !== 'bl') fill *= Math.min(1, 45000 / club.cap + 0.25);
-    var tickets = club.cap * fill * (FM.ticketPrice[club.league] || 10) * homeGames;
+    var tickets = FM.expectedAttendance(club) * (FM.ticketPrice[club.league] || 10) * FM.homeGames(club);
     var wages = FM.annualWages(state, club);
     var need = (wages + base.ops) * 1.03 - base.tv - tickets;
     club.commercial = Math.round(Math.max(MIN_COMMERCIAL[club.league] || 0.2e6, need));
@@ -54,7 +52,8 @@
 
   FM.annualPlan = function (club) {
     var b = tvAndOps(club);
-    return { tv: b.tv, sponsor: club.commercial || MIN_COMMERCIAL[club.league] || 0.2e6, ops: b.ops };
+    var sponsor = (club.commercial || MIN_COMMERCIAL[club.league] || 0.2e6) * FM.facCommercial(club);
+    return { tv: b.tv, sponsor: Math.round(sponsor), ops: b.ops };
   };
 
   /* Ligawechsel/Erfolg wirken sich auf die Vermarktung aus */
@@ -68,14 +67,12 @@
 
   FM.ticketPrice = { bl: 36, bl2: 24, l3: 15, rl: 10 };
 
+  /* Zuschauer = Nachfrage, begrenzt durch die (waehrend eines Ausbaus reduzierte) Kapazitaet */
   FM.attendance = function (state, homeId, awayId, comp) {
     var c = state.clubs[homeId], a = state.clubs[awayId];
-    var boost = { bl: 0.25, bl2: 0.12, l3: 0, rl: -0.1 }[c.league];
-    var fill = 0.55 + (c.rep - 40) / 100 + boost + (a.rep - 60) / 400;
-    if (comp === 'cup' || comp === 'po1' || comp === 'po2') fill += 0.15;
-    if (c.league !== 'bl') fill *= Math.min(1, 45000 / c.cap + 0.25);
-    fill = FM.clamp(fill + R.range(-0.04, 0.04), 0.25, 1);
-    return Math.round(c.cap * fill);
+    var cap0 = c.cap0 || c.cap;
+    var demand = FM.fanDemand(c, a.rep, comp) + cap0 * R.range(-0.04, 0.04);
+    return Math.round(FM.clamp(demand, cap0 * 0.25, FM.effectiveCap(c)));
   };
 
   FM.book = function (club, key, amount) {
@@ -116,6 +113,8 @@
         if (club.money > reserve) FM.book(club, 'other', -(club.money - reserve) * 0.06);
       }
     });
+    FM.payUpkeep(state);
+    FM.boardFinanceCheck(state);
   };
 
   /* ---------- Vorstand ---------- */
@@ -241,10 +240,14 @@
   FM.executeTransfer = function (state, p, toId, fee, wage, years) {
     var fromId = p.club;
     var to = state.clubs[toId];
+    wage = wage || FM.wageDemand(p, to.league);
+    var cost = FM.transferCost(state, to, p, fee || 0, wage);
+    var credited = 0;
     if (fromId) {
       var from = state.clubs[fromId];
       from.squad = from.squad.filter(function (id) { return id !== p.id; });
       if (fee) FM.book(from, 'sales', fee);
+      if (fee && fromId === state.user.club) credited = FM.creditSale(state, from, fee, 'Verkauf ' + p.name + ' an ' + to.short);
       if (from.lineup) {
         from.lineup.slots.forEach(function (s) { if (s.pid === p.id) s.pid = null; });
         from.lineup.bench = (from.lineup.bench || []).filter(function (id) { return id !== p.id; });
@@ -253,13 +256,14 @@
       state.free = state.free.filter(function (id) { return id !== p.id; });
     }
     if (fee) FM.book(to, 'buys', -fee);
+    if (cost.agent + cost.bonus) FM.book(to, 'fees', -(cost.agent + cost.bonus));
     to.squad.push(p.id);
     p.club = toId;
     p.listed = false;
     p.joined = state.season.year;
-    p.contract = { until: state.season.year + (years || 3), wage: wage || FM.wageDemand(p, to.league) };
+    p.contract = { until: state.season.year + (years || 3), wage: wage };
     p.mor = Math.min(100, p.mor + 10);
-    var rec = { date: state.date, pid: p.id, name: p.name, from: fromId, to: toId, fee: fee || 0, ovr: p.ovr, age: p.age, pos: p.pos[0] };
+    var rec = { date: state.date, pid: p.id, name: p.name, from: fromId, to: toId, fee: fee || 0, ovr: p.ovr, age: p.age, pos: p.pos[0], cost: cost.total, credited: credited };
     state.transfers.unshift(rec);
     if (state.transfers.length > 400) state.transfers.length = 400;
     state.offers = state.offers.filter(function (o) { return o.pid !== p.id; });
@@ -287,8 +291,10 @@
     var buyer = state.clubs[state.user.club];
     if (p.club === buyer.id) return { ok: false, msg: 'Der Spieler steht bereits bei dir unter Vertrag.' };
     if (p.club && !FM.isWindowOpen(state)) return { ok: false, msg: 'Das Transferfenster ist geschlossen. Vereinslose Spieler kannst du jederzeit verpflichten.' };
-    if (fee > buyer.money) return { ok: false, msg: 'Dafür reicht dein Kontostand nicht aus.' };
     if (buyer.squad.length >= 34) return { ok: false, msg: 'Dein Kader ist voll (max. 34 Spieler).' };
+    var cost = FM.transferCost(state, buyer, p, p.club ? fee : 0, wage);
+    var budgetErr = FM.checkBudget(state, buyer, cost, wage);
+    if (budgetErr) return { ok: false, msg: budgetErr, budget: true };
     var interest = FM.interest(state, p, buyer.id);
     if (interest < 35) return { ok: false, msg: p.name + ' hat kein Interesse an einem Wechsel zu deinem Verein.' };
     if (p.club) {
@@ -310,10 +316,12 @@
       return { ok: false, msg: p.name + ' fordert mindestens ' + FM.fmtMoney(demand) + ' Jahresgehalt.', wageCounter: demand };
     }
     var rec = FM.executeTransfer(state, p, buyer.id, p.club ? fee : 0, wage, years);
+    if (rec.cost) FM.spendBudget(state, buyer, rec.cost, 'Verpflichtung ' + p.name);
     FM.addNews(state, {
       type: 'transfer', title: p.name + ' unterschreibt',
       body: p.name + ' wechselt ' + (rec.from ? 'von ' + state.clubs[rec.from].name + ' ' : 'ablösefrei ') + 'zu ' + buyer.name +
-        (rec.fee ? ' (Ablöse ' + FM.fmtMoney(rec.fee) + ')' : '') + '. Vertrag bis ' + p.contract.until + ', Jahresgehalt ' + FM.fmtMoney(wage) + '.'
+        (rec.fee ? ' (Ablöse ' + FM.fmtMoney(rec.fee) + ')' : '') + '. Vertrag bis ' + p.contract.until + ', Jahresgehalt ' + FM.fmtMoney(wage) + '.' +
+        (rec.cost ? ' Belastung des Transferbudgets inklusive ' + (rec.fee ? 'Beraterhonorar' : 'Handgeld') + ': ' + FM.fmtMoney(rec.cost) + '.' : '')
     });
     return { ok: true, msg: p.name + ' ist verpflichtet!' };
   };
@@ -323,6 +331,13 @@
     if (p.mor < 25) return { ok: false, msg: p.name + ' ist unzufrieden und will nicht verlängern.' };
     if (p.age >= 33 && years > 2) return { ok: false, msg: p.name + ' möchte sich höchstens zwei Jahre binden.' };
     if (wage < demand * 0.95) return { ok: false, msg: p.name + ' fordert ' + FM.fmtMoney(demand) + ' pro Jahr.', wageCounter: demand };
+    var club = state.clubs[p.club];
+    if (club.id === state.user.club) {
+      var raise = wage - p.contract.wage, room = FM.wageRoom(state, club);
+      if (raise > 0 && raise > room) {
+        return { ok: false, budget: true, msg: 'Das Gehaltsbudget reicht nicht: Die Erhöhung um ' + FM.fmtMoney(raise) + ' übersteigt den Spielraum von ' + FM.fmtMoney(Math.max(0, room)) + ' pro Jahr. Schichte Transferbudget ins Gehaltsbudget um.' };
+      }
+    }
     p.contract = { until: state.season.year + years, wage: wage };
     p.mor = Math.min(100, p.mor + 8);
     return { ok: true, msg: 'Vertrag bis ' + p.contract.until + ' verlängert.' };
@@ -365,10 +380,10 @@
     if (!p || p.club !== state.user.club) { o.status = 'expired'; return { ok: false, msg: 'Der Spieler gehört nicht mehr zu deinem Kader.' }; }
     var buyer = state.clubs[o.from];
     if (buyer.money < o.fee) { o.status = 'expired'; return { ok: false, msg: buyer.short + ' kann die Summe nicht mehr aufbringen.' }; }
-    FM.executeTransfer(state, p, o.from, o.fee, FM.wageDemand(p, buyer.league), R.int(2, 4));
+    var rec = FM.executeTransfer(state, p, o.from, o.fee, FM.wageDemand(p, buyer.league), R.int(2, 4));
     o.status = 'accepted';
-    FM.addNews(state, { type: 'transfer', title: p.name + ' verlässt den Verein', body: p.name + ' wechselt für ' + FM.fmtMoney(o.fee) + ' zu ' + buyer.name + '.' });
-    return { ok: true, msg: p.name + ' wurde an ' + buyer.short + ' verkauft.' };
+    FM.addNews(state, { type: 'transfer', title: p.name + ' verlässt den Verein', body: p.name + ' wechselt für ' + FM.fmtMoney(o.fee) + ' zu ' + buyer.name + '. Davon fließen ' + FM.fmtMoney(rec.credited) + ' ins Transferbudget.' });
+    return { ok: true, msg: p.name + ' wurde an ' + buyer.short + ' verkauft. +' + FM.fmtMoney(rec.credited) + ' Transferbudget.' };
   };
 
   FM.expireOffers = function (state) {

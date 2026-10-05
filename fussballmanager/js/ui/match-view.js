@@ -57,7 +57,7 @@
       }).join('') + '</tbody></table>';
     }
     var stadium = fx.neutral ? 'Olympiastadion Berlin' : h.stadium;
-    var html = '<div class="card"><div class="scoreboard">' + teamHead(h) + '<div class="score"><div class="muted small">' + esc(UI.compLabel(fx)) + '</div><div class="s" style="font-size:28px;margin:4px 0">vs</div><div class="muted small">' + D.fmtLong(fx.date) + '</div></div>' + teamHead(a, 'r') + '</div>' +
+    var html = '<div class="card board-card"><div class="floodlights" aria-hidden="true"></div><div class="scoreboard">' + teamHead(h) + '<div class="score"><div class="muted small">' + esc(UI.compLabel(fx)) + '</div><div class="s" style="font-size:28px;margin:4px 0">vs</div><div class="muted small">' + D.fmtLong(fx.date) + '</div></div>' + teamHead(a, 'r') + '</div>' +
       '<div class="match-meta"><span class="tag">' + esc(stadium) + '</span>' + (fx.agg ? '<span class="tag warn">Hinspiel ' + fx.agg[1] + ':' + fx.agg[0] + ' (' + esc(a.short) + ' – ' + esc(h.short) + ')</span>' : '') +
       (fx.comp === 'cup' || fx.leg === 2 ? '<span class="tag">K.-o.-Spiel: Verlängerung & Elfmeterschießen möglich</span>' : '') + '</div></div>';
     if (missing) html += '<div class="note warn" style="margin-top:16px">' + missing + ' Spieler deiner gespeicherten Aufstellung fehlen (verletzt/gesperrt) und werden automatisch ersetzt. Prüfe die Aufstellung.</div>';
@@ -154,7 +154,7 @@
     var h = st.clubs[fx.home], a = st.clubs[fx.away];
     var speed = st.settings.speed != null ? st.settings.speed : 1;
     var prog = Math.min(100, m.minute / (m.period >= 3 ? 120 : 90) * 100);
-    var html = '<div class="card"><div class="scoreboard">' +
+    var html = '<div class="card board-card"><div class="floodlights" aria-hidden="true"></div><div class="scoreboard">' +
       '<div class="team">' + UI.badge(h, 46) + '<div class="n ellipsis">' + esc(h.name) + '</div></div>' +
       '<div class="score"><div class="s" id="lv-score">' + scoreStr() + '</div><div class="m" id="lv-min">' + (L.paused ? '' : '<span class="live-dot"></span>') + minuteLabel(m) + '</div></div>' +
       '<div class="team away">' + UI.badge(a, 46) + '<div class="n ellipsis">' + esc(a.name) + '</div></div></div>' +
@@ -220,7 +220,7 @@
     var st = FM.state, side = L.m.sides[L.userSide];
     return '<table class="tbl compact"><tbody>' + side.onPitch.map(function (s) {
       var p = st.players[s.pid], pr = side.pr[s.pid];
-      return '<tr' + (pr.rc ? ' style="opacity:.45"' : '') + '><td>' + UI.posTag(s.pos) + '</td><td class="pname">' + esc(UI.shortName(p.name)) + (pr.goals ? ' ' + '⚽'.repeat(Math.min(3, pr.goals)) : '') + (pr.yc ? ' <span class="card-y"></span>' : '') + (pr.rc ? ' <span class="card-r"></span>' : '') + (pr.inj ? ' <span class="tag bad">verletzt</span>' : '') + '</td><td>' + UI.fit(pr.fit) + '</td></tr>';
+      return '<tr' + (pr.rc ? ' style="opacity:.45"' : '') + '><td>' + UI.posTag(s.pos) + '</td><td class="pname">' + esc(UI.shortName(p.name)) + (pr.goals ? ' ' + UI.goalMark(pr.goals) : '') + (pr.yc ? ' <span class="card-y"></span>' : '') + (pr.rc ? ' <span class="card-r"></span>' : '') + (pr.inj ? ' <span class="tag bad">verletzt</span>' : '') + '</td><td>' + UI.fit(pr.fit) + '</td></tr>';
     }).join('') + '</tbody></table>';
   }
 
@@ -343,13 +343,13 @@
         var p = st.players[e.p]; return esc(p ? UI.shortName(p.name) : '?') + ' ' + e.m + '\'' + (e.og ? ' (ET)' : e.pen ? ' (FE)' : '');
       }).join('<br>');
     };
-    var html = '<div class="card"><div class="scoreboard">' +
+    var html = '<div class="card board-card"><div class="floodlights" aria-hidden="true"></div><div class="scoreboard">' +
       '<div class="team">' + UI.badge(h, 46) + '<div style="min-width:0"><div class="n ellipsis">' + esc(h.name) + '</div><div class="muted small">' + scorers(0) + '</div></div></div>' +
       '<div class="score"><div class="s">' + r.hg + ' : ' + r.ag + '</div><div class="m">' + (r.pen ? 'i.E. ' + r.pen[0] + ':' + r.pen[1] : r.aet ? 'n.V.' : 'Endstand') + '</div><div style="margin-top:6px"><span class="tag ' + cls + '">' + outcome + '</span></div></div>' +
       '<div class="team away">' + UI.badge(a, 46) + '<div style="min-width:0"><div class="n ellipsis">' + esc(a.name) + '</div><div class="muted small">' + scorers(1) + '</div></div></div></div>' +
       '<div class="match-meta"><span class="tag">' + esc(UI.compLabel(fx)) + '</span><span class="tag">' + FM.fmtInt(r.att || 0) + ' Zuschauer</span>' +
       (r.motm && st.players[r.motm] ? '<span class="tag accent">★ Spieler des Spiels: ' + esc(st.players[r.motm].name) + '</span>' : '') + '</div>' +
-      '<div class="modal-f"><button class="btn" data-action="matchReport" data-id="' + fx.id + '">Kompletter Spielbericht</button><button class="btn primary" data-action="postDone">Weiter ' + UI.icon('next') + '</button></div></div>';
+      '<div class="modal-f"><button class="btn" data-action="matchReport" data-id="' + fx.id + '">Kompletter Spielbericht</button><button class="btn club" data-action="postDone">Weiter ' + UI.icon('next') + '</button></div></div>';
     html += '<div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-h"><h3>Statistik</h3></div>' + UI.statsBlock(r.stats) + '</div>';
     var today = FM.fixturesOn(st, fx.date).filter(function (f) { return f.comp === fx.comp && f.id !== fx.id; });
     html += '<div class="card"><div class="card-h"><h3>' + (fx.comp === 'cup' ? 'Weitere Pokalspiele' : 'Weitere Ergebnisse') + '</h3></div><div class="list konf">' + (today.length ? today.map(function (f) {
@@ -361,7 +361,7 @@
       html += '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Noten deiner Spieler</h3><span class="muted small">Kicker-Skala: 1,0 = Weltklasse · 6,0 = unbrauchbar</span></div><div class="card-b flush"><table class="tbl"><thead><tr><th>Pos</th><th>Spieler</th><th class="num">Min</th><th class="num hide-xs">Fitness</th><th class="num">Note</th></tr></thead><tbody>' +
         mine.map(function (x) {
           return '<tr class="click" data-action="player" data-id="' + x.pid + '"><td>' + UI.posTag(x.r.pos) + '</td><td><span class="pname">' + esc(x.p ? x.p.name : '?') + '</span>' + (r.motm === x.pid ? ' <span class="tag accent">★</span>' : '') +
-            (x.r.gl ? ' ' + '⚽'.repeat(Math.min(4, x.r.gl)) : '') + (x.r.as ? ' <span class="muted small">' + x.r.as + ' Vorl.</span>' : '') + (x.r.yc ? ' <span class="card-y"></span>' : '') + (x.r.rc ? ' <span class="card-r"></span>' : '') + (x.r.inj ? ' <span class="tag bad">verletzt</span>' : '') + '</td>' +
+            (x.r.gl ? ' ' + UI.goalMark(x.r.gl) : '') + (x.r.as ? ' <span class="muted small">' + x.r.as + ' Vorl.</span>' : '') + (x.r.yc ? ' <span class="card-y"></span>' : '') + (x.r.rc ? ' <span class="card-r"></span>' : '') + (x.r.inj ? ' <span class="tag bad">verletzt</span>' : '') + '</td>' +
             '<td class="num">' + Math.min(x.r.mi, r.aet ? 120 : 90) + '</td><td class="num hide-xs">' + UI.fit(x.r.fit) + '</td><td class="num">' + UI.grade(x.r.g) + '</td></tr>';
         }).join('') + '</tbody></table></div></div>';
     }

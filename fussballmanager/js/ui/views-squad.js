@@ -144,7 +144,7 @@
       '<h4 style="margin:18px 0 8px">Karriere im Spiel</h4>' + hist + '</div>' +
       '<div class="modal-f">' + actions + '</div>');
   };
-  function mini(l, v) { return '<div class="card stat" style="padding:10px 12px"><div class="label">' + l + '</div><div class="value" style="font-size:18px">' + v + '</div></div>'; }
+  function mini(l, v) { return '<div class="stat mini"><div class="label">' + l + '</div><div class="value">' + v + '</div></div>'; }
 
   UI.actions.toggleList = function (el) {
     var p = FM.state.players[el.getAttribute('data-id')];
@@ -165,20 +165,49 @@
     }, true);
   };
 
+  /* Fehlenden Gehaltsspielraum aus dem Transferbudget umschichten (Schaltflaeche in Dialogen) */
+  function shiftOffer(missing, alsoNeeded) {
+    var st = FM.state, b = FM.budget(st);
+    var need = Math.ceil(missing * FM.WAGE_SHIFT_COST / 10000) * 10000;
+    if (missing <= 0) return '';
+    if (alsoNeeded && need + alsoNeeded > b.transfer && need <= b.transfer) {
+      return '<div class="note warn small">Es fehlen ' + FM.fmtMoney(missing) + ' Gehaltsspielraum pro Jahr. Umschichten würde ' + FM.fmtMoney(need) + ' kosten, zusammen mit der Ablöse wären das ' + FM.fmtMoney(need + alsoNeeded) + ', verfügbar sind ' + FM.fmtMoney(b.transfer) + '.</div>';
+    }
+    if (b.austerity || need > b.transfer) return '<div class="note warn small">Es fehlen ' + FM.fmtMoney(missing) + ' Gehaltsspielraum pro Jahr. Zum Umschichten wären ' + FM.fmtMoney(need) + ' Transferbudget nötig, verfügbar sind ' + FM.fmtMoney(b.transfer) + '.</div>';
+    return '<div class="note warn small row between wrap"><span>Es fehlen ' + FM.fmtMoney(missing) + ' Gehaltsspielraum pro Jahr.</span><button class="btn sm" data-shift="' + need + '">' + FM.fmtMoney(need) + ' Transferbudget umschichten</button></div>';
+  }
+  function bindShift(m, recalc) {
+    m.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-shift]');
+      if (!b) return;
+      e.stopPropagation();
+      var r = FM.shiftBudget(FM.state, 'wage', +b.getAttribute('data-shift'));
+      UI.toast(r.msg, r.ok ? 'good' : 'bad');
+      recalc();
+    }, true);
+  }
+
   UI.actions.contractDlg = function (el) {
     var st = FM.state, p = st.players[el.getAttribute('data-id')];
     var demand = FM.contractWageDemand(st, p, p.club, 70);
     var years = p.age >= 33 ? 1 : 3;
     UI.modal(UI.modalHead('Vertrag verlängern', esc(p.name) + ' · aktuell bis ' + p.contract.until + ', ' + FM.fmtMoney(p.contract.wage) + '/Jahr') +
-      '<div class="modal-b"><div class="grid g2"><div class="field"><label>Jahresgehalt (€)</label><input class="input" id="c-wage" type="number" step="10000" min="0" value="' + demand + '"></div>' +
-      '<div class="field"><label>Laufzeit</label><select class="input" id="c-years">' + [1, 2, 3, 4, 5].map(function (y) { return '<option value="' + y + '"' + (y === years ? ' selected' : '') + '>' + y + ' Jahr' + (y > 1 ? 'e' : '') + ' (bis ' + (st.season.year + y) + ')</option>'; }).join('') + '</select></div></div>' +
-      '<p class="muted small" style="margin-top:10px">Gehaltsvorstellung des Spielers: ca. ' + FM.fmtMoney(demand) + ' pro Jahr.</p><div id="c-msg" style="margin-top:10px"></div></div>' +
-      '<div class="modal-f"><button class="btn" data-action="closeModal">Abbrechen</button><button class="btn primary" id="c-ok">Angebot machen</button></div>',
+      '<div class="modal-b"><div class="grid g2"><div class="field"><label for="c-wage">Jahresgehalt (€)</label><input class="input" id="c-wage" type="number" step="10000" min="0" value="' + demand + '"></div>' +
+      '<div class="field"><label for="c-years">Laufzeit</label><select class="input" id="c-years">' + [1, 2, 3, 4, 5].map(function (y) { return '<option value="' + y + '"' + (y === years ? ' selected' : '') + '>' + y + ' Jahr' + (y > 1 ? 'e' : '') + ' (bis ' + (st.season.year + y) + ')</option>'; }).join('') + '</select></div></div>' +
+      '<p class="muted small" style="margin-top:10px">Gehaltsvorstellung des Spielers: ca. ' + FM.fmtMoney(demand) + ' pro Jahr.</p><div id="c-cost" class="costbox"></div><div id="c-msg" style="margin-top:10px"></div></div>' +
+      '<div class="modal-f"><button class="btn" data-action="closeModal">Abbrechen</button><button class="btn club" id="c-ok">Angebot machen</button></div>',
       { size: 'narrow', mount: function (m) {
+        function recalc() {
+          var wage = +m.querySelector('#c-wage').value || 0, room = FM.wageRoom(st, st.clubs[p.club]), raise = wage - p.contract.wage;
+          m.querySelector('#c-cost').innerHTML = '<dl><dt>Erhöhung pro Jahr</dt><dd>' + FM.fmtMoney(raise, { sign: true }) + '</dd><dt>Gehaltsspielraum</dt><dd class="' + (raise > room ? 'bad' : 'good') + '">' + FM.fmtMoney(room) + '</dd></dl>' + shiftOffer(raise - room);
+        }
+        m.querySelector('#c-wage').addEventListener('input', recalc);
+        bindShift(m, recalc);
+        recalc();
         m.querySelector('#c-ok').addEventListener('click', function () {
           var r = FM.extendContract(st, p, +m.querySelector('#c-wage').value, +m.querySelector('#c-years').value);
           if (r.ok) { UI.closeModal(); UI.toast(p.name + ': ' + r.msg, 'good'); UI.refresh(); }
-          else { m.querySelector('#c-msg').innerHTML = '<div class="note warn">' + esc(r.msg) + '</div>'; if (r.wageCounter) m.querySelector('#c-wage').value = r.wageCounter; }
+          else { m.querySelector('#c-msg').innerHTML = '<div class="note warn">' + esc(r.msg) + '</div>'; if (r.wageCounter) { m.querySelector('#c-wage').value = r.wageCounter; recalc(); } }
         });
       } });
   };
@@ -190,15 +219,31 @@
     var ask = p.club ? FM.askingPrice(st, p) : 0;
     var demand = FM.contractWageDemand(st, p, buyer.id, interest);
     var il = FM.interestLabel(interest);
-    UI.modal(UI.modalHead(p.club ? 'Angebot für ' + esc(p.name) : esc(p.name) + ' verpflichten', p.club ? esc(st.clubs[p.club].name) + ' · Marktwert ' + FM.fmtMoney(FM.marketValue(p)) : 'Vereinslos – keine Ablöse') +
-      '<div class="modal-b"><div class="stack">' +
-      '<div class="row wrap"><span class="tag ' + il.c + '">' + il.t + '</span><span class="muted small">Kontostand: ' + FM.fmtMoney(buyer.money) + '</span></div>' +
-      (p.club ? '<div class="field"><label>Ablöse (€) – Forderung ca. ' + FM.fmtMoney(ask) + '</label><input class="input" id="b-fee" type="number" step="50000" min="0" value="' + ask + '"></div>' : '') +
-      '<div class="grid g2"><div class="field"><label>Jahresgehalt (€) – Forderung ca. ' + FM.fmtMoney(demand) + '</label><input class="input" id="b-wage" type="number" step="10000" min="0" value="' + demand + '"></div>' +
-      '<div class="field"><label>Vertragslaufzeit</label><select class="input" id="b-years">' + [1, 2, 3, 4, 5].map(function (y) { return '<option value="' + y + '"' + (y === 3 ? ' selected' : '') + '>' + y + ' Jahr' + (y > 1 ? 'e' : '') + '</option>'; }).join('') + '</select></div></div>' +
+    UI.modal(UI.modalHead(p.club ? 'Angebot für ' + esc(p.name) : esc(p.name) + ' verpflichten', p.club ? esc(st.clubs[p.club].name) + ' · Marktwert ' + FM.fmtMoney(FM.marketValue(p)) : 'Vereinslos, keine Ablöse') +
+      '<div class="modal-b"><div class="stack" style="gap:12px">' +
+      '<div class="row wrap"><span class="tag ' + il.c + '">' + il.t + '</span>' + (p.club ? '<span class="muted small">Forderung von ' + esc(st.clubs[p.club].short) + ': ' + FM.fmtMoney(ask) + '</span>' : '') + '</div>' +
+      (p.club ? '<div class="field"><label for="b-fee">Ablöse (€)</label><input class="input" id="b-fee" type="number" step="50000" min="0" value="' + ask + '"></div>' : '') +
+      '<div class="grid g2"><div class="field"><label for="b-wage">Jahresgehalt (€), Forderung ca. ' + FM.fmtMoney(demand) + '</label><input class="input" id="b-wage" type="number" step="10000" min="0" value="' + demand + '"></div>' +
+      '<div class="field"><label for="b-years">Vertragslaufzeit</label><select class="input" id="b-years">' + [1, 2, 3, 4, 5].map(function (y) { return '<option value="' + y + '"' + (y === 3 ? ' selected' : '') + '>' + y + ' Jahr' + (y > 1 ? 'e' : '') + '</option>'; }).join('') + '</select></div></div>' +
+      '<div id="b-cost" class="costbox"></div>' +
       '<div id="b-msg"></div></div></div>' +
-      '<div class="modal-f"><button class="btn" data-action="closeModal">Abbrechen</button><button class="btn primary" id="b-ok">' + (p.club ? 'Angebot senden' : 'Vertrag anbieten') + '</button></div>',
+      '<div class="modal-f"><button class="btn" data-action="closeModal">Abbrechen</button><button class="btn club" id="b-ok">' + (p.club ? 'Angebot senden' : 'Vertrag anbieten') + '</button></div>',
       { size: 'narrow', mount: function (m) {
+        function recalc() {
+          var b = FM.budget(st, buyer);
+          var fee = p.club ? +m.querySelector('#b-fee').value || 0 : 0, wage = +m.querySelector('#b-wage').value || 0;
+          var c = FM.transferCost(st, buyer, p, fee, wage), room = FM.wageRoom(st, buyer);
+          var okT = !b.austerity && c.total <= b.transfer, okW = wage <= room;
+          m.querySelector('#b-cost').innerHTML = '<dl>' +
+            (p.club ? '<dt>Ablöse</dt><dd>' + FM.fmtMoney(c.fee) + '</dd><dt>Beraterhonorar (' + Math.round(FM.agentRate(buyer) * 100) + ' %)</dt><dd>' + FM.fmtMoney(c.agent) + '</dd>' :
+              '<dt>Handgeld (' + Math.round(FM.SIGNING_BONUS * 100) + ' % eines Jahresgehalts)</dt><dd>' + FM.fmtMoney(c.bonus) + '</dd>') +
+            '<dt class="sum">Belastung Transferbudget</dt><dd class="sum ' + (okT ? 'good' : 'bad') + '">' + FM.fmtMoney(c.total) + ' <span class="muted">von ' + (b.austerity ? '0 € (Sparkurs)' : FM.fmtMoney(b.transfer)) + '</span></dd>' +
+            '<dt class="sum">Gehalt pro Jahr</dt><dd class="sum ' + (okW ? 'good' : 'bad') + '">' + FM.fmtMoney(wage) + ' <span class="muted">Spielraum ' + FM.fmtMoney(room) + '</span></dd></dl>' +
+            (okW ? '' : shiftOffer(wage - room, c.total));
+        }
+        m.querySelectorAll('#b-fee, #b-wage').forEach(function (inp) { inp.addEventListener('input', recalc); });
+        bindShift(m, recalc);
+        recalc();
         m.querySelector('#b-ok').addEventListener('click', function () {
           var fee = p.club ? +m.querySelector('#b-fee').value : 0;
           var r = FM.userBid(st, p, fee, +m.querySelector('#b-wage').value, +m.querySelector('#b-years').value);
@@ -206,6 +251,7 @@
           m.querySelector('#b-msg').innerHTML = '<div class="note warn">' + esc(r.msg) + '</div>';
           if (r.counter && m.querySelector('#b-fee')) m.querySelector('#b-fee').value = r.counter;
           if (r.wageCounter) m.querySelector('#b-wage').value = r.wageCounter;
+          recalc();
         });
       } });
   };
@@ -242,9 +288,8 @@
         if (!p) cls += ' empty';
         else if (!FM.isAvailable(p, 'league') || pen >= 9) cls += ' bad';
         else if (pen >= 4 || p.fit < 75) cls += ' warn';
-        var c1 = club.colors[0], ink = UI.ink(c1);
-        return '<div class="' + cls + '" style="left:' + f[1] + '%;bottom:' + f[2] + '%" data-action="tacSel" data-k="s' + i + '">' +
-          '<div class="shirt" style="background:' + (p ? c1 : '') + ';color:' + (p ? ink : '') + '">' + (p ? Math.round(FM.effectiveRating(p, f[0])) : '+') + '</div>' +
+        return '<div class="' + cls + '" style="left:' + f[1] + '%;bottom:' + f[2] + '%" data-action="tacSel" data-k="s' + i + '" role="button" tabindex="0" aria-label="' + FM.POS_LABEL[f[0]] + ': ' + (p ? esc(p.name) : 'unbesetzt') + '">' +
+          UI.jersey(p ? club : null, p ? Math.round(FM.effectiveRating(p, f[0])) : '+', f[0] === 'GK') +
           '<div class="nm">' + (p ? esc(UI.shortName(p.name)) : 'frei') + '</div>' +
           (p ? '<div class="fit"><i style="width:' + Math.round(p.fit) + '%"></i></div>' : '') +
           '<div class="lbl">' + FM.POS_LABEL[f[0]] + '</div></div>';
@@ -288,6 +333,17 @@
       return '<button data-action="setTactic" data-k="' + key + '" data-v="' + o[0] + '" class="' + (o[0] === cur ? 'on' : '') + '">' + o[1] + '</button>';
     }).join('') + '</div></div>';
   }
+
+  /* Trikot in Vereinsfarben (Torwart in Kontrastfarbe) */
+  UI.jersey = function (club, label, gk) {
+    var body = club ? (gk ? '#2b2f33' : club.colors[0]) : 'rgba(255,255,255,.18)';
+    var trim = club ? (gk ? '#e8e3a0' : club.colors[1] || '#ffffff') : 'rgba(255,255,255,.6)';
+    var ink = club ? UI.ink(body) : '#ffffff';
+    return '<svg class="jersey' + (club ? '' : ' empty') + '" viewBox="0 0 40 38" aria-hidden="true">' +
+      '<path d="M13 3 5.5 6.5 1.5 14l6 3.2L9.5 15v21h21V15l2 2.2 6-3.2-4-7.5L27 3c-1.3 2.6-3.9 4.2-7 4.2S14.3 5.6 13 3z" fill="' + body + '" stroke="' + (club ? 'rgba(0,0,0,.35)' : 'rgba(255,255,255,.7)') + '" stroke-width="1"' + (club ? '' : ' stroke-dasharray="2 2"') + '/>' +
+      (club ? '<path d="M1.5 14l6 3.2.9-1.7-6-3.2zM38.5 14l-6 3.2-.9-1.7 6-3.2zM13 3c1.3 2.6 3.9 4.2 7 4.2s5.7-1.6 7-4.2l1.6.8C27 7.3 23.8 9.2 20 9.2s-7-1.9-8.6-5.4z" fill="' + trim + '"/>' : '') +
+      '<text x="20" y="27.5" text-anchor="middle" font-family="\'Big Shoulders Display\',Archivo,system-ui,sans-serif" font-weight="800" font-size="13" fill="' + ink + '">' + label + '</text></svg>';
+  };
 
   function pitchLines() {
     return '<svg class="lines" viewBox="0 0 68 100" preserveAspectRatio="none" fill="none" stroke="var(--pitch-line)" stroke-width=".35">' +

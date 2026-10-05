@@ -44,6 +44,7 @@
         squad: [], formation: null, tactics: FM.defaultTactics(), lineup: null,
         hist: [], fin: FM.emptyLedger(), finPrev: null, expect: null
       };
+      FM.ensureClub(club);
       state.clubs[c.id] = club;
       state.leagues[c.league].clubs.push(c.id);
       var rows = data.players[c.id] || [];
@@ -67,8 +68,9 @@
     FM.startSeason(state, true);
     FM.addNews(state, {
       type: 'board', title: 'Willkommen beim ' + uc.name,
-      body: 'Der Vorstand begrüßt dich als neuen Cheftrainer. ' + FM.expectationText(state, uc.id) +
-        ' Das Transferfenster ist bis zum 31. August geöffnet – nutze die Vorbereitung, um den Kader zu schärfen.'
+      body: 'Der Vorstand begrüßt dich als neuen Cheftrainer. ' + FM.expectationText(state, uc.id) + ' ' + FM.budgetText(FM.budget(state, uc)) +
+        ' Das Transferfenster ist bis zum 31. August geöffnet – nutze die Vorbereitung, um den Kader zu schärfen.',
+      action: { kind: 'budget' }
     });
     return state;
   };
@@ -125,6 +127,7 @@
       FM.state = state;
       if (state.rng) FM.rng.state = state.rng;
       FM.invalidateTables();
+      FM.ensureState(state);
       return state;
     } catch (e) {
       console.warn('Laden fehlgeschlagen', e);
@@ -160,6 +163,7 @@
     FM.state = s;
     if (s.rng) FM.rng.state = s.rng;
     FM.invalidateTables();
+    FM.ensureState(s);
     return s;
   };
 })();

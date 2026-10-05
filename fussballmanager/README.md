@@ -19,7 +19,15 @@ python3 -m http.server 8000
 
 Der Spielstand wird automatisch nach jedem Spieltag im Browser gespeichert
 (3 Slots, komprimiert). Über *Einstellungen* lässt er sich als Datei
-exportieren und wieder importieren.
+exportieren und wieder importieren. Ältere Spielstände werden beim Laden
+automatisch um Budget- und Infrastrukturdaten ergänzt.
+
+Eine einzelne, eigenständige HTML-Datei (z. B. zum Weitergeben) erzeugt:
+
+```bash
+cd fussballmanager
+python3 tools/bundle.py dist/matchplan.html
+```
 
 ## Was drin ist
 
@@ -58,13 +66,87 @@ exportieren und wieder importieren.
 - Angebote anderer Vereine für deine Spieler, Transferliste,
   Vertragsverlängerung, Vertragsauflösung mit Abfindung
 - KI-Vereine kaufen und verkaufen selbst (Transferticker)
-- **Finanzen**: TV-Gelder, Sponsoring, Zuschauer (je Stadion), Prämien,
-  Gehälter, Betriebskosten, Kontostand-Verlauf
+- **Finanzen**: TV-Gelder, Sponsoring, Zuschauer, Prämien, Gehälter,
+  Betriebskosten, Berater und Handgelder, Infrastruktur, Saisonprognose,
+  Kontostand-Verlauf
 - **Vorstand** mit Saisonziel nach Kaderstärke, Vertrauensbarometer,
   Entlassung und Jobangeboten anderer Vereine
 - Posteingang, Statistiken (Torjäger, Vorlagen, Noten, weiße Westen, Karten),
   Vereinsprofile aller Klubs
 - Helles und dunkles Design, läuft auf Desktop und Smartphone
+
+**Design**
+- Die Oberfläche trägt die Farben des eigenen Vereins: Die Seitenleiste ist ein
+  Fanschal mit Strickrippen und Fransen, Buttons und Hervorhebungen folgen der
+  Vereinsfarbe (zu helle oder zu dunkle Farben weichen automatisch der
+  Zweitfarbe, Texte werden auf Lesbarkeit geprüft)
+- Spielansetzung, Live-Spiel und Startbildschirm als Stadion-Anzeigetafel
+  mit Flutlicht
+- Spielerwerte in den FC-Kartenstufen Bronze (bis 64), Silber (65–74),
+  Gold (ab 75) und seltenes Gold (ab 85); Taktiktafel mit Trikots in
+  Vereinsfarben
+
+## Budget des Vorstands
+
+Der Kontostand ist nicht mehr frei verfügbar. Der Vorstand legt zum
+Saisonstart (und neu zum Wintertransferfenster) zwei Budgets fest und zeigt
+unter *Finanzen & Budget* den Rechenweg:
+
+1. **Liquiditätsreserve**: Drei Monate Fixkosten (Gehälter, Betrieb,
+   Unterhalt) bleiben immer auf dem Konto.
+2. **Freie Mittel** = Kontostand − Reserve + die Hälfte des erwarteten
+   Überschusses (ein erwarteter Fehlbetrag wird voll abgezogen).
+3. **Transferbudget** = freie Mittel × Freigabequote. Die Quote hängt am
+   Vertrauen des Vorstands (35 bis 75 %). Weil der Überschuss erst im
+   Saisonverlauf hereinkommt, ist das Budget zusätzlich auf den Kontostand
+   minus halbe Reserve begrenzt.
+4. **Gehaltsbudget** = aktuelle Gehälter + 3 %, oder mehr, wenn das unter
+   der ligaüblichen Quote der Einnahmen bleibt (Bundesliga 58 %, 2. Liga
+   62 %, 3. Liga 66 %). Bei erwartetem Fehlbetrag gibt es keine Erhöhung.
+
+Regeln im Spiel:
+- Jede Ablöse kostet zusätzlich ein **Beraterhonorar** (4–12 %, je nach
+  Scouting-Abteilung), Vereinslose ein **Handgeld** von 25 % eines
+  Jahresgehalts. Beides geht vom Transferbudget ab.
+- Neue Verträge und Gehaltserhöhungen müssen in den **Gehaltsspielraum**
+  passen.
+- **Umschichten**: 2 € Transferbudget ergeben 1 € Gehaltsspielraum pro Jahr
+  (Verträge laufen mehrere Jahre). Umgekehrt wird ungenutzter
+  Gehaltsspielraum nur anteilig für den Rest der Saison frei. Im
+  Angebotsdialog lässt sich fehlender Spielraum mit einem Klick umschichten.
+- **Verkäufe**: 45–75 % des Erlöses fließen zurück ins Transferbudget, je
+  nach Vertrauen.
+- **Nachschlag**: einmal pro Halbserie beantragbar. Bewilligt nur bei
+  ausreichendem Vertrauen, erreichbarem Saisonziel und freiem Geld über dem
+  Budget; er kostet Vertrauen.
+- **Sparkurs**: Steht das Konto am Monatsanfang im Minus, friert der Vorstand
+  das Budget ein, sperrt Investitionen und lässt nur ein Viertel der
+  Verkaufserlöse ins Budget fließen.
+- Auf- und Abstieg wirken über TV-Gelder, Vermarktung und Prognose direkt
+  auf beide Budgets.
+
+## Infrastruktur
+
+Sechs Bereiche lassen sich ausbauen. Stufe 3 entspricht dem Ligadurchschnitt;
+Vereine starten je nach Reputation auf Stufe 1 bis 5. Die Effekte gelten für
+alle Vereine, auch die KI investiert in der Sommerpause.
+
+| Bereich | Wirkung je Stufe |
+| --- | --- |
+| Stadion | +10 % Plätze pro Ausbau (max. 85.000), 6 % weniger Plätze während der Bauzeit |
+| Trainingszentrum | Spielerentwicklung ±8 %, Trainingsverletzungen ∓10 % |
+| Nachwuchsleistungszentrum | Talente +1 Stärke und +2 Potenzial, ab Stufe 4 ein Talent mehr pro Jahrgang |
+| Medizinische Abteilung | Ausfallzeiten ∓8 %, Regeneration ±3 % |
+| Scouting-Abteilung | Beraterhonorar −2 Prozentpunkte, genauere Potenzial-Schätzung |
+| Marketing & Fanshop | Sponsoring und Merchandising +8 % |
+
+Zuschauer folgen einem **Nachfragemodell**: Die Nachfrage hängt an
+Fanbasis, Reputation, Liga und Gegner; die Zuschauerzahl ist das Minimum aus
+Nachfrage und Kapazität. Ein Stadionausbau lohnt sich daher nur, wenn das
+Stadion regelmäßig ausverkauft ist. Die Stadionkarte zeigt Auslastung,
+Nachfrage, Mehreinnahmen und Amortisationszeit. Bauten werden sofort bezahlt;
+wer über das nicht verplante Geld hinaus investiert, kürzt das
+Transferbudget. Jede Stufe über dem Ausgangsniveau kostet Unterhalt.
 
 ## Datenquellen und Datenqualität
 
@@ -127,8 +209,11 @@ js/core/                Spiellogik ohne Oberfläche
   schedule.js           Spielpläne, Pokal, Relegation
   state.js              Neues Spiel, Speichern/Laden
   economy.js            Finanzen, Vorstand, Nachrichten, Transfers
+  club.js               Vorstandsbudgets und Infrastruktur
   season.js             Spieltage, Tabellen, Saisonende
-js/ui/                  Oberfläche (Übersicht, Kader, Taktik, Spieltag …)
+js/ui/                  Oberfläche (Übersicht, Kader, Taktik, Spieltag,
+                        Finanzen & Budget, Infrastruktur …)
 js/vendor/              lz-string
 data-src/               Rohdaten und Build-Skript für js/data.js
+tools/bundle.py         Bündelt alles zu einer einzigen HTML-Datei
 ```
