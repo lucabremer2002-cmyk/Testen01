@@ -28,7 +28,7 @@
     var grid = clubs.map(function (c) {
       var stars = 1 + 4 * (strengths[c.id] - mn) / Math.max(1, mx - mn);
       var cnt = (data.players[c.id] || []).length;
-      return '<button class="club-card ' + (s.club === c.id ? 'sel' : '') + '" data-action="pickClub" data-id="' + c.id + '">' + UI.badge(c, 38) +
+      return '<button class="club-card ' + (s.club === c.id ? 'sel' : '') + '" style="--c1:' + c.colors[0] + '" data-action="pickClub" data-id="' + c.id + '">' + UI.badge(c, 38) +
         '<div style="min-width:0"><div class="n">' + esc(c.name) + '</div>' +
         '<div class="s">' + UI.stars(Math.round(stars * 2) / 2) + ' · Ø ' + strengths[c.id].toFixed(1) + '</div>' +
         '<div class="s">' + esc(c.stadium) + '</div></div></button>';
@@ -48,8 +48,9 @@
     var sel = s.club ? data.clubs.filter(function (c) { return c.id === s.club; })[0] : null;
     document.getElementById('app').innerHTML =
       '<div class="start">' +
-      '<div class="hero"><div class="row" style="justify-content:center;margin-bottom:14px"><div class="brand-mark" style="width:44px;height:44px;border-radius:13px">' + UI.icon('ball') + '</div></div>' +
-      '<h1>Matchplan</h1><p>Der Fußballmanager für Bundesliga, 2. Bundesliga und 3. Liga – mit den echten Kadern der Saison 2026/27 und den Spielerwerten aus EA SPORTS FC 27.</p></div>' +
+      '<div class="hero"><div class="kicker">Saison 2026/27 · Anpfiff</div>' +
+      '<h1>Matchplan</h1><p>Der Fußballmanager für die drei Profiligen – mit den echten Kadern 2026/27, den Spielerwerten aus EA SPORTS FC 27, Vorstandsbudgets und eigener Infrastruktur.</p>' +
+      '<div class="leagues"><span>Bundesliga · 18</span><span>2. Bundesliga · 18</span><span>3. Liga · 20</span><span>DFB-Pokal</span></div></div>' +
       (anySave || saves.some(function (x) { return x.info; }) ? '<div class="panel"><div class="row between" style="margin-bottom:10px"><h3>Spielstände</h3><label class="btn sm ghost">' + UI.icon('upload') + ' Datei importieren<input type="file" accept="application/json" id="import-file" hidden></label></div><div class="grid g3">' + saveHtml + '</div></div>' : '') +
       '<div class="panel card"><div class="card-h"><div><h2>Neues Spiel</h2><div class="muted small" style="margin-top:3px">Wähle deinen Verein – die Sterne zeigen die Kaderstärke innerhalb der Liga.</div></div>' +
       (anySave ? '' : '<label class="btn sm ghost">' + UI.icon('upload') + ' Spielstand importieren<input type="file" accept="application/json" id="import-file" hidden></label>') + '</div>' +
@@ -90,7 +91,7 @@
     var s = UI.vs('start');
     if (!s.club) return;
     var name = (s.name || '').trim() || 'Trainer';
-    document.getElementById('app').innerHTML = '<div class="start"><div class="hero"><h1>Saison wird vorbereitet …</h1><p>Kader, Spielpläne und DFB-Pokal werden angelegt.</p></div></div>';
+    document.getElementById('app').innerHTML = '<div class="start"><div class="hero"><div class="kicker">Bitte warten</div><h1 style="font-size:64px">Saison wird vorbereitet</h1><p>Kader, Spielpläne, Budgets und DFB-Pokal werden angelegt.</p></div></div>';
     setTimeout(function () {
       FM.newGame({ club: s.club, manager: name });
       UI.slot = firstFreeSlot();
@@ -157,7 +158,7 @@
       var html = '<div class="grid g4" style="margin-bottom:16px">' +
         tile('Tabellenplatz', pos ? pos + '.' : '–', row ? row.pts + ' Punkte · ' + row.p + ' Spiele' : st.leagues[lid].name) +
         tile('Vorstand', FM.confLabel(conf), '<div class="meter ' + confCls + '" style="margin-top:6px" role="meter" aria-valuenow="' + Math.round(conf) + '" aria-valuemin="0" aria-valuemax="100"><i style="width:' + Math.round(conf) + '%"></i></div>') +
-        tile('Kontostand', FM.fmtMoney(club.money), 'Gehälter ' + FM.fmtMoney(FM.annualWages(st, club)) + ' / Jahr') +
+        tile('Transferbudget', FM.fmtMoney(FM.budget(st, club).transfer), 'Gehaltsspielraum ' + FM.fmtMoneyShort(Math.max(0, FM.wageRoom(st, club))) + ' / Jahr') +
         tile('Kaderstärke', strength.toFixed(1), 'Rang ' + sRank + ' in der Liga · ' + players.length + ' Spieler') +
         '</div>';
 
@@ -191,14 +192,14 @@
     function teamCol(c) {
       var t = FM.ZONES[c.league] ? FM.table(st, c.league).filter(function (r) { return r.club === c.id; })[0] : null;
       var p = FM.playedRounds(st, c.league) ? FM.clubPosition(st, c.id) : null;
-      return '<div class="team">' + UI.badge(c, 54) + '<div class="n">' + esc(c.name) + '</div>' +
+      return '<div class="team">' + UI.badge(c, 64) + '<div class="n">' + esc(c.short) + '</div>' +
         '<div class="muted small">' + (p ? p + '. ' + esc(st.leagues[c.league].short) : esc(st.leagues[c.league].name)) + '</div>' + (t ? UI.formDots(t.form) : '') + '</div>';
     }
     var days = D.diff(st.date, fx.date);
     var when = days === 0 ? 'Heute' : days === 1 ? 'Morgen' : 'in ' + days + ' Tagen';
     var sh = FM.teamStrength(st, fx.home), sa = FM.teamStrength(st, fx.away);
-    return '<div class="card"><div class="card-h"><h3>Nächstes Spiel</h3><span class="muted small">' + esc(UI.compLabel(fx)) + '</span></div>' +
-      '<div class="next-match">' + teamCol(h) + '<div class="vs"><div class="big">' + (fx.res ? FM.scoreText(fx) : 'vs') + '</div><div class="muted small">' + D.fmtLong(fx.date) + '</div><div class="tag accent" style="margin-top:6px">' + when + '</div></div>' + teamCol(a) + '</div>' +
+    return '<div class="fixture"><div class="fixture-top"><span>' + esc(UI.compLabel(fx)) + '</span><span class="when">' + when + ' · ' + D.fmtLong(fx.date) + '</span></div>' +
+      '<div class="next-match">' + teamCol(h) + '<div class="vs"><div class="big">' + (fx.res ? FM.scoreText(fx) : 'VS') + '</div><div class="muted small">' + esc(fx.neutral ? 'Olympiastadion Berlin' : h.stadium) + '</div></div>' + teamCol(a) + '</div>' +
       '<div class="match-meta"><span class="tag">' + (fx.home === uc ? 'Heimspiel' : fx.neutral ? 'Neutraler Ort' : 'Auswärtsspiel') + '</span>' +
       '<span class="tag">Stärke ' + sh.toFixed(1) + ' : ' + sa.toFixed(1) + '</span>' +
       (fx.agg ? '<span class="tag warn">Hinspiel ' + fx.agg[1] + ':' + fx.agg[0] + '</span>' : '') + '</div>' +
@@ -324,7 +325,7 @@
       var e = c.expect || {};
       var conf = st.user.conf;
       var pos = FM.clubPosition(st, uc);
-      var html = '<div class="page-h"><div class="row">' + UI.badge(c, 52) + '<div><h1>' + esc(c.name) + '</h1><div class="sub">' + esc(c.stadium) + ' · ' + FM.fmtInt(c.cap) + ' Plätze · ' + esc(st.leagues[c.league].name) + '</div></div></div></div>';
+      var html = '<div class="page-h"><div class="row">' + UI.badge(c, 64) + '<div><div class="eyebrow">Verein & Vorstand</div><h1>' + esc(c.name) + '</h1><div class="sub">' + esc(c.stadium) + ' · ' + FM.fmtInt(c.cap) + ' Plätze · ' + esc(st.leagues[c.league].name) + '</div></div></div></div>';
       html += '<div class="grid g2"><div class="card"><div class="card-h"><h3>Vorstand</h3></div><div class="card-b">' +
         '<dl class="kv"><dt>Saisonziel</dt><dd>' + esc(e.label || '–') + '</dd><dt>Mindestens Platz</dt><dd>' + (e.target || '–') + '</dd><dt>Aktueller Platz</dt><dd>' + (pos || '–') + '</dd><dt>Stärke-Rang vor der Saison</dt><dd>' + (e.strengthRank || '–') + '</dd></dl>' +
         '<div style="margin-top:16px"><div class="row between small"><span class="muted">Vertrauen</span><b>' + FM.confLabel(conf) + ' (' + Math.round(conf) + ')</b></div>' +
@@ -332,7 +333,9 @@
         '<p class="muted small" style="margin-top:12px">Das Vertrauen steigt mit Ergebnissen über den Erwartungen und sinkt bei Pleiten gegen schwächere Gegner. Fällt es zu tief, wirst du entlassen.</p></div></div>';
       html += '<div class="card"><div class="card-h"><h3>Verein</h3></div><div class="card-b"><dl class="kv">' +
         '<dt>Reputation</dt><dd>' + UI.stars(c.rep / 20) + ' ' + c.rep + '</dd><dt>Stadion</dt><dd>' + esc(c.stadium) + '</dd><dt>Kapazität</dt><dd>' + FM.fmtInt(c.cap) + '</dd>' +
-        '<dt>Kontostand</dt><dd>' + FM.fmtMoney(c.money) + '</dd><dt>Kader</dt><dd>' + c.squad.length + ' Spieler</dd><dt>Trainer</dt><dd>' + esc(st.user.name) + ' (seit ' + st.user.joined + ')</dd></dl></div></div></div>';
+        '<dt>Kontostand</dt><dd>' + FM.fmtMoney(c.money) + '</dd><dt>Kader</dt><dd>' + c.squad.length + ' Spieler</dd><dt>Trainer</dt><dd>' + esc(st.user.name) + ' (seit ' + st.user.joined + ')</dd>' +
+        FM.FAC_KEYS.filter(function (k) { return k !== 'stadium'; }).map(function (k) { return '<dt>' + FM.FACILITIES[k].name + '</dt><dd>Stufe ' + FM.facLevel(c, k) + '</dd>'; }).join('') + '</dl>' +
+        '<button class="btn sm" style="margin-top:14px" data-action="go" data-view="infra">' + UI.icon('build') + ' Infrastruktur ausbauen</button></div></div></div>';
       var hist = c.hist.slice().reverse();
       html += '<div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-h"><h3>Vereinshistorie (im Spiel)</h3></div><div class="card-b flush">' +
         (hist.length ? '<table class="tbl"><thead><tr><th>Saison</th><th>Liga</th><th class="num">Platz</th><th class="num">Punkte</th></tr></thead><tbody>' +
@@ -364,7 +367,7 @@
       '<div class="seg">' + [['auto', 'System'], ['light', 'Hell'], ['dark', 'Dunkel']].map(function (o) { return '<button data-action="setTheme" data-v="' + o[0] + '" class="' + (theme === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div></div>' +
       '<div><h4 style="margin-bottom:8px">Live-Spiel Geschwindigkeit</h4><div class="seg">' + [[0, 'Langsam'], [1, 'Normal'], [2, 'Schnell'], [3, 'Turbo']].map(function (o) { return '<button data-action="setSpeed" data-v="' + o[0] + '" class="' + (st.settings.speed === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div></div>' +
       '<div><h4 style="margin-bottom:8px">Spielstände</h4><div class="card"><div class="list">' + slots + '</div></div>' +
-      '<div class="row wrap" style="margin-top:10px"><button class="btn sm" data-action="exportSave">' + UI.icon('download') + ' Als Datei exportieren</button>' +
+      '<div class="row wrap" style="margin-top:10px">' + (window.FM_EMBED ? '' : '<button class="btn sm" data-action="exportSave">' + UI.icon('download') + ' Als Datei exportieren</button>') +
       '<label class="btn sm">' + UI.icon('upload') + ' Datei importieren<input type="file" accept="application/json" id="import-file2" hidden></label></div>' +
       '<p class="muted small" style="margin-top:8px">Der Spielstand wird nach jedem Spieltag automatisch im aktiven Slot gesichert (Browser-Speicher).</p></div>' +
       '<div><h4 style="margin-bottom:6px">Datenquellen</h4><p class="muted small" style="line-height:1.6">Kader und Ligen: Saison 2026/27. Spielerwerte: EA SPORTS FC 27 Launch-Ratings (recherchiert über fcratings.com, ergänzt um EA-/FUTBIN-Angaben). ' +

@@ -50,6 +50,9 @@
     upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
     download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
     trash: '<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+    build: '<path d="M2 21h20"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/>',
+    stadium: '<ellipse cx="12" cy="13" rx="10" ry="6"/><ellipse cx="12" cy="13" rx="5" ry="2.6"/><path d="M2 13v3c0 3.3 4.5 6 10 6s10-2.7 10-6v-3"/><path d="M4 4v5M20 4v5"/>',
+    wallet: '<path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
     up: '<path d="m18 15-6-6-6 6"/>',
     down: '<path d="m6 9 6 6 6-6"/>'
   };
@@ -65,7 +68,33 @@
     function f(c) { return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
     return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
   }
-  UI.ink = function (hex) { return lum(hex) > 0.42 ? '#111827' : '#ffffff'; };
+  UI.ink = function (hex) { return lum(hex) > 0.42 ? '#111316' : '#ffffff'; };
+  function contrast(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  function mix(hex, to, t) {
+    var h = hex.replace('#', ''), g = to.replace('#', '');
+    var out = [0, 2, 4].map(function (i) {
+      var v = Math.round(parseInt(h.slice(i, i + 2), 16) * (1 - t) + parseInt(g.slice(i, i + 2), 16) * t);
+      return ('0' + v.toString(16)).slice(-2);
+    });
+    return '#' + out.join('');
+  }
+  /* Vereinsfarbe als Akzent: lesbar auf hellem Papier und unter Flutlicht */
+  function readable(cols, bg, toward) {
+    for (var i = 0; i < cols.length; i++) if (cols[i] && contrast(cols[i], bg) >= 3) return cols[i];
+    var c = cols[0];
+    for (var t = 0.1; t < 1 && contrast(c, bg) < 3; t += 0.1) c = mix(cols[0], toward, t);
+    return c;
+  }
+  UI.clubTheme = function (club) {
+    var root = document.documentElement.style;
+    var c1 = club.colors[0], c2 = club.colors[1] || '#ffffff';
+    var main = lum(c1) > 0.75 && c2 ? c2 : c1;
+    root.setProperty('--club', main);
+    root.setProperty('--club-ink', UI.ink(main));
+    root.setProperty('--club-2', main === c1 ? c2 : c1);
+    root.setProperty('--club-l', readable([main, main === c1 ? c2 : c1], '#f4f2ec', '#000000'));
+    root.setProperty('--club-d', readable([main, main === c1 ? c2 : c1], '#101417', '#ffffff'));
+  };
 
   /* Vereinswappen-Ersatz: Schild in Vereinsfarben mit Kuerzel (keine Originalwappen) */
   UI.badge = function (club, size) {
@@ -82,8 +111,8 @@
       '<g clip-path="url(#' + id + ')"><rect width="40" height="45" fill="' + c1 + '"/>' +
       '<path d="M0 33 40 25V45H0z" fill="' + c2 + '" opacity="' + (c2.toLowerCase() === c1.toLowerCase() ? 0 : 0.95) + '"/></g>' +
       '<path d="M20 1.5 37.5 6.5V22c0 11.5-7.7 18.6-17.5 21.8C10.2 40.6 2.5 33.5 2.5 22V6.5z" fill="none" stroke="' + (light ? 'rgba(0,0,0,.22)' : 'rgba(0,0,0,.12)') + '" stroke-width="1.2"/>' +
-      '<text x="20" y="22" text-anchor="middle" dominant-baseline="middle" font-family="Inter,system-ui,sans-serif" font-weight="800" font-size="' + fs + '" fill="' + ink + '" letter-spacing="-.3">' + esc(txt) + '</text>' +
-      (club.reserve ? '<text x="20" y="35.5" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-weight="800" font-size="7.5" fill="' + UI.ink(c2) + '">II</text>' : '') +
+      '<text x="20" y="22" text-anchor="middle" dominant-baseline="middle" font-family="\'Barlow Condensed\',\'Arial Narrow\',sans-serif" font-weight="700" font-size="' + (fs + 1) + '" fill="' + ink + '" letter-spacing=".2">' + esc(txt) + '</text>' +
+      (club.reserve ? '<text x="20" y="35.5" text-anchor="middle" font-family="\'Barlow Condensed\',sans-serif" font-weight="700" font-size="7.5" fill="' + UI.ink(c2) + '">II</text>' : '') +
       '</svg>';
   };
 
@@ -140,7 +169,7 @@
   };
   UI.potRange = function (p) {
     if (p.club === FM.state.user.club || p.age >= 27) return String(p.pot);
-    var spread = p.age <= 20 ? 4 : 2;
+    var spread = Math.round((p.age <= 20 ? 1 : 0.5) * FM.facScoutSpread(FM.state.clubs[FM.state.user.club]));
     var h = FM.hash(p.id + 'scout') % (spread + 1);
     var lo = Math.max(p.ovr, p.pot - h), hi = Math.min(95, lo + spread);
     return lo === hi ? String(lo) : lo + '–' + hi;
@@ -200,7 +229,8 @@
     ['stats', 'Statistiken', 'chart'],
     null,
     ['transfers', 'Transfermarkt', 'transfer'],
-    ['finances', 'Finanzen', 'euro'],
+    ['finances', 'Finanzen & Budget', 'euro'],
+    ['infra', 'Infrastruktur', 'build'],
     ['club', 'Verein & Vorstand', 'board']
   ];
   var MOBILE = [['dashboard', 'Übersicht', 'home'], ['squad', 'Kader', 'users'], ['tactics', 'Taktik', 'tactics'], ['table', 'Tabelle', 'table'], ['transfers', 'Transfers', 'transfer']];
@@ -218,21 +248,26 @@
     }).join('');
     var league = st.leagues[club.league];
     var pos = FM.playedRounds(st, club.league) ? FM.clubPosition(st, club.id) : null;
+    var b = FM.budget(st, club);
+    UI.clubTheme(club);
     document.getElementById('app').innerHTML =
       '<div class="shell" id="shell">' +
       '<aside class="sidebar">' +
-      '<div class="brand"><div class="brand-mark">' + UI.icon('ball') + '</div><div><div class="brand-name">Matchplan</div><div class="brand-sub">Fußballmanager 26/27</div></div></div>' +
-      '<div class="club-chip">' + UI.badge(club, 30) + '<div style="min-width:0"><div class="name ellipsis">' + esc(club.name) + '</div><div class="sub">' + esc(league.name) + (pos ? ' · Platz ' + pos : '') + '</div></div></div>' +
+      '<div class="brand"><span class="brand-name">Matchplan</span><span class="brand-sub">26/27</span></div>' +
+      '<div class="club-chip">' + UI.badge(club, 40) + '<div style="min-width:0"><div class="name">' + esc(club.name) + '</div><div class="sub">' + esc(league.name) + (pos ? ' · <b>' + pos + '.</b>' : '') + '</div></div></div>' +
       '<nav class="nav">' + nav + '</nav>' +
       '<div class="sidebar-foot nav"><button data-action="saveGame">' + UI.icon('save') + '<span>Speichern</span></button>' +
       '<button data-action="settings">' + UI.icon('settings') + '<span>Einstellungen</span></button></div>' +
       '</aside>' +
       '<div class="main">' +
       '<header class="topbar"><button class="btn ghost icon menu-btn" data-action="toggleNav" aria-label="Menü">' + UI.icon('menu') + '</button>' +
-      '<div><div class="title" id="view-title"></div></div>' +
+      '<div class="title" id="view-title"></div>' +
       '<div class="spacer"></div>' +
-      '<div class="date"><span class="wd">' + FM.date.weekdayName(st.date) + ',</span> ' + FM.date.fmt(st.date) + '</div>' +
-      '<div class="money-wrap"><span class="tag ' + (club.money < 0 ? 'bad' : '') + ' money" title="Kontostand">' + FM.fmtMoney(club.money) + '</span></div>' +
+      '<div class="board-led">' +
+      '<div class="led"><span>' + FM.date.weekdayName(st.date).slice(0, 2) + '</span><b>' + FM.date.fmt(st.date) + '</b></div>' +
+      '<div class="led hide-sm" title="Kontostand"><span>Konto</span><b class="' + (club.money < 0 ? 'bad' : '') + '">' + FM.fmtMoneyShort(club.money) + '</b></div>' +
+      '<div class="led hide-sm" title="Transferbudget"><span>Budget</span><b>' + FM.fmtMoneyShort(b.transfer) + '</b></div>' +
+      '</div>' +
       '<button class="btn primary btn-continue" id="btn-continue" data-action="continue">' + continueLabel() + '</button>' +
       '</header>' +
       '<main class="content" id="view"></main>' +

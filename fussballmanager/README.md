@@ -17,6 +17,12 @@ python3 -m http.server 8000
 # danach http://localhost:8000 aufrufen
 ```
 
+Als einzelne Datei (z. B. zum Weitergeben):
+
+```bash
+python3 fussballmanager/tools/bundle.py   # erzeugt dist/matchplan.html
+```
+
 Der Spielstand wird automatisch nach jedem Spieltag im Browser gespeichert
 (3 Slots, komprimiert). Über *Einstellungen* lässt er sich als Datei
 exportieren und wieder importieren.
@@ -59,12 +65,63 @@ exportieren und wieder importieren.
   Vertragsverlängerung, Vertragsauflösung mit Abfindung
 - KI-Vereine kaufen und verkaufen selbst (Transferticker)
 - **Finanzen**: TV-Gelder, Sponsoring, Zuschauer (je Stadion), Prämien,
-  Gehälter, Betriebskosten, Kontostand-Verlauf
+  Gehälter, Betriebskosten, Unterhalt der Infrastruktur, Kontostand-Verlauf
+- **Vorstandsbudgets** (Transfer- und Gehaltsbudget, siehe unten)
+- **Infrastruktur** mit sechs Abteilungen zum Ausbauen (siehe unten)
 - **Vorstand** mit Saisonziel nach Kaderstärke, Vertrauensbarometer,
   Entlassung und Jobangeboten anderer Vereine
 - Posteingang, Statistiken (Torjäger, Vorlagen, Noten, weiße Westen, Karten),
   Vereinsprofile aller Klubs
 - Helles und dunkles Design, läuft auf Desktop und Smartphone
+
+## Transferbudget
+
+Der Kontostand ist nicht das Transferbudget. Wie bei echten Vereinen gibt der
+Vorstand zu Saisonbeginn und noch einmal im Januar zwei Budgets frei:
+
+- **Liquiditätsreserve**: 15 % der Jahresgehälter plus 20 % der
+  Betriebskosten müssen immer auf dem Konto bleiben.
+- **Transferbudget**: ein Teil des Geldes über der Reserve. Wie groß der Teil
+  ist (40 bis 75 %), hängt vom Vertrauen des Vorstands ab. Im Januar wird mit
+  60 % dieses Anteils neu gerechnet; ist vom Sommer mehr übrig, bleibt der
+  Rest stehen. Liegt der Kontostand unter der Reserve,
+  gilt Sparkurs: kein Budget, nur Verkäufe.
+- **Gehaltsbudget**: ein Anteil am erwarteten Umsatz (BL 58 %, 2. BL 62 %,
+  3. Liga 66 %), mindestens 5 % über den aktuellen Gehältern und höchstens
+  25 % darüber.
+
+Was darauf angerechnet wird:
+
+- Ablösen kosten zusätzlich **10 % Beraterhonorar**. Vereinslose verlangen
+  ein **Handgeld** von 25 % ihres Jahresgehalts.
+- Verkaufserlöse fließen zu **70 %** zurück ins Transferbudget (bei Sparkurs
+  zu 40 %).
+- Abfindungen bei Vertragsauflösungen gehen vom Transferbudget ab.
+- Neue Verträge und Verlängerungen müssen ins Gehaltsbudget passen.
+- Transfer- und Gehaltsbudget lassen sich **1 : 1 umschichten**.
+- Einmal pro Transferfenster kann man beim Vorstand **mehr Budget anfragen**.
+  Die Antwort hängt vom Vertrauen und vom freien Geld ab; eine Absage kostet
+  etwas Vertrauen.
+
+## Infrastruktur
+
+Sechs Abteilungen mit den Stufen 1 bis 5. Die Startstufe richtet sich nach
+der Reputation des Vereins. Auf Stufe 3 ist jede Abteilung neutral, darunter
+schlechter, darüber besser. Alle Vereine (auch die KI) nutzen dieselben Effekte.
+
+| Abteilung | Wirkung |
+| --- | --- |
+| Stadion | rund +10 % Plätze pro Ausbau (1.000 bis 8.000, maximal 90.000). Während des Baus fehlen 8 % der Plätze. Die Ansicht zeigt die erwartete Auslastung, damit man nicht für ein halbleeres Stadion baut. |
+| Trainingszentrum | Entwicklung −10 % bis +10 %, Trainingsverletzungen +20 % bis −20 % |
+| Nachwuchsleistungszentrum | Talente −2 bis +2 Stärke und Potenzial; ab Stufe 4 ein zusätzliches Talent pro Jahr |
+| Medizinische Abteilung | Ausfallzeiten +18 % bis −18 %, schnellere Regeneration |
+| Scoutingabteilung | Potenzialanzeige fremder Spieler wird genauer; auf Stufe 5 exakt |
+| Marketing & Fanshop | +8 % Sponsoring pro neuer Stufe |
+
+Ein Ausbau wird sofort bezahlt und dauert mehrere Wochen. Danach steigt der
+jährliche Unterhalt. Der Vorstand gibt nur Geld oberhalb der
+Liquiditätsreserve frei. Kosten und Unterhalt skalieren mit der Liga: In der
+3. Liga kostet eine Stufe etwa ein Achtel des Bundesliga-Preises.
 
 ## Datenquellen und Datenqualität
 
@@ -116,7 +173,8 @@ Enthaltene Fremdsoftware: [lz-string](https://github.com/pieroxy/lz-string)
 
 ```
 index.html              Einstiegsseite
-css/style.css           Design-System (hell/dunkel, responsiv)
+css/style.css           Design-System: Stadionheft (hell) und Flutlicht (dunkel),
+                        Akzent in den Vereinsfarben, responsiv
 js/data.js              Ligen, Vereine, Spieler (generiert)
 js/util.js, names.js    Zufall, Formatierung, Namen für Nachwuchsspieler
 js/core/                Spiellogik ohne Oberfläche
@@ -127,8 +185,10 @@ js/core/                Spiellogik ohne Oberfläche
   schedule.js           Spielpläne, Pokal, Relegation
   state.js              Neues Spiel, Speichern/Laden
   economy.js            Finanzen, Vorstand, Nachrichten, Transfers
+  club.js               Vorstandsbudgets und Infrastruktur
   season.js             Spieltage, Tabellen, Saisonende
 js/ui/                  Oberfläche (Übersicht, Kader, Taktik, Spieltag …)
 js/vendor/              lz-string
 data-src/               Rohdaten und Build-Skript für js/data.js
+tools/bundle.py         packt alles in eine einzelne HTML-Datei (dist/)
 ```

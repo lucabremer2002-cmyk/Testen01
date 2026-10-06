@@ -170,7 +170,8 @@
   FM.makeYouth = function (club, state, opts) {
     opts = opts || {};
     var lvl = { bl: [54, 64], bl2: [49, 60], l3: [46, 57], rl: [42, 52] }[club.league] || [46, 56];
-    var ovr = R.int(lvl[0], lvl[1]) + Math.round((club.rep - 60) / 15);
+    var yb = FM.facYouthBonus ? FM.facYouthBonus(club) : 0;
+    var ovr = R.int(lvl[0], lvl[1]) + Math.round((club.rep - 60) / 15) + yb;
     var age = opts.age || R.int(16, 18);
     var pos = opts.pos || R.weighted(['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST'],
       function (x) { return { GK: 1, CB: 2, LB: 1, RB: 1, CDM: 1, CM: 1.6, CAM: 1, LM: 0.8, RM: 0.8, LW: 0.8, RW: 0.8, ST: 1.4 }[x]; });
@@ -194,7 +195,7 @@
       joined: state.season.year, minutesRecent: 0, youth: true
     };
     var talent = R.next();
-    var potGain = talent > 0.97 ? R.int(26, 34) : talent > 0.85 ? R.int(18, 26) : R.int(8, 20);
+    var potGain = (talent > 0.97 - yb * 0.01 ? R.int(26, 34) : talent > 0.85 - yb * 0.03 ? R.int(18, 26) : R.int(8, 20)) + yb;
     p.pot = FM.clamp(p.ovr + potGain, p.ovr, 93);
     p.s = FM.deriveStats(pos, p.ovr, name);
     p.contract = { until: state.season.year + 3, wage: Math.max(20000, Math.round(FM.wageDemand(p, club.league) * 0.6 / 5000) * 5000) };

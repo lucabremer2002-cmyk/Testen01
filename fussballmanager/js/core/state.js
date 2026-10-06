@@ -4,7 +4,22 @@
   var FM = window.FM;
 
   FM.SAVE_KEY = 'matchplan.save.';
-  FM.SAVE_VERSION = 3;
+  FM.SAVE_VERSION = 4;
+
+  /* Spielstaende der Vorversion (ohne Budgets/Infrastruktur) weiterverwenden */
+  FM.migrate = function (state) {
+    if (!state) return state;
+    if (state.v === 3) {
+      Object.keys(state.clubs).forEach(function (cid) {
+        var c = state.clubs[cid];
+        if (!c.fac) FM.initFacilities(c);
+        c.fin.fees = c.fin.fees || 0; c.fin.infra = c.fin.infra || 0;
+      });
+      FM.setBudgets(state, state.clubs[state.user.club]);
+      state.v = 4;
+    }
+    return state;
+  };
   FM.MIN_SQUAD = 22;
 
   FM.leagueOf = function (state, clubId) { return state.leagues[state.clubs[clubId].league]; };
@@ -55,7 +70,10 @@
     });
 
     Object.keys(state.clubs).forEach(function (cid) { FM.fillSquad(state, cid, true); });
-    Object.keys(state.clubs).forEach(function (cid) { FM.calibrateCommercial(state, state.clubs[cid]); });
+    Object.keys(state.clubs).forEach(function (cid) {
+      FM.initFacilities(state.clubs[cid]);
+      FM.calibrateCommercial(state, state.clubs[cid]);
+    });
     Object.keys(state.clubs).forEach(function (cid) {
       var club = state.clubs[cid];
       club.formation = FM.bestFormation(FM.clubPlayers(state, cid));
@@ -70,6 +88,7 @@
       body: 'Der Vorstand begrüßt dich als neuen Cheftrainer. ' + FM.expectationText(state, uc.id) +
         ' Das Transferfenster ist bis zum 31. August geöffnet – nutze die Vorbereitung, um den Kader zu schärfen.'
     });
+    FM.budgetNews(state, false);
     return state;
   };
 
@@ -120,7 +139,7 @@
       var raw = localStorage.getItem(FM.SAVE_KEY + (slot || 1));
       if (!raw) return null;
       if (raw.slice(0, 3) === 'lz:') raw = window.LZString.decompressFromUTF16(raw.slice(3));
-      var state = JSON.parse(raw);
+      var state = FM.migrate(JSON.parse(raw));
       if (!state || state.v !== FM.SAVE_VERSION) return null;
       FM.state = state;
       if (state.rng) FM.rng.state = state.rng;
@@ -136,7 +155,7 @@
     try {
       if (!localStorage.getItem(FM.SAVE_KEY + (slot || 1))) return null;
       var meta = JSON.parse(localStorage.getItem(FM.SAVE_KEY + 'meta.' + (slot || 1)) || 'null');
-      if (!meta || meta.v !== FM.SAVE_VERSION) return { incompatible: true };
+      if (!meta || (meta.v !== FM.SAVE_VERSION && meta.v !== 3)) return { incompatible: true };
       return meta;
     } catch (e) { return null; }
   };
@@ -155,7 +174,7 @@
   };
 
   FM.importSave = function (text) {
-    var s = JSON.parse(text);
+    var s = FM.migrate(JSON.parse(text));
     if (!s || s.v !== FM.SAVE_VERSION || !s.clubs || !s.players) throw new Error('Ungültige oder inkompatible Spielstanddatei.');
     FM.state = s;
     if (s.rng) FM.rng.state = s.rng;

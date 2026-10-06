@@ -21,11 +21,12 @@
 
   /* ---------- Finanzen ---------- */
   FM.emptyLedger = function () {
-    return { tv: 0, tickets: 0, sponsor: 0, prize: 0, sales: 0, wages: 0, buys: 0, ops: 0, other: 0 };
+    return { tv: 0, tickets: 0, sponsor: 0, prize: 0, sales: 0, wages: 0, buys: 0, fees: 0, ops: 0, infra: 0, other: 0 };
   };
   FM.LEDGER_LABEL = {
     tv: 'TV-Gelder', tickets: 'Zuschauereinnahmen', sponsor: 'Sponsoring & Marketing', prize: 'Prämien',
-    sales: 'Transfererlöse', wages: 'Gehälter', buys: 'Ablösesummen', ops: 'Betriebskosten', other: 'Sonstiges'
+    sales: 'Transfererlöse', wages: 'Gehälter', buys: 'Ablösesummen', fees: 'Berater & Handgelder', ops: 'Betriebskosten',
+    infra: 'Infrastruktur', other: 'Sonstiges'
   };
 
   var MIN_COMMERCIAL = { bl: 8e6, bl2: 2.5e6, l3: 0.6e6, rl: 0.2e6 };
@@ -41,20 +42,30 @@
 
   /* Sponsoring/Marketing wird beim Spielstart so kalibriert, dass jeder Verein mit
      seinem echten Kader wirtschaftlich solide (leichter Ueberschuss) startet. */
+  /* Erwartete Auslastung und Zuschauereinnahmen einer Saison (Liga-Heimspiele) */
+  FM.expectedFill = function (club, cap) {
+    var fill = 0.55 + (club.rep - 40) / 100 + ({ bl: 0.25, bl2: 0.12, l3: 0, rl: -0.1 }[club.league] || 0);
+    if (club.league !== 'bl') fill *= Math.min(1, 45000 / (cap || club.cap) + 0.25);
+    return FM.clamp(fill, 0.25, 1);
+  };
+  FM.expectedTickets = function (club, cap) {
+    cap = cap || club.cap;
+    var homeGames = club.league === 'l3' ? 19 : 17;
+    return cap * FM.expectedFill(club, cap) * (FM.ticketPrice[club.league] || 10) * homeGames;
+  };
+
   FM.calibrateCommercial = function (state, club) {
     var base = tvAndOps(club);
-    var homeGames = club.league === 'l3' ? 19 : 17;
-    var fill = FM.clamp(0.55 + (club.rep - 40) / 100 + ({ bl: 0.25, bl2: 0.12, l3: 0, rl: -0.1 }[club.league]), 0.25, 1);
-    if (club.league !== 'bl') fill *= Math.min(1, 45000 / club.cap + 0.25);
-    var tickets = club.cap * fill * (FM.ticketPrice[club.league] || 10) * homeGames;
+    var tickets = FM.expectedTickets(club);
     var wages = FM.annualWages(state, club);
-    var need = (wages + base.ops) * 1.03 - base.tv - tickets;
+    var need = (wages + base.ops + (FM.facUpkeep ? FM.facUpkeep(club) : 0)) * 1.03 - base.tv - tickets;
     club.commercial = Math.round(Math.max(MIN_COMMERCIAL[club.league] || 0.2e6, need));
   };
 
   FM.annualPlan = function (club) {
     var b = tvAndOps(club);
-    return { tv: b.tv, sponsor: club.commercial || MIN_COMMERCIAL[club.league] || 0.2e6, ops: b.ops };
+    var sponsor = (club.commercial || MIN_COMMERCIAL[club.league] || 0.2e6) * (FM.facCommercial ? FM.facCommercial(club) : 1);
+    return { tv: b.tv, sponsor: sponsor, ops: b.ops, upkeep: FM.facUpkeep ? FM.facUpkeep(club) : 0 };
   };
 
   /* Ligawechsel/Erfolg wirken sich auf die Vermarktung aus */
@@ -73,9 +84,10 @@
     var boost = { bl: 0.25, bl2: 0.12, l3: 0, rl: -0.1 }[c.league];
     var fill = 0.55 + (c.rep - 40) / 100 + boost + (a.rep - 60) / 400;
     if (comp === 'cup' || comp === 'po1' || comp === 'po2') fill += 0.15;
-    if (c.league !== 'bl') fill *= Math.min(1, 45000 / c.cap + 0.25);
+    var cap = FM.effectiveCap ? FM.effectiveCap(c) : c.cap;
+    if (c.league !== 'bl') fill *= Math.min(1, 45000 / cap + 0.25);
     fill = FM.clamp(fill + R.range(-0.04, 0.04), 0.25, 1);
-    return Math.round(c.cap * fill);
+    return Math.round(cap * fill);
   };
 
   FM.book = function (club, key, amount) {
@@ -110,6 +122,7 @@
         FM.book(club, 'sponsor', plan.sponsor / 10);
       }
       FM.book(club, 'ops', -plan.ops / 12);
+      if (plan.upkeep) FM.book(club, 'infra', -plan.upkeep / 12);
       // KI-Vereine investieren hohe Ruecklagen (Infrastruktur, Nachwuchs, Schulden)
       if (cid !== state.user.club) {
         var reserve = Math.max(FM.annualWages(state, club) * 0.6, plan.tv * 0.5);
@@ -245,6 +258,7 @@
       var from = state.clubs[fromId];
       from.squad = from.squad.filter(function (id) { return id !== p.id; });
       if (fee) FM.book(from, 'sales', fee);
+      if (fee && fromId === state.user.club && FM.creditSale) FM.creditSale(state, from, fee);
       if (from.lineup) {
         from.lineup.slots.forEach(function (s) { if (s.pid === p.id) s.pid = null; });
         from.lineup.bench = (from.lineup.bench || []).filter(function (id) { return id !== p.id; });
@@ -253,6 +267,12 @@
       state.free = state.free.filter(function (id) { return id !== p.id; });
     }
     if (fee) FM.book(to, 'buys', -fee);
+    if (toId === state.user.club) {
+      // Nebenkosten: Beraterhonorar bei Abloese, Handgeld bei Vereinslosen
+      var extra = fromId ? Math.round(fee * FM.AGENT_FEE) : Math.round((wage || 0) * FM.SIGNING_BONUS);
+      if (extra) FM.book(to, 'fees', -extra);
+      FM.spendBudget(state, to, (fee || 0) + extra);
+    }
     to.squad.push(p.id);
     p.club = toId;
     p.listed = false;
@@ -271,6 +291,7 @@
     var left = Math.max(0, p.contract.until - state.season.year);
     var cost = Math.round(p.contract.wage * Math.max(0.5, left) * 0.5);
     FM.book(club, 'other', -cost);
+    if (club.id === state.user.club && club.budget) club.budget.transfer = Math.max(0, club.budget.transfer - cost);
     club.squad = club.squad.filter(function (id) { return id !== p.id; });
     if (club.lineup) {
       club.lineup.slots.forEach(function (s) { if (s.pid === p.id) s.pid = null; });
@@ -287,7 +308,7 @@
     var buyer = state.clubs[state.user.club];
     if (p.club === buyer.id) return { ok: false, msg: 'Der Spieler steht bereits bei dir unter Vertrag.' };
     if (p.club && !FM.isWindowOpen(state)) return { ok: false, msg: 'Das Transferfenster ist geschlossen. Vereinslose Spieler kannst du jederzeit verpflichten.' };
-    if (fee > buyer.money) return { ok: false, msg: 'Dafür reicht dein Kontostand nicht aus.' };
+    if (p.club && fee > FM.budget(state, buyer).transfer) return { ok: false, msg: 'Dein Transferbudget reicht nicht: verfügbar ' + FM.fmtMoney(FM.budget(state, buyer).transfer) + '. Mit Beraterhonorar (10 %) kostet dieses Angebot ' + FM.fmtMoney(FM.transferCost(p, fee, wage)) + '.' };
     if (buyer.squad.length >= 34) return { ok: false, msg: 'Dein Kader ist voll (max. 34 Spieler).' };
     var interest = FM.interest(state, p, buyer.id);
     if (interest < 35) return { ok: false, msg: p.name + ' hat kein Interesse an einem Wechsel zu deinem Verein.' };
@@ -309,6 +330,8 @@
     if (wage < demand * 0.95) {
       return { ok: false, msg: p.name + ' fordert mindestens ' + FM.fmtMoney(demand) + ' Jahresgehalt.', wageCounter: demand };
     }
+    var budgetErr = FM.checkBudget(state, buyer, FM.transferCost(p, p.club ? fee : 0, wage), wage);
+    if (budgetErr) return { ok: false, msg: budgetErr };
     var rec = FM.executeTransfer(state, p, buyer.id, p.club ? fee : 0, wage, years);
     FM.addNews(state, {
       type: 'transfer', title: p.name + ' unterschreibt',
@@ -323,6 +346,11 @@
     if (p.mor < 25) return { ok: false, msg: p.name + ' ist unzufrieden und will nicht verlängern.' };
     if (p.age >= 33 && years > 2) return { ok: false, msg: p.name + ' möchte sich höchstens zwei Jahre binden.' };
     if (wage < demand * 0.95) return { ok: false, msg: p.name + ' fordert ' + FM.fmtMoney(demand) + ' pro Jahr.', wageCounter: demand };
+    if (p.club === state.user.club) {
+      var club = state.clubs[p.club];
+      var room = FM.wageRoom(state, club) + p.contract.wage;
+      if (wage > room) return { ok: false, msg: 'Das Gehaltsbudget lässt das nicht zu: Spielraum für diesen Vertrag ' + FM.fmtMoney(Math.max(0, room)) + ' pro Jahr. Schichte Transferbudget um oder gib Gehalt ab.' };
+    }
     p.contract = { until: state.season.year + years, wage: wage };
     p.mor = Math.min(100, p.mor + 8);
     return { ok: true, msg: 'Vertrag bis ' + p.contract.until + ' verlängert.' };
@@ -401,7 +429,7 @@
     for (var i = 0; i < clubs.length && deals < maxDeals; i++) {
       var cid = clubs[i], club = state.clubs[cid];
       if (!R.chance(0.35)) continue;
-      var budget = Math.max(0, club.money * 0.45);
+      var budget = Math.max(0, Math.min(club.money * 0.45, club.money - FM.cashReserve(state, club)));
       var weak = weakestSlot(state, cid);
       if (!weak) continue;
       var need = weak.v + 2;

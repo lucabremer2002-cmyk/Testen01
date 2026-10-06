@@ -11,8 +11,9 @@
       var st = FM.state, uc = st.user.club, club = st.clubs[uc];
       var s = UI.vs('transfers', { tab: 'search', q: '', grp: 'all', pos: 'all', league: 'all', minOvr: 0, maxAge: 40, maxPrice: 0, onlyListed: false, free: false, sort: 'ovr', dir: -1, page: 0 });
       var open = FM.isWindowOpen(st);
-      var html = '<div class="page-h"><div><h1>Transfermarkt</h1><div class="sub"><span class="tag ' + (open ? 'good' : '') + '">' + esc(FM.windowLabel(st)) + '</span> · Kontostand ' + FM.fmtMoney(club.money) + ' · Kader ' + club.squad.length + '/34</div></div>' +
-        UI.seg('tab', [['search', 'Spielersuche'], ['offers', 'Angebote'], ['mine', 'Meine Transferliste'], ['log', 'Transferticker']], s.tab) + '</div>';
+      var html = '<div class="page-h"><div><div class="eyebrow">' + esc(FM.windowLabel(st)) + '</div><h1>Transfermarkt</h1><div class="sub"><span class="tag ' + (open ? 'good' : '') + '">' + (open ? 'Fenster offen' : 'Fenster zu – nur Vereinslose') + '</span> · Kader ' + club.squad.length + '/34 · Ablösen kosten 10 % Beraterhonorar extra, Vereinslose ein Handgeld von 25 % des Jahresgehalts</div></div>' +
+        UI.seg('tab', [['search', 'Spielersuche'], ['offers', 'Angebote'], ['mine', 'Meine Transferliste'], ['log', 'Transferticker']], s.tab) + '</div>' +
+        UI.budgetPanel();
 
       if (s.tab === 'search') return html + searchView(s);
       if (s.tab === 'offers') return html + offersView();
@@ -135,14 +136,15 @@
       var plan = FM.annualPlan(club);
       var wages = FM.annualWages(st, club);
       var fin = club.fin, prev = club.finPrev;
-      var inc = ['tv', 'sponsor', 'tickets', 'prize', 'sales'], exp = ['wages', 'ops', 'buys', 'other'];
+      var inc = ['tv', 'sponsor', 'tickets', 'prize', 'sales'], exp = ['wages', 'ops', 'buys', 'fees', 'infra', 'other'];
       var sumIn = FM.sum(inc, function (k) { return fin[k] || 0; }), sumOut = FM.sum(exp, function (k) { return fin[k] || 0; });
       function line(k) {
         return '<tr><td>' + FM.LEDGER_LABEL[k] + '</td><td class="num">' + FM.fmtMoney(fin[k] || 0) + '</td>' + (prev ? '<td class="num muted hide-xs">' + FM.fmtMoney(prev[k] || 0) + '</td>' : '') + '</tr>';
       }
-      var html = '<div class="page-h"><div><h1>Finanzen</h1><div class="sub">Saison ' + st.season.year + '/' + String(st.season.year + 1).slice(2) + ' – alle Beträge in Euro</div></div></div>';
+      var html = '<div class="page-h"><div><div class="eyebrow">Saison ' + st.season.year + '/' + String(st.season.year + 1).slice(2) + '</div><h1>Finanzen & Budget</h1><div class="sub">Der Vorstand legt zu Saisonbeginn und im Januar fest, wie viel Geld für Ablösen und Gehälter bereitsteht. Verkaufserlöse fließen zu ' + Math.round(FM.budget(st, club).salesShare * 100) + ' % zurück ins Transferbudget.</div></div></div>' +
+        UI.budgetPanel();
       html += '<div class="grid g4" style="margin-bottom:16px">' +
-        tile('Kontostand', FM.fmtMoney(club.money), club.money < 0 ? '<span class="bad">Im Minus – der Vorstand wird nervös</span>' : 'Verfügbar für Transfers') +
+        tile('Kontostand', FM.fmtMoney(club.money), club.money < 0 ? '<span class="bad">Im Minus – der Vorstand wird nervös</span>' : 'davon frei: ' + FM.fmtMoney(Math.max(0, club.money - FM.cashReserve(st, club)))) +
         tile('Saisonbilanz', FM.fmtMoney(sumIn + sumOut, { sign: true }), 'Einnahmen ' + FM.fmtMoney(sumIn)) +
         tile('Gehaltskosten', FM.fmtMoney(wages), FM.fmtMoney(wages / 52) + ' pro Woche') +
         tile('Planbare Einnahmen', FM.fmtMoney(plan.tv + plan.sponsor), 'TV ' + FM.fmtMoneyShort(plan.tv) + ' · Sponsoring ' + FM.fmtMoneyShort(plan.sponsor)) + '</div>';
@@ -153,7 +155,7 @@
         '<tr><td class="strong">Saldo</td><td class="num strong ' + (sumIn + sumOut >= 0 ? 'good' : 'bad') + '">' + FM.fmtMoney(sumIn + sumOut) + '</td>' + (prev ? '<td class="num muted hide-xs"></td>' : '') + '</tr></tbody></table></div></div>' +
         '<div class="card"><div class="card-h"><h3>Jahresplanung</h3></div><div class="card-b"><dl class="kv">' +
         '<dt>TV-Gelder</dt><dd>' + FM.fmtMoney(plan.tv) + '</dd><dt>Sponsoring & Marketing</dt><dd>' + FM.fmtMoney(plan.sponsor) + '</dd><dt>Betriebskosten</dt><dd>' + FM.fmtMoney(-plan.ops) + '</dd>' +
-        '<dt>Gehälter</dt><dd>' + FM.fmtMoney(-wages) + '</dd><dt>Ticketpreis Ø</dt><dd>' + (FM.ticketPrice[club.league] || 0) + ' €</dd></dl>' +
+        '<dt>Gehälter</dt><dd>' + FM.fmtMoney(-wages) + '</dd><dt>Unterhalt Infrastruktur</dt><dd>' + FM.fmtMoney(-plan.upkeep) + '</dd><dt>Ticketpreis Ø</dt><dd>' + (FM.ticketPrice[club.league] || 0) + ' €</dd></dl>' +
         '<p class="muted small" style="margin-top:10px">TV und Sponsoring werden von August bis Mai monatlich ausgezahlt, Gehälter wöchentlich. Zuschauereinnahmen gibt es bei jedem Heimspiel.</p></div></div></div></div>';
       return html;
     },

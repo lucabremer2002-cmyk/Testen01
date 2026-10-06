@@ -158,7 +158,7 @@
     var st = FM.state, p = st.players[el.getAttribute('data-id')];
     var left = Math.max(0, p.contract.until - st.season.year);
     var cost = Math.round(p.contract.wage * Math.max(0.5, left) * 0.5);
-    UI.confirm('Vertrag von ' + p.name + ' auflösen?', 'Die Abfindung beträgt ' + FM.fmtMoney(cost) + '. Der Spieler wird vereinslos.', 'Auflösen', function () {
+    UI.confirm('Vertrag von ' + p.name + ' auflösen?', 'Die Abfindung beträgt ' + FM.fmtMoney(cost) + ' und wird vom Transferbudget abgezogen. Das Gehalt von ' + FM.fmtMoney(p.contract.wage) + ' wird im Gehaltsbudget frei. Der Spieler wird vereinslos.', 'Auflösen', function () {
       FM.releasePlayer(st, p);
       UI.toast(p.name + ' wurde freigestellt.');
       UI.refresh();
@@ -172,7 +172,7 @@
     UI.modal(UI.modalHead('Vertrag verlängern', esc(p.name) + ' · aktuell bis ' + p.contract.until + ', ' + FM.fmtMoney(p.contract.wage) + '/Jahr') +
       '<div class="modal-b"><div class="grid g2"><div class="field"><label>Jahresgehalt (€)</label><input class="input" id="c-wage" type="number" step="10000" min="0" value="' + demand + '"></div>' +
       '<div class="field"><label>Laufzeit</label><select class="input" id="c-years">' + [1, 2, 3, 4, 5].map(function (y) { return '<option value="' + y + '"' + (y === years ? ' selected' : '') + '>' + y + ' Jahr' + (y > 1 ? 'e' : '') + ' (bis ' + (st.season.year + y) + ')</option>'; }).join('') + '</select></div></div>' +
-      '<p class="muted small" style="margin-top:10px">Gehaltsvorstellung des Spielers: ca. ' + FM.fmtMoney(demand) + ' pro Jahr.</p><div id="c-msg" style="margin-top:10px"></div></div>' +
+      '<p class="muted small" style="margin-top:10px">Gehaltsvorstellung des Spielers: ca. ' + FM.fmtMoney(demand) + ' pro Jahr. Spielraum im Gehaltsbudget für diesen Vertrag: ' + FM.fmtMoney(Math.max(0, FM.wageRoom(st, st.clubs[p.club]) + p.contract.wage)) + '.</p><div id="c-msg" style="margin-top:10px"></div></div>' +
       '<div class="modal-f"><button class="btn" data-action="closeModal">Abbrechen</button><button class="btn primary" id="c-ok">Angebot machen</button></div>',
       { size: 'narrow', mount: function (m) {
         m.querySelector('#c-ok').addEventListener('click', function () {
@@ -190,15 +190,26 @@
     var ask = p.club ? FM.askingPrice(st, p) : 0;
     var demand = FM.contractWageDemand(st, p, buyer.id, interest);
     var il = FM.interestLabel(interest);
+    var bud = FM.budget(st, buyer), room = FM.wageRoom(st, buyer);
     UI.modal(UI.modalHead(p.club ? 'Angebot für ' + esc(p.name) : esc(p.name) + ' verpflichten', p.club ? esc(st.clubs[p.club].name) + ' · Marktwert ' + FM.fmtMoney(FM.marketValue(p)) : 'Vereinslos – keine Ablöse') +
       '<div class="modal-b"><div class="stack">' +
-      '<div class="row wrap"><span class="tag ' + il.c + '">' + il.t + '</span><span class="muted small">Kontostand: ' + FM.fmtMoney(buyer.money) + '</span></div>' +
+      '<div class="row wrap"><span class="tag ' + il.c + '">' + il.t + '</span><span class="muted small">Transferbudget ' + FM.fmtMoney(bud.transfer) + ' · Gehaltsspielraum ' + FM.fmtMoney(Math.max(0, room)) + '</span></div>' +
       (p.club ? '<div class="field"><label>Ablöse (€) – Forderung ca. ' + FM.fmtMoney(ask) + '</label><input class="input" id="b-fee" type="number" step="50000" min="0" value="' + ask + '"></div>' : '') +
       '<div class="grid g2"><div class="field"><label>Jahresgehalt (€) – Forderung ca. ' + FM.fmtMoney(demand) + '</label><input class="input" id="b-wage" type="number" step="10000" min="0" value="' + demand + '"></div>' +
       '<div class="field"><label>Vertragslaufzeit</label><select class="input" id="b-years">' + [1, 2, 3, 4, 5].map(function (y) { return '<option value="' + y + '"' + (y === 3 ? ' selected' : '') + '>' + y + ' Jahr' + (y > 1 ? 'e' : '') + '</option>'; }).join('') + '</select></div></div>' +
-      '<div id="b-msg"></div></div></div>' +
+      '<dl class="cost" id="b-cost"></dl><div id="b-msg"></div></div></div>' +
       '<div class="modal-f"><button class="btn" data-action="closeModal">Abbrechen</button><button class="btn primary" id="b-ok">' + (p.club ? 'Angebot senden' : 'Vertrag anbieten') + '</button></div>',
       { size: 'narrow', mount: function (m) {
+        function cost() {
+          var fee = p.club ? +m.querySelector('#b-fee').value || 0 : 0, wage = +m.querySelector('#b-wage').value || 0;
+          var extra = p.club ? Math.round(fee * FM.AGENT_FEE) : Math.round(wage * FM.SIGNING_BONUS), total = fee + extra;
+          m.querySelector('#b-cost').innerHTML =
+            (p.club ? '<dt>Ablöse</dt><dd>' + FM.fmtMoney(fee) + '</dd><dt>Beraterhonorar 10 %</dt><dd>' + FM.fmtMoney(extra) + '</dd>' : '<dt>Handgeld (25 % Jahresgehalt)</dt><dd>' + FM.fmtMoney(extra) + '</dd>') +
+            '<dt class="sum">Belastet Transferbudget</dt><dd class="sum ' + (total > bud.transfer ? 'bad' : '') + '">' + FM.fmtMoney(total) + '</dd>' +
+            '<dt>Gehalt vom Spielraum</dt><dd class="' + (wage > room ? 'bad' : '') + '">' + FM.fmtMoney(wage) + ' / ' + FM.fmtMoney(Math.max(0, room)) + '</dd>';
+        }
+        m.querySelectorAll('input').forEach(function (i) { i.addEventListener('input', cost); });
+        cost();
         m.querySelector('#b-ok').addEventListener('click', function () {
           var fee = p.club ? +m.querySelector('#b-fee').value : 0;
           var r = FM.userBid(st, p, fee, +m.querySelector('#b-wage').value, +m.querySelector('#b-years').value);
@@ -206,6 +217,7 @@
           m.querySelector('#b-msg').innerHTML = '<div class="note warn">' + esc(r.msg) + '</div>';
           if (r.counter && m.querySelector('#b-fee')) m.querySelector('#b-fee').value = r.counter;
           if (r.wageCounter) m.querySelector('#b-wage').value = r.wageCounter;
+          cost();
         });
       } });
   };
