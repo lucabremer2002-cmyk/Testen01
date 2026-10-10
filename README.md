@@ -73,3 +73,17 @@ index.html   Aufbau der Seite
 style.css    Darstellung, Layout und Responsive-Verhalten
 game.js      Spiellogik und Rendering auf dem Canvas
 ```
+
+---
+
+## Look Book – Make-up-Looks von Stars & Influencern nachschminken
+
+Ordner: [`makeup-app/`](makeup-app/) – einfach `makeup-app/index.html` im Browser öffnen (keine Installation nötig).
+
+- **12 Looks** von Stars (Hailey Bieber, Selena Gomez, Rihanna, Kylie Jenner, Kim Kardashian, Taylor Swift, Ariana Grande, Zendaya, Margot Robbie) und Influencern (Huda Kattan, Patrick Ta, NikkieTutorials)
+- **Produktliste** pro Look mit Farbton, ungefährem Preis und Shop-Links (Douglas, Amazon, Google Shopping). Abhaken, was du schon hast – die App rechnet aus, was noch fehlt.
+- **Schritt-für-Schritt-Tutorial** mit „Weiter“-Button; bei jedem Schritt steht, welches Produkt du gerade brauchst.
+- **Video-Links** zu YouTube- und TikTok-Tutorials.
+- Suche, Filter (Alltag/Abend/Party, Anfänger, unter 15 Min.) und Favoriten.
+
+Jedes Produkt ist markiert, woher die Info stammt: *Eigene Marke*, *Von ihr / ihrem Artist genannt*, *Werbegesicht* oder *Ähnlicher Effekt* (nicht belegt, dass sie genau dieses Produkt nutzt). Neue Looks kommen in `makeup-app/data.js`.
