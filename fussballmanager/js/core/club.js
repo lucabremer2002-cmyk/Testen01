@@ -20,7 +20,7 @@
   /* Liquiditaetsreserve: muss laut Lizenzauflagen auf dem Konto bleiben */
   FM.cashReserve = function (state, club) {
     var plan = FM.annualPlan(club);
-    return Math.round(FM.annualWages(state, club) * 0.15 + plan.ops * 0.2);
+    return Math.round(FM.annualWages(state, club) * 0.1 + plan.ops * 0.15);
   };
 
   /* Vorstand legt zu Saisonbeginn (und im Winter) die Budgets fest */
@@ -30,17 +30,17 @@
     var reserve = FM.cashReserve(state, club);
     var free = club.money - reserve;
     var conf = club.id === state.user.club ? state.user.conf : 60;
-    var share = FM.clamp(0.55 + (conf - 50) / 250, 0.4, 0.75);
-    // Gehaltsbudget: Anteil am Umsatz, aber hoechstens 25 % ueber dem aktuellen Gehaltsniveau
-    var wageBudget = FM.niceRound(Math.max(wages * 1.05, Math.min(rev.total * (WAGE_RATIO[club.league] || 0.6), wages * 1.25)));
-    var transfer = free > 0 ? FM.niceRound(free * share * (winter ? 0.6 : 1)) : 0;
+    var share = FM.clamp(0.7 + (conf - 50) / 200, 0.55, 0.9);
+    // Gehaltsbudget: Anteil am Umsatz, mindestens 12 % und hoechstens 30 % ueber dem aktuellen Gehaltsniveau
+    var wageBudget = FM.niceRound(Math.max(wages * 1.12, Math.min(rev.total * (WAGE_RATIO[club.league] || 0.6), wages * 1.3)));
+    var transfer = free > 0 ? FM.niceRound(free * share * (winter ? 0.75 : 1)) : 0;
     var old = club.budget;
     if (winter && old) { transfer = Math.max(old.transfer, transfer); wageBudget = Math.max(old.wage, wageBudget); }
     club.budget = {
       transfer: transfer,
       wage: wageBudget,
       reserve: reserve,
-      salesShare: free > 0 ? 0.7 : 0.4,
+      salesShare: free > 0 ? 0.8 : 0.5,
       austerity: free <= 0,
       requested: false,
       start: transfer,
@@ -54,7 +54,7 @@
     var club = state.clubs[state.user.club], b = club.budget;
     FM.addNews(state, {
       type: 'board', important: !winter, title: winter ? 'Vorstand: Budget für die Winterpause' : 'Vorstand: Budgets für die neue Saison',
-      body: (b.austerity ? 'Der Verein steht unter Sparzwang – es gibt kein Transferbudget. Verkäufe fließen nur zu 40 % zurück ins Budget. ' :
+      body: (b.austerity ? 'Der Verein steht unter Sparzwang – es gibt kein Transferbudget. Verkäufe fließen nur zu ' + Math.round(b.salesShare * 100) + ' % zurück ins Budget. ' :
         'Transferbudget: ' + FM.fmtMoney(b.transfer) + '. ') +
         'Gehaltsbudget: ' + FM.fmtMoney(b.wage) + ' pro Jahr (aktuell gebunden: ' + FM.fmtMoney(FM.annualWages(state, club)) + '). ' +
         'Auf dem Konto müssen mindestens ' + FM.fmtMoney(b.reserve) + ' Liquiditätsreserve bleiben.'
@@ -115,15 +115,16 @@
     b.requested = true;
     var free = club.money - b.reserve - b.transfer;
     var conf = state.user.conf;
-    if (b.austerity || free <= 0) {
+    if (b.austerity) {
       state.user.conf = Math.max(0, conf - 2);
       return { ok: false, msg: 'Abgelehnt. Der Verein ist auf Sparkurs – erst müssen Spieler verkauft werden.' };
     }
-    if (conf < 45) {
+    if (free <= 0) return { ok: false, msg: 'Abgelehnt. Alles freie Geld steckt bereits in deinem Transferbudget.' };
+    if (conf < 40) {
       state.user.conf = Math.max(0, conf - 3);
       return { ok: false, msg: 'Abgelehnt. Erst müssen die Ergebnisse stimmen, dann gibt es mehr Geld.' };
     }
-    var add = FM.niceRound(Math.min(free * (conf >= 70 ? 0.45 : 0.25), Math.max(b.start * 0.4, free * 0.1)));
+    var add = FM.niceRound(Math.min(free * (conf >= 70 ? 0.6 : 0.4), Math.max(b.start * 0.5, free * 0.15)));
     if (add < 10000) return { ok: false, msg: 'Abgelehnt. Es ist kein zusätzliches Geld verfügbar.' };
     b.transfer += add;
     return { ok: true, msg: 'Der Vorstand gibt zusätzlich ' + FM.fmtMoney(add) + ' frei.' };

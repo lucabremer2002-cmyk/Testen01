@@ -79,23 +79,23 @@ exportieren und wieder importieren.
 Der Kontostand ist nicht das Transferbudget. Wie bei echten Vereinen gibt der
 Vorstand zu Saisonbeginn und noch einmal im Januar zwei Budgets frei:
 
-- **Liquiditätsreserve**: 15 % der Jahresgehälter plus 20 % der
+- **Liquiditätsreserve**: 10 % der Jahresgehälter plus 15 % der
   Betriebskosten müssen immer auf dem Konto bleiben.
 - **Transferbudget**: ein Teil des Geldes über der Reserve. Wie groß der Teil
-  ist (40 bis 75 %), hängt vom Vertrauen des Vorstands ab. Im Januar wird mit
-  60 % dieses Anteils neu gerechnet; ist vom Sommer mehr übrig, bleibt der
+  ist (55 bis 90 %), hängt vom Vertrauen des Vorstands ab. Im Januar wird mit
+  75 % dieses Anteils neu gerechnet; ist vom Sommer mehr übrig, bleibt der
   Rest stehen. Liegt der Kontostand unter der Reserve,
   gilt Sparkurs: kein Budget, nur Verkäufe.
 - **Gehaltsbudget**: ein Anteil am erwarteten Umsatz (BL 58 %, 2. BL 62 %,
-  3. Liga 66 %), mindestens 5 % über den aktuellen Gehältern und höchstens
-  25 % darüber.
+  3. Liga 66 %), mindestens 12 % über den aktuellen Gehältern und höchstens
+  30 % darüber.
 
 Was darauf angerechnet wird:
 
 - Ablösen kosten zusätzlich **10 % Beraterhonorar**. Vereinslose verlangen
   ein **Handgeld** von 25 % ihres Jahresgehalts.
-- Verkaufserlöse fließen zu **70 %** zurück ins Transferbudget (bei Sparkurs
-  zu 40 %).
+- Verkaufserlöse fließen zu **80 %** zurück ins Transferbudget (bei Sparkurs
+  zu 50 %).
 - Abfindungen bei Vertragsauflösungen gehen vom Transferbudget ab.
 - Neue Verträge und Verlängerungen müssen ins Gehaltsbudget passen.
 - Transfer- und Gehaltsbudget lassen sich **1 : 1 umschichten**.
