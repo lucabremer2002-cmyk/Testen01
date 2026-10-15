@@ -4,7 +4,7 @@
   var FM = window.FM;
 
   FM.SAVE_KEY = 'matchplan.save.';
-  FM.SAVE_VERSION = 4;
+  FM.SAVE_VERSION = 5;
 
   /* Spielstaende der Vorversion (ohne Budgets/Infrastruktur) weiterverwenden */
   FM.migrate = function (state) {
@@ -17,6 +17,14 @@
       });
       FM.setBudgets(state, state.clubs[state.user.club]);
       state.v = 4;
+    }
+    if (state.v === 4) {
+      // Transfersystem: Verhandlungen, Leihen, Scouting, Rollen
+      state.talks = {}; state.talkBlock = {}; state.shortlist = []; state.known = {}; state.scouts = []; state.payments = [];
+      Object.keys(state.clubs).forEach(function (cid) { state.clubs[cid].loanedOut = []; });
+      state.offers.forEach(function (o) { o.type = o.type || 'buy'; o.max = o.max || o.fee; });
+      FM.assignRoles(state, state.user.club);
+      state.v = 5;
     }
     return state;
   };
@@ -43,6 +51,7 @@
       free: [],
       transfers: [],
       offers: [],
+      talks: {}, talkBlock: {}, shortlist: [], known: {}, scouts: [], payments: [],
       training: { focus: 'balanced', intensity: 1 },
       settings: { speed: 1 },
       fxSeq: 0
@@ -57,7 +66,7 @@
         rep: c.rep, league: c.league, reserve: c.reserve || null,
         money: Math.round(c.money * 1e6),
         squad: [], formation: null, tactics: FM.defaultTactics(), lineup: null,
-        hist: [], fin: FM.emptyLedger(), finPrev: null, expect: null
+        hist: [], fin: FM.emptyLedger(), finPrev: null, expect: null, loanedOut: []
       };
       state.clubs[c.id] = club;
       state.leagues[c.league].clubs.push(c.id);
@@ -78,8 +87,10 @@
       var club = state.clubs[cid];
       club.formation = FM.bestFormation(FM.clubPlayers(state, cid));
     });
+    FM.seedClauses(state);
     var uc = state.clubs[opts.club];
     uc.lineup = FM.autoLineup(state, uc.id, uc.formation);
+    FM.assignRoles(state, uc.id);
     uc.tactics = FM.defaultTactics();
 
     FM.startSeason(state, true);
@@ -155,7 +166,7 @@
     try {
       if (!localStorage.getItem(FM.SAVE_KEY + (slot || 1))) return null;
       var meta = JSON.parse(localStorage.getItem(FM.SAVE_KEY + 'meta.' + (slot || 1)) || 'null');
-      if (!meta || (meta.v !== FM.SAVE_VERSION && meta.v !== 3)) return { incompatible: true };
+      if (!meta || [3, 4, FM.SAVE_VERSION].indexOf(meta.v) < 0) return { incompatible: true };
       return meta;
     } catch (e) { return null; }
   };

@@ -179,6 +179,7 @@
 
   FM.simulateFixture = function (state, fx) {
     var m = FM.createMatch(state, fx);
+    m.sides.forEach(function (s) { s.ai = true; });   // ohne Zuschauer coacht der Co-Trainer
     m.runToEnd();
     var isUser = fx.home === state.user.club || fx.away === state.user.club;
     FM.applyResult(state, fx, m.result(!isUser));
@@ -198,6 +199,8 @@
     var league = fx.comp === 'bl' || fx.comp === 'bl2' || fx.comp === 'l3';
     var sides = [fx.home, fx.away];
 
+    if (isUser) state.user.mg = (state.user.mg || 0) + 1;
+
     // Zuschauer & Einnahmen
     var att = FM.attendance(state, fx.home, fx.away, fx.comp);
     res.att = att;
@@ -216,6 +219,7 @@
       if (!p) return;
       var mins = r.mi || 0;
       p.minutesRecent += mins;
+      if (p.club === uc) p.mm = (p.mm || 0) + mins;
       p.fit = FM.clamp(r.fit != null ? r.fit : p.fit, 25, 100);
       if (league) {
         var s = p.st;
@@ -351,7 +355,8 @@
       p.form *= 0.85;
       if (isUser && tr.form) p.form = FM.clamp(p.form + tr.form * 0.4, -3, 3);
       // Moral: Reservisten werden unzufrieden
-      if (p.minutesRecent < 30 && p.age > 21) p.mor = Math.max(5, p.mor - 0.8);
+      var expectsPlay = !isUser || ['squad', 'prospect'].indexOf(FM.roleOf(state, p)) < 0;
+      if (p.minutesRecent < 30 && p.age > 21 && expectsPlay) p.mor = Math.max(5, p.mor - 0.8);
       else p.mor = p.mor + (70 - p.mor) * 0.06;
     });
     FM.payWeekly(state);
@@ -374,12 +379,19 @@
 
   function windowEvents(state) {
     var d = state.date, m = D.month(d), day = +d.slice(8, 10);
+    FM.transferDaily(state);
     if (FM.isWindowOpen(state)) {
-      if (day % 3 === 0) FM.aiTransferRound(state, m === 1 ? 3 : 4);
+      var deadline = FM.isDeadlineDay(state);
+      if (day % 3 === 0 || deadline) FM.aiTransferRound(state, (m === 1 ? 3 : 4) + (deadline ? 3 : 0));
       FM.generateOffersForUser(state);
+      if (FM.windowDaysLeft(state) === 1) {
+        FM.addNews(state, { type: 'market', important: true, title: 'Deadline Day', body: 'Die letzten 48 Stunden des Transferfensters laufen. Vereine werden nervös: Verkäufer gehen mit ihren Forderungen runter, Interessenten bieten schneller – und mehr Geschäfte werden auf den letzten Drücker gemacht.' });
+      }
     }
     if (m === 9 && day === 1) FM.addNews(state, { type: 'market', title: 'Transferfenster geschlossen', body: 'Das Sommer-Transferfenster ist geschlossen. Vereinslose Spieler können weiterhin verpflichtet werden.' });
     if (m === 1 && day === 1) {
+      var expiring = FM.clubPlayers(state, state.user.club).filter(function (p) { return !p.loan && !p.pre && p.contract.until <= state.season.year + 1; });
+      if (expiring.length) FM.addNews(state, { type: 'board', important: true, title: 'Vorverträge erlaubt', body: 'Ab sofort dürfen andere Vereine Spielern mit auslaufendem Vertrag Vorverträge anbieten. Bei dir betrifft das: ' + expiring.map(function (p) { return p.name; }).join(', ') + '. Umgekehrt kannst du jetzt selbst Spieler für die neue Saison ablösefrei verpflichten.' });
       FM.setBudgets(state, state.clubs[state.user.club], true);
       FM.addNews(state, { type: 'market', title: 'Wintertransferfenster geöffnet', body: 'Bis zum 31. Januar kannst du Spieler kaufen und verkaufen.', important: false });
       FM.budgetNews(state, true);
@@ -495,7 +507,7 @@
       if (state.season.phase === 'pre' && FM.fixturesOn(state, state.date).length) state.season.phase = 'season';
       dailyTick(state);
       if (D.weekday(state.date) === 1) weeklyTick(state);
-      if (state.date.slice(8, 10) === '01') FM.payMonthly(state);
+      if (state.date.slice(8, 10) === '01') { FM.payMonthly(state); FM.monthlyRoles(state); }
       FM.expireOffers(state);
       windowEvents(state);
       if (state.user.conf < 10 && state.season.phase === 'season' && userLeagueGames(state) >= 6) {
@@ -507,6 +519,7 @@
       if (mineNext) return { stop: 'match', fixture: mineNext };
       if (state.attention) return { stop: 'news' };
       if (prev.slice(5, 7) !== state.date.slice(5, 7) && (state.date.slice(5) === '09-01' || state.date.slice(5) === '01-01' || state.date.slice(5) === '02-01')) return { stop: 'date' };
+      if (state.date.slice(5) === '08-30' || state.date.slice(5) === '01-30') return { stop: 'date' };
     }
     return { stop: 'date' };
   };
@@ -550,6 +563,8 @@
     var club = state.clubs[cid];
     club.lineup = FM.autoLineup(state, cid, club.formation);
     FM.addNews(state, { type: 'board', title: 'Neuer Job: ' + club.name, body: 'Du bist neuer Cheftrainer von ' + club.name + '. ' + FM.expectationText(state, cid) });
+    FM.assignRoles(state, cid);
+    state.talks = {};
     FM.setBudgets(state, club);
     FM.budgetNews(state, false);
   };
@@ -680,11 +695,33 @@
   /* Sommerpause: Vertraege, Alter, Karriereende, Nachwuchs, neue Saison */
   FM.offseason = function (state, summary) {
     var y = state.season.year, uc = state.user.club;
-    var left = [], retired = [];
+    var left = [], retired = [], arrived = [], returned = [];
+    // Leihen enden (KI-Vereine ziehen ggf. ihre Kaufoption)
     Object.keys(state.players).forEach(function (pid) {
       var p = state.players[pid];
-      // Vertraege
-      if (p.club && p.contract.until <= y + 1) {
+      if (!p.loan) return;
+      var involved = p.club === uc || p.loan.from === uc;
+      FM.endLoan(state, p);
+      if (involved) returned.push(p.name + ' (' + (p.club ? state.clubs[p.club].short : 'vereinslos') + ')');
+    });
+    Object.keys(state.players).forEach(function (pid) {
+      var p = state.players[pid];
+      p.mm = 0;
+      // Vorvertrag: ablosefreier Wechsel zum neuen Verein
+      if (p.club && p.pre && p.contract.until <= y + 1 && state.clubs[p.pre.club]) {
+        var pre = p.pre, oldClub = p.club;
+        removeFromClub(state, p);
+        state.clubs[pre.club].squad.push(p.id);
+        p.club = pre.club;
+        p.contract = { until: y + 1 + pre.years, wage: pre.wage };
+        if (pre.role) p.contract.role = pre.role;
+        if (pre.clause) p.contract.clause = pre.clause;
+        p.pre = null; p.wants = false; p.unhappy = 0; p.sellOn = null;
+        p.joined = y + 1; p.joinDate = D.iso(y + 1, 7, 1);
+        state.transfers.unshift({ date: D.iso(y + 1, 7, 1), pid: p.id, name: p.name, from: oldClub, to: pre.club, fee: 0, pre: true, ovr: p.ovr, age: p.age, pos: p.pos[0] });
+        if (pre.club === uc) arrived.push(p.name);
+        else if (oldClub === uc) left.push(p.name + ' (zu ' + state.clubs[pre.club].short + ')');
+      } else if (p.club && p.contract.until <= y + 1) {
         var club = state.clubs[p.club];
         if (p.club === uc) {
           left.push(p.name);
@@ -734,6 +771,8 @@
     });
 
     if (left.length) FM.addNews(state, { type: 'transfer', title: 'Verträge ausgelaufen', body: 'Ablösefrei gegangen: ' + left.join(', ') + '.' });
+    if (arrived.length) FM.addNews(state, { type: 'transfer', title: 'Neuzugänge per Vorvertrag', body: 'Ab sofort im Kader: ' + arrived.join(', ') + '.' });
+    if (returned.length) FM.addNews(state, { type: 'transfer', quiet: true, title: 'Leihen beendet', body: 'Zurück bei ihren Vereinen: ' + returned.join(', ') + '.' });
     if (retired.length) FM.addNews(state, { type: 'info', title: 'Karriereende', body: retired.join(', ') + ' beende' + (retired.length > 1 ? 'n' : 't') + ' die Karriere.' });
     if (youthUser.length) FM.addNews(state, { type: 'youth', title: 'Neue Talente aus der Akademie', body: 'Der Nachwuchs rückt auf: ' + youthUser.join(', ') + '.' });
 
@@ -753,6 +792,11 @@
         club.lineup.bench = (club.lineup.bench || []).filter(function (id) { return id !== p.id; });
       }
     }
+    if (p.loan && state.clubs[p.loan.from]) {
+      var owner = state.clubs[p.loan.from];
+      owner.loanedOut = (owner.loanedOut || []).filter(function (id) { return id !== p.id; });
+    }
+    p.loan = null;
     p.club = null;
     p.listed = false;
   }

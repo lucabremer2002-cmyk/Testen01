@@ -51,9 +51,9 @@
       var head = '<tr>' + th('pos', 'Pos') + th('name', 'Name');
       if (s.mode === 'over') head += th('age', 'Alter', 'num') + th('ovr', 'Stärke', 'num') + th('pot', 'Pot.', 'num hide-xs') + th('form', 'Form', 'num hide-xs') + th('fit', 'Fitness', 'hide-xs') + '<th class="hide-sm">Moral</th>' + th('value', 'Marktwert', 'num hide-xs');
       else if (s.mode === 'stats') head += th('apps', 'Sp', 'num') + th('mins', 'Min', 'num hide-xs') + th('goals', 'Tore', 'num') + th('assists', 'Vorl.', 'num') + th('grade', 'Ø Note', 'num') + '<th class="num hide-xs">Gelb</th><th class="num hide-xs">Rot</th><th class="num hide-xs">Pokal</th>';
-      else head += th('age', 'Alter', 'num') + th('ovr', 'Stärke', 'num') + th('until', 'Vertrag bis', 'num') + th('wage', 'Gehalt/Jahr', 'num') + th('value', 'Marktwert', 'num hide-xs');
+      else head += th('age', 'Alter', 'num') + th('ovr', 'Stärke', 'num') + '<th class="hide-sm">Rolle</th>' + th('until', 'Vertrag bis', 'num') + th('wage', 'Gehalt/Jahr', 'num') + th('value', 'Marktwert', 'num hide-xs');
       head += '</tr>';
-      var lastGroup = null, cols = s.mode === 'stats' ? 10 : 9;
+      var lastGroup = null, cols = s.mode === 'stats' ? 10 : s.mode === 'contract' ? 8 : 9;
       var body = players.map(function (p) {
         var grp = '';
         if (s.sort === 'pos' && FM.mainGroup(p) !== lastGroup) {
@@ -71,7 +71,8 @@
             '<td class="num hide-xs">' + p.st.yc + '</td><td class="num hide-xs">' + p.st.rc + '</td><td class="num hide-xs">' + p.cst.apps + '/' + p.cst.goals + '</td>';
         } else {
           var ending = p.contract.until <= st.season.year + 1;
-          row += '<td class="num">' + p.age + '</td><td class="num">' + UI.pill(p.ovr) + '</td><td class="num ' + (ending ? 'warn strong' : '') + '">' + p.contract.until + '</td><td class="num">' + FM.fmtMoney(p.contract.wage) + '</td><td class="num hide-xs">' + FM.fmtMoney(FM.marketValue(p)) + '</td>';
+          row += '<td class="num">' + p.age + '</td><td class="num">' + UI.pill(p.ovr) + '</td><td class="hide-sm small">' + FM.ROLE_LABEL[FM.roleOf(st, p)] + '</td><td class="num ' + (ending ? 'warn strong' : '') + '">' + (p.loan ? 'Leihe' : p.contract.until) + '</td>' +
+            '<td class="num">' + FM.fmtMoney(p.contract.wage * (p.loan ? p.loan.share : 1)) + '</td><td class="num hide-xs">' + FM.fmtMoney(FM.marketValue(p)) + '</td>';
         }
         return grp + row + '</tr>';
       }).join('');
@@ -101,7 +102,7 @@
       return '<div class="attr" title="' + esc(names[i]) + '"><span class="k">' + labels[i] + '</span><div class="bar"><i style="width:' + v + '%;background:' + c + '"></i></div><span class="v">' + v + '</span></div>';
     }).join('');
     var value = FM.marketValue(p);
-    var ask = p.club && !own ? FM.askingPrice(st, p) : null;
+    var ask = p.club && !own && !p.loan ? FM.askingPrice(st, p) : null;
     var interest = !own ? FM.interest(st, p, st.user.club) : null;
     var il = interest != null ? FM.interestLabel(interest) : null;
     var g = FM.avgGrade(p);
@@ -113,6 +114,10 @@
       '<dt>Marktwert</dt><dd>' + FM.fmtMoney(value) + '</dd>' +
       (ask ? '<dt>Ablöseforderung</dt><dd>' + FM.fmtMoney(ask) + '</dd>' : '') +
       '<dt>Vertrag bis</dt><dd>' + (p.club ? 'Juni ' + p.contract.until : '–') + '</dd>' +
+      (own && !p.loan ? '<dt>Rolle</dt><dd>' + FM.ROLE_LABEL[FM.roleOf(st, p)] + '</dd>' : '') +
+      (p.club && p.contract.clause ? '<dt>Ausstiegsklausel</dt><dd>' + FM.fmtMoney(p.contract.clause) + '</dd>' : '') +
+      (p.loan ? '<dt>Leihe</dt><dd>von ' + esc(st.clubs[p.loan.from].short) + ' bis Saisonende' + (p.loan.option ? ', Kaufoption ' + FM.fmtMoney(p.loan.option) : '') + '</dd>' : '') +
+      (p.pre ? '<dt>Vorvertrag</dt><dd>ab Juli bei ' + esc(st.clubs[p.pre.club].short) + '</dd>' : '') +
       '<dt>Gehalt</dt><dd>' + (p.club ? FM.fmtMoney(p.contract.wage) + '/Jahr' : 'Forderung ' + FM.fmtMoney(FM.contractWageDemand(st, p, st.user.club, interest || 50))) + '</dd>' +
       '<dt>Form</dt><dd>' + UI.formArrow(p.form) + '</dd>' +
       '<dt>Fitness</dt><dd>' + UI.fit(p.fit) + ' ' + Math.round(p.fit) + ' %</dd>' +
@@ -125,15 +130,28 @@
     var hist = p.hist.length ? '<table class="tbl compact"><thead><tr><th>Saison</th><th>Verein</th><th class="num">Sp</th><th class="num">T</th><th class="num">V</th><th class="num">Ø</th><th class="num">Stärke</th></tr></thead><tbody>' +
       p.hist.slice().reverse().map(function (h) { return '<tr><td>' + h.y + '/' + String(h.y + 1).slice(2) + '</td><td>' + (h.club ? UI.clubLink(h.club) : '–') + '</td><td class="num">' + h.apps + '</td><td class="num">' + h.goals + '</td><td class="num">' + h.assists + '</td><td class="num">' + UI.grade(h.avg) + '</td><td class="num">' + h.ovr + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="muted small">Noch keine abgeschlossene Saison im Spiel.</div>';
     var src = '<div class="note small" style="margin-top:12px"><b>Datenquelle:</b> ' + esc(FM.SRC_LABEL[p.src] || '') + '</div>';
+    if (!own && FM.isKnown(st, p)) {
+      var rep = FM.scoutReport(st, p);
+      src = '<div class="scout-card"><span class="grade-badge ' + rep.grade + '">' + rep.grade + '</span><div><div class="strong">Scoutbericht: ' + esc(rep.tag) + '</div>' +
+        '<div class="small dim">Stärken: ' + rep.strengths.map(esc).join(', ') + ' · Schwäche: ' + esc(rep.weakness) + ' · Potenzial ' + p.pot + ' · dein Niveau auf der Position: ' + rep.ref + '</div></div></div>' + src;
+    }
     var actions = '';
-    if (own) {
-      actions = '<button class="btn" data-action="toggleList" data-id="' + p.id + '">' + (p.listed ? 'Von Transferliste nehmen' : 'Auf Transferliste setzen') + '</button>' +
-        '<button class="btn" data-action="contractDlg" data-id="' + p.id + '">Vertrag verlängern</button>' +
-        '<button class="btn danger" data-action="releaseDlg" data-id="' + p.id + '">Vertrag auflösen</button>';
+    if (own && p.loan) {
+      actions = '<span class="muted small" style="margin-right:auto">Leihspieler von ' + esc(st.clubs[p.loan.from].name) + '</span>' +
+        (p.loan.option ? '<button class="btn primary" data-action="exerciseOpt" data-id="' + p.id + '">Kaufoption ziehen (' + FM.fmtMoneyShort(p.loan.option) + ')</button>' : '');
+    } else if (own) {
+      var loanOk = p.age <= 23 || FM.squadRank(st, p) > 14;
+      actions = '<button class="btn" data-action="toggleList" data-id="' + p.id + '">' + (p.listed ? 'Von Transferliste' : 'Transferliste') + '</button>' +
+        (loanOk ? '<button class="btn" data-action="toggleLoanList" data-id="' + p.id + '">' + (p.loanList ? 'Von Leihliste' : 'Leihliste') + '</button>' : '') +
+        '<button class="btn" data-action="negotiate" data-id="' + p.id + '" data-k="renew"' + (p.pre ? ' disabled title="Hat bereits einen Vorvertrag bei einem anderen Verein"' : '') + '>Vertrag verhandeln</button>' +
+        '<button class="btn danger" data-action="releaseDlg" data-id="' + p.id + '">Auflösen</button>';
     } else {
-      var can = !p.club || FM.isWindowOpen(st);
-      actions = '<span class="muted small" style="margin-right:auto">' + (can ? '' : FM.windowLabel(st)) + '</span>' +
-        '<button class="btn primary" data-action="bidDlg" data-id="' + p.id + '"' + (can ? '' : ' disabled') + '>' + (p.club ? 'Angebot abgeben' : 'Verpflichten') + '</button>';
+      var kinds = FM.dealKinds(st, p);
+      var why = p.loan ? 'Bis Saisonende an ' + esc(st.clubs[p.club].short) + ' ausgeliehen' : p.pre ? 'Hat einen Vorvertrag bei ' + esc(st.clubs[p.pre.club].short) : kinds.length ? '' : FM.windowLabel(st);
+      var t = FM.talkOf(st, p.id), blocked = FM.talkBlocked(st, p.id);
+      var label = t ? 'Verhandlung fortsetzen' : kinds[0] === 'free' ? 'Verpflichten' : kinds[0] === 'pre' ? 'Vorvertrag anbieten' : 'Verhandeln';
+      actions = UI.starBtn(p) + '<span class="muted small" style="margin-right:auto">' + (blocked ? 'Gespräche ruhen bis ' + FM.date.fmt(blocked) : why) + '</span>' +
+        '<button class="btn primary" data-action="negotiate" data-id="' + p.id + '"' + (kinds.length && !blocked ? '' : ' disabled') + '>' + label + '</button>';
     }
     var head = '<div class="modal-h"><div class="ph" style="flex:1;min-width:0">' + UI.pill(p.ovr, 'xl') +
       '<div class="info"><div class="name ellipsis">' + esc(p.name) + '</div><div class="row wrap" style="gap:6px;margin-top:4px">' + p.pos.map(UI.posTag).join(' ') +
@@ -154,6 +172,15 @@
     if (UI.view === 'squad' || UI.view === 'transfers') { var keep = UI.modalOpen; UI.refresh(); if (keep) UI.playerModal(p.id); }
   };
 
+  UI.actions.toggleLoanList = function (el) {
+    var p = FM.state.players[el.getAttribute('data-id')];
+    p.loanList = !p.loanList;
+    if (p.loanList) p.listed = false;
+    UI.toast(p.loanList ? p.name + ' steht auf der Leihliste – Anfragen kommen im Transferfenster.' : p.name + ' ist nicht mehr auf der Leihliste.');
+    UI.refresh();
+    UI.playerModal(p.id);
+  };
+
   UI.actions.releaseDlg = function (el) {
     var st = FM.state, p = st.players[el.getAttribute('data-id')];
     var left = Math.max(0, p.contract.until - st.season.year);
@@ -163,63 +190,6 @@
       UI.toast(p.name + ' wurde freigestellt.');
       UI.refresh();
     }, true);
-  };
-
-  UI.actions.contractDlg = function (el) {
-    var st = FM.state, p = st.players[el.getAttribute('data-id')];
-    var demand = FM.contractWageDemand(st, p, p.club, 70);
-    var years = p.age >= 33 ? 1 : 3;
-    UI.modal(UI.modalHead('Vertrag verlängern', esc(p.name) + ' · aktuell bis ' + p.contract.until + ', ' + FM.fmtMoney(p.contract.wage) + '/Jahr') +
-      '<div class="modal-b"><div class="grid g2"><div class="field"><label>Jahresgehalt (€)</label><input class="input" id="c-wage" type="number" step="10000" min="0" value="' + demand + '"></div>' +
-      '<div class="field"><label>Laufzeit</label><select class="input" id="c-years">' + [1, 2, 3, 4, 5].map(function (y) { return '<option value="' + y + '"' + (y === years ? ' selected' : '') + '>' + y + ' Jahr' + (y > 1 ? 'e' : '') + ' (bis ' + (st.season.year + y) + ')</option>'; }).join('') + '</select></div></div>' +
-      '<p class="muted small" style="margin-top:10px">Gehaltsvorstellung des Spielers: ca. ' + FM.fmtMoney(demand) + ' pro Jahr. Spielraum im Gehaltsbudget für diesen Vertrag: ' + FM.fmtMoney(Math.max(0, FM.wageRoom(st, st.clubs[p.club]) + p.contract.wage)) + '.</p><div id="c-msg" style="margin-top:10px"></div></div>' +
-      '<div class="modal-f"><button class="btn" data-action="closeModal">Abbrechen</button><button class="btn primary" id="c-ok">Angebot machen</button></div>',
-      { size: 'narrow', mount: function (m) {
-        m.querySelector('#c-ok').addEventListener('click', function () {
-          var r = FM.extendContract(st, p, +m.querySelector('#c-wage').value, +m.querySelector('#c-years').value);
-          if (r.ok) { UI.closeModal(); UI.toast(p.name + ': ' + r.msg, 'good'); UI.refresh(); }
-          else { m.querySelector('#c-msg').innerHTML = '<div class="note warn">' + esc(r.msg) + '</div>'; if (r.wageCounter) m.querySelector('#c-wage').value = r.wageCounter; }
-        });
-      } });
-  };
-
-  UI.actions.bidDlg = function (el) {
-    var st = FM.state, p = st.players[el.getAttribute('data-id')];
-    var buyer = st.clubs[st.user.club];
-    var interest = FM.interest(st, p, buyer.id);
-    var ask = p.club ? FM.askingPrice(st, p) : 0;
-    var demand = FM.contractWageDemand(st, p, buyer.id, interest);
-    var il = FM.interestLabel(interest);
-    var bud = FM.budget(st, buyer), room = FM.wageRoom(st, buyer);
-    UI.modal(UI.modalHead(p.club ? 'Angebot für ' + esc(p.name) : esc(p.name) + ' verpflichten', p.club ? esc(st.clubs[p.club].name) + ' · Marktwert ' + FM.fmtMoney(FM.marketValue(p)) : 'Vereinslos – keine Ablöse') +
-      '<div class="modal-b"><div class="stack">' +
-      '<div class="row wrap"><span class="tag ' + il.c + '">' + il.t + '</span><span class="muted small">Transferbudget ' + FM.fmtMoney(bud.transfer) + ' · Gehaltsspielraum ' + FM.fmtMoney(Math.max(0, room)) + '</span></div>' +
-      (p.club ? '<div class="field"><label>Ablöse (€) – Forderung ca. ' + FM.fmtMoney(ask) + '</label><input class="input" id="b-fee" type="number" step="50000" min="0" value="' + ask + '"></div>' : '') +
-      '<div class="grid g2"><div class="field"><label>Jahresgehalt (€) – Forderung ca. ' + FM.fmtMoney(demand) + '</label><input class="input" id="b-wage" type="number" step="10000" min="0" value="' + demand + '"></div>' +
-      '<div class="field"><label>Vertragslaufzeit</label><select class="input" id="b-years">' + [1, 2, 3, 4, 5].map(function (y) { return '<option value="' + y + '"' + (y === 3 ? ' selected' : '') + '>' + y + ' Jahr' + (y > 1 ? 'e' : '') + '</option>'; }).join('') + '</select></div></div>' +
-      '<dl class="cost" id="b-cost"></dl><div id="b-msg"></div></div></div>' +
-      '<div class="modal-f"><button class="btn" data-action="closeModal">Abbrechen</button><button class="btn primary" id="b-ok">' + (p.club ? 'Angebot senden' : 'Vertrag anbieten') + '</button></div>',
-      { size: 'narrow', mount: function (m) {
-        function cost() {
-          var fee = p.club ? +m.querySelector('#b-fee').value || 0 : 0, wage = +m.querySelector('#b-wage').value || 0;
-          var extra = p.club ? Math.round(fee * FM.AGENT_FEE) : Math.round(wage * FM.SIGNING_BONUS), total = fee + extra;
-          m.querySelector('#b-cost').innerHTML =
-            (p.club ? '<dt>Ablöse</dt><dd>' + FM.fmtMoney(fee) + '</dd><dt>Beraterhonorar 10 %</dt><dd>' + FM.fmtMoney(extra) + '</dd>' : '<dt>Handgeld (25 % Jahresgehalt)</dt><dd>' + FM.fmtMoney(extra) + '</dd>') +
-            '<dt class="sum">Belastet Transferbudget</dt><dd class="sum ' + (total > bud.transfer ? 'bad' : '') + '">' + FM.fmtMoney(total) + '</dd>' +
-            '<dt>Gehalt vom Spielraum</dt><dd class="' + (wage > room ? 'bad' : '') + '">' + FM.fmtMoney(wage) + ' / ' + FM.fmtMoney(Math.max(0, room)) + '</dd>';
-        }
-        m.querySelectorAll('input').forEach(function (i) { i.addEventListener('input', cost); });
-        cost();
-        m.querySelector('#b-ok').addEventListener('click', function () {
-          var fee = p.club ? +m.querySelector('#b-fee').value : 0;
-          var r = FM.userBid(st, p, fee, +m.querySelector('#b-wage').value, +m.querySelector('#b-years').value);
-          if (r.ok) { UI.closeModal(); UI.toast(r.msg, 'good'); FM.save(UI.slot || 1); UI.refresh(); return; }
-          m.querySelector('#b-msg').innerHTML = '<div class="note warn">' + esc(r.msg) + '</div>';
-          if (r.counter && m.querySelector('#b-fee')) m.querySelector('#b-fee').value = r.counter;
-          if (r.wageCounter) m.querySelector('#b-wage').value = r.wageCounter;
-          cost();
-        });
-      } });
   };
 
   /* ================= Taktik & Aufstellung ================= */

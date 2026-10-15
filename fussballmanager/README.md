@@ -59,11 +59,15 @@ exportieren und wieder importieren.
   und Intensität – wirkt auf Erholung, Form, Verletzungsrisiko und Entwicklung
 - Spielerentwicklung nach Alter, Potenzial, Spielzeit und Training;
   ältere Spieler bauen ab, Karriereende, jährlicher Akademie-Nachwuchs
-- **Transfermarkt** mit Filtern über alle 1.400+ Spieler, Ablöseforderungen,
-  Wechselbereitschaft, Gehaltsverhandlung, Gegenangebote, Vereinslose
-- Angebote anderer Vereine für deine Spieler, Transferliste,
-  Vertragsverlängerung, Vertragsauflösung mit Abfindung
-- KI-Vereine kaufen und verkaufen selbst (Transferticker)
+- **Transfermarkt** mit Filtern über alle 1.400+ Spieler und echten
+  Verhandlungen (siehe unten): Kauf, Leihe, Ausstiegsklausel, Vorvertrag,
+  Raten, Weiterverkaufsbeteiligung, Spielertausch
+- Beobachtungsliste, Scout-Aufträge mit Scoutberichten, Transferbilanz
+- Angebote anderer Vereine für deine Spieler mit Nachverhandeln und
+  Bieterwettstreit, Transfer- und Leihliste, Vertragsauflösung mit Abfindung
+- Kaderrollen mit Einsatzversprechen, unzufriedene Spieler, Wechselwünsche
+- KI-Vereine kaufen, leihen, ziehen Klauseln und schließen Vorverträge
+  (Transferticker)
 - **Finanzen**: TV-Gelder, Sponsoring, Zuschauer (je Stadion), Prämien,
   Gehälter, Betriebskosten, Unterhalt der Infrastruktur, Kontostand-Verlauf
 - **Vorstandsbudgets** (Transfer- und Gehaltsbudget, siehe unten)
@@ -102,6 +106,71 @@ Was darauf angerechnet wird:
 - Einmal pro Transferfenster kann man beim Vorstand **mehr Budget anfragen**.
   Die Antwort hängt vom Vertrauen und vom freien Geld ab; eine Absage kostet
   etwas Vertrauen.
+
+## Transfers und Verhandlungen
+
+Inspiriert von Football Manager, dem Karrieremodus von EA SPORTS FC, der
+Master League aus PES und Anstoss.
+
+**Zwei Verhandlungsstufen.** Erst mit dem Verein über die Ablöse, dann mit
+dem Spieler über den Vertrag. Beide Seiten haben eine sichtbare **Geduld**
+(2 bis 5 Runden, je nach Verein und Lage). Jedes zu niedrige Angebot kostet
+Geduld, ein lächerliches doppelt. Darauf folgt ein Gegenangebot, das mit
+schwindender Geduld sinkt, aber nie über der Ausgangsforderung liegt. Ist die
+Geduld aufgebraucht, ruhen die Gespräche drei Wochen. Verhandlungen bleiben
+zwei Wochen offen und lassen sich jederzeit fortsetzen.
+
+**Bausteine beim Verein**
+- Ablöse sofort oder in **2–3 Jahresraten**: Der Verkäufer verlangt dafür
+  etwas mehr, offene Raten erhöhen deine Liquiditätsreserve.
+- **Weiterverkaufsbeteiligung** von 10 oder 20 %: Sie senkt die Ablöse,
+  besonders bei jungen Talenten. Bei einem späteren Verkauf geht der Anteil
+  automatisch an den alten Verein (das gilt auch, wenn dir eine Beteiligung
+  zusteht).
+- **Spielertausch**: Der Verkäufer rechnet deinen Spieler nach eigenem Bedarf
+  an (85 % oder 55 % des Marktwerts), und der Spieler muss wechseln wollen.
+- **Leistungsträger** großer Vereine gibt es nur für rund das 1,6-Fache.
+
+**Vertrag mit dem Spieler**
+- **Kaderrolle** (Schlüssel-, Stamm-, Rotations-, Ergänzungs- oder
+  Perspektivspieler): Eine größere Rolle als erwartet senkt die
+  Gehaltsforderung, eine kleinere erhöht sie oder schreckt ab.
+- **Handgeld** gegen Gehalt: Mehr Handgeld senkt das geforderte Jahresgehalt.
+- **Ausstiegsklausel**: Gute Spieler wünschen sich eine. Fehlt sie oder ist
+  sie zu hoch, wollen sie 8 % mehr Gehalt.
+- Ältere Spieler unterschreiben nur kurz. Bei Topspielern bietet manchmal ein
+  größerer Verein mit, dann wird es teurer.
+
+**Weitere Geschäfte**
+- **Leihen** bis Saisonende mit Gehaltsanteil und optionaler **Kaufoption**,
+  in beide Richtungen. Eigene Talente landen auf der Leihliste und sammeln
+  Spielpraxis. KI-Vereine ziehen Kaufoptionen, wenn sich der Spieler bewährt.
+- **Ausstiegsklauseln** (etwa jeder achte Spieler ab Stärke 70 und bis
+  29 Jahre, außerhalb der Topklubs, dazu alle selbst ausgehandelten): Zahlst
+  du die Klausel, kann der Verein nicht ablehnen. Umgekehrt ziehen KI-Vereine
+  Klauseln deiner Spieler.
+- **Vorverträge** ab Januar mit Spielern im letzten Vertragsjahr: Sie kommen im
+  Sommer ablösefrei. Andere Vereine machen das auch mit deinen Spielern.
+- **Angebote für deine Spieler**: Du kannst mehr verlangen. Der Interessent
+  nimmt an, bessert nach oder zieht zurück. Manchmal überbietet ein zweiter
+  Verein den ersten.
+- **Deadline Day**: In den letzten 48 Stunden gehen Verkäufer runter, KI-Vereine
+  machen mehr Geschäfte, und das Spiel hält am 30.08. und 30.01. an.
+
+**Kaderrollen und Moral.** Jeden Monat wird geprüft, ob die versprochene
+Rolle eingelöst wurde. Ein Stammspieler mit zu wenig Minuten wird erst
+unzufrieden und kann einen **Wechselwunsch** äußern. Andere Vereine bieten
+dann weniger, ein neuer Vertrag mit größerer Rolle stimmt ihn um. Beim
+Sofortergebnis wechselt der Co-Trainer, damit auch Rotationsspieler Minuten
+bekommen.
+
+**Scouting.** Scout-Aufträge nach Position, Alter, Liga, Preisgrenze und
+Schwerpunkt (beste Verstärkung, Talente, Schnäppchen). Nach 6 bis 14 Tagen
+kommen bis zu acht Empfehlungen mit Note A–D, Einordnung (z. B.
+„Sofortverstärkung“, „Toptalent“), Stärken und Schwäche, und das Potenzial ist
+dann genau bekannt. Die Zahl der Scouts und das Tempo hängen von der
+Scoutingabteilung ab. Dazu gibt es eine Beobachtungsliste (★) und eine
+Transferbilanz der Saison mit offenen Raten.
 
 ## Infrastruktur
 
@@ -186,6 +255,7 @@ js/core/                Spiellogik ohne Oberfläche
   state.js              Neues Spiel, Speichern/Laden
   economy.js            Finanzen, Vorstand, Nachrichten, Transfers
   club.js               Vorstandsbudgets und Infrastruktur
+  transfer.js           Verhandlungen, Leihen, Klauseln, Vorverträge, Scouting, Rollen
   season.js             Spieltage, Tabellen, Saisonende
 js/ui/                  Oberfläche (Übersicht, Kader, Taktik, Spieltag …)
 js/vendor/              lz-string

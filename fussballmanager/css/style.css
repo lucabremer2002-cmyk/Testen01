@@ -851,3 +851,52 @@ dl.cost dd.bad { color: var(--bad); }
   .scoreboard .team { flex-direction: column; text-align: center; }
   .scoreboard .team.away { flex-direction: column; text-align: center; }
 }
+
+/* ---------- Transfers: Verhandlung, Beobachtung, Scouting ---------- */
+.tag.deadline { background: var(--led-bg); color: var(--led-fg); }
+.star-col { width: 34px; padding-right: 0 !important; }
+.star-btn {
+  width: 28px; height: 28px; border: 0; background: transparent; cursor: pointer; border-radius: var(--r-sm);
+  font-size: 18px; line-height: 1; color: var(--line-strong);
+}
+.star-btn:hover { color: var(--gold); background: var(--surface-3); }
+.star-btn.on { color: var(--gold); }
+.modal-f .star-btn { width: 38px; height: 38px; font-size: 22px; }
+.patience { display: inline-flex; gap: 4px; }
+.patience i { width: 14px; height: 8px; border-radius: 1px; background: var(--surface-3); }
+.patience i.on { background: var(--club); }
+.steps { display: flex; gap: 4px; margin-bottom: 14px; }
+.steps span {
+  flex: 1; padding: 7px 10px; border-radius: var(--r-sm); background: var(--surface-2); color: var(--text-3);
+  font-family: var(--font-cond); font-weight: 700; font-size: 14px; letter-spacing: .08em; text-transform: uppercase;
+}
+.steps span.on { background: var(--club); color: var(--club-ink); }
+.steps span.done { background: var(--good-soft); color: var(--good); }
+.neg-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.neg-side {
+  display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: var(--r-sm);
+  background: var(--surface-2); border: 1px solid var(--line); min-width: 0;
+}
+.neg-log { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; }
+.neg-log > div { font-size: 13.5px; line-height: 1.4; padding: 8px 10px; border-radius: var(--r-sm); background: var(--surface); border-left: 3px solid var(--line-strong); }
+.neg-log > div.me { border-left-color: var(--club); }
+.neg-log > div b { display: block; font-family: var(--font-cond); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); }
+.neg-log > div.them b { display: none; }
+.grade-badge {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 2px;
+  font-family: var(--font-display); font-weight: 900; font-size: 16px; line-height: 1;
+}
+.grade-badge.A { background: var(--good); color: #fff; }
+.grade-badge.B { background: var(--good-soft); color: var(--good); }
+.grade-badge.C { background: var(--warn-soft); color: var(--warn); }
+.grade-badge.D { background: var(--surface-3); color: var(--text-3); }
+.scout-card {
+  display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; padding: 12px 14px;
+  border-radius: var(--r-sm); background: var(--surface-2); border-left: 4px solid var(--club);
+}
+.scout-card .grade-badge { width: 32px; height: 32px; font-size: 22px; flex: none; }
+.tabs b { font-family: var(--font-display); font-weight: 800; color: var(--accent); margin-left: 2px; }
+@media (max-width: 860px) {
+  .neg-grid { grid-template-columns: minmax(0, 1fr); }
+  .neg-log { max-height: 200px; }
+}

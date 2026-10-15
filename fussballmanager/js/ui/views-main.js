@@ -208,7 +208,7 @@
       '</div></div>';
   }
 
-  var NEWS_ICON = { match: 'ball', transfer: 'transfer', offer: 'transfer', market: 'transfer', injury: 'medic', board: 'board', cup: 'trophy', league: 'trophy', training: 'training', youth: 'youth', info: 'info' };
+  var NEWS_ICON = { match: 'ball', transfer: 'transfer', offer: 'transfer', market: 'transfer', scout: 'search', injury: 'medic', board: 'board', cup: 'trophy', league: 'trophy', training: 'training', youth: 'youth', info: 'info' };
   UI.newsIcon = function (n) { return '<div class="news-ico ' + n.type + '">' + UI.icon(NEWS_ICON[n.type] || 'info') + '</div>'; };
 
   function newsCard() {
@@ -264,7 +264,7 @@
     title: 'Posteingang',
     render: function () {
       var st = FM.state, s = UI.vs('inbox', { f: 'all', sel: null });
-      var groups = { all: null, match: ['match'], transfer: ['transfer', 'offer', 'market'], club: ['board', 'youth', 'training', 'info', 'league', 'cup'], injury: ['injury'] };
+      var groups = { all: null, match: ['match'], transfer: ['transfer', 'offer', 'market', 'scout'], club: ['board', 'youth', 'training', 'info', 'league', 'cup'], injury: ['injury'] };
       var list = st.news.filter(function (n) { return !groups[s.f] || groups[s.f].indexOf(n.type) >= 0; });
       var sel = st.news.filter(function (n) { return n.id === s.sel; })[0] || list[0];
       if (sel && !sel.read) { sel.read = true; }

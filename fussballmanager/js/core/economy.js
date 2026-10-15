@@ -95,16 +95,14 @@
     club.fin[key] = (club.fin[key] || 0) + amount;
   };
 
-  FM.weeklyWages = function (state, club) {
-    var sum = 0;
-    club.squad.forEach(function (pid) { var p = state.players[pid]; if (p) sum += p.contract.wage; });
-    return sum / 52;
-  };
+  /* Gehaltslast: eigene Spieler, bei Leihen anteilig fuer Leih- und Stammverein */
   FM.annualWages = function (state, club) {
     var sum = 0;
-    club.squad.forEach(function (pid) { var p = state.players[pid]; if (p) sum += p.contract.wage; });
+    club.squad.forEach(function (pid) { var p = state.players[pid]; if (p) sum += p.contract.wage * (p.loan ? p.loan.share : 1); });
+    (club.loanedOut || []).forEach(function (pid) { var p = state.players[pid]; if (p && p.loan) sum += p.contract.wage * (1 - p.loan.share); });
     return sum;
   };
+  FM.weeklyWages = function (state, club) { return FM.annualWages(state, club) / 52; };
 
   FM.payWeekly = function (state) {
     Object.keys(state.clubs).forEach(function (cid) {
@@ -214,6 +212,7 @@
     var rank = FM.squadRank(state, p);
     if (rank <= 3) f += 0.35; else if (rank <= 8) f += 0.15;
     if (p.listed) f -= 0.3;
+    if (p.wants) f -= 0.15;
     var left = p.contract.until - state.season.year;
     if (left <= 1) f -= 0.25;
     if (p.age >= 31) f -= 0.1;
@@ -232,6 +231,7 @@
     if (!p.club) v += 15;
     if (p.club && FM.squadRank(state, p) > 14) v += 12;
     if (p.listed) v += 10;
+    if (p.wants) v += 12;
     if (p.ovr >= 80 && buyer.league !== 'bl') v -= 25;
     return FM.clamp(Math.round(v), 0, 100);
   };
@@ -250,43 +250,85 @@
     return FM.niceRound(base * f);
   };
 
-  /* ---------- Transfer ausfuehren ---------- */
-  FM.executeTransfer = function (state, p, toId, fee, wage, years) {
+  /* ---------- Transfer ausfuehren ----------
+     opts: inst (Raten 1-3), sellOn (Weiterverkaufsanteil fuer den Abgeber), swap (Spieler-ID im Tausch),
+           role, clause (Ausstiegsklausel), bonus (Handgeld) */
+  FM.executeTransfer = function (state, p, toId, fee, wage, years, opts) {
+    opts = opts || {};
     var fromId = p.club;
-    var to = state.clubs[toId];
+    var to = state.clubs[toId], uc = state.user.club;
+    var inst = fee ? FM.clamp(opts.inst || 1, 1, 3) : 1;
+    var nowPart = inst > 1 ? Math.round(fee / inst) : fee;
+    if (p.loan) FM.endLoan(state, p, true);
+    fromId = p.club;
     if (fromId) {
       var from = state.clubs[fromId];
-      from.squad = from.squad.filter(function (id) { return id !== p.id; });
-      if (fee) FM.book(from, 'sales', fee);
-      if (fee && fromId === state.user.club && FM.creditSale) FM.creditSale(state, from, fee);
-      if (from.lineup) {
-        from.lineup.slots.forEach(function (s) { if (s.pid === p.id) s.pid = null; });
-        from.lineup.bench = (from.lineup.bench || []).filter(function (id) { return id !== p.id; });
+      FM.detachPlayer(state, p);
+      if (fee) {
+        // Weiterverkaufsbeteiligung eines frueheren Vereins
+        var cut = 0;
+        if (p.sellOn && p.sellOn.club !== toId && state.clubs[p.sellOn.club]) {
+          cut = Math.round(fee * p.sellOn.pct);
+          FM.book(state.clubs[p.sellOn.club], 'sales', cut);
+          if (p.sellOn.club === uc) {
+            FM.creditSale(state, state.clubs[uc], cut);
+            FM.addNews(state, { type: 'market', title: 'Weiterverkauf: ' + p.name, body: p.name + ' wechselt für ' + FM.fmtMoney(fee) + ' zu ' + to.name + '. Dank der Weiterverkaufsbeteiligung erhältst du ' + FM.fmtMoney(cut) + '.' });
+          }
+        }
+        FM.book(from, 'sales', nowPart - cut);
+        if (fromId === uc) FM.creditSale(state, from, nowPart - cut);
       }
     } else {
       state.free = state.free.filter(function (id) { return id !== p.id; });
     }
-    if (fee) FM.book(to, 'buys', -fee);
-    if (toId === state.user.club) {
-      // Nebenkosten: Beraterhonorar bei Abloese, Handgeld bei Vereinslosen
-      var extra = fromId ? Math.round(fee * FM.AGENT_FEE) : Math.round((wage || 0) * FM.SIGNING_BONUS);
-      if (extra) FM.book(to, 'fees', -extra);
-      FM.spendBudget(state, to, (fee || 0) + extra);
+    if (fee) {
+      FM.book(to, 'buys', -nowPart);
+      if (inst > 1 && fromId) {
+        state.payments = state.payments || [];
+        for (var i = 1; i < inst; i++) {
+          state.payments.push({ from: toId, to: fromId, amount: Math.round(fee / inst), due: D.iso(state.season.year + i, 7, 1), name: p.name + ', Rate ' + (i + 1) + '/' + inst });
+        }
+      }
+    }
+    if (toId === uc) {
+      // Nebenkosten: Beraterhonorar bei Abloese, Handgeld (verhandelt oder pauschal bei Vereinslosen)
+      var agent = fromId ? Math.round(fee * FM.AGENT_FEE) : 0;
+      var bonus = opts.bonus != null ? opts.bonus : fromId ? 0 : Math.round((wage || 0) * FM.SIGNING_BONUS);
+      if (agent + bonus) FM.book(to, 'fees', -(agent + bonus));
+      FM.spendBudget(state, to, nowPart + agent + bonus);
     }
     to.squad.push(p.id);
     p.club = toId;
     p.listed = false;
+    p.loanList = false;
+    p.wants = false;
+    p.unhappy = 0;
+    p.pre = null;
     p.joined = state.season.year;
+    p.joinDate = state.date;
+    p.sellOn = fee && opts.sellOn && fromId ? { club: fromId, pct: opts.sellOn } : fee ? null : p.sellOn || null;
     p.contract = { until: state.season.year + (years || 3), wage: wage || FM.wageDemand(p, to.league) };
+    if (opts.role) p.contract.role = opts.role;
+    if (opts.clause) p.contract.clause = opts.clause;
     p.mor = Math.min(100, p.mor + 10);
     var rec = { date: state.date, pid: p.id, name: p.name, from: fromId, to: toId, fee: fee || 0, ovr: p.ovr, age: p.age, pos: p.pos[0] };
+    // Tauschspieler geht zum abgebenden Verein
+    if (opts.swap && fromId && state.players[opts.swap]) {
+      var sw = state.players[opts.swap];
+      var left = Math.max(1, sw.contract.until - state.season.year);
+      FM.executeTransfer(state, sw, fromId, 0, sw.contract.wage, left);
+      state.transfers[0].swapFor = p.id;
+      rec.swap = sw.id;
+    }
     state.transfers.unshift(rec);
     if (state.transfers.length > 400) state.transfers.length = 400;
     state.offers = state.offers.filter(function (o) { return o.pid !== p.id; });
+    if (state.talks) delete state.talks[p.id];
     return rec;
   };
 
   FM.releasePlayer = function (state, p) {
+    if (p.loan) { FM.endLoan(state, p); return 0; }
     var club = state.clubs[p.club];
     var left = Math.max(0, p.contract.until - state.season.year);
     var cost = Math.round(p.contract.wage * Math.max(0.5, left) * 0.5);
@@ -297,88 +339,58 @@
       club.lineup.slots.forEach(function (s) { if (s.pid === p.id) s.pid = null; });
       club.lineup.bench = (club.lineup.bench || []).filter(function (id) { return id !== p.id; });
     }
-    p.club = null; p.listed = false;
+    p.club = null; p.listed = false; p.loanList = false; p.wants = false; p.pre = null; p.sellOn = null;
     p.contract = { until: state.season.year + 1, wage: FM.wageDemand(p, 'bl2') };
     state.free.push(p.id);
     return cost;
   };
 
-  /* Angebot des Spielers (Nutzer) an einen anderen Verein / Spieler */
-  FM.userBid = function (state, p, fee, wage, years) {
-    var buyer = state.clubs[state.user.club];
-    if (p.club === buyer.id) return { ok: false, msg: 'Der Spieler steht bereits bei dir unter Vertrag.' };
-    if (p.club && !FM.isWindowOpen(state)) return { ok: false, msg: 'Das Transferfenster ist geschlossen. Vereinslose Spieler kannst du jederzeit verpflichten.' };
-    if (p.club && fee > FM.budget(state, buyer).transfer) return { ok: false, msg: 'Dein Transferbudget reicht nicht: verfügbar ' + FM.fmtMoney(FM.budget(state, buyer).transfer) + '. Mit Beraterhonorar (10 %) kostet dieses Angebot ' + FM.fmtMoney(FM.transferCost(p, fee, wage)) + '.' };
-    if (buyer.squad.length >= 34) return { ok: false, msg: 'Dein Kader ist voll (max. 34 Spieler).' };
-    var interest = FM.interest(state, p, buyer.id);
-    if (interest < 35) return { ok: false, msg: p.name + ' hat kein Interesse an einem Wechsel zu deinem Verein.' };
-    if (p.club) {
-      var seller = state.clubs[p.club];
-      var ask = FM.askingPrice(state, p);
-      var rank = FM.squadRank(state, p);
-      if (rank <= 3 && seller.rep > buyer.rep + 12 && fee < ask * 1.6) {
-        return { ok: false, msg: seller.short + ' will seinen Leistungsträger nicht abgeben – nicht unter ' + FM.fmtMoney(FM.niceRound(ask * 1.6)) + '.', counter: FM.niceRound(ask * 1.6) };
-      }
-      if (seller.squad.length <= 18) return { ok: false, msg: seller.short + ' hat einen zu kleinen Kader und gibt niemanden ab.' };
-      var accept = ask * R.range(0.93, 1.03);
-      if (fee < accept) {
-        if (fee >= ask * 0.72) return { ok: false, msg: seller.short + ' lehnt ab, wäre aber bei ' + FM.fmtMoney(ask) + ' gesprächsbereit.', counter: ask };
-        return { ok: false, msg: seller.short + ' lehnt das Angebot ab. Die Vorstellungen liegen deutlich höher.' };
-      }
-    }
-    var demand = FM.contractWageDemand(state, p, buyer.id, interest);
-    if (wage < demand * 0.95) {
-      return { ok: false, msg: p.name + ' fordert mindestens ' + FM.fmtMoney(demand) + ' Jahresgehalt.', wageCounter: demand };
-    }
-    var budgetErr = FM.checkBudget(state, buyer, FM.transferCost(p, p.club ? fee : 0, wage), wage);
-    if (budgetErr) return { ok: false, msg: budgetErr };
-    var rec = FM.executeTransfer(state, p, buyer.id, p.club ? fee : 0, wage, years);
-    FM.addNews(state, {
-      type: 'transfer', title: p.name + ' unterschreibt',
-      body: p.name + ' wechselt ' + (rec.from ? 'von ' + state.clubs[rec.from].name + ' ' : 'ablösefrei ') + 'zu ' + buyer.name +
-        (rec.fee ? ' (Ablöse ' + FM.fmtMoney(rec.fee) + ')' : '') + '. Vertrag bis ' + p.contract.until + ', Jahresgehalt ' + FM.fmtMoney(wage) + '.'
-    });
-    return { ok: true, msg: p.name + ' ist verpflichtet!' };
-  };
-
-  FM.extendContract = function (state, p, wage, years) {
-    var demand = FM.contractWageDemand(state, p, p.club, 70);
-    if (p.mor < 25) return { ok: false, msg: p.name + ' ist unzufrieden und will nicht verlängern.' };
-    if (p.age >= 33 && years > 2) return { ok: false, msg: p.name + ' möchte sich höchstens zwei Jahre binden.' };
-    if (wage < demand * 0.95) return { ok: false, msg: p.name + ' fordert ' + FM.fmtMoney(demand) + ' pro Jahr.', wageCounter: demand };
-    if (p.club === state.user.club) {
-      var club = state.clubs[p.club];
-      var room = FM.wageRoom(state, club) + p.contract.wage;
-      if (wage > room) return { ok: false, msg: 'Das Gehaltsbudget lässt das nicht zu: Spielraum für diesen Vertrag ' + FM.fmtMoney(Math.max(0, room)) + ' pro Jahr. Schichte Transferbudget um oder gib Gehalt ab.' };
-    }
-    p.contract = { until: state.season.year + years, wage: wage };
-    p.mor = Math.min(100, p.mor + 8);
-    return { ok: true, msg: 'Vertrag bis ' + p.contract.until + ' verlängert.' };
-  };
-
   /* ---------- Angebote fuer Spieler des Nutzers ---------- */
   FM.generateOffersForUser = function (state) {
     if (!FM.isWindowOpen(state)) return;
-    var uc = state.clubs[state.user.club];
-    FM.clubPlayers(state, uc.id).forEach(function (p) {
-      if (state.offers.some(function (o) { return o.pid === p.id && o.status === 'open'; })) return;
-      var chance = p.listed ? 0.09 : (p.ovr >= 78 ? 0.005 : 0.0015);
+    var uc = state.user.club, me = state.clubs[uc];
+    var deadline = FM.isDeadlineDay(state);
+    FM.clubPlayers(state, uc).forEach(function (p) {
+      if (p.loan || p.pre) return;
+      var open = state.offers.filter(function (o) { return o.pid === p.id && o.status === 'open'; });
+      if (open.length >= 2) return;
+      // Leihanfragen fuer Spieler auf der Leihliste
+      if (p.loanList && !open.length) {
+        if (!R.chance(deadline ? 0.16 : 0.08)) return;
+        var lenders = Object.keys(state.clubs).filter(function (cid) {
+          var c = state.clubs[cid];
+          return cid !== uc && !c.reserve && c.league !== 'rl' && FM.levelOf(state, cid) >= FM.levelOf(state, uc) && c.squad.length < 32 && FM.expectedRole(state, p, cid) !== 'squad';
+        });
+        if (!lenders.length) return;
+        var lc = R.pick(lenders);
+        var lo = { id: 'o' + (state.offerSeq = (state.offerSeq || 0) + 1), type: 'loan', pid: p.id, from: lc, fee: 0, share: R.pick([0.5, 0.75, 1]), option: R.chance(0.3) ? FM.niceRound(FM.marketValue(p) * R.range(1.1, 1.4)) : 0, date: state.date, expires: D.add(state.date, 6), status: 'open' };
+        state.offers.push(lo);
+        FM.addNews(state, { type: 'offer', important: true, title: 'Leihanfrage für ' + p.name, body: state.clubs[lc].name + ' möchte ' + p.name + ' bis Saisonende ausleihen und ' + Math.round(lo.share * 100) + ' % seines Gehalts zahlen' + (lo.option ? ', mit Kaufoption über ' + FM.fmtMoney(lo.option) : '') + '. Als ' + FM.ROLE_LABEL[FM.expectedRole(state, p, lc)] + ' bekäme er dort Spielpraxis.', action: { kind: 'offer', id: lo.id } });
+        return;
+      }
+      var hot = p.listed || p.wants;
+      var chance = hot ? 0.09 : (p.ovr >= 78 ? 0.005 : 0.0015);
+      if (open.length) chance = 0.07;      // Bieterwettstreit
+      if (deadline) chance *= 2;
       if (!R.chance(chance)) return;
       var value = FM.marketValue(p);
       var buyers = Object.keys(state.clubs).filter(function (cid) {
         var c = state.clubs[cid];
-        return cid !== uc.id && c.league !== 'rl' && !c.reserve && c.money > value * 1.1 &&
-          (p.listed ? Math.abs(c.rep - uc.rep) < 25 : c.rep >= uc.rep - 3) && FM.interest(state, p, cid) >= 40;
+        return cid !== uc && c.league !== 'rl' && !c.reserve && c.money > value * 1.1 &&
+          (hot ? Math.abs(c.rep - me.rep) < 25 : c.rep >= me.rep - 3) && FM.interest(state, p, cid) >= 40 &&
+          !open.some(function (o) { return o.from === cid; });
       });
       if (!buyers.length) return;
       var buyer = R.pick(buyers);
-      var fee = FM.niceRound(value * (p.listed ? R.range(0.72, 1.05) : R.range(1.05, 1.5)));
-      var offer = { id: 'o' + (state.offerSeq = (state.offerSeq || 0) + 1), pid: p.id, from: buyer, fee: fee, date: state.date, expires: D.add(state.date, 6), status: 'open' };
+      var fee = FM.niceRound(value * (hot ? R.range(0.72, 1.05) : R.range(1.05, 1.5)) * (deadline && hot ? 0.9 : 1));
+      if (open.length) fee = FM.niceUp(Math.max(fee, open[0].fee * R.range(1.05, 1.15)));
+      var offer = { id: 'o' + (state.offerSeq = (state.offerSeq || 0) + 1), type: 'buy', pid: p.id, from: buyer, fee: fee, max: Math.round(fee * (hot ? R.range(1, 1.15) : R.range(1.05, 1.35))), rounds: 0, date: state.date, expires: D.add(state.date, 6), status: 'open' };
       state.offers.push(offer);
       FM.addNews(state, {
         type: 'offer', important: true,
-        title: 'Angebot für ' + p.name,
-        body: state.clubs[buyer].name + ' bietet ' + FM.fmtMoney(fee) + ' für ' + p.name + ' (Marktwert ' + FM.fmtMoney(value) + '). Das Angebot gilt bis ' + D.fmt(offer.expires) + '.',
+        title: (open.length ? 'Bieterwettstreit um ' : 'Angebot für ') + p.name,
+        body: state.clubs[buyer].name + ' bietet ' + FM.fmtMoney(fee) + ' für ' + p.name + ' (Marktwert ' + FM.fmtMoney(value) + ')' +
+          (open.length ? ' und überbietet damit ' + state.clubs[open[0].from].short : '') + '. Das Angebot gilt bis ' + D.fmt(offer.expires) + '.',
         action: { kind: 'offer', id: offer.id }
       });
     });
@@ -390,13 +402,41 @@
     var p = state.players[o.pid];
     if (!accept) { o.status = 'declined'; return { ok: true, msg: 'Angebot abgelehnt.' }; }
     if (!FM.isWindowOpen(state)) { o.status = 'expired'; return { ok: false, msg: 'Das Transferfenster ist inzwischen geschlossen.' }; }
-    if (!p || p.club !== state.user.club) { o.status = 'expired'; return { ok: false, msg: 'Der Spieler gehört nicht mehr zu deinem Kader.' }; }
+    if (!p || p.club !== state.user.club || p.loan) { o.status = 'expired'; return { ok: false, msg: 'Der Spieler gehört nicht mehr zu deinem Kader.' }; }
     var buyer = state.clubs[o.from];
+    if (o.type === 'loan') {
+      FM.executeLoan(state, p, o.from, o.share, o.option);
+      o.status = 'accepted';
+      FM.addNews(state, { type: 'transfer', title: p.name + ' verliehen', body: p.name + ' spielt bis Saisonende auf Leihbasis für ' + buyer.name + '.' });
+      return { ok: true, msg: p.name + ' ist an ' + buyer.short + ' verliehen.' };
+    }
     if (buyer.money < o.fee) { o.status = 'expired'; return { ok: false, msg: buyer.short + ' kann die Summe nicht mehr aufbringen.' }; }
     FM.executeTransfer(state, p, o.from, o.fee, FM.wageDemand(p, buyer.league), R.int(2, 4));
     o.status = 'accepted';
     FM.addNews(state, { type: 'transfer', title: p.name + ' verlässt den Verein', body: p.name + ' wechselt für ' + FM.fmtMoney(o.fee) + ' zu ' + buyer.name + '.' });
     return { ok: true, msg: p.name + ' wurde an ' + buyer.short + ' verkauft.' };
+  };
+
+  /* Nachverhandeln: mehr Geld fuer den eigenen Spieler verlangen */
+  FM.counterOffer = function (state, offerId, ask) {
+    var o = state.offers.filter(function (x) { return x.id === offerId; })[0];
+    if (!o || o.status !== 'open' || o.type === 'loan') return { ok: false, msg: 'Das Angebot ist nicht mehr gültig.' };
+    var buyer = state.clubs[o.from];
+    ask = Math.round(ask);
+    if (ask <= o.fee) return FM.respondOffer(state, offerId, true);
+    o.rounds = (o.rounds || 0) + 1;
+    if (ask <= (o.max || o.fee) && buyer.money >= ask) {
+      o.fee = ask;
+      var r = FM.respondOffer(state, offerId, true);
+      if (r.ok) r.msg = buyer.short + ' akzeptiert ' + FM.fmtMoney(ask) + '. ' + r.msg;
+      return r;
+    }
+    if (o.rounds >= 2 || R.chance(0.35)) {
+      o.status = 'declined';
+      return { ok: false, msg: buyer.short + ' ist das zu teuer und zieht das Angebot zurück.' };
+    }
+    o.fee = FM.niceRound(Math.min(o.max || o.fee, (o.fee + ask) / 2));
+    return { ok: false, improved: true, msg: buyer.short + ' bessert auf ' + FM.fmtMoney(o.fee) + ' nach – mehr ist kaum drin.' };
   };
 
   FM.expireOffers = function (state) {
@@ -436,7 +476,7 @@
       var best = null, bestScore = -1;
       for (var k = 0; k < allPlayers.length; k++) {
         var p = allPlayers[k];
-        if (p.club === cid || p.club === userClub || p.injury) continue;
+        if (p.club === cid || p.club === userClub || p.injury || p.loan || p.pre) continue;
         if (p.club && state.clubs[p.club].reserve) continue;
         if (FM.positionPenalty(p, weak.pos) > 2) continue;
         var eff = p.ovr - FM.positionPenalty(p, weak.pos);
@@ -451,7 +491,10 @@
         var score = (eff - weak.v) * 10 - price / 1e6 - (p.age > 30 ? (p.age - 30) * 4 : 0) + (p.age < 25 ? 4 : 0);
         if (score > bestScore) { bestScore = score; best = { p: p, price: price, wage: wage }; }
       }
-      if (!best) continue;
+      if (!best) {
+        if (R.chance(0.35) && aiLoan(state, cid, weak, allPlayers)) deals++;
+        continue;
+      }
       var rec = FM.executeTransfer(state, best.p, cid, best.price, best.wage, R.int(2, 4));
       deals++;
       FM.aiTrimSquad(state, cid);
@@ -478,6 +521,32 @@
     return deals;
   };
 
+  /* KI leiht einen Spieler aus, wenn fuer einen Kauf das Geld fehlt */
+  function aiLoan(state, cid, weak, allPlayers) {
+    var club = state.clubs[cid], userClub = state.user.club;
+    var loaned = FM.clubPlayers(state, cid).filter(function (x) { return x.loan; }).length;
+    if (loaned >= 2 || club.squad.length >= 30) return false;
+    var best = null;
+    for (var k = 0; k < allPlayers.length; k++) {
+      var p = allPlayers[k];
+      if (!p.club || p.club === cid || p.club === userClub || p.injury || p.age > 24) continue;
+      if (!FM.loanable(state, p) || state.clubs[p.club].rep <= club.rep) continue;
+      if (FM.positionPenalty(p, weak.pos) > 2) continue;
+      var eff = p.ovr - FM.positionPenalty(p, weak.pos);
+      if (eff < weak.v + 2) continue;
+      if (!best || eff > best.eff) best = { p: p, eff: eff };
+    }
+    if (!best) return false;
+    var p = best.p, owner = state.clubs[p.club];
+    var option = R.chance(0.3) ? FM.niceRound(FM.askingPrice(state, p) * 1.2) : 0;
+    FM.executeLoan(state, p, cid, R.pick([0.5, 0.75, 1]), option);
+    var ul = state.clubs[userClub].league;
+    if (club.league === ul || owner.league === ul) {
+      FM.addNews(state, { type: 'market', quiet: true, title: 'Leihe: ' + p.name + ' → ' + club.short, body: p.name + ' wird bis Saisonende von ' + owner.name + ' an ' + club.name + ' verliehen' + (option ? ' (Kaufoption ' + FM.fmtMoney(option) + ')' : '') + '.' });
+    }
+    return true;
+  }
+
   FM.aiTrimSquad = function (state, cid) {
     var club = state.clubs[cid];
     if (club.squad.length <= 30) return;
@@ -485,6 +554,7 @@
     while (club.squad.length > 30) {
       var p = players.shift();
       if (!p) break;
+      if (p.loan) continue;
       if (FM.isGK(p) && FM.clubPlayers(state, cid).filter(FM.isGK).length <= 2) continue;
       FM.releasePlayer(state, p);
     }

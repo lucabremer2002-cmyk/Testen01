@@ -91,6 +91,7 @@
 
   UI.actions.matchInstant = function (el) {
     setup(el.getAttribute('data-id'));
+    L.m.sides[L.userSide].ai = true;   // Co-Trainer wechselt beim Sofortergebnis
     L.m.runToEnd();
     L.others.forEach(function (o) { o.m.runToEnd(); });
     finish();
@@ -265,6 +266,7 @@
   UI.actions.liveEnd = function () {
     if (!L) return;
     stopTimer();
+    L.m.sides[L.userSide].ai = true;   // Co-Trainer uebernimmt die restlichen Wechsel
     L.m.runToEnd();
     finish();
   };

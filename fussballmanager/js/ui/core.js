@@ -164,11 +164,15 @@
     if (p.susp > 0) out.push('<span class="tag warn" title="Gesperrt (Liga)">Sperre ' + p.susp + '</span>');
     if (p.yel === 4 || p.yel === 9) out.push('<span class="tag warn" title="Nächste Gelbe Karte = Sperre">' + p.yel + '×G</span>');
     if (p.listed) out.push('<span class="tag info">Transferliste</span>');
-    if (p.contract && p.contract.until <= FM.state.season.year + 1) out.push('<span class="tag" title="Vertrag läuft aus">Vertr. endet</span>');
+    if (p.loanList) out.push('<span class="tag info">Leihliste</span>');
+    if (p.wants) out.push('<span class="tag warn" title="Möchte den Verein verlassen">Wechselwunsch</span>');
+    if (p.loan) out.push('<span class="tag info" title="Leihe bis Saisonende">' + (p.club === FM.state.user.club ? 'Leihe' : 'verliehen') + '</span>');
+    if (p.pre) out.push('<span class="tag warn" title="Wechselt im Sommer">Vorvertrag ' + esc(FM.state.clubs[p.pre.club].short) + '</span>');
+    else if (p.contract && !p.loan && p.contract.until <= FM.state.season.year + 1) out.push('<span class="tag" title="Vertrag läuft aus">Vertr. endet</span>');
     return out.join(' ');
   };
   UI.potRange = function (p) {
-    if (p.club === FM.state.user.club || p.age >= 27) return String(p.pot);
+    if (p.club === FM.state.user.club || p.age >= 27 || (FM.isKnown && FM.isKnown(FM.state, p))) return String(p.pot);
     var spread = Math.round((p.age <= 20 ? 1 : 0.5) * FM.facScoutSpread(FM.state.clubs[FM.state.user.club]));
     var h = FM.hash(p.id + 'scout') % (spread + 1);
     var lo = Math.max(p.ovr, p.pot - h), hi = Math.min(95, lo + spread);

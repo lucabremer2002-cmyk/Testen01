@@ -6,7 +6,7 @@
   var LEAGUE_SCALE = { bl: 1, bl2: 0.35, l3: 0.12, rl: 0.06 };
   var WAGE_RATIO = { bl: 0.58, bl2: 0.62, l3: 0.66, rl: 0.7 };
   FM.AGENT_FEE = 0.1;      // Beraterhonorar auf Abloesen
-  FM.SIGNING_BONUS = 0.25; // Handgeld bei Vereinslosen (Anteil Jahresgehalt)
+  FM.SIGNING_BONUS = 0.25; // pauschales Handgeld bei Vereinslosen ohne Verhandlung (Anteil Jahresgehalt)
 
   /* ================= Budgets ================= */
 
@@ -20,7 +20,9 @@
   /* Liquiditaetsreserve: muss laut Lizenzauflagen auf dem Konto bleiben */
   FM.cashReserve = function (state, club) {
     var plan = FM.annualPlan(club);
-    return Math.round(FM.annualWages(state, club) * 0.1 + plan.ops * 0.15);
+    // dazu offene Raten aus Transfers, die in den naechsten zwoelf Monaten faellig werden
+    var due = FM.pendingPayments ? FM.pendingPayments(state, club.id, 365) : 0;
+    return Math.round(FM.annualWages(state, club) * 0.1 + plan.ops * 0.15 + due);
   };
 
   /* Vorstand legt zu Saisonbeginn (und im Winter) die Budgets fest */
@@ -68,12 +70,6 @@
 
   FM.wageRoom = function (state, club) {
     return FM.budget(state, club).wage - FM.annualWages(state, club);
-  };
-
-  /* Gesamtkosten eines Transfers fuer das Budget */
-  FM.transferCost = function (p, fee, wage) {
-    if (p.club) return Math.round(fee * (1 + FM.AGENT_FEE));
-    return Math.round(wage * FM.SIGNING_BONUS);
   };
 
   /* Pruefung gegen beide Budgets; liefert Fehlermeldung oder null */
