@@ -93,6 +93,7 @@
       var p = st.players[pid];
       if (p.club === uc) return;
       if (s.free && p.club) return;
+      if (p.club && st.clubs[p.club].guest) return;
       if (p.club && st.clubs[p.club].league === 'rl' && s.league !== 'rl' && s.league !== 'all') return;
       if (s.league !== 'all' && (!p.club || st.clubs[p.club].league !== s.league)) return;
       if (s.grp !== 'all' && FM.mainGroup(p) !== s.grp) return;

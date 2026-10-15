@@ -105,7 +105,7 @@
   };
 
   FM.loanable = function (state, p) {
-    if (!p.club || p.loan || p.pre || state.clubs[p.club].reserve) return false;
+    if (!p.club || p.loan || p.pre || state.clubs[p.club].reserve || state.clubs[p.club].guest) return false;
     var r = FM.squadRank(state, p);
     return r > 15 || (p.age <= 21 && r > 11);
   };
@@ -121,7 +121,7 @@
     if (p.club === uc) return p.loan || p.pre ? [] : ['renew'];
     if (p.pre) return [];
     if (!p.club) return ['free'];
-    if (p.loan) return [];
+    if (p.loan || state.clubs[p.club].guest) return [];
     var out = [];
     if (FM.isWindowOpen(state)) {
       out.push('buy');
@@ -198,7 +198,7 @@
       var me = state.clubs[uc];
       var rivals = Object.keys(state.clubs).filter(function (cid) {
         var c = state.clubs[cid];
-        return cid !== uc && cid !== p.club && c.rep > me.rep && c.league !== 'rl' && !c.reserve;
+        return cid !== uc && cid !== p.club && c.rep > me.rep && c.league !== 'rl' && !c.reserve && !c.guest;
       });
       if (rivals.length) t.rival = R.pick(rivals);
     }
@@ -570,7 +570,7 @@
       var p = state.players[pid];
       if (p.club === uc || p.loan || (p.pre && p.pre.club !== uc)) return;
       var c = p.club ? state.clubs[p.club] : null;
-      if (c && c.reserve) return;
+      if (c && (c.reserve || c.guest)) return;
       if (f.league && f.league !== 'all') { if (!c || c.league !== f.league) return; }
       if (f.pos && f.pos !== 'all') { if (p.pos.indexOf(f.pos) < 0) return; }
       else if (f.grp && f.grp !== 'all' && FM.mainGroup(p) !== f.grp) return;
@@ -630,7 +630,7 @@
       var clause = p.contract.clause;
       var buyers = Object.keys(state.clubs).filter(function (cid) {
         var c = state.clubs[cid];
-        return cid !== uc && !c.reserve && c.league !== 'rl' && c.rep >= me.rep - 2 &&
+        return cid !== uc && !c.reserve && !c.guest && c.league !== 'rl' && c.rep >= me.rep - 2 &&
           c.money - FM.cashReserve(state, c) >= clause * 1.05 && FM.interest(state, p, cid) >= 55 && ROLE_RANK[FM.expectedRole(state, p, cid)] <= 2;
       });
       if (!buyers.length) return;
@@ -650,7 +650,7 @@
       if (!R.chance(0.03)) return;
       var buyers = Object.keys(state.clubs).filter(function (cid) {
         var c = state.clubs[cid];
-        return cid !== uc && !c.reserve && c.league !== 'rl' && c.rep >= me.rep - 5 && FM.interest(state, p, cid) >= 55 && ROLE_RANK[FM.expectedRole(state, p, cid)] <= 2;
+        return cid !== uc && !c.reserve && !c.guest && c.league !== 'rl' && c.rep >= me.rep - 5 && FM.interest(state, p, cid) >= 55 && ROLE_RANK[FM.expectedRole(state, p, cid)] <= 2;
       });
       if (!buyers.length) return;
       var cid = R.pick(buyers), c = state.clubs[cid];

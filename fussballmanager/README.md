@@ -35,8 +35,11 @@ exportieren und wieder importieren.
   St. Pauli in der 2. Liga, Fortuna Düsseldorf und Preußen Münster in der 3. Liga)
 - Spielplan nach dem echten Rahmenterminkalender 2026/27 (Länderspielpausen,
   Winterpause, spielfreier 1. Mai, Englische Wochen)
-- **DFB-Pokal** mit Auslosung, Heimrecht für den Unterklassigen,
-  Verlängerung, Elfmeterschießen und Finale in Berlin
+- **DFB-Pokal** wie in echt: 64 Teams (36 Erst- und Zweitligisten, Top 4 der
+  3. Liga, 24 Landespokalsieger), echte Auslosung der 1. Runde 2026/27
+  (Osnabrück – Bayern, HEBC Hamburg – Dortmund, SSV Jeddeloh II – Heidenheim …),
+  93 echte Amateurvereine aus allen 21 Landesverbänden, Heimrecht für Amateure,
+  geteilte Zuschauereinnahmen, Verlängerung, Elfmeterschießen und Finale in Berlin
 - **Relegation** (Hin- und Rückspiel) zwischen 1./2. und 2./3. Liga
 - Auf- und Abstieg; Reserveteams dürfen nicht aufsteigen; Absteiger aus der
   3. Liga wechseln in einen Regionalliga-Pool (1860, Aue, Ulm, Schweinfurt …)
@@ -206,6 +209,7 @@ Jeder der 60 Vereine hat ein recherchiertes Profil (`data-src/profiles.py`):
 | Gehaltsvolumen (Bayern, Dortmund, Leverkusen, Leipzig, Stuttgart, Frankfurt, Freiburg, Gladbach, Wolfsburg, St. Pauli, Hertha, Hannover, Nürnberg, Kaiserslautern, Magdeburg) | Capology-Schätzungen 2025/26 bzw. 2026/27 |
 | Verbindlichkeiten Schalke (147,9 Mio.) und Hertha (Nordic Bond 40 Mio.) | Konzern- bzw. Jahresabschluss 2024/25 |
 | DFB-Pokal-Prämien (211.886 € in Runde 1 bis 4,32 Mio. € für den Sieger) | Offizieller DFB-Verteilerschlüssel 2025/26 |
+| DFB-Pokal 2026/27: Teilnehmerfeld und Auslosung der 1. Runde (6. Juni 2026) | fussball.de („Diese Amateurteams sind dabei“), kicker, Sportschau, schalke04.de, diefalsche9.de |
 | Rahmenterminkalender 2026/27 | DFB/DFL: 2./3. Liga ab 7.8., Bundesliga ab 28.8. (14 Spieltage vor Weihnachten), Pokal 21.–24.8. / 27.–28.10. / 1.–2.12., Länderspielpausen, Winterpause ab 20.12., spielfreier 1. Mai, Finale 29.5. |
 | Torschnitt und Ergebnisverteilung | Bundesliga 2024/25: 959 Tore in 306 Spielen (3,13), 111 Auswärtssiege |
 
@@ -234,6 +238,16 @@ Nürnberg, Paderborn, Bielefeld und Heidenheim belegt) und die Geduld des Umfeld
   u. a.) gleichen Verluste bis zu einer Obergrenze aus.
 - **Derbys** zählen beim Vorstand doppelt, sind kartenreicher und ziehen mehr
   Zuschauer. Das Umfeld reagiert je nach Verein unterschiedlich geduldig.
+- **DFB-Pokal**: Am Saisonende stehen die Töpfe fest (Topf 1: Bundesliga und
+  2. Liga Platz 1–14, Topf 2: 2. Liga Platz 15–18, Top 4 der 3. Liga und die
+  24 Landespokalsieger). In jedem Landesverband spielen die nicht qualifizierten
+  Dritt- und Regionalligisten mit den Amateurvereinen um den Startplatz; als
+  Drittligist kann man den DFB-Pokal also verpassen. Amateure haben zuhause
+  gegen Profis einen Pokalfight-Bonus. In der Simulation gewinnen sie so gegen
+  Bundesligisten rund 4 % und gegen Zweitligisten rund 12 % der Spiele,
+  Drittligisten gegen Bundesligisten knapp 20 %. Die Zuschauereinnahmen werden
+  geteilt, große Gäste füllen kleine Stadien. Amateurvereine haben fiktive
+  Spieler, ihre Stärke, Zuschauerzahl und Vereinsfarben sind geschätzt.
 - **Match-Engine** pro Liga kalibriert: In der Bundesliga rund 3,1 Tore pro
   Spiel und 41/22/37 % Heim/Remis/Auswärts, in der 2. und 3. Liga etwas
   torärmer, mit mehr Remis und mehr Karten.
@@ -302,10 +316,11 @@ js/core/                Spiellogik ohne Oberfläche
   economy.js            Finanzen, Vorstand, Nachrichten, Transfers
   club.js               Vorstandsbudgets und Infrastruktur
   clubdata.js           echte Vereinsdaten: Fanbasis, TV-Geld, Schulden, Derbys
+  cup.js                DFB-Pokal: Qualifikation, Landespokale, Amateurvereine, 1. Runde
   transfer.js           Verhandlungen, Leihen, Klauseln, Vorverträge, Scouting, Rollen
   season.js             Spieltage, Tabellen, Saisonende
 js/ui/                  Oberfläche (Übersicht, Kader, Taktik, Spieltag …)
 js/vendor/              lz-string
-data-src/               Rohdaten, Vereinsprofile (profiles.py) und Build-Skript für js/data.js
+data-src/               Rohdaten, Vereinsprofile (profiles.py), Pokal-Amateure (amateurs.py), Build-Skript
 tools/bundle.py         packt alles in eine einzelne HTML-Datei (dist/)
 ```

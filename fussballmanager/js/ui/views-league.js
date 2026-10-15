@@ -134,7 +134,7 @@
     var pos = FM.clubPosition(st, cid);
     var recent = Object.keys(st.fixtures).map(function (k) { return st.fixtures[k]; }).filter(function (f) { return f.res && (f.home === cid || f.away === cid); }).sort(function (a, b) { return a.date < b.date ? 1 : -1; }).slice(0, 5);
     var value = FM.sum(players, function (p) { return FM.marketValue(p); });
-    var head = '<div class="modal-h">' + UI.badge(c, 44) + '<div class="grow"><h2>' + esc(c.name) + '</h2><div class="muted small">' + esc(st.leagues[c.league].name) + (pos ? ' · Platz ' + pos : '') + ' · ' + esc(c.stadium) + ' (' + FM.fmtInt(c.cap) + ')</div></div>' +
+    var head = '<div class="modal-h">' + UI.badge(c, 44) + '<div class="grow"><h2>' + esc(c.name) + '</h2><div class="muted small">' + esc(FM.leagueName(st, c)) + (pos ? ' · Platz ' + pos : '') + ' · ' + esc(c.stadium) + ' (' + FM.fmtInt(c.cap) + ')</div></div>' +
       '<button class="btn ghost icon" data-action="closeModal" aria-label="Schließen">' + UI.icon('x') + '</button></div>';
     var body = '<div class="grid g4" style="gap:8px;margin-bottom:14px">' +
       '<div class="card stat"><div class="label">Kaderstärke</div><div class="value">' + FM.teamStrength(st, cid).toFixed(1) + '</div></div>' +

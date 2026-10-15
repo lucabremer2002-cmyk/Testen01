@@ -130,40 +130,13 @@
   };
 
   /* ---------- DFB-Pokal ---------- */
-  FM.cupEligible = function (state) {
-    var ids = [];
-    ['bl', 'bl2', 'l3', 'rl'].forEach(function (lid) {
-      state.leagues[lid].clubs.forEach(function (cid) { if (!state.clubs[cid].reserve) ids.push(cid); });
-    });
-    return ids;
-  };
-
   function levelOf(state, cid) {
     var l = state.clubs[cid].league;
     return { bl: 1, bl2: 2, l3: 3, rl: 4 }[l] || 5;
   }
   FM.levelOf = levelOf;
 
-  FM.drawCupRound1 = function (state) {
-    var all = FM.cupEligible(state);
-    var size = 1; while (size < all.length) size *= 2;
-    var byes = Math.max(0, size - all.length);
-    var bl = state.leagues.bl.clubs.slice().sort(function (a, b) { return state.clubs[b].rep - state.clubs[a].rep; });
-    var byeClubs = bl.slice(0, byes);
-    var rest = all.filter(function (c) { return byeClubs.indexOf(c) < 0; });
-    var potA = R.shuffle(rest.filter(function (c) { return levelOf(state, c) <= 2; }));
-    var potB = R.shuffle(rest.filter(function (c) { return levelOf(state, c) >= 3; }));
-    var pairs = [];
-    while (potA.length && potB.length) pairs.push([potB.pop(), potA.pop()]);
-    var left = R.shuffle(potA.concat(potB));
-    while (left.length >= 2) pairs.push([left.pop(), left.pop()]);
-    var date = state.frame.cup[0];
-    var fids = pairs.map(function (p) { return FM.newFixture(state, { comp: 'cup', round: 1, date: date, home: p[0], away: p[1] }).id; });
-    state.cup = { round: 1, byes: byeClubs, alive: all.slice(), winner: null, rounds: [{ date: date, fx: fids, byes: byeClubs }] };
-    FM.addCalendar(state, date, 'cup', 1, fids, FM.CUP_ROUNDS[0]);
-    // Freilose erhalten die Antrittspraemie der 1. Runde
-    byeClubs.forEach(function (c) { FM.book(state.clubs[c], 'prize', FM.CUP_PRIZE[0]); });
-  };
+  /* 1. Runde: siehe cup.js (Teilnehmer nach DFB-Regel, Amateurvereine, echte Auslosung 2026/27) */
 
   FM.drawNextCupRound = function (state) {
     var cup = state.cup, cur = cup.rounds[cup.round - 1];
@@ -176,8 +149,9 @@
     var fids = [];
     for (var i = 0; i + 1 < pool.length; i += 2) {
       var a = pool[i], b = pool[i + 1];
-      var la = levelOf(state, a), lb = levelOf(state, b);
-      var home = la > lb ? a : lb > la ? b : a, away = home === a ? b : a;
+      // Amateure (3. Liga und tiefer) haben gegen Profis Heimrecht, sonst entscheidet das Los
+      var amA = levelOf(state, a) >= 3, amB = levelOf(state, b) >= 3;
+      var home = amB && !amA ? b : a, away = home === a ? b : a;
       var fx = { comp: 'cup', round: next, date: date, home: home, away: away };
       if (next === 6) fx.neutral = true;
       fids.push(FM.newFixture(state, fx).id);

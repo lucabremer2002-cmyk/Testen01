@@ -193,7 +193,7 @@
       var t = FM.ZONES[c.league] ? FM.table(st, c.league).filter(function (r) { return r.club === c.id; })[0] : null;
       var p = FM.playedRounds(st, c.league) ? FM.clubPosition(st, c.id) : null;
       return '<div class="team">' + UI.badge(c, 64) + '<div class="n">' + esc(c.short) + '</div>' +
-        '<div class="muted small">' + (p ? p + '. ' + esc(st.leagues[c.league].short) : esc(st.leagues[c.league].name)) + '</div>' + (t ? UI.formDots(t.form) : '') + '</div>';
+        '<div class="muted small">' + (p ? p + '. ' + esc(FM.leagueName(st, c, true)) : esc(FM.leagueName(st, c))) + '</div>' + (t ? UI.formDots(t.form) : '') + '</div>';
     }
     var days = D.diff(st.date, fx.date);
     var when = days === 0 ? 'Heute' : days === 1 ? 'Morgen' : 'in ' + days + ' Tagen';

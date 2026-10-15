@@ -106,6 +106,7 @@
   FM.payWeekly = function (state) {
     Object.keys(state.clubs).forEach(function (cid) {
       var club = state.clubs[cid];
+      if (club.guest) return;
       FM.book(club, 'wages', -FM.weeklyWages(state, club));
     });
   };
@@ -113,7 +114,9 @@
   FM.payMonthly = function (state) {
     var m = D.month(state.date);
     Object.keys(state.clubs).forEach(function (cid) {
-      var club = state.clubs[cid], plan = FM.annualPlan(club);
+      var club = state.clubs[cid];
+      if (club.guest) return;
+      var plan = FM.annualPlan(club);
       if (m >= 8 || m <= 5) {
         FM.book(club, 'tv', plan.tv / 10);
         FM.book(club, 'sponsor', plan.sponsor / 10);
@@ -364,7 +367,7 @@
         if (!R.chance(deadline ? 0.16 : 0.08)) return;
         var lenders = Object.keys(state.clubs).filter(function (cid) {
           var c = state.clubs[cid];
-          return cid !== uc && !c.reserve && c.league !== 'rl' && FM.levelOf(state, cid) >= FM.levelOf(state, uc) && c.squad.length < 32 && FM.expectedRole(state, p, cid) !== 'squad';
+          return cid !== uc && !c.reserve && !c.guest && c.league !== 'rl' && FM.levelOf(state, cid) >= FM.levelOf(state, uc) && c.squad.length < 32 && FM.expectedRole(state, p, cid) !== 'squad';
         });
         if (!lenders.length) return;
         var lc = R.pick(lenders);
@@ -381,7 +384,7 @@
       var value = FM.marketValue(p);
       var buyers = Object.keys(state.clubs).filter(function (cid) {
         var c = state.clubs[cid];
-        return cid !== uc && c.league !== 'rl' && !c.reserve && c.money > value * 1.1 &&
+        return cid !== uc && c.league !== 'rl' && !c.reserve && !c.guest && c.money > value * 1.1 &&
           (hot ? Math.abs(c.rep - me.rep) < 25 : c.rep >= me.rep - 3) && FM.interest(state, p, cid) >= 40 &&
           !open.some(function (o) { return o.from === cid; });
       });
@@ -467,7 +470,7 @@
     var userClub = state.user.club;
     var clubs = R.shuffle(Object.keys(state.clubs).filter(function (cid) {
       var c = state.clubs[cid];
-      return cid !== userClub && c.league !== 'rl' && !c.reserve;
+      return cid !== userClub && c.league !== 'rl' && !c.reserve && !c.guest;
     }));
     var deals = 0;
     var allPlayers = Object.keys(state.players).map(function (k) { return state.players[k]; });
@@ -482,7 +485,7 @@
       for (var k = 0; k < allPlayers.length; k++) {
         var p = allPlayers[k];
         if (p.club === cid || p.club === userClub || p.injury || p.loan || p.pre) continue;
-        if (p.club && state.clubs[p.club].reserve) continue;
+        if (p.club && (state.clubs[p.club].reserve || state.clubs[p.club].guest)) continue;
         if (FM.positionPenalty(p, weak.pos) > 2) continue;
         var eff = p.ovr - FM.positionPenalty(p, weak.pos);
         if (eff < need) continue;

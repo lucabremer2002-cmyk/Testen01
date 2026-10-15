@@ -7,7 +7,7 @@
   var D = FM.date;
 
   var LEVEL = { bl: 1, bl2: 2, l3: 3, rl: 4 };
-  FM.KIND_LABEL = { tradition: 'Traditionsverein', works: 'Werksklub', investor: 'Investorenklub', cult: 'Kultklub', youth: 'Ausbildungsverein', reserve: 'Zweite Mannschaft' };
+  FM.KIND_LABEL = { tradition: 'Traditionsverein', works: 'Werksklub', investor: 'Investorenklub', cult: 'Kultklub', youth: 'Ausbildungsverein', reserve: 'Zweite Mannschaft', amateur: 'Amateurverein' };
 
   /* Zuschauer-Effekt eines Ligawechsels (pro Ligastufe) */
   function leagueShift(from, to) {
@@ -41,7 +41,9 @@
     var demand = FM.expectedDemand(c);
     var f = 1 + ((a.rep || 60) - 60) / 300;                  // attraktive Gaeste ziehen mehr Fans
     if (FM.isDerby(state, c.id, a.id)) f *= 1.15;
-    if (comp === 'cup' || comp === 'po1' || comp === 'po2') f *= 1.1 + (LEVEL[a.league] < LEVEL[c.league] ? 0.15 : 0);
+    if (comp === 'cup' || comp === 'po1' || comp === 'po2') f *= 1.1 + ((LEVEL[a.league] || 5) < (LEVEL[c.league] || 5) ? 0.15 : 0);
+    // Pokal gegen einen Grossen: die Gaeste bringen Fans mit, kleine Stadien sind schnell voll
+    if (comp === 'cup') demand = Math.max(demand, (a.fans || 0) * 0.3);
     var lid = c.league;
     if (FM.ZONES[lid] && comp === lid && FM.playedRounds(state, lid) >= 4) {
       var t = FM.table(state, lid), pos = t.findIndex(function (r) { return r.club === c.id; });

@@ -15,7 +15,8 @@
     o: 'EA SPORTS FC 27 – Gesamtwert (Kartenwerte abgeleitet)',
     f: 'EA SPORTS FC 26 – letzter verfügbarer Datenstand',
     e: 'Geschätzt (echter Kaderspieler 2026/27, Wert nicht in der FC-27-Datenbank gefunden)',
-    y: 'Nachwuchsspieler aus der Vereinsakademie (fiktiv)'
+    y: 'Nachwuchsspieler aus der Vereinsakademie (fiktiv)',
+    a: 'Amateurspieler eines Pokalgegners (fiktiver Name, Stärke geschätzt)'
   };
 
   // Gehaltsniveau je Liga (abgeglichen mit geschaetzten Profi-Gehaeltern, Capology 2025/26 und 2026/27)

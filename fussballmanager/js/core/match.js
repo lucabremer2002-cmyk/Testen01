@@ -11,6 +11,7 @@
      mehr Remis, kartenreicher) */
   FM.MATCH_TUNE = {
     home: 0.9, slope: 15,
+    cupFight: 6,                // Amateure (Regionalliga und tiefer) zuhause gegen Profis: Spiel des Jahres, Favorit rotiert
     league: { bl: { goals: 1.04, cards: 1.12 }, bl2: { goals: 1.03, cards: 1.12 }, l3: { goals: 1.0, cards: 1.12 } }
   };
   var T = FM.MATCH_TUNE;
@@ -85,6 +86,7 @@
     });
     var men = FM.MENTALITY[side.tactics.mentality + 2], pre = FM.PRESSING[side.tactics.pressing];
     var home = (si === 0 && !this.opts.neutral) ? T.home : 0;
+    if (this.opts.fight && this.opts.fight[si]) home += this.opts.fight[si];   // Pokalfight des Aussenseiters
     var res = {
       att: att / wa * (1 + men.att) + home,
       mid: mid / wm * (1 + pre.mid) + home,

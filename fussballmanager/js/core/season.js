@@ -93,6 +93,7 @@
     FM.assignTv(state);
     Object.keys(state.clubs).forEach(function (cid) {
       var c = state.clubs[cid];
+      if (c.guest) return;
       if (!first) { c.finPrev = c.fin; c.fin = FM.emptyLedger(); }
       c.formation = c.id === state.user.club ? c.formation : FM.bestFormation(FM.clubPlayers(state, cid), c.formation);
     });
@@ -113,7 +114,7 @@
     if (uf) {
       var opp = uf.home === state.user.club ? uf.away : uf.home;
       FM.addNews(state, { type: 'cup', title: 'DFB-Pokal: Los gezogen', body: '1. Runde am ' + D.fmt(uf.date) + ': ' + state.clubs[uf.home].name + ' – ' + state.clubs[uf.away].name + '.' });
-    } else if (state.cup && state.cup.byes.indexOf(state.user.club) >= 0) {
+    } else if (state.cup && (state.cup.byes || []).indexOf(state.user.club) >= 0) {
       FM.addNews(state, { type: 'cup', title: 'DFB-Pokal: Freilos', body: 'Dein Team steigt erst in der 2. Runde in den DFB-Pokal ein.' });
     }
   };
@@ -171,6 +172,8 @@
     var opts = { neutral: !!fx.neutral, league: FM.MATCH_TUNE.league[fx.comp] ? fx.comp : state.clubs[fx.home].league, derby: FM.isDerby(state, fx.home, fx.away) };
     if (fx.comp === 'cup' || fx.comp === 'po1' || fx.comp === 'po2') opts.knockout = fx.comp === 'cup' || fx.leg === 2;
     if (fx.leg === 2 && fx.agg) opts.agg = fx.agg;
+    // DFB-Pokal: Amateure spielen zuhause das Spiel des Jahres, der Favorit rotiert
+    if (fx.comp === 'cup' && !fx.neutral && FM.levelOf(state, fx.home) >= 4 && FM.levelOf(state, fx.away) <= 2) opts.fight = [FM.MATCH_TUNE.cupFight, 0];
     if (fx.home === uc || fx.away === uc) {
       var ep = expectedPoints(state, fx);
       fx.expPts = fx.home === uc ? ep.home : ep.away;
@@ -206,8 +209,14 @@
     var att = FM.attendance(state, fx.home, fx.away, fx.comp);
     res.att = att;
     if (!fx.neutral) {
-      var price = FM.ticketPrice[state.clubs[fx.home].league] || 15;
-      FM.book(state.clubs[fx.home], 'tickets', att * price);
+      var hc = state.clubs[fx.home], ac = state.clubs[fx.away];
+      var price = FM.ticketPrice[hc.league] || 15;
+      if (fx.comp === 'cup') {
+        // DFB-Pokal: Zuschauereinnahmen werden nach Abzug von Kosten und Verbandsanteil geteilt
+        price = Math.max(price, (FM.ticketPrice[ac.league] || 15) * 0.8);
+        FM.book(hc, 'tickets', att * price * 0.45);
+        FM.book(ac, 'tickets', att * price * 0.45);
+      } else FM.book(hc, 'tickets', att * price);
     } else {
       var share = att * 45 / 2;
       FM.book(state.clubs[fx.home], 'tickets', share);
@@ -553,10 +562,10 @@
   FM.jobOffers = function (state) {
     var oldRep = state.clubs[state.user.club].rep;
     var list = Object.keys(state.clubs).map(function (k) { return state.clubs[k]; })
-      .filter(function (c) { return c.id !== state.user.club && c.league !== 'rl' && !c.reserve && c.rep <= oldRep - 2 && c.rep >= oldRep - 30; });
+      .filter(function (c) { return c.id !== state.user.club && c.league !== 'rl' && !c.reserve && !c.guest && c.rep <= oldRep - 2 && c.rep >= oldRep - 30; });
     if (list.length < 3) {
       var extra = Object.keys(state.clubs).map(function (k) { return state.clubs[k]; })
-        .filter(function (c) { return c.id !== state.user.club && c.league !== 'rl' && !c.reserve && list.indexOf(c) < 0; })
+        .filter(function (c) { return c.id !== state.user.club && c.league !== 'rl' && !c.reserve && !c.guest && list.indexOf(c) < 0; })
         .sort(function (a, b) { return a.rep - b.rep; }).slice(0, 3 - list.length);
       list = list.concat(extra);
     }
@@ -592,6 +601,7 @@
       if (scorers) summary.awards[lid] = { scorer: scorers.pid, name: state.players[scorers.pid].name, goals: scorers.goals };
     });
     summary.awards.cup = state.cup.winner;
+    FM.cupSeedFromTables(state, summary.tables, y);
 
     var tBL = FM.table(state, 'bl', { noCache: true }), t2 = FM.table(state, 'bl2', { noCache: true }), t3 = FM.table(state, 'l3', { noCache: true });
     var po1w = playoffWinner(state, 'po1'), po2w = playoffWinner(state, 'po2');
@@ -646,6 +656,7 @@
     });
     Object.keys(state.clubs).forEach(function (cid) {
       var c = state.clubs[cid], ol = oldLeague[cid], nl = c.league;
+      if (c.guest) return;
       var lvlOld = { bl: 1, bl2: 2, l3: 3, rl: 4 }[ol], lvlNew = { bl: 1, bl2: 2, l3: 3, rl: 4 }[nl];
       var rep0 = c.rep;
       if (lvlNew < lvlOld) c.rep = Math.min(99, c.rep + 4);
@@ -665,6 +676,7 @@
     var LV = { bl: 1, bl2: 2, l3: 3, rl: 4 };
     Object.keys(state.clubs).forEach(function (cid) {
       var c = state.clubs[cid], ol = oldLeague[cid];
+      if (c.guest) return;
       var tt = summary.tables[ol];
       var pos = tt ? tt.findIndex(function (r) { return r.club === cid; }) + 1 : 0;
       FM.updateFans(c, ol, pos, tt ? tt.length : 0);
@@ -787,6 +799,7 @@
     var youthUser = [];
     Object.keys(state.clubs).forEach(function (cid) {
       var club = state.clubs[cid];
+      if (club.guest) return;
       var n = R.int(club.league === 'rl' ? 1 : 2, club.rep > 70 ? 4 : 3) + (FM.facLevel(club, 'youth') >= 4 ? 1 : 0);
       for (var i = 0; i < n; i++) {
         var p = FM.makeYouth(club, state);

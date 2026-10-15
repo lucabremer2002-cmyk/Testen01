@@ -239,6 +239,7 @@
   FM.payUpkeep = function (state) {
     Object.keys(state.clubs).forEach(function (cid) {
       var club = state.clubs[cid];
+      if (club.guest) return;
       var u = FM.facUpkeep(club);
       if (u) FM.book(club, 'infra', -u / 12);
     });

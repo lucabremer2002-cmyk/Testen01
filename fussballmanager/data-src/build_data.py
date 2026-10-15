@@ -22,7 +22,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from clubs import CLUBS, LEAGUES  # noqa: E402
-from profiles import PROFILES
+from profiles import PROFILES  # noqa: E402
+from amateurs import AMATEURS, CLUB_LV, CUP_DRAW_2026, LV  # noqa: E402
 from ages import AGES  # noqa: E402
 
 # Gleichnamige, aber verschiedene Spieler (nicht deduplizieren)
@@ -176,7 +177,31 @@ def main():
             if r not in ids:
                 raise SystemExit("Unbekannter Rivale %s bei %s" % (r, c["id"]))
         d["profile"] = prof
+        if c["id"] not in CLUB_LV:
+            raise SystemExit("Kein Landesverband fuer " + c["id"])
+        d["lv"] = CLUB_LV[c["id"]]
         clubs_out.append(d)
+
+    # DFB-Pokal: Amateurvereine und echte Auslosung pruefen
+    am_ids = set()
+    for a in AMATEURS:
+        if a["id"] in ids or a["id"] in am_ids:
+            raise SystemExit("Doppelte Vereins-ID " + a["id"])
+        if a["lv"] not in LV:
+            raise SystemExit("Unbekannter Landesverband bei " + a["id"])
+        am_ids.add(a["id"])
+    for lv in LV:
+        if sum(1 for a in AMATEURS if a["lv"] == lv) < 3:
+            raise SystemExit("Zu wenige Amateurvereine im Landesverband " + lv)
+    drawn = [cid for pair in CUP_DRAW_2026 for cid in pair]
+    if len(CUP_DRAW_2026) != 32 or len(set(drawn)) != 64:
+        raise SystemExit("Pokalauslosung 2026/27 unvollstaendig oder doppelt")
+    for cid in drawn:
+        if cid not in ids and cid not in am_ids:
+            raise SystemExit("Unbekannter Pokalteilnehmer " + cid)
+    for c in CLUBS:
+        if c["league"] in ("bl", "bl2") and c["id"] not in drawn:
+            raise SystemExit("Profiverein fehlt in der Pokalauslosung: " + c["id"])
 
     data = {
         "season": "2026/27",
@@ -185,6 +210,9 @@ def main():
         "leagues": LEAGUES,
         "clubs": clubs_out,
         "players": out_players,
+        "lv": {k: {"name": v[0], "slots": v[1]} for k, v in LV.items()},
+        "amateurs": AMATEURS,
+        "cupDraw": [list(p) for p in CUP_DRAW_2026],
     }
     js = "/* Automatisch erzeugt von data-src/build_data.py - nicht von Hand bearbeiten. */\n"
     js += "window.FM_DATA = " + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n"
@@ -193,7 +221,7 @@ def main():
     with open(dst, "w", encoding="utf-8") as fh:
         fh.write(js)
     total = sum(len(v) for v in out_players.values())
-    print(f"{len(clubs_out)} Vereine, {total} Spieler -> {os.path.relpath(dst)}")
+    print(f"{len(clubs_out)} Vereine, {total} Spieler, {len(AMATEURS)} Amateurvereine -> {os.path.relpath(dst)}")
     print("Quellen:", stats)
     for c in CLUBS:
         rows = out_players[c["id"]]
