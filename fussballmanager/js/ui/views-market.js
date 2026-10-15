@@ -11,7 +11,7 @@
       var plan = FM.annualPlan(club);
       var wages = FM.annualWages(st, club);
       var fin = club.fin, prev = club.finPrev;
-      var inc = ['tv', 'sponsor', 'tickets', 'prize', 'sales'], exp = ['wages', 'ops', 'buys', 'fees', 'infra', 'other'];
+      var inc = ['tv', 'sponsor', 'tickets', 'prize', 'sales', 'owner'], exp = ['wages', 'ops', 'buys', 'fees', 'infra', 'debt', 'other'];
       var sumIn = FM.sum(inc, function (k) { return fin[k] || 0; }), sumOut = FM.sum(exp, function (k) { return fin[k] || 0; });
       function line(k) {
         return '<tr><td>' + FM.LEDGER_LABEL[k] + '</td><td class="num">' + FM.fmtMoney(fin[k] || 0) + '</td>' + (prev ? '<td class="num muted hide-xs">' + FM.fmtMoney(prev[k] || 0) + '</td>' : '') + '</tr>';
@@ -30,8 +30,10 @@
         '<tr><td class="strong">Saldo</td><td class="num strong ' + (sumIn + sumOut >= 0 ? 'good' : 'bad') + '">' + FM.fmtMoney(sumIn + sumOut) + '</td>' + (prev ? '<td class="num muted hide-xs"></td>' : '') + '</tr></tbody></table></div></div>' +
         '<div class="card"><div class="card-h"><h3>Jahresplanung</h3></div><div class="card-b"><dl class="kv">' +
         '<dt>TV-Gelder</dt><dd>' + FM.fmtMoney(plan.tv) + '</dd><dt>Sponsoring & Marketing</dt><dd>' + FM.fmtMoney(plan.sponsor) + '</dd><dt>Betriebskosten</dt><dd>' + FM.fmtMoney(-plan.ops) + '</dd>' +
-        '<dt>Gehälter</dt><dd>' + FM.fmtMoney(-wages) + '</dd><dt>Unterhalt Infrastruktur</dt><dd>' + FM.fmtMoney(-plan.upkeep) + '</dd><dt>Ticketpreis Ø</dt><dd>' + (FM.ticketPrice[club.league] || 0) + ' €</dd></dl>' +
-        '<p class="muted small" style="margin-top:10px">TV und Sponsoring werden von August bis Mai monatlich ausgezahlt, Gehälter wöchentlich. Zuschauereinnahmen gibt es bei jedem Heimspiel.</p></div></div></div></div>';
+        '<dt>Gehälter</dt><dd>' + FM.fmtMoney(-wages) + '</dd><dt>Unterhalt Infrastruktur</dt><dd>' + FM.fmtMoney(-plan.upkeep) + '</dd>' +
+        (club.debt ? '<dt>Zins & Tilgung</dt><dd>' + FM.fmtMoney(-FM.debtService(club)) + '</dd><dt>Restschuld</dt><dd class="bad">' + FM.fmtMoney(club.debt) + '</dd>' : '') +
+        '<dt>Ticketpreis Ø</dt><dd>' + (FM.ticketPrice[club.league] || 0) + ' €</dd></dl>' +
+        '<p class="muted small" style="margin-top:10px">TV-Geld nach dem DFL-Schlüssel (2026/27 die veröffentlichten Beträge, danach Fünfjahreswertung) und Sponsoring werden von August bis Mai monatlich ausgezahlt, Gehälter wöchentlich. Zuschauereinnahmen gibt es bei jedem Heimspiel, Pokalprämien nach dem DFB-Verteilerschlüssel.</p></div></div></div></div>';
       return html;
     },
     mount: function (el) { mountChart(el); }

@@ -900,3 +900,6 @@ dl.cost dd.bad { color: var(--bad); }
   .neg-grid { grid-template-columns: minmax(0, 1fr); }
   .neg-log { max-height: 200px; }
 }
+.kv.facts dd { text-align: right; }
+.kv.facts .rivals { display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: flex-end; }
+.kv.facts .rivals .club-cell { display: inline-flex; align-items: center; gap: 5px; }

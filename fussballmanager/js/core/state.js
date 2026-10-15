@@ -4,7 +4,7 @@
   var FM = window.FM;
 
   FM.SAVE_KEY = 'matchplan.save.';
-  FM.SAVE_VERSION = 6;
+  FM.SAVE_VERSION = 7;
 
   /* Spielstaende der Vorversion (ohne Budgets/Infrastruktur) weiterverwenden */
   FM.migrate = function (state) {
@@ -37,6 +37,24 @@
         c.commercial = Math.max(old, c.commercial);
       });
       state.v = 6;
+    }
+    if (state.v === 6) {
+      // Echte Vereinsdaten: Fanbasis, TV-Geld, Schulden, Profile, Derbys
+      var byId = {};
+      window.FM_DATA.clubs.forEach(function (d) { byId[d.id] = d; });
+      Object.keys(state.clubs).forEach(function (cid) {
+        var c = state.clubs[cid];
+        FM.initClubProfile(c, byId[cid]);
+        c.fin.debt = c.fin.debt || 0; c.fin.owner = c.fin.owner || 0;
+      });
+      FM.initTvScores(state);
+      FM.assignTv(state);
+      Object.keys(state.clubs).forEach(function (cid) {
+        var c = state.clubs[cid], old = c.commercial || 0;
+        FM.calibrateCommercial(state, c);
+        c.commercial = Math.max(old, c.commercial);
+      });
+      state.v = 7;
     }
     return state;
   };
@@ -80,6 +98,7 @@
         squad: [], formation: null, tactics: FM.defaultTactics(), lineup: null,
         hist: [], fin: FM.emptyLedger(), finPrev: null, expect: null, loanedOut: []
       };
+      FM.initClubProfile(club, c);
       state.clubs[c.id] = club;
       state.leagues[c.league].clubs.push(c.id);
       var rows = data.players[c.id] || [];
@@ -91,9 +110,14 @@
     });
 
     Object.keys(state.clubs).forEach(function (cid) { FM.fillSquad(state, cid, true); });
+    Object.keys(state.clubs).forEach(function (cid) { FM.calibratePayroll(state, state.clubs[cid]); });
+    FM.initTvScores(state);
+    FM.assignTv(state);
     Object.keys(state.clubs).forEach(function (cid) {
-      FM.initFacilities(state.clubs[cid]);
-      FM.calibrateCommercial(state, state.clubs[cid]);
+      var club = state.clubs[cid];
+      FM.initFacilities(club);
+      club.fac.youth = FM.clamp(club.prof.nlz || club.fac.youth, 1, 5);
+      FM.calibrateCommercial(state, club);
     });
     Object.keys(state.clubs).forEach(function (cid) {
       var club = state.clubs[cid];
@@ -113,6 +137,16 @@
     });
     FM.budgetNews(state, false);
     return state;
+  };
+
+  /* Gehaltsniveau an die veroeffentlichten Gehaltsschaetzungen anpassen (wo vorhanden) */
+  FM.calibratePayroll = function (state, club) {
+    var target = club.prof && club.prof.pay ? club.prof.pay * 1e6 : 0;
+    if (!target) return;
+    var total = FM.annualWages(state, club);
+    if (!total) return;
+    var f = FM.clamp(target / total, 0.6, 1.8);
+    FM.clubPlayers(state, club.id).forEach(function (p) { p.contract.wage = Math.max(20000, FM.niceRound(p.contract.wage * f)); });
   };
 
   /* Kader auffuellen: mind. 2 Torhueter und MIN_SQUAD Spieler (Akademie-Nachwuchs) */
@@ -178,7 +212,7 @@
     try {
       if (!localStorage.getItem(FM.SAVE_KEY + (slot || 1))) return null;
       var meta = JSON.parse(localStorage.getItem(FM.SAVE_KEY + 'meta.' + (slot || 1)) || 'null');
-      if (!meta || [3, 4, 5, FM.SAVE_VERSION].indexOf(meta.v) < 0) return { incompatible: true };
+      if (!meta || [3, 4, 5, 6, FM.SAVE_VERSION].indexOf(meta.v) < 0) return { incompatible: true };
       return meta;
     } catch (e) { return null; }
   };

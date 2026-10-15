@@ -141,6 +141,7 @@
       '<div class="card stat"><div class="label">Reputation</div><div class="value">' + c.rep + '</div></div>' +
       '<div class="card stat"><div class="label">Marktwert</div><div class="value" style="font-size:18px">' + FM.fmtMoney(value) + '</div></div>' +
       '<div class="card stat"><div class="label">Formation</div><div class="value" style="font-size:18px">' + esc(c.formation || '–') + '</div></div></div>';
+    body += '<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Steckbrief</h3>' + (FM.isDerby(st, cid, st.user.club) ? '<span class="tag warn">Rivale deines Vereins</span>' : '') + '</div><div class="card-b">' + UI.clubFacts(c) + '</div></div>';
     if (recent.length) body += '<div class="row wrap" style="margin-bottom:14px;gap:6px">' + recent.map(function (f) {
       var opp = f.home === cid ? f.away : f.home;
       return '<span class="tag" title="' + esc(UI.compLabel(f)) + '">' + (f.home === cid ? 'H' : 'A') + ' ' + esc(st.clubs[opp].short) + ' ' + resultTag(f, cid) + '</span>';

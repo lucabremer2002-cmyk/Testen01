@@ -179,6 +179,27 @@
     return lo === hi ? String(lo) : lo + '–' + hi;
   };
 
+  /* ---------- Vereinssteckbrief (echte Daten) ---------- */
+  UI.clubFacts = function (c) {
+    var st = FM.state, pr = c.prof || {};
+    var stars = function (n) { var s = ''; for (var i = 1; i <= 5; i++) s += i <= n ? '★' : '<span class="off">★</span>'; return '<span class="stars">' + s + '</span>'; };
+    var LN = { bl: 'Bundesliga', bl2: '2. Bundesliga', l3: '3. Liga', rl: 'Regionalliga' };
+    var rivals = (c.rivals || []).filter(function (id) { return st.clubs[id]; });
+    return '<dl class="kv facts">' +
+      (pr.founded ? '<dt>Gegründet</dt><dd>' + pr.founded + '</dd>' : '') +
+      (pr.nick ? '<dt>Spitzname</dt><dd>' + esc(pr.nick) + '</dd>' : '') +
+      (pr.kind && pr.kind.length ? '<dt>Profil</dt><dd>' + pr.kind.map(function (k) { return FM.KIND_LABEL[k] || k; }).join(', ') + '</dd>' : '') +
+      '<dt>Stadion</dt><dd>' + esc(c.stadium) + ' · ' + FM.fmtInt(c.cap) + '</dd>' +
+      (pr.att ? '<dt>Zuschauerschnitt 2025/26</dt><dd>' + FM.fmtInt(pr.att) + ' <span class="muted small">(' + LN[pr.attL] + ')</span></dd>' : '') +
+      '<dt>Zuschauerpotenzial jetzt</dt><dd>' + FM.fmtInt(Math.min(c.cap, Math.round(c.fans || 0))) + (c.fans > c.cap ? ' <span class="tag good">ausverkauft</span>' : '') + '</dd>' +
+      (c.tvCur ? '<dt>TV-Geld ' + st.season.year + '/' + String(st.season.year + 1).slice(2) + '</dt><dd>' + FM.fmtMoney(c.tvCur) + '</dd>' : '') +
+      '<dt>Nachwuchsleistungszentrum</dt><dd>' + stars(pr.nlz || 3) + '</dd>' +
+      (c.debt ? '<dt>Verbindlichkeiten</dt><dd class="bad">' + FM.fmtMoney(c.debt) + '</dd>' : '') +
+      (c.owner ? '<dt>Gesellschafter</dt><dd>gleicht Verluste bis ' + FM.fmtMoneyShort(c.owner) + ' € / Jahr aus</dd>' : '') +
+      (rivals.length ? '<dt>Rivalen</dt><dd class="rivals">' + rivals.map(function (id) { return UI.clubLink(id); }).join(' ') + '</dd>' : '') +
+      '</dl>';
+  };
+
   /* ---------- Toast & Modal ---------- */
   UI.toast = function (msg, kind) {
     var root = document.getElementById('toasts');

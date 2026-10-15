@@ -6,7 +6,14 @@
   var FM = window.FM;
   var R = FM.rng;
 
-  var HOME_ADV = 1.7;           // Ratingpunkte Heimvorteil
+  /* Kalibrierung je Liga (Zielwerte aus echten Saisons: Bundesliga 2024/25 3,13 Tore/Spiel,
+     rund 41 % Heimsiege, 23 % Remis, 36 % Auswaertssiege; 2. Liga und 3. Liga etwas torarmer,
+     mehr Remis, kartenreicher) */
+  FM.MATCH_TUNE = {
+    home: 0.9, slope: 15,
+    league: { bl: { goals: 1.04, cards: 1.12 }, bl2: { goals: 1.03, cards: 1.12 }, l3: { goals: 1.0, cards: 1.12 } }
+  };
+  var T = FM.MATCH_TUNE;
   var SHOT_RATE = 0.128;        // Abschluesse pro Minute und Team bei gleicher Staerke
   var FOUL_RATE = 0.122;        // Fouls pro Minute und Team
   var INJ_RATE = 0.00011;       // Verletzungsrisiko je Spieler und Minute
@@ -23,6 +30,8 @@
     this.pens = null;
     this.stats = { poss: [0, 0], shots: [0, 0], sot: [0, 0], xg: [0, 0], corners: [0, 0], fouls: [0, 0], yc: [0, 0], rc: [0, 0], saves: [0, 0] };
     this.goals = [0, 0];
+    this.lg = T.league[this.opts.league] || { goals: 1, cards: 1 };
+    if (this.opts.derby) this.lg = { goals: this.lg.goals, cards: this.lg.cards * 1.25 };   // Derbys sind hitziger
     this.agg = this.opts.agg || null; // Ergebnis Hinspiel [heim, gast] aus Sicht dieses Spiels
     this.dirty = [true, true];
     this.str = [null, null];
@@ -75,7 +84,7 @@
       att += w.att * aEff; mid += w.mid * mEff; def += w.def * dEff;
     });
     var men = FM.MENTALITY[side.tactics.mentality + 2], pre = FM.PRESSING[side.tactics.pressing];
-    var home = (si === 0 && !this.opts.neutral) ? HOME_ADV : 0;
+    var home = (si === 0 && !this.opts.neutral) ? T.home : 0;
     var res = {
       att: att / wa * (1 + men.att) + home,
       mid: mid / wm * (1 + pre.mid) + home,
@@ -111,7 +120,7 @@
     for (var si = 0; si < 2; si++) {
       var o = 1 - si, share = si === 0 ? pH : 1 - pH;
       var diff = S[si].att - S[o].def;
-      var rate = SHOT_RATE * tempo * (0.7 + share * 0.6) * (0.35 + 1.3 / (1 + Math.exp(-diff / 10)));
+      var rate = SHOT_RATE * this.lg.goals * tempo * (0.7 + share * 0.6) * (0.35 + 1.3 / (1 + Math.exp(-diff / T.slope)));
       if (this.period >= 3) rate *= 0.85;
       if (R.chance(rate)) this._attack(si, diff, S[o].gk);
       if (R.chance(FOUL_RATE)) this._foul(si);
@@ -228,7 +237,7 @@
     var pr = side.pr[f.pid];
     var late = this.minute > 70 ? 1.25 : 1;
     if (R.chance(0.0019)) { this._sendOff(si, f.pid, false); return; }
-    if (R.chance(0.14 * late * (pr.yc ? 0.55 : 1))) {
+    if (R.chance(0.14 * this.lg.cards * late * (pr.yc ? 0.55 : 1))) {
       if (pr.yc >= 1) { pr.yc++; this._sendOff(si, f.pid, true); return; }
       pr.yc = 1; pr.perf -= 0.15; this.stats.yc[si]++;
       this._ev({ t: 'yc', s: si, p: f.pid });

@@ -7,7 +7,10 @@
 
   FM.COMP_NAME = { bl: 'Bundesliga', bl2: '2. Bundesliga', l3: '3. Liga', cup: 'DFB-Pokal', po1: 'Relegation', po2: 'Relegation' };
   FM.CUP_ROUNDS = ['1. Runde', '2. Runde', 'Achtelfinale', 'Viertelfinale', 'Halbfinale', 'Finale'];
-  FM.CUP_PRIZE = [210000, 420000, 840000, 1700000, 3400000, 4300000];
+  /* DFB-Praemien 2025/26 (offizieller Verteilerschluessel): jeder Teilnehmer einer Runde erhaelt den
+     Betrag dieser Runde; im Finale 4,32 Mio. fuer den Sieger und 2,88 Mio. fuer den Finalisten. */
+  FM.CUP_PRIZE = [211886, 423772, 847544, 1695088, 3390175];
+  FM.CUP_FINAL = { winner: 4320000, runnerUp: 2880000 };
 
   /* Kreismethode: Hin- und Rueckrunde, Heim/Auswaerts wechselnd */
   FM.roundRobin = function (teams) {
@@ -36,58 +39,60 @@
     return d;
   }
 
-  /* Rahmenterminkalender einer Saison (Startjahr y) */
+  /* Rahmenterminkalender nach dem Muster der Saison 2026/27 (DFB/DFL, veroeffentlicht Nov. 2025):
+     2. und 3. Liga starten am ersten Augustwochenende (2026: 7. August), die Bundesliga drei Wochen
+     spaeter (28. August). DFB-Pokal: 1. Runde 21.–24.8., 2. Runde 27./28.10., Achtelfinale 1./2.12.,
+     Viertelfinale Anfang Februar, Halbfinale Ende April, Finale 29.5. in Berlin.
+     Laenderspielpausen 21.9.–6.10. und 9.–17.11. sowie Ende Maerz (die 3. Liga spielt durch).
+     Winterpause ab 20.12.; Bundesliga zurueck am 8.–10.1. mit Englischer Woche am 12./13.1.,
+     2. und 3. Liga ab 15.1. Der 1. Mai ist spielfrei, Saisonende am 22./23. Mai. */
   FM.seasonFrame = function (y) {
-    var s0 = firstWeekdayOnOrAfter(D.iso(y, 8, 6), 6);
-    var end = D.iso(y + 1, 5, 24);
-    var winterA = D.iso(y, 12, 18), winterB = D.iso(y + 1, 1, 14);
+    var sat = function (m, d, yy) { return firstWeekdayOnOrAfter(D.iso(yy || y, m, d), 6); };
+    var tue = function (m, d, yy) { return firstWeekdayOnOrAfter(D.iso(yy || y, m, d), 2); };
+    var start2 = sat(8, 6), startBL = sat(8, 27), cupR1 = sat(8, 20);
+    var winterA = D.iso(y, 12, 20);
+    var blBack = sat(1, 8, y + 1), lowBack = sat(1, 15, y + 1);
+    var endAll = sat(5, 21, y + 1);
+    var breaks = [sat(9, 25), sat(10, 2), sat(11, 13), sat(3, 26, y + 1)];
+    var mayFree = sat(4, 30, y + 1);           // Wochenende um den 1. Mai
     var sats = [];
-    for (var d = s0; d <= end; d = D.add(d, 7)) {
-      if (d > winterA && d < winterB) continue;
-      sats.push(d);
-    }
-    var cupR1 = sats[1];
-    var league = sats.filter(function (x) { return x !== cupR1; });
-    var pre = league.filter(function (x) { return x < winterA; });
-    var post = league.filter(function (x) { return x > winterB; });
+    for (var d = start2; d <= endAll; d = D.add(d, 7)) sats.push(d);
+    var free = function (x) { return x !== cupR1 && x !== mayFree; };
+    var pro = function (x) { return free(x) && breaks.indexOf(x) < 0; };
     return {
-      s0: s0, cupR1: cupR1, pre: pre, post: post,
-      cup: [
-        cupR1,
-        firstWeekdayOnOrAfter(D.iso(y, 10, 27), 2),
-        firstWeekdayOnOrAfter(D.iso(y, 12, 1), 2),
-        firstWeekdayOnOrAfter(D.iso(y + 1, 2, 2), 2),
-        firstWeekdayOnOrAfter(D.iso(y + 1, 4, 20), 2),
-        firstWeekdayOnOrAfter(D.iso(y + 1, 5, 27), 6)
-      ]
+      s0: start2, cupR1: cupR1,
+      bl: { pre: sats.filter(function (x) { return x >= startBL && x < winterA && pro(x); }),
+        post: sats.filter(function (x) { return x >= blBack && pro(x); }), midweek: [tue(1, 12, y + 1)] },
+      bl2: { pre: sats.filter(function (x) { return x < winterA && pro(x); }),
+        post: sats.filter(function (x) { return x >= lowBack && pro(x); }), midweek: [] },
+      l3: { pre: sats.filter(function (x) { return x < winterA && free(x); }),
+        post: sats.filter(function (x) { return x >= lowBack && free(x); }), midweek: [] },
+      cup: [cupR1, tue(10, 27), tue(12, 1), tue(2, 2, y + 1), tue(4, 20, y + 1), sat(5, 27, y + 1)]
     };
   };
 
-  /* Termine fuer n Spieltage pro Halbserie aus einer Liste von Samstagen (+ Dienstage bei Bedarf) */
-  function pickDates(list, n, skipFirst, avoid) {
-    var l = list.slice(skipFirst ? 1 : 0);
-    if (l.length > n) l = l.slice(0, n);
+  /* n Termine aus einer Liste von Wochenenden; fehlende als Englische Wochen (dienstags) ergaenzt */
+  function pickDates(list, n, extra, avoid) {
+    var l = list.slice(0, n);
+    (extra || []).forEach(function (x) { if (l.length < n && l.indexOf(x) < 0) l.push(x); });
+    l.sort();
     var k = 0;
-    while (l.length < n && k < 40) {
-      var base = l[Math.min(l.length - 1, 4 + k * 3)] || l[l.length - 1];
-      var tue = D.add(base, 3);
-      if ((!avoid || avoid.indexOf(tue) < 0) && l.indexOf(tue) < 0) l.push(tue);
+    while (l.length < n && k < 60) {
+      var base = l[Math.min(l.length - 1, 3 + k * 3)] || l[l.length - 1];
+      var t = D.add(base, 3);
+      if ((!avoid || avoid.indexOf(t) < 0) && l.indexOf(t) < 0) l.push(t);
       l.sort();
       k++;
     }
     return l;
   }
 
+  /* Alle Termine einer Saison: die Hinrunde kann (wie in der Bundesliga 2026/27 mit nur
+     14 Spieltagen vor Weihnachten) bis in den Januar reichen. */
   FM.leagueDates = function (frame, leagueId, half) {
-    var rounds = half;
-    var cupAvoid = frame.cup;
-    if (leagueId === 'bl') {
-      return pickDates(frame.pre, rounds, true, cupAvoid).concat(pickDates(frame.post.slice(1), rounds, false, cupAvoid));
-    }
-    if (leagueId === 'bl2') {
-      return pickDates(frame.pre, rounds, false, cupAvoid).concat(pickDates(frame.post.slice(1), rounds, false, cupAvoid));
-    }
-    return pickDates(frame.pre, rounds, false, cupAvoid).concat(pickDates(frame.post, rounds, false, cupAvoid));
+    var f = frame[leagueId] || frame.l3;
+    var all = f.pre.concat(f.post).concat(f.midweek).sort();
+    return pickDates(all, half * 2, [], frame.cup);
   };
 
   FM.newFixture = function (state, f) {
@@ -156,6 +161,8 @@
     var fids = pairs.map(function (p) { return FM.newFixture(state, { comp: 'cup', round: 1, date: date, home: p[0], away: p[1] }).id; });
     state.cup = { round: 1, byes: byeClubs, alive: all.slice(), winner: null, rounds: [{ date: date, fx: fids, byes: byeClubs }] };
     FM.addCalendar(state, date, 'cup', 1, fids, FM.CUP_ROUNDS[0]);
+    // Freilose erhalten die Antrittspraemie der 1. Runde
+    byeClubs.forEach(function (c) { FM.book(state.clubs[c], 'prize', FM.CUP_PRIZE[0]); });
   };
 
   FM.drawNextCupRound = function (state) {

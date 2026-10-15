@@ -21,12 +21,12 @@
 
   /* ---------- Finanzen ---------- */
   FM.emptyLedger = function () {
-    return { tv: 0, tickets: 0, sponsor: 0, prize: 0, sales: 0, wages: 0, buys: 0, fees: 0, ops: 0, infra: 0, other: 0 };
+    return { tv: 0, tickets: 0, sponsor: 0, prize: 0, sales: 0, owner: 0, wages: 0, buys: 0, fees: 0, ops: 0, infra: 0, debt: 0, other: 0 };
   };
   FM.LEDGER_LABEL = {
     tv: 'TV-Gelder', tickets: 'Zuschauereinnahmen', sponsor: 'Sponsoring & Marketing', prize: 'Prämien',
     sales: 'Transfererlöse', wages: 'Gehälter', buys: 'Ablösesummen', fees: 'Berater & Handgelder', ops: 'Betriebskosten',
-    infra: 'Infrastruktur', other: 'Sonstiges'
+    infra: 'Infrastruktur', debt: 'Zins & Tilgung', owner: 'Gesellschafter', other: 'Sonstiges'
   };
 
   var MIN_COMMERCIAL = { bl: 8e6, bl2: 2.5e6, l3: 0.6e6, rl: 0.2e6 };
@@ -37,26 +37,19 @@
     else if (l === 'bl2') { tv = 9e6 + (rep - 50) * 0.25e6; ops = 4e6 + (rep - 50) * 0.1e6; }
     else if (l === 'l3') { tv = 1.6e6 + (rep - 40) * 0.03e6; ops = 1.3e6 + (rep - 40) * 0.03e6; }
     else { tv = 0.2e6; ops = 0.35e6; }
+    // echtes TV-Geld (DFL-Schluessel bzw. veroeffentlichte Betraege), sobald zugewiesen
+    if (club.tvCur != null) tv = club.tvCur;
+    // weitere Kosten (Verwaltung, Nachwuchs, Frauen, Abschreibungen) wachsen mit den Medienerloesen
+    ops += (club.opsRatio || 0) * tv;
     return { tv: Math.max(0.1e6, tv), ops: Math.max(0.2e6, ops) };
   }
 
   /* Sponsoring/Marketing wird beim Spielstart so kalibriert, dass jeder Verein mit
      seinem echten Kader wirtschaftlich solide (leichter Ueberschuss) startet. */
   /* Erwartete Auslastung und Zuschauereinnahmen einer Saison (Liga-Heimspiele) */
-  /* Auslastung: In der Bundesliga ist fast jedes Stadion voll. Darunter kommen weniger
-     Zuschauer, und grosse Stadien fuellen sich deutlich schlechter als kleine
-     (Olympiastadion, Nuernberg, Hannover). Zweite Mannschaften ziehen kaum Publikum. */
-  var FILL_BOOST = { bl: 0.25, bl2: 0.12, l3: -0.04, rl: -0.12 };
-  var FULL_CAP = { bl2: 28000, l3: 20000, rl: 12000 };   // ab dieser Groesse sinkt die Auslastung
-  function fillRate(club, cap, extra) {
-    var l = club.league;
-    var fill = 0.55 + (club.rep - 40) / 100 + (FILL_BOOST[l] || 0) + (extra || 0);
-    if (l !== 'bl') fill *= Math.min(1, Math.pow((FULL_CAP[l] || 20000) / cap, 0.45));
-    if (club.reserve) fill *= 0.35;
-    return fill;
-  }
+  /* Auslastung aus der echten Fanbasis (Zuschauerschnitt 2025/26, siehe clubdata.js) */
   FM.expectedFill = function (club, cap) {
-    return FM.clamp(fillRate(club, cap || club.cap, 0), club.reserve ? 0.05 : 0.15, 1);
+    return FM.clamp(FM.expectedDemand(club) / (cap || club.cap), 0.02, 1);
   };
   FM.expectedTickets = function (club, cap) {
     cap = cap || club.cap;
@@ -68,8 +61,11 @@
     var base = tvAndOps(club);
     var tickets = FM.expectedTickets(club);
     var wages = FM.annualWages(state, club);
-    var need = (wages + base.ops + (FM.facUpkeep ? FM.facUpkeep(club) : 0)) * 1.03 - base.tv - tickets;
-    club.commercial = Math.round(Math.max(MIN_COMMERCIAL[club.league] || 0.2e6, need));
+    var need = (wages + base.ops + (FM.facUpkeep ? FM.facUpkeep(club) : 0) + (FM.debtService ? FM.debtService(club) : 0)) * 1.03 - base.tv - tickets;
+    var min = MIN_COMMERCIAL[club.league] || 0.2e6;
+    club.commercial = Math.round(Math.max(min, need));
+    // Vereine geben aus, was sie einnehmen: Ueberschuesse aus TV und Tickets fliessen in den Betrieb
+    if (need < min && base.tv > 0) club.opsRatio = (club.opsRatio || 0) + (min - need) / 1.03 / base.tv;
   };
 
   FM.annualPlan = function (club) {
@@ -90,11 +86,7 @@
   FM.ticketPrice = { bl: 36, bl2: 24, l3: 15, rl: 10 };
 
   FM.attendance = function (state, homeId, awayId, comp) {
-    var c = state.clubs[homeId], a = state.clubs[awayId];
-    var extra = (a.rep - 60) / 400 + (comp === 'cup' || comp === 'po1' || comp === 'po2' ? 0.15 : 0);
-    var cap = FM.effectiveCap ? FM.effectiveCap(c) : c.cap;
-    var fill = FM.clamp(fillRate(c, cap, extra) + R.range(-0.04, 0.04), c.reserve ? 0.05 : 0.15, 1);
-    return Math.round(cap * fill);
+    return FM.attendanceFor(state, state.clubs[homeId], state.clubs[awayId], comp, state.date);
   };
 
   FM.book = function (club, key, amount) {
@@ -134,6 +126,7 @@
         if (club.money > reserve) FM.book(club, 'other', -(club.money - reserve) * 0.06);
       }
     });
+    FM.payDebt(state);
   };
 
   /* ---------- Vorstand ---------- */
@@ -182,6 +175,11 @@
       var lowerOpp = FM.levelOf(state, opp) > FM.levelOf(state, user.club);
       delta = won ? 1.5 + fx.round * 0.6 : (lowerOpp ? -6 : -1.5);
     }
+    // Derbys zaehlen doppelt
+    if (FM.isDerby(state, fx.home, fx.away)) delta += gf > ga ? 2 : gf < ga ? -2.5 : 0;
+    // Geduld des Umfelds: Bayern, Schalke, HSV verzeihen weniger als Freiburg oder Heidenheim
+    var pat = state.clubs[user.club].pat || 1;
+    delta = delta < 0 ? delta * pat : delta * (1 + (1 - pat) * 0.5);
     user.conf = FM.clamp(user.conf + delta, 0, 100);
   };
 

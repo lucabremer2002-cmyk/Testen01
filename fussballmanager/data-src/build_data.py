@@ -22,6 +22,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from clubs import CLUBS, LEAGUES  # noqa: E402
+from profiles import PROFILES
 from ages import AGES  # noqa: E402
 
 # Gleichnamige, aber verschiedene Spieler (nicht deduplizieren)
@@ -164,9 +165,17 @@ def main():
         rows.sort(key=lambda r: -r[2])
         out_players[club["id"]] = rows
 
+    ids = {c["id"] for c in CLUBS}
     clubs_out = []
     for c in CLUBS:
         d = {k: v for k, v in c.items() if k != "file"}
+        prof = PROFILES.get(c["id"])
+        if not prof:
+            raise SystemExit("Kein Vereinsprofil fuer " + c["id"])
+        for r in prof.get("rivals", []):
+            if r not in ids:
+                raise SystemExit("Unbekannter Rivale %s bei %s" % (r, c["id"]))
+        d["profile"] = prof
         clubs_out.append(d)
 
     data = {

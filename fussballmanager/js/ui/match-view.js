@@ -58,7 +58,7 @@
     }
     var stadium = fx.neutral ? 'Olympiastadion Berlin' : h.stadium;
     var html = '<div class="card"><div class="scoreboard">' + teamHead(h) + '<div class="score"><div class="muted small">' + esc(UI.compLabel(fx)) + '</div><div class="s" style="font-size:28px;margin:4px 0">vs</div><div class="muted small">' + D.fmtLong(fx.date) + '</div></div>' + teamHead(a, 'r') + '</div>' +
-      '<div class="match-meta"><span class="tag">' + esc(stadium) + '</span>' + (fx.agg ? '<span class="tag warn">Hinspiel ' + fx.agg[1] + ':' + fx.agg[0] + ' (' + esc(a.short) + ' – ' + esc(h.short) + ')</span>' : '') +
+      '<div class="match-meta"><span class="tag">' + esc(stadium) + '</span>' + (FM.isDerby(st, fx.home, fx.away) ? '<span class="tag warn">Derby</span>' : '') + (fx.agg ? '<span class="tag warn">Hinspiel ' + fx.agg[1] + ':' + fx.agg[0] + ' (' + esc(a.short) + ' – ' + esc(h.short) + ')</span>' : '') +
       (fx.comp === 'cup' || fx.leg === 2 ? '<span class="tag">K.-o.-Spiel: Verlängerung & Elfmeterschießen möglich</span>' : '') + '</div></div>';
     if (missing) html += '<div class="note warn" style="margin-top:16px">' + missing + ' Spieler deiner gespeicherten Aufstellung fehlen (verletzt/gesperrt) und werden automatisch ersetzt. Prüfe die Aufstellung.</div>';
     html += '<div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-h"><h3>Deine Startelf · ' + esc(my.formation) + '</h3><button class="btn sm" data-action="go" data-view="tactics">' + UI.icon('tactics') + ' Ändern</button></div><div class="card-b flush">' + xi(my, true) + '</div></div>' +

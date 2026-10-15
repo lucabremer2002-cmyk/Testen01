@@ -90,6 +90,7 @@
     state.seasonDone = false;
     state.leagueDone = {};
     FM.invalidateTables();
+    FM.assignTv(state);
     Object.keys(state.clubs).forEach(function (cid) {
       var c = state.clubs[cid];
       if (!first) { c.finPrev = c.fin; c.fin = FM.emptyLedger(); }
@@ -167,7 +168,7 @@
     var home = fx.home === uc ? FM.userLineup(state) : FM.aiLineup(state, fx.home);
     var away = fx.away === uc ? FM.userLineup(state) : FM.aiLineup(state, fx.away);
     FM.matchComp = null;
-    var opts = { neutral: !!fx.neutral };
+    var opts = { neutral: !!fx.neutral, league: FM.MATCH_TUNE.league[fx.comp] ? fx.comp : state.clubs[fx.home].league, derby: FM.isDerby(state, fx.home, fx.away) };
     if (fx.comp === 'cup' || fx.comp === 'po1' || fx.comp === 'po2') opts.knockout = fx.comp === 'cup' || fx.leg === 2;
     if (fx.leg === 2 && fx.agg) opts.agg = fx.agg;
     if (fx.home === uc || fx.away === uc) {
@@ -259,8 +260,15 @@
 
     // Pokalpraemien
     if (fx.comp === 'cup') {
-      var w = FM.fixtureWinner(fx);
-      if (w) FM.book(state.clubs[w], 'prize', FM.CUP_PRIZE[Math.min(fx.round, 5)] || 0);
+      if (fx.round <= 5) {
+        // Antrittspraemie der Runde fuer beide Teilnehmer
+        FM.book(state.clubs[fx.home], 'prize', FM.CUP_PRIZE[fx.round - 1]);
+        FM.book(state.clubs[fx.away], 'prize', FM.CUP_PRIZE[fx.round - 1]);
+      } else {
+        var w = FM.fixtureWinner(fx);
+        FM.book(state.clubs[w], 'prize', FM.CUP_FINAL.winner);
+        FM.book(state.clubs[w === fx.home ? fx.away : fx.home], 'prize', FM.CUP_FINAL.runnerUp);
+      }
     }
 
     // Relegation: Hinspiel -> Rueckspiel vorbereiten
@@ -390,6 +398,7 @@
     }
     if (m === 9 && day === 1) FM.addNews(state, { type: 'market', title: 'Transferfenster geschlossen', body: 'Das Sommer-Transferfenster ist geschlossen. Vereinslose Spieler können weiterhin verpflichtet werden.' });
     if (m === 1 && day === 1) {
+      FM.ownerSupport(state);
       var expiring = FM.clubPlayers(state, state.user.club).filter(function (p) { return !p.loan && !p.pre && p.contract.until <= state.season.year + 1; });
       if (expiring.length) FM.addNews(state, { type: 'board', important: true, title: 'Vorverträge erlaubt', body: 'Ab sofort dürfen andere Vereine Spielern mit auslaufendem Vertrag Vorverträge anbieten. Bei dir betrifft das: ' + expiring.map(function (p) { return p.name; }).join(', ') + '. Umgekehrt kannst du jetzt selbst Spieler für die neue Saison ablösefrei verpflichten.' });
       FM.setBudgets(state, state.clubs[state.user.club], true);
@@ -627,11 +636,13 @@
     summary.groups = { toBL: upBL, toBL2: downBL.concat(up3), toL3: down2.concat(upRL), toRL: down3 };
 
     // Europapokal-Praemien & Reputation
+    // UEFA-Einnahmen (Zyklus 2024–27: CL-Startgeld 18,6 Mio., EL 4,3 Mio., ECL 3,2 Mio. plus
+    // Leistungs- und Marktpool) – vereinfacht als Gesamtbetrag fuer die naechste Europapokalsaison
     tBL.forEach(function (r, i) {
       var c = state.clubs[r.club];
-      if (i < 4) FM.book(c, 'prize', 28e6 + (i === 0 ? 6e6 : 0));
-      else if (i === 4) FM.book(c, 'prize', 9e6);
-      else if (i === 5) FM.book(c, 'prize', 5e6);
+      if (i < 4) FM.book(c, 'prize', FM.niceRound(R.range(38e6, 62e6) + (i === 0 ? 12e6 : 0)));
+      else if (i === 4) FM.book(c, 'prize', FM.niceRound(R.range(11e6, 19e6)));
+      else if (i === 5) FM.book(c, 'prize', FM.niceRound(R.range(6e6, 10e6)));
     });
     Object.keys(state.clubs).forEach(function (cid) {
       var c = state.clubs[cid], ol = oldLeague[cid], nl = c.league;
@@ -649,13 +660,30 @@
       delete c._repDelta0;
     });
 
+    // Fuenfjahreswertung (TV-Geld), Fanbasis, Abstiegsklauseln, Gesellschafter
+    FM.updateTvScores(state, { bl: tBL, bl2: t2 });
+    var LV = { bl: 1, bl2: 2, l3: 3, rl: 4 };
+    Object.keys(state.clubs).forEach(function (cid) {
+      var c = state.clubs[cid], ol = oldLeague[cid];
+      var tt = summary.tables[ol];
+      var pos = tt ? tt.findIndex(function (r) { return r.club === cid; }) + 1 : 0;
+      FM.updateFans(c, ol, pos, tt ? tt.length : 0);
+      if (LV[c.league] > LV[ol]) {
+        // Abstiegsklauseln: Gehaelter sinken um ein Viertel
+        FM.clubPlayers(state, cid).forEach(function (p) { if (!p.loan) p.contract.wage = Math.max(20000, FM.niceRound(p.contract.wage * 0.75)); });
+        if (cid === uc) FM.addNews(state, { type: 'board', important: true, title: 'Abstiegsklauseln greifen', body: 'Mit dem Abstieg sinken die Gehälter aller Vertragsspieler um 25 %. Das Gehaltsbudget für die neue Saison wird neu berechnet.' });
+      }
+    });
+    FM.ownerSupport(state);
+
     // Bewertung des Nutzers
     var ul = oldLeague[uc];
     var upos = summary.tables[ul] ? summary.tables[ul].findIndex(function (r) { return r.club === uc; }) + 1 : null;
     var target = state.clubs[uc].expect ? state.clubs[uc].expect.target : 10;
     var conf = state.user.conf;
     if (upos) {
-      conf += (target - upos) * 3.5;
+      var dc = (target - upos) * 3.5;
+      conf += dc < 0 ? dc * (state.clubs[uc].pat || 1) : dc;
       if (summary.moves.up.indexOf(uc) >= 0) conf += 20;
       if (summary.moves.down.indexOf(uc) >= 0) conf -= 30;
     }

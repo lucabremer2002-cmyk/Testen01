@@ -31,7 +31,7 @@
       return '<button class="club-card ' + (s.club === c.id ? 'sel' : '') + '" style="--c1:' + c.colors[0] + '" data-action="pickClub" data-id="' + c.id + '">' + UI.badge(c, 38) +
         '<div style="min-width:0"><div class="n">' + esc(c.name) + '</div>' +
         '<div class="s">' + UI.stars(Math.round(stars * 2) / 2) + ' · Ø ' + strengths[c.id].toFixed(1) + '</div>' +
-        '<div class="s">' + esc(c.stadium) + '</div></div></button>';
+        '<div class="s">' + (c.profile && c.profile.founded ? 'seit ' + c.profile.founded + ' · ' : '') + (c.profile && c.profile.att ? 'Ø ' + FM.fmtInt(c.profile.att) + ' Zuschauer' : esc(c.stadium)) + '</div></div></button>';
     }).join('');
 
     var saveHtml = saves.map(function (x) {
@@ -202,7 +202,8 @@
       '<div class="next-match">' + teamCol(h) + '<div class="vs"><div class="big">' + (fx.res ? FM.scoreText(fx) : 'VS') + '</div><div class="muted small">' + esc(fx.neutral ? 'Olympiastadion Berlin' : h.stadium) + '</div></div>' + teamCol(a) + '</div>' +
       '<div class="match-meta"><span class="tag">' + (fx.home === uc ? 'Heimspiel' : fx.neutral ? 'Neutraler Ort' : 'Auswärtsspiel') + '</span>' +
       '<span class="tag">Stärke ' + sh.toFixed(1) + ' : ' + sa.toFixed(1) + '</span>' +
-      (fx.agg ? '<span class="tag warn">Hinspiel ' + fx.agg[1] + ':' + fx.agg[0] + '</span>' : '') + '</div>' +
+      (fx.agg ? '<span class="tag warn">Hinspiel ' + fx.agg[1] + ':' + fx.agg[0] + '</span>' : '') +
+      (FM.isDerby(st, fx.home, fx.away) ? '<span class="tag warn">Derby</span>' : '') + '</div>' +
       '<div class="modal-f" style="border-top:1px solid var(--line)"><button class="btn" data-action="go" data-view="tactics">' + UI.icon('tactics') + ' Aufstellung</button>' +
       (today ? '<button class="btn primary" data-action="go" data-view="match" data-params=\'{"fid":"' + fx.id + '"}\'>' + UI.icon('whistle') + ' Zum Spiel</button>' : '<button class="btn primary" data-action="continue">Bis zum Spieltag ' + UI.icon('next') + '</button>') +
       '</div></div>';
@@ -330,9 +331,10 @@
         '<dl class="kv"><dt>Saisonziel</dt><dd>' + esc(e.label || '–') + '</dd><dt>Mindestens Platz</dt><dd>' + (e.target || '–') + '</dd><dt>Aktueller Platz</dt><dd>' + (pos || '–') + '</dd><dt>Stärke-Rang vor der Saison</dt><dd>' + (e.strengthRank || '–') + '</dd></dl>' +
         '<div style="margin-top:16px"><div class="row between small"><span class="muted">Vertrauen</span><b>' + FM.confLabel(conf) + ' (' + Math.round(conf) + ')</b></div>' +
         '<div class="meter ' + (conf >= 45 ? '' : conf >= 25 ? 'warn' : 'bad') + '" style="margin-top:6px"><i style="width:' + Math.round(conf) + '%"></i></div></div>' +
-        '<p class="muted small" style="margin-top:12px">Das Vertrauen steigt mit Ergebnissen über den Erwartungen und sinkt bei Pleiten gegen schwächere Gegner. Fällt es zu tief, wirst du entlassen.</p></div></div>';
-      html += '<div class="card"><div class="card-h"><h3>Verein</h3></div><div class="card-b"><dl class="kv">' +
-        '<dt>Reputation</dt><dd>' + UI.stars(c.rep / 20) + ' ' + c.rep + '</dd><dt>Stadion</dt><dd>' + esc(c.stadium) + '</dd><dt>Kapazität</dt><dd>' + FM.fmtInt(c.cap) + '</dd>' +
+        '<p class="muted small" style="margin-top:12px">Das Vertrauen steigt mit Ergebnissen über den Erwartungen und sinkt bei Pleiten gegen schwächere Gegner. Derbys zählen doppelt. ' +
+        ((c.pat || 1) > 1.1 ? 'Das Umfeld hier ist ungeduldig – Rückschläge wiegen schwerer.' : (c.pat || 1) < 0.9 ? 'Das Umfeld hier ist geduldig – Rückschläge werden eher verziehen.' : '') + ' Fällt das Vertrauen zu tief, wirst du entlassen.</p></div></div>';
+      html += '<div class="card"><div class="card-h"><h3>Verein</h3></div><div class="card-b">' + UI.clubFacts(c) + '<dl class="kv" style="margin-top:12px">' +
+        '<dt>Reputation</dt><dd>' + UI.stars(c.rep / 20) + ' ' + c.rep + '</dd>' +
         '<dt>Kontostand</dt><dd>' + FM.fmtMoney(c.money) + '</dd><dt>Kader</dt><dd>' + c.squad.length + ' Spieler</dd><dt>Trainer</dt><dd>' + esc(st.user.name) + ' (seit ' + st.user.joined + ')</dd>' +
         FM.FAC_KEYS.filter(function (k) { return k !== 'stadium'; }).map(function (k) { return '<dt>' + FM.FACILITIES[k].name + '</dt><dd>Stufe ' + FM.facLevel(c, k) + '</dd>'; }).join('') + '</dl>' +
         '<button class="btn sm" style="margin-top:14px" data-action="go" data-view="infra">' + UI.icon('build') + ' Infrastruktur ausbauen</button></div></div></div>';

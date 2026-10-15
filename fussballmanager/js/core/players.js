@@ -18,7 +18,8 @@
     y: 'Nachwuchsspieler aus der Vereinsakademie (fiktiv)'
   };
 
-  var LEAGUE_WAGE = { bl: 1, bl2: 0.72, l3: 0.5, rl: 0.32 };
+  // Gehaltsniveau je Liga (abgeglichen mit geschaetzten Profi-Gehaeltern, Capology 2025/26 und 2026/27)
+  var LEAGUE_WAGE = { bl: 1, bl2: 0.9, l3: 0.75, rl: 0.45 };
 
   /* Kartenwerte aus Position + Gesamtwert ableiten (gleiche Logik wie im Build-Skript) */
   FM.deriveStats = function (pos, ovr, seedName) {

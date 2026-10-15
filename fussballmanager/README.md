@@ -33,7 +33,8 @@ exportieren und wieder importieren.
 - 18 Bundesligisten, 18 Zweitligisten, 20 Drittligisten (Stand 2026/27,
   z. B. Elversberg und Paderborn in der Bundesliga, Wolfsburg, Heidenheim und
   St. Pauli in der 2. Liga, Fortuna Düsseldorf und Preußen Münster in der 3. Liga)
-- Echte Spielpläne mit Hin- und Rückrunde, Winterpause und englischen Wochen
+- Spielplan nach dem echten Rahmenterminkalender 2026/27 (Länderspielpausen,
+  Winterpause, spielfreier 1. Mai, Englische Wochen)
 - **DFB-Pokal** mit Auslosung, Heimrecht für den Unterklassigen,
   Verlängerung, Elfmeterschießen und Finale in Berlin
 - **Relegation** (Hin- und Rückspiel) zwischen 1./2. und 2./3. Liga
@@ -48,8 +49,8 @@ exportieren und wieder importieren.
   mit allen Parallelspielen
 - Wechsel (5), Mentalität, Pressing und Tempo während des Spiels änderbar
 - Noten nach Kicker-Skala (1,0 bis 6,0), Spieler des Spiels, Spielbericht
-- Kalibriert auf realistische Werte: ca. 2,9 Tore und 25 Schüsse pro Spiel,
-  Heim/Remis/Auswärts ≈ 40/27/33 % bei gleich starken Teams
+- Je Liga kalibriert: Bundesliga ca. 3,1 Tore pro Spiel, Heim/Remis/Auswärts
+  ≈ 41/22/37 %, 2. und 3. Liga etwas torärmer mit mehr Remis und Karten
 
 **Management**
 - Kader mit Stärke, Potenzial, Form, Fitness, Moral, Vertrag, Marktwert
@@ -194,6 +195,49 @@ jährliche Unterhalt. Der Vorstand gibt nur Geld oberhalb der
 Liquiditätsreserve frei. Kosten und Unterhalt skalieren mit der Liga: In der
 3. Liga kostet eine Stufe etwa ein Achtel des Bundesliga-Preises.
 
+## Echte Vereinsdaten
+
+Jeder der 60 Vereine hat ein recherchiertes Profil (`data-src/profiles.py`):
+
+| Daten | Quelle / Stand |
+| --- | --- |
+| Zuschauerschnitt 2025/26 aller Vereine (1. bis 3. Liga, Regionalliga-Aufsteiger) | diefalsche9.de-Zuschauertabellen, Abgleich mit kicker/90min (Stand 18.05.2026) |
+| TV-Geld 2026/27 aller 36 Profiklubs (z. B. Bayern 92,3 Mio., Elversberg 31,2 Mio., Wolfsburg 24,1 Mio., Cottbus 7,5 Mio.) | Prognose der Liga an die Klubs, veröffentlicht von Sport Bild (u. a. via digitalfernsehen.de, hamburg1887.de, fussball-geld.de) |
+| Gehaltsvolumen (Bayern, Dortmund, Leverkusen, Leipzig, Stuttgart, Frankfurt, Freiburg, Gladbach, Wolfsburg, St. Pauli, Hertha, Hannover, Nürnberg, Kaiserslautern, Magdeburg) | Capology-Schätzungen 2025/26 bzw. 2026/27 |
+| Verbindlichkeiten Schalke (147,9 Mio.) und Hertha (Nordic Bond 40 Mio.) | Konzern- bzw. Jahresabschluss 2024/25 |
+| DFB-Pokal-Prämien (211.886 € in Runde 1 bis 4,32 Mio. € für den Sieger) | Offizieller DFB-Verteilerschlüssel 2025/26 |
+| Rahmenterminkalender 2026/27 | DFB/DFL: 2./3. Liga ab 7.8., Bundesliga ab 28.8. (14 Spieltage vor Weihnachten), Pokal 21.–24.8. / 27.–28.10. / 1.–2.12., Länderspielpausen, Winterpause ab 20.12., spielfreier 1. Mai, Finale 29.5. |
+| Torschnitt und Ergebnisverteilung | Bundesliga 2024/25: 959 Tore in 306 Spielen (3,13), 111 Auswärtssiege |
+
+Dazu kommt allgemeines Vereinswissen: Gründungsjahr, Spitzname, Rivalen, Vereinstyp
+(Traditions-, Werks-, Investoren-, Kult-, Ausbildungsverein), Stärke des
+Nachwuchsleistungszentrums (drei DFB-Sterne u. a. bei Union, Kaiserslautern,
+Nürnberg, Paderborn, Bielefeld und Heidenheim belegt) und die Geduld des Umfelds.
+
+**So wirken die Daten im Spiel**
+- **Zuschauer** kommen aus der echten Fanbasis. Ein Ligawechsel kostet oder
+  bringt Publikum (je Liga −18 % bzw. +12 %), Kult- und Traditionsvereine
+  verlieren weniger. Ausverkaufte Stadien haben mehr Nachfrage als Plätze, ein
+  Stadionausbau lohnt sich nur dort. Derbys, attraktive Gäste, Pokal und
+  Tabellenplatz verändern die Zahl, Englische Wochen senken sie.
+- **TV-Geld**: 2026/27 gelten die veröffentlichten Beträge. Danach rechnet das
+  Spiel nach dem DFL-Prinzip: Die Hälfte wird gleich verteilt, der Rest nach
+  einer Fünfjahreswertung, die aus den echten Beträgen zurückgerechnet und mit
+  jeder Saison fortgeschrieben wird. Absteiger bekommen deshalb noch
+  jahrelang viel TV-Geld, Aufsteiger wenig.
+- **Gehälter**: Das Gehaltsniveau je Liga ist an die Gehaltsschätzungen
+  angepasst. Wo das Gehaltsvolumen eines Vereins bekannt ist, wird der Kader
+  darauf eingestellt (Bayern rund 240 Mio., Hertha rund 24 Mio.). Beim Abstieg
+  greifen Abstiegsklauseln: Alle Gehälter sinken um 25 %.
+- **Schulden** werden mit 5 % verzinst und mit 7 % pro Jahr getilgt.
+  Gesellschafter von Werks- und Investorenklubs (Bayer, VW, Red Bull, Hopp
+  u. a.) gleichen Verluste bis zu einer Obergrenze aus.
+- **Derbys** zählen beim Vorstand doppelt, sind kartenreicher und ziehen mehr
+  Zuschauer. Das Umfeld reagiert je nach Verein unterschiedlich geduldig.
+- **Match-Engine** pro Liga kalibriert: In der Bundesliga rund 3,1 Tore pro
+  Spiel und 41/22/37 % Heim/Remis/Auswärts, in der 2. und 3. Liga etwas
+  torärmer, mit mehr Remis und mehr Karten.
+
 ## Datenquellen und Datenqualität
 
 Die Spielerwerte stammen aus **EA SPORTS FC 27** (Launch-Ratings, September
@@ -257,10 +301,11 @@ js/core/                Spiellogik ohne Oberfläche
   state.js              Neues Spiel, Speichern/Laden
   economy.js            Finanzen, Vorstand, Nachrichten, Transfers
   club.js               Vorstandsbudgets und Infrastruktur
+  clubdata.js           echte Vereinsdaten: Fanbasis, TV-Geld, Schulden, Derbys
   transfer.js           Verhandlungen, Leihen, Klauseln, Vorverträge, Scouting, Rollen
   season.js             Spieltage, Tabellen, Saisonende
 js/ui/                  Oberfläche (Übersicht, Kader, Taktik, Spieltag …)
 js/vendor/              lz-string
-data-src/               Rohdaten und Build-Skript für js/data.js
+data-src/               Rohdaten, Vereinsprofile (profiles.py) und Build-Skript für js/data.js
 tools/bundle.py         packt alles in eine einzelne HTML-Datei (dist/)
 ```
