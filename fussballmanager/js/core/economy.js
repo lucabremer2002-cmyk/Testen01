@@ -43,10 +43,20 @@
   /* Sponsoring/Marketing wird beim Spielstart so kalibriert, dass jeder Verein mit
      seinem echten Kader wirtschaftlich solide (leichter Ueberschuss) startet. */
   /* Erwartete Auslastung und Zuschauereinnahmen einer Saison (Liga-Heimspiele) */
+  /* Auslastung: In der Bundesliga ist fast jedes Stadion voll. Darunter kommen weniger
+     Zuschauer, und grosse Stadien fuellen sich deutlich schlechter als kleine
+     (Olympiastadion, Nuernberg, Hannover). Zweite Mannschaften ziehen kaum Publikum. */
+  var FILL_BOOST = { bl: 0.25, bl2: 0.12, l3: -0.04, rl: -0.12 };
+  var FULL_CAP = { bl2: 28000, l3: 20000, rl: 12000 };   // ab dieser Groesse sinkt die Auslastung
+  function fillRate(club, cap, extra) {
+    var l = club.league;
+    var fill = 0.55 + (club.rep - 40) / 100 + (FILL_BOOST[l] || 0) + (extra || 0);
+    if (l !== 'bl') fill *= Math.min(1, Math.pow((FULL_CAP[l] || 20000) / cap, 0.45));
+    if (club.reserve) fill *= 0.35;
+    return fill;
+  }
   FM.expectedFill = function (club, cap) {
-    var fill = 0.55 + (club.rep - 40) / 100 + ({ bl: 0.25, bl2: 0.12, l3: 0, rl: -0.1 }[club.league] || 0);
-    if (club.league !== 'bl') fill *= Math.min(1, 45000 / (cap || club.cap) + 0.25);
-    return FM.clamp(fill, 0.25, 1);
+    return FM.clamp(fillRate(club, cap || club.cap, 0), club.reserve ? 0.05 : 0.15, 1);
   };
   FM.expectedTickets = function (club, cap) {
     cap = cap || club.cap;
@@ -81,12 +91,9 @@
 
   FM.attendance = function (state, homeId, awayId, comp) {
     var c = state.clubs[homeId], a = state.clubs[awayId];
-    var boost = { bl: 0.25, bl2: 0.12, l3: 0, rl: -0.1 }[c.league];
-    var fill = 0.55 + (c.rep - 40) / 100 + boost + (a.rep - 60) / 400;
-    if (comp === 'cup' || comp === 'po1' || comp === 'po2') fill += 0.15;
+    var extra = (a.rep - 60) / 400 + (comp === 'cup' || comp === 'po1' || comp === 'po2' ? 0.15 : 0);
     var cap = FM.effectiveCap ? FM.effectiveCap(c) : c.cap;
-    if (c.league !== 'bl') fill *= Math.min(1, 45000 / cap + 0.25);
-    fill = FM.clamp(fill + R.range(-0.04, 0.04), 0.25, 1);
+    var fill = FM.clamp(fillRate(c, cap, extra) + R.range(-0.04, 0.04), c.reserve ? 0.05 : 0.15, 1);
     return Math.round(cap * fill);
   };
 

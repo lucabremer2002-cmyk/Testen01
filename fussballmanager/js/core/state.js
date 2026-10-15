@@ -4,7 +4,7 @@
   var FM = window.FM;
 
   FM.SAVE_KEY = 'matchplan.save.';
-  FM.SAVE_VERSION = 5;
+  FM.SAVE_VERSION = 6;
 
   /* Spielstaende der Vorversion (ohne Budgets/Infrastruktur) weiterverwenden */
   FM.migrate = function (state) {
@@ -25,6 +25,18 @@
       state.offers.forEach(function (o) { o.type = o.type || 'buy'; o.max = o.max || o.fee; });
       FM.assignRoles(state, state.user.club);
       state.v = 5;
+    }
+    if (state.v === 5) {
+      // Gedaempfte Zuschauerzahlen in 2. und 3. Liga: Sponsoring wird nur so weit
+      // angehoben, dass kein Verein durch die geringeren Ticketeinnahmen ins Minus rutscht.
+      Object.keys(state.clubs).forEach(function (cid) {
+        var c = state.clubs[cid];
+        if (c.league === 'bl') return;
+        var old = c.commercial || 0;
+        FM.calibrateCommercial(state, c);
+        c.commercial = Math.max(old, c.commercial);
+      });
+      state.v = 6;
     }
     return state;
   };
@@ -166,7 +178,7 @@
     try {
       if (!localStorage.getItem(FM.SAVE_KEY + (slot || 1))) return null;
       var meta = JSON.parse(localStorage.getItem(FM.SAVE_KEY + 'meta.' + (slot || 1)) || 'null');
-      if (!meta || [3, 4, FM.SAVE_VERSION].indexOf(meta.v) < 0) return { incompatible: true };
+      if (!meta || [3, 4, 5, FM.SAVE_VERSION].indexOf(meta.v) < 0) return { incompatible: true };
       return meta;
     } catch (e) { return null; }
   };

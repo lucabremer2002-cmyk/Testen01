@@ -68,7 +68,9 @@ exportieren und wieder importieren.
 - Kaderrollen mit Einsatzversprechen, unzufriedene Spieler, Wechselwünsche
 - KI-Vereine kaufen, leihen, ziehen Klauseln und schließen Vorverträge
   (Transferticker)
-- **Finanzen**: TV-Gelder, Sponsoring, Zuschauer (je Stadion), Prämien,
+- **Finanzen**: TV-Gelder, Sponsoring, Zuschauer (Bundesliga fast immer
+  ausverkauft; in 2. und 3. Liga füllen sich große Stadien deutlich schlechter,
+  zweite Mannschaften ziehen kaum Publikum), Prämien,
   Gehälter, Betriebskosten, Unterhalt der Infrastruktur, Kontostand-Verlauf
 - **Vorstandsbudgets** (Transfer- und Gehaltsbudget, siehe unten)
 - **Infrastruktur** mit sechs Abteilungen zum Ausbauen (siehe unten)
