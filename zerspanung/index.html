@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spanwerk</title>
+<meta name="description" content="Zerspanungsmechaniker-Simulator: Bohren, Gewindebohren, Reiben, Drehen und Fräsen mit echter Zerspanungsphysik.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Share+Tech+Mono&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23232a28'/%3E%3Cpath d='M13 3h6v17l-3 9-3-9z' fill='%23c9cfd4'/%3E%3Cpath d='M13 7l6 3M13 12l6 3M13 17l6 3' stroke='%23232a28' stroke-width='1.6'/%3E%3C/svg%3E">
+</head>
+<body>
+  <header class="kopf">
+    <button type="button" class="marke" data-nav="start" aria-label="Startseite">
+      <span class="marke__name">Spanwerk</span>
+      <span class="marke__zusatz">Zerspanungsmechaniker-Simulator</span>
+    </button>
+    <nav class="nav" aria-label="Hauptmenü">
+      <button type="button" data-nav="karriere">Karriere</button>
+      <button type="button" data-nav="werkstatt">Freie Werkstatt</button>
+      <button type="button" data-nav="tabellenbuch">Tabellenbuch</button>
+      <button type="button" data-nav="einstellungen">Einstellungen</button>
+    </nav>
+    <div class="kopf__rechts">
+      <span id="stufe-chip" class="chip chip--stufe">Azubi</span>
+      <button type="button" id="ton" class="knopf knopf--klein" aria-pressed="true">Ton an</button>
+    </div>
+  </header>
+
+  <main id="app">
+    <!-- ======================================================== Start -->
+    <section id="v-start" class="ansicht">
+      <div class="start">
+        <div class="start__text">
+          <p class="eyebrow">Ausbildungsberuf Zerspanungsmechaniker/-in</p>
+          <h1 class="start__titel">Wer zu fest zieht, bricht den Bohrer.</h1>
+          <p class="start__lead">Bohren, Gewindebohren, Reiben, Drehen und Fräsen an Säulenbohrmaschine, Drehmaschine, Konsolfräsmaschine und Bearbeitungszentrum. Schnittkraft nach Kienzle, Verschleiß nach Taylor, Spänestau, Knicken, Rattern und Wärmedehnung werden in jedem Moment gerechnet.</p>
+          <div class="start__knoepfe">
+            <button type="button" class="knopf knopf--gelb" data-nav="karriere">Karriere beginnen</button>
+            <button type="button" class="knopf" data-nav="werkstatt">Freie Werkstatt</button>
+          </div>
+        </div>
+        <div class="typenschild" aria-label="Typenschild">
+          <span class="niete niete--lo"></span><span class="niete niete--ro"></span>
+          <span class="niete niete--lu"></span><span class="niete niete--ru"></span>
+          <div class="typenschild__kopf">SPANWERK <span>SW-1</span></div>
+          <dl class="typenschild__daten">
+            <div><dt>Verfahren</dt><dd>5</dd></div>
+            <div><dt>Maschinen</dt><dd>4</dd></div>
+            <div><dt>Werkstoffe</dt><dd>8</dd></div>
+            <div><dt>Aufträge</dt><dd>15</dd></div>
+            <div><dt>Baujahr</dt><dd>2026</dd></div>
+            <div><dt>Schutzart</dt><dd>IP 54</dd></div>
+          </dl>
+          <div class="typenschild__stat" id="stat-schild"></div>
+        </div>
+      </div>
+      <div class="start__stufen">
+        <article class="stufe">
+          <h2>Azubi</h2>
+          <p>Volle Messwerte mit Bruchgrenzen, Oszilloskop und Meister, der rechtzeitig warnt.</p>
+        </article>
+        <article class="stufe">
+          <h2>Geselle</h2>
+          <p>Drehzahl, Vorschub und Spindellast wie an der Maschine. Gewarnt wird nicht mehr.</p>
+        </article>
+        <article class="stufe">
+          <h2>Meister</h2>
+          <p>Nur Digitalanzeige, Geräusch und Späne. Wie in der echten Werkstatt.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ======================================================== Karriere -->
+    <section id="v-karriere" class="ansicht" hidden>
+      <div class="kopfzeile">
+        <h1>Karriere</h1>
+        <p class="muted">Vom ersten Lehrjahr bis zur Gesellenprüfung. Bewertet wird nach dem IHK-Punkteschlüssel.</p>
+      </div>
+      <div id="missionen" class="missionen"></div>
+    </section>
+
+    <!-- ======================================================== Briefing -->
+    <section id="v-briefing" class="ansicht" hidden>
+      <div class="briefing">
+        <div class="briefing__zeichnung">
+          <canvas id="zeichnung" aria-label="Technische Zeichnung des Auftrags"></canvas>
+        </div>
+        <div class="briefing__text" id="briefing-text"></div>
+      </div>
+    </section>
+
+    <!-- ======================================================== Ruesten -->
+    <section id="v-ruesten" class="ansicht" hidden>
+      <div id="ruesten"></div>
+    </section>
+
+    <!-- ======================================================== Bearbeiten -->
+    <section id="v-bearbeiten" class="ansicht ansicht--maschine" hidden>
+      <div class="bb">
+        <div class="bb__kopf" id="bb-kopf"></div>
+        <div class="bb__buehne">
+          <canvas id="szene" aria-label="Maschinenansicht"></canvas>
+          <div id="live" class="live" aria-live="polite"></div>
+          <div id="overlay" class="overlay" hidden></div>
+        </div>
+        <aside class="pult" id="pult" aria-label="Bedienpult"></aside>
+        <div class="bb__bedien" id="bedien"></div>
+        <div class="bb__log" id="log" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- ======================================================== Pruefen -->
+    <section id="v-pruefen" class="ansicht" hidden>
+      <div id="pruefen"></div>
+    </section>
+
+    <!-- ======================================================== Werkstatt -->
+    <section id="v-werkstatt" class="ansicht" hidden>
+      <div class="kopfzeile">
+        <h1>Freie Werkstatt</h1>
+        <p class="muted">Ohne Auftrag, ohne Bewertung. Probier aus, was passiert, wenn man es falsch macht.</p>
+      </div>
+      <form id="werkstatt" class="werkstatt"></form>
+    </section>
+
+    <!-- ======================================================== Tabellenbuch -->
+    <section id="v-tabellenbuch" class="ansicht" hidden>
+      <div class="kopfzeile">
+        <h1>Tabellenbuch</h1>
+        <p class="muted">Richtwerte und Formeln, mit denen auch die Simulation rechnet.</p>
+      </div>
+      <div id="tabellenbuch" class="tabellenbuch"></div>
+    </section>
+
+    <!-- ======================================================== Einstellungen -->
+    <section id="v-einstellungen" class="ansicht" hidden>
+      <div class="kopfzeile"><h1>Einstellungen</h1></div>
+      <form id="einstellungen" class="einstellungen"></form>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/daten.js"></script>
+  <script src="js/physik.js"></script>
+  <script src="js/missionen.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/zeichnung.js"></script>
+  <script src="js/szenen.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/ruesten.js"></script>
+  <script src="js/bearbeiten.js"></script>
+  <script src="js/pruefen.js"></script>
+  <script src="js/spiel.js"></script>
+</body>
+</html>
