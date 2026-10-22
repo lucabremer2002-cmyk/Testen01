@@ -1060,6 +1060,9 @@
       ratter = a.amp;
       rf = a.fn;
       schneiden = sim.def.z;
+      quiet = a.stumpfReibt ? 0.9 : 0;
+      extra = { cnc: this.cnc, fZE: a.fZE, pulsGrad: a.pulsGrad, hammer: a.hammer, tischKlack: a.tischKlack, riemen: a.riemenGleitet ? 1 : 0,
+        kupplung: a.kupplung, fRat: 8 * (this.k.setup.param.vf || 100) / 300, iRel: this.cnc ? 0 : 0.35 + 0.65 * (a.lastM || 0), stumpfReibt: a.stumpfReibt, knack: a.knack };
     }
     kl.update({ n: a.n, nMax: this.cnc && this.art === 'dreh' ? Math.max(1, a.nSoll || a.n) : this.k.setup.param.n, last: a.last, schnitt: schnitt, vc: a.vc, schneiden: schneiden, ratter: ratter, ratterF: rf, quietsch: quiet, kss: this.inp.kss, extra: extra });
   };
@@ -1086,14 +1089,14 @@
         if (self.art === 'bohr') { self.inp.auto = false; }
       } else if (e.typ === 'durchbruch' && e.schwere === 'warn') {
         self.live(e.text, false);
-      } else if (e.typ === 'tischZieht' || e.typ === 'rutsch' || e.typ === 'steckt' || e.typ === 'thermoschock' || e.typ === 'motorschutz' || e.typ === 'alarm' || e.typ === 'spanbrand' || e.typ === 'abgewuergt') {
+      } else if (e.typ === 'tischZieht' || e.typ === 'rutsch' || e.typ === 'steckt' || e.typ === 'stall' || e.typ === 'stumpf' || e.typ === 'thermoschock' || e.typ === 'motorschutz' || e.typ === 'alarm' || e.typ === 'spanbrand' || e.typ === 'abgewuergt') {
         self.live(e.text, e.typ !== 'rutsch');
         if (e.typ === 'motorschutz') { self.inp.spindel = false; self.inp.vorschub = false; self.inp.plan = false; }
         if (e.typ === 'alarm' && kl) { kl.alarm(); }
       } else if (e.typ === 'mitte') {
         self.inp.plan = false;
       } else if (e.typ === 'rattern' || e.typ === 'wirr' || e.typ === 'riemen' || e.typ === 'aufschweiss' || e.typ === 'auszug' || e.typ === 'halter' || e.typ === 'ausgegluht' || e.typ === 'boden' ||
-        e.typ === 'kupplung' || e.typ === 'unterbrochen' || e.typ === 'zapfen' || e.typ === 'geklemmt' || e.typ === 'klemmHand' || e.typ === 'anfahren' || e.typ === 'rutscht') {
+        e.typ === 'kupplung' || e.typ === 'unterbrochen' || e.typ === 'zapfen' || e.typ === 'haemmern' || e.typ === 'schlitten' || e.typ === 'oberschlitten' || e.typ === 'ueberMitte' || e.typ === 'fliehkraft' || e.typ === 'geklemmt' || e.typ === 'klemmHand' || e.typ === 'anfahren' || e.typ === 'rutscht') {
         if (self.stufe !== 'meister' || e.typ === 'geklemmt' || e.typ === 'klemmHand') { self.live(e.text, e.typ === 'halter' || e.typ === 'boden' || e.typ === 'rutscht'); }
       }
       if (e.typ === 'sicherheit') { self.sicherheit += 1; }
@@ -1252,6 +1255,9 @@
       if (a.last > 0.95) { sag('last', 'Die Spindel ist an der Leistungsgrenze.', 6); }
       if (a.T > a.tSoft - 150 && a.ap > 0) { sag('T', 'Die Schneide glüht – Schnittgeschwindigkeit zu hoch.', 6); }
     } else {
+      if (a.hammer > 0.3) { sag('hammer', 'Der Tisch hämmert im Spiel der Spindel – weniger Zahnvorschub oder ein Fräser mit mehr Zähnen.', 5); }
+      if (a.riemenGleitet) { sag('riemen', 'Der Riemen rutscht! Vorschub aus. Bei dieser Drehzahlstufe hat die Spindel kaum Moment.', 4); }
+      if (a.stumpfReibt) { sag('stumpf', 'Der Stumpf reibt im Werkstück – sofort Vorschub und Spindel aus!', 3); }
       if (a.r > 0.72) { sag('r', 'Der Fräser ist bei ' + Math.round(a.r * 100) + ' % seiner Bruchgrenze!', 3); }
       if (a.amp > 2.5) { sag('amp', 'Der Fräser rattert. Weniger Tiefe oder andere Drehzahl.', 6); }
       if (a.aufschweiss > 0.5) { sag('al', 'Das Aluminium schweißt auf den Fräser.', 8); }

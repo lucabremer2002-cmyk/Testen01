@@ -352,36 +352,126 @@
     });
   }
 
+  // Drehteil: Kontur aus Absaetzen vom freien Ende her, Fase, plangedrehte Stirnflaeche
   function zeichneWelle(b, m) {
     var op = m.ops[0];
-    var D = op.wst.D, L = op.wst.L, d = op.d, l = op.laenge;
-    var s = Math.min(600 / L, 280 / D);
+    var K = ZM.daten.drehKontur(op), st = K.stufen;
+    var D = op.wst.D, spannL = op.wst.spannL || 0;
+    var Lp = K.plan ? K.plan.gesamt : spannL + op.wst.L;
+    var s = Math.min(640 / Lp, 260 / D);
     var ms = massstab(s);
     s = ms[0];
     b.massstab = ms[1];
-    var x0 = 130, yc = 250;
-    var w = L * s;
-    var xA = x0 + (L - l) * s;
-    // Rohteil-Bereich und Absatz
-    b.linie(x0, yc - D / 2 * s, xA, yc - D / 2 * s, 'dick');
-    b.linie(x0, yc + D / 2 * s, xA, yc + D / 2 * s, 'dick');
-    b.linie(xA, yc - D / 2 * s, xA, yc - d / 2 * s, 'dick');
-    b.linie(xA, yc + D / 2 * s, xA, yc + d / 2 * s, 'dick');
-    b.linie(xA, yc - d / 2 * s, x0 + w, yc - d / 2 * s, 'dick');
-    b.linie(xA, yc + d / 2 * s, x0 + w, yc + d / 2 * s, 'dick');
-    b.linie(x0 + w, yc - d / 2 * s, x0 + w, yc + d / 2 * s, 'dick');
-    b.linie(x0, yc - D / 2 * s, x0, yc + D / 2 * s, 'roh');
-    b.text('Spannseite', x0 - 6, yc + D / 2 * s + 18, 11, 'left');
-    b.linie(x0 - 20, yc, x0 + w + 20, yc, 'mitte');
-    var tol = ZM.daten.toleranz(d, op.tol);
-    b.mass(x0 + w - 30, yc + d / 2 * s, x0 + w - 30, yc - d / 2 * s, 0, 'Ø' + fmt(d) + ' ' + op.tol, 13);
-    b.mass(x0 + 30, yc + D / 2 * s, x0 + 30, yc - D / 2 * s, 0, 'Ø' + fmt(D), 13);
-    b.mass(xA, yc + D / 2 * s, x0 + w, yc + D / 2 * s, 34, fmt(l) + ' ±' + fmt(op.laengeTol), 13);
-    b.mass(x0, yc + D / 2 * s, x0 + w, yc + D / 2 * s, 64, fmt(L) + ' (Ausspannlänge)', 13);
-    b.rauheit((xA + x0 + w) / 2 - 10, yc - d / 2 * s, op.ra);
-    b.text('Ø' + fmt(d) + ' ' + op.tol + ' = ' + fmt(d + tol.u) + ' … ' + fmt(d + tol.o) + ' mm', 60, 500, 15);
-    b.text('Rohteil: Rundstahl Ø' + fmt(D) + ', im Dreibackenfutter gespannt, Spannlänge ' + fmt(op.wst.spannL) + ' mm', 60, 520, 13);
-    if (op.reitstockErlaubt) { b.text('Zentrierbohrung DIN 332-A 3,15 am freien Ende (Reitstock möglich)', 60, 538, 13); }
+    var x0 = 150, yc = 235;
+    var xE = x0 + Lp * s;
+    var fa = K.fase || 0;
+    function xs(abStirn) { return xE - abStirn * s; }
+    // Profil (obere Haelfte) vom Futterende zum freien Ende
+    var pkt = [[x0, D / 2]];
+    var i;
+    for (i = st.length - 1; i >= 0; i--) {
+      var rAlt = pkt[pkt.length - 1][1];
+      pkt.push([xs(st[i].bis), rAlt]);
+      pkt.push([xs(st[i].bis), st[i].d / 2]);
+    }
+    var rEnd = pkt[pkt.length - 1][1];
+    if (fa > 0 && st.length) {
+      pkt.push([xs(fa), rEnd]);
+      pkt.push([xE, rEnd - fa]);
+    } else {
+      pkt.push([xE, rEnd]);
+    }
+    var c = b.ctx;
+    [1, -1].forEach(function (seite) {
+      b.stil('dick');
+      c.beginPath();
+      pkt.forEach(function (p, k) {
+        var y = yc - seite * p[1] * s;
+        if (k === 0) { c.moveTo(p[0], y); } else { c.lineTo(p[0], y); }
+      });
+      c.stroke();
+    });
+    // Senkrechte Kanten: Schultern, Stirnflaechen
+    b.linie(x0, yc - D / 2 * s, x0, yc + D / 2 * s, 'dick');
+    st.forEach(function (x) { b.linie(xs(x.bis), yc - x.d / 2 * s, xs(x.bis), yc + x.d / 2 * s, 'duenn'); });
+    var rStirn = (fa > 0 && st.length ? rEnd - fa : rEnd);
+    b.linie(xE, yc - rStirn * s, xE, yc + rStirn * s, 'dick');
+    if (fa > 0 && st.length) { b.linie(xs(fa), yc - rEnd * s, xs(fa), yc + rEnd * s, 'duenn'); }
+    b.linie(x0 - 20, yc, xE + 24, yc, 'mitte');
+    // Spannbereich im Futter
+    if (spannL > 0) {
+      b.linie(x0 + spannL * s, yc - D / 2 * s - 8, x0 + spannL * s, yc - D / 2 * s + 6, 'duenn');
+      b.text('Spannbereich', x0 + spannL * s / 2, yc - D / 2 * s - 12, 11, 'center');
+    }
+    // Durchmesser
+    var dx = 0;
+    st.forEach(function (x, k) {
+      var von = k === 0 ? 0 : st[k - 1].bis;
+      var xm = xs((x.bis + von) / 2) + (k === 0 && fa > 0 ? -8 : 0);
+      b.mass(xm, yc + x.d / 2 * s, xm, yc - x.d / 2 * s, 0, 'Ø' + fmt(x.d) + ' ' + x.tol, 13);
+      if (x.ra) { b.rauheit(xm - 8 + dx, yc - x.d / 2 * s, x.ra); }
+    });
+    var xRoh = st.length ? (x0 + xs(st[st.length - 1].bis)) / 2 : (x0 + xE) / 2;
+    b.mass(xRoh, yc + D / 2 * s, xRoh, yc - D / 2 * s, 0, 'Ø' + fmt(D), 13);
+    // Laengen von der Stirnflaeche (Bezugskante) aus
+    var unten = yc + D / 2 * s;
+    st.forEach(function (x, k) {
+      b.mass(xs(x.bis), unten, xE, unten, 28 + 26 * k, fmt(x.bis) + ' ±' + fmt(K.laengeTol), 13);
+    });
+    if (K.plan) {
+      b.mass(x0, unten, xE, unten, 28 + 26 * st.length, fmt(K.plan.gesamt) + ' ±' + fmt(K.plan.tol), 13);
+      b.rauheit(xE + 14, yc - rStirn * s * 0.45, K.plan.ra || 3.2);
+      // Ebenheitsrahmen an der Stirnflaeche
+      if (K.plan.eben) {
+        var fx = xE + 20, fy = yc + rStirn * s * 0.4;
+        b.linie(xE, fy, fx, fy, 'duenn');
+        b.rechteck(fx, fy - 11, 22, 22, 'duenn');
+        b.rechteck(fx + 22, fy - 11, 44, 22, 'duenn');
+        b.linie(fx + 5, fy + 4, fx + 17, fy + 4, 'duenn');
+        b.linie(fx + 8, fy - 4, fx + 20, fy - 4, 'duenn');
+        b.linie(fx + 5, fy + 4, fx + 8, fy - 4, 'duenn');
+        b.linie(fx + 17, fy + 4, fx + 20, fy - 4, 'duenn');
+        b.text(fmt(K.plan.eben), fx + 44, fy + 5, 13, 'center');
+      }
+    } else {
+      b.mass(x0, unten, xE, unten, 28 + 26 * st.length, fmt(Lp) + ' (Rohteil)', 13);
+    }
+    if (fa > 0 && st.length) { b.hinweis(xE - fa * s * 0.5, yc - (rEnd - fa * 0.5) * s, xE + 30, yc - D / 2 * s - 30, fmt(fa) + ' × 45°'); }
+    // Werkstuecknullpunkt fuer die CNC
+    var cnc = ZM.daten.maschinen[op.maschine] && ZM.daten.maschinen[op.maschine].cnc;
+    if (cnc) {
+      c.save();
+      c.strokeStyle = b.farbe;
+      c.lineWidth = 1;
+      c.beginPath();
+      c.arc(xE, yc, 6, 0, Math.PI * 2);
+      c.stroke();
+      c.fillStyle = b.farbe;
+      c.beginPath();
+      c.moveTo(xE, yc);
+      c.arc(xE, yc, 6, 0, Math.PI / 2);
+      c.closePath();
+      c.fill();
+      c.beginPath();
+      c.moveTo(xE, yc);
+      c.arc(xE, yc, 6, Math.PI, Math.PI * 1.5);
+      c.closePath();
+      c.fill();
+      c.restore();
+      b.text('W', xE + 9, yc - 8, 13);
+    }
+    // Text unter der Ansicht
+    var ty = 470;
+    st.forEach(function (x) {
+      var t = ZM.daten.toleranz(x.d, x.tol);
+      b.text('Ø' + fmt(x.d) + ' ' + x.tol + ' = ' + fmt(x.d + t.u) + ' … ' + fmt(x.d + t.o) + ' mm', 60, ty, 14);
+      ty += 18;
+    });
+    b.text('Rohteil: Rundstahl Ø' + fmt(D) + (op.wst.saege ? ', gesägt' : '') + ', Länge ' + fmt(spannL + op.wst.L) + ' mm, im Dreibackenfutter gespannt (Spannlänge ' + fmt(spannL) + ' mm)', 60, ty + 2, 13);
+    ty += 18;
+    if (K.plan) { b.text('Stirnfläche plangedreht, Zapfen in der Mitte nicht zulässig', 60, ty + 2, 13); ty += 18; }
+    if (cnc) { b.text('Werkstücknullpunkt W auf der fertigen Stirnfläche in der Drehachse', 60, ty + 2, 13); ty += 18; }
+    if (op.reitstockErlaubt) { b.text('Zentrierbohrung DIN 332-A 3,15 am freien Ende (Reitstock möglich)', 60, ty + 2, 13); }
     b.text('Allgemein:', 60, BH - 70, 12);
     b.rauheit(120, BH - 52, 12.5);
   }

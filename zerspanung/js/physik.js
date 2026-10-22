@@ -2407,18 +2407,33 @@
     this.st = { maxR: 0, maxAmp: 0, maxP: 0, schnittZeit: 0, passes: 0 };
     this.pass = null;
     this.geoVersion = 0;
+    // Antrieb, Ueberlast, Tisch im Umkehrspiel, Funken
+    this.motorWaerme = 0; this.motorAus = false; this.nFehlerZeit = 0; this.drehzahlErreicht = false;
+    this.lastM = 0; this.Minst = 0; this.riemenGleitet = false; this.alarm = null; this.fZE = 0;
+    this.stumpfKraft = 0; this.stumpfReibt = false; this.kuppAkt = false; this.kupplung = 0;
+    this.FxMittel = 0; this.pulsGrad = 0; this.hammer = 0; this.tischE = 0; this.tischKlack = 0; this.klackAkku = 0;
+    this.verschub = 0; this.yVersatz = 0; this.rutscht = 0;
+    this.Tspan = T_UMG; this.Tsicht = T_UMG; this.glut = 0; this.funken = 0; this.funkenPuffer = 0; this.knack = 0; this.ausbruchMarke = 0;
+    this.ruck = 0; this.ruckFreq = 0; this.ruckPhase = 0;
     this.waende = [];
     this.steifigkeit();
   }
 
+  // Biegung abschnittsweise: Spannutenbereich mit gleichwertigem Durchmesser 0,8 D, Schaft mit D
+  FraesSim.prototype.nachgiebigkeitBei = function (Lh) {
+    var def = this.def, st = DAT.schneidstoffe[def.stoff], D = def.d;
+    var lc = Math.min(def.lc, Lh);
+    var If = Math.PI * Math.pow(0.8 * D, 4) / 64, Is = Math.PI * Math.pow(D, 4) / 64;
+    return (lc * lc * lc / If + (Lh * Lh * Lh - lc * lc * lc) / Is) / (3 * st.E) + 1 / (this.m.kHalter || 20000);
+  };
+
   FraesSim.prototype.steifigkeit = function () {
-    var def = this.def, st = DAT.schneidstoffe[def.stoff];
+    var def = this.def;
     var dk = def.kern * def.d;
-    var I = Math.PI * Math.pow(dk, 4) / 64;
     var L = this.auskrag;
-    var kHalter = this.m.kHalter || 20000;
-    this.c = L * L * L / (3 * st.E * I) + 1 / kHalter;
+    this.c = this.nachgiebigkeitBei(L);
     this.k = 1 / this.c;
+    this.tabCache = null;
     this.Wb = Math.PI * dk * dk * dk / 32;
     var mEff = 0.04 + 0.000004 * def.d * def.d * L;
     this.fn = Math.sqrt(this.k * 1000 / mEff) / (2 * Math.PI);
@@ -2434,6 +2449,9 @@
     this.fzRef = fRef(this.mat, this.def);
     this.auszug = 0;
     this.amp = 0;
+    this.bruchZ = undefined;
+    this.stumpfKraft = 0;
+    this.ausbruchMarke = 0;
     this.steifigkeit();
   };
 
@@ -2456,8 +2474,8 @@
 
   // Eingriff des Fraesers: Material unmittelbar vor der Schneidenbahn.
   // Abgetastet wird die Vorderkante des Fraeserkreises je Querposition s.
-  FraesSim.prototype.eingriff = function (dir) {
-    var R = this.R, z = this.zT + this.auszug;
+  FraesSim.prototype.eingriff = function (dir, zTiefe) {
+    var R = this.R, z = zTiefe !== undefined ? zTiefe : this.zT + this.auszug;
     var N = 40, i, eng = 0, apMax = 0, sSum = 0, links = false, rechts = false;
     var eps = FX + this.m.rundlauf + 0.05;
     for (i = 0; i < N; i++) {
@@ -2480,7 +2498,7 @@
 
   FraesSim.prototype.abtragen = function () {
     var R = this.R + this.m.rundlauf * 0.5 + (this.amp / 1000) * 0.5;
-    var y = this.y + this.deltaY;
+    var y = this.y + this.deltaY + (this.yVersatz || 0);
     var z = this.zT + this.auszug;
     var x0 = Math.max(0, Math.floor((this.x - R) / FX)), x1 = Math.min(this.NX - 1, Math.floor((this.x + R) / FX));
     var ix, iy, ra = this.raAkt || 1;
@@ -2505,17 +2523,59 @@
     this.zeit += dt;
     var kssAn = !!inp.kss && this.p.kss !== 'trocken';
     var kd = kssAn ? this.kssDef : DAT.kss.trocken;
+    var MF = mat.funke ? mat.funke.f : 0;
     var notaus = !!inp.notaus;
-    var nSoll = inp.spindel && !notaus && !w.gebrochen ? this.p.n * (inp.ovS || 1) : 0;
-    var a = Math.max(this.p.n, 200) / m.hochlauf;
-    if (this.n < nSoll) { this.n = Math.min(nSoll, this.n + a * dt); }
-    else if (this.n > nSoll) { this.n = Math.max(nSoll, this.n - a * (notaus ? 3 : 1) * dt); }
-    var Pmax = m.P * m.eta;
-    var last = this.Pc / Pmax;
-    this.nEff = this.n * (1 - 0.04 * Math.min(1, last) - (last > 1 ? 0.5 * (last - 1) : 0));
-    if (last > 1.15) { this.ev.einmalig(this.zeit, 'ueberlast', 'Spindelüberlast (' + Math.round(last * 100) + ' %).', 'warn', 4); }
-    var nRev = Math.max(0, this.nEff) / 60;
 
+    // ------------------------------------------------ Hauptantrieb
+    // Die Spindel laeuft auch nach einem Fraeserbruch weiter, bis jemand sie abschaltet.
+    var nStufe = this.p.n * (m.cnc && inp.ovS !== undefined ? inp.ovS : 1);
+    var nSoll = inp.spindel && !notaus && !this.motorAus ? nStufe : 0;
+    var aR = Math.max(this.p.n, 200) / m.hochlauf;
+    var Mlast = this.Minst || 0;
+    if (m.cnc) {
+      // Servospindel: drehzahlfest bis zur Momentgrenze, dann Einbruch, Alarm und Vorschubhalt
+      this.n = nSoll;
+      var J = m.J || 0.03;
+      var Mverf = Math.min(m.mMax || 120, 9550 * 1.3 * m.P / Math.max(this.nEff, 1));
+      if (this.nEff < this.n) { this.nEff = Math.min(this.n, this.nEff + Math.min(aR * 1.5, Math.max(0, Mverf - Mlast) / J * 9.55) * dt); }
+      else if (this.nEff > this.n) { this.nEff = Math.max(this.n, this.nEff - aR * (notaus ? 3 : 1.5) * dt); }
+      if (Mlast > Mverf && this.nEff > 0) { this.nEff = Math.max(0, this.nEff - (Mlast - Mverf) / J * 9.55 * dt); }
+      if (nSoll > 50 && this.nEff < 0.9 * nSoll && this.drehzahlErreicht) {
+        this.nFehlerZeit += dt;
+        if (this.nFehlerZeit > 0.3) { this.alarmSetzen('Alarm 2002: Spindeldrehzahl außerhalb der Toleranz (' + Math.round(this.nEff) + ' statt ' + Math.round(nSoll) + ' 1/min) – Vorschubhalt.'); }
+      } else { this.nFehlerZeit = 0; }
+      if (this.nEff >= 0.98 * nSoll && nSoll > 0) { this.drehzahlErreicht = true; }
+      if (nSoll === 0) { this.drehzahlErreicht = false; }
+      this.lastM = Mlast / Math.max(1, 9550 * m.P / Math.max(this.nEff, 1));
+      this.riemenGleitet = false;
+    } else {
+      // Asynchronmotor, Keilriemen und Stufengetriebe: Moment je Stufe ~ 1/n
+      if (this.n < nSoll) { this.n = Math.min(nSoll, this.n + aR * dt); }
+      else if (this.n > nSoll) { this.n = Math.max(nSoll, this.n - aR * (notaus ? 3 : 1) * dt); }
+      var MN = 9550 * m.P * m.eta / Math.max(this.p.n, 1);
+      var mu = Mlast / MN;
+      this.lastM = mu;
+      var kR = m.riemen || 1.8;
+      var sR = mu > kR ? clamp(0.3 * (mu - kR), 0, 1) : 0;
+      this.riemenGleitet = sR > 0 && this.n > 5;
+      if (this.riemenGleitet) { this.ev.einmalig(this.zeit, 'riemen', 'Der Keilriemen quietscht und rutscht – das Lastmoment ist ' + nf(mu, 1) + '-mal so groß wie das Nennmoment dieser Stufe.', 'warn', 5); }
+      if (mu > 2.5 && this.n > 5) {
+        this.n = Math.max(0, this.n - (mu - 2.5) * this.p.n / 0.3 * dt);
+        this.ev.einmalig(this.zeit, 'stall', 'Der Motor kippt – die Spindel bleibt fast stehen. Der Vorschub läuft weiter: Vorschub sofort aus!', 'fehler', 4);
+      }
+      this.nEff = this.n * Math.max(0, 1 - motorSchlupf(mu) - sR);
+      // Thermisches Abbild des Motorschutzschalters (Klasse 10)
+      var I = this.n > 5 ? 0.35 + 0.65 * mu : 0;
+      this.motorWaerme += (I * I - this.motorWaerme) * dt / 140;
+      if (this.motorWaerme >= 1.3 && !this.motorAus) {
+        this.motorAus = true;
+        this.ev.add(this.zeit, 'motorschutz', 'Klack – der Motorschutzschalter hat ausgelöst.', 'fehler');
+      }
+    }
+    var nRev = Math.max(0, this.nEff) / 60;
+    this.fZE = nRev * def.z;
+
+    // ------------------------------------------------ Achsen
     // Zustellung in Z/Y nur ausserhalb des Werkstuecks
     var aussen = this.x + this.R < -0.5 || this.x - this.R > this.L + 0.5;
     if (inp.zZiel !== undefined && inp.zZiel !== null) { this.zZiel = inp.zZiel; }
@@ -2524,18 +2584,17 @@
       this.zT += clamp(this.zZiel - this.zT, -3 * dt, 3 * dt);
       this.y += clamp(this.yZiel - this.y, -5 * dt, 5 * dt);
     }
-
     var dir = this.p.richtung || 1;
     var vx = 0;
-    var vf = this.p.vf * (inp.ovF === undefined ? 1 : inp.ovF) / 60;
-    if (inp.vorschub && nRev > 0.05) { vx = dir * vf; }
+    var vf = this.alarm ? 0 : this.p.vf * (inp.ovF === undefined ? 1 : inp.ovF) / 60;
+    var tischVorschub = false;
+    if (inp.vorschub && nRev > 0.05) { vx = dir * vf; tischVorschub = true; }
     else if (inp.xHand) { vx = inp.xHand * (inp.eil ? 40 : 5); dir = inp.xHand > 0 ? 1 : -1; }
-    if (inp.vorschub && !(nRev > 0.05) && this.eingriffAkt && this.eingriffAkt.ap > 0) {
+    if (inp.vorschub && !(nRev > 0.05) && this.eingriffAkt && this.eingriffAkt.ap > 0 && !w.gebrochen) {
       vx = dir * vf;
+      tischVorschub = true;
     }
 
-    // Spiel im Gleichlauf: der Fraeser zieht den Tisch nach
-    var spielSprung = 0;
     var g = this.eingriff(vx >= 0 ? 1 : -1);
     this.eingriffAkt = g;
     var gleichlauf;
@@ -2543,72 +2602,137 @@
     else { gleichlauf = (g.seite * (vx >= 0 ? 1 : -1)) < 0 ? 1 : 0; }
     this.gleichlauf = gleichlauf;
 
+    // Abgebrochener Fraeser: Schneidet nicht mehr. Steckt der Stumpf im Werkstueck, reibt er.
+    var stumpf = null;
+    if (w.gebrochen && this.bruchZ !== undefined) {
+      var zStumpf = this.zT + this.auszug - this.bruchZ;
+      if (zStumpf > 0.005) {
+        var gS = this.eingriff(vx >= 0 ? 1 : -1, zStumpf);
+        if (gS.ap > 0.005) { stumpf = gS; }
+      }
+    }
+    // Vorschubkraft gegen Kupplung (konventionell) bzw. Achse (CNC): praktisch nur mit Stumpf
+    if (stumpf && Math.abs(vx) > 1e-4) {
+      this.stumpfKraft = Math.min(this.stumpfKraft + 20000 * Math.abs(vx) * dt, 30000);
+    } else {
+      this.stumpfKraft = Math.max(0, this.stumpfKraft - 40000 * dt);
+    }
+    var Fvor = this.stumpfKraft + (m.tischReibung || 200) + Math.max(0, -(this.FxMittel || 0));
+    if (tischVorschub && !m.cnc && Fvor > (m.kupplung || 9000)) {
+      this.kuppAkt = true;
+      this.ev.einmalig(this.zeit, 'kupplung', 'Die Vorschubkupplung knattert – der Tisch steht, der Fräser dreht im Werkstück. Vorschub aus!', 'warn', 5);
+    } else if (!tischVorschub || Fvor < 0.9 * (m.kupplung || 9000)) { this.kuppAkt = false; }
+    if (this.kuppAkt) { vx = 0; }
+    if (tischVorschub && m.cnc && Fvor > (m.maxSchub || 12000)) {
+      this.alarmSetzen('Alarm 1020: Schleppabstand X-Achse überschritten – Achse blockiert.');
+      vx = 0;
+    } else if (stumpf && Math.abs(vx) > 1e-4 && this.stumpfKraft > 2000) {
+      // Der Stumpf pfluegt nur noch langsam durch das Material
+      vx *= 0.02;
+    }
+    this.kupplung += ((this.kuppAkt ? 1 : 0) - this.kupplung) * Math.min(1, dt / 0.3);
+
     var fz = nRev > 0.05 ? Math.abs(vx) / (nRev * def.z) : 0;
-    var schneidet = g.ap > 0.005 && g.ae > 0.02 && (nRev > 0.05) && Math.abs(vx) > 1e-4;
-    if (g.ap > 0.005 && g.ae > 0.02 && nRev <= 0.05 && Math.abs(vx) > 1e-4) {
-      // Vorschub gegen stehenden Fraeser
+    var schneidet = !w.gebrochen && g.ap > 0.005 && g.ae > 0.02 && (nRev > 0.05) && Math.abs(vx) > 1e-4;
+    if (!w.gebrochen && g.ap > 0.005 && g.ae > 0.02 && nRev <= 0.05 && Math.abs(vx) > 1e-4) {
       this.bruch({ text: 'Der Tisch wurde mit stehender Spindel gegen das Werkstück gefahren. Der Fräser ist abgebrochen.' }, 0);
       return;
     }
 
-    var Fc = 0, M = 0, Flat = 0, Fax = 0, kc = 0, hm = 0, ze = 0, phiS = 0;
+    // ------------------------------------------------ Kraefte aus der Zahnkraftsumme
+    var Fc = 0, M = 0, Flat = 0, FlatMax = 0, Fax = 0, kc = 0, hm = 0, ze = 0, phiS = 0, tab = null;
+    var spielSprung = 0, faktorSp = 1;
     var vc = Math.PI * def.d * this.nEff / 1000;
     this.vc = vc;
+    this.hammer = 0;
     if (schneidet) {
       var aeRel = clamp(g.ae / def.d, 0.01, 1);
-      phiS = g.beide ? Math.PI : Math.acos(1 - 2 * aeRel);
-      hm = fz * (1 - Math.cos(phiS)) / phiS;
-      if (g.beide) { hm = fz * 2 / Math.PI; }
+      phiS = gleichlauf === 0.5 ? Math.PI : Math.acos(1 - 2 * aeRel);
+      hm = gleichlauf === 0.5 ? fz * 2 / Math.PI : fz * (1 - Math.cos(phiS)) / phiS;
       var bue = aufbauschneide(mat, vc, def.stoff, kd);
       var kver = 1 + 1.3 * w.VB + 0.8 * w.ausbruch + 2.5 * Math.max(0, w.aufschweiss - 0.6);
-      kc = kcKienzle(mat, hm) * this.kGam * kd.kc * kver * kV(vc, def.stoff) * (1 - 0.1 * bue);
-      ze = def.z * phiS / (2 * Math.PI);
       var tiefRatio = g.ap / def.d;
       var nachschnitt = 1;
-      if (tiefRatio > 1.5 && mat.span === 'lang' && g.beide) { nachschnitt = 1 + 0.3 * (tiefRatio - 1.5); }
-      Fc = kc * g.ap * hm * ze * g.frac * nachschnitt;
+      if (tiefRatio > 1.5 && mat.span === 'lang' && gleichlauf === 0.5) { nachschnitt = 1 + 0.3 * (tiefRatio - 1.5); }
+      var faktor = this.kGam * kd.kc * kver * kV(vc, def.stoff) * (1 - 0.1 * bue) * nachschnitt;
+      tab = this.zahnTabelle(g.ae, g.ap, fz, gleichlauf, faktor);
+      kc = tab.Ft / Math.max(1e-6, g.ap * Math.max(hm, 1e-4) * Math.max(def.z * phiS / (2 * Math.PI), 0.05));
+      ze = def.z * phiS / (2 * Math.PI);
+      Fc = tab.Ft;
       M = Fc * this.R;
-      var kr = g.beide ? 0.55 : 1.1 - 0.35 * phiS / Math.PI;
-      Flat = Fc * kr;
+      Flat = tab.Flat;
+      FlatMax = tab.FlatMax;
       Fax = Fc * Math.tan(def.drall * DEG) * 0.35;
-      this.raAkt = 0.5 + 18 * fz * (this.m.rundlauf > 0.01 ? 1.5 : 1) + 1.5 * bue + 0.25 * this.amp + 2 * w.VB + (gleichlauf < 0.5 ? 0.35 : 0) + 3 * Math.max(0, w.aufschweiss - 0.5);
+      this.FxMittel = tab.Fx;
+      this.pulsGrad = tab.puls;
 
-      // Umkehrspiel (konventionelle Maschine, Gleichlauf)
-      if (m.umkehrspiel > 0 && gleichlauf > 0.4 && !this.spielGenommen) {
-        var Fx = Fc * (0.85 * gleichlauf - 0.6 * (1 - gleichlauf));
-        if (Fx > (m.tischReibung || 350) && Math.abs(vx) > 0) {
-          this.spielGenommen = true;
-          spielSprung = m.umkehrspiel * (vx >= 0 ? 1 : -1);
-          var fzSpitze = fz + m.umkehrspiel / (def.z * Math.max(0.3, nRev * 0.05) );
-          fzSpitze = Math.min(fzSpitze, fz + m.umkehrspiel);
-          var faktor = Math.pow(fzSpitze / Math.max(fz, 0.005), 1 - mat.mc);
-          this.ev.add(this.zeit, 'tischZieht', 'Der Tisch hat gezogen! Im Gleichlauf hat der Fräser das Umkehrspiel (' + nf(m.umkehrspiel, 2) +
-            ' mm) der Tischspindel herausgerissen. Auf konventionellen Maschinen im Gegenlauf fräsen.', 'warn');
-          Fc *= faktor;
-          Flat *= faktor;
-          M *= faktor;
-          this.spitzeGezogen = faktor;
+      // Tisch der Konsolmaschine im Umkehrspiel: Ziehen (einmaliger Sprung) bzw. Haemmern
+      if (m.umkehrspiel > 0 && Math.abs(vx) > 0) {
+        var sU = m.umkehrspiel, FR = m.tischReibung || 350, mT = 220, fZE = Math.max(this.fZE, 0.5);
+        if (tab.FxMax > FR && tab.FxMin < -FR) {
+          var dF = (tab.FxMax - tab.FxMin) / 2;
+          var AT = Math.min(sU / 2, (dF - FR) / (mT * sq(2 * Math.PI * fZE)) * 1000);
+          this.hammer = AT / (sU / 2);
+          faktorSp = Math.pow((fz + 2 * AT) / Math.max(fz, 0.005), 1 - mat.mc);
+          this.tischE = sU / 2 + AT * Math.sin(2 * Math.PI * fZE * this.zeit);
+          if (AT >= sU / 2 - 1e-6) {
+            this.klackAkku += fZE * dt;
+            while (this.klackAkku >= 1) { this.klackAkku -= 1; this.tischKlack += 1; }
+          }
+          this.ev.einmalig(this.zeit, 'haemmern', 'Der Tisch hämmert im Umkehrspiel – die Vorschubkraft wechselt bei jedem Zahn die Richtung. Kleinerer Zahnvorschub, mehr Zähne oder die Tischklemmung leicht anziehen.', 'warn', 8);
+        } else if (tab.FxMax > FR && this.tischE < 1e-6) {
+          // Gleichlauf: Der Fraeser zieht den Tisch um das Spiel nach vorn
+          var tspr = Math.sqrt(2 * sU / 1000 * mT / (tab.FxMax - FR));
+          var fzSpitze = fz + sU * Math.min(1, (1 / fZE) / tspr);
+          faktorSp = Math.pow(fzSpitze / Math.max(fz, 0.005), 1 - mat.mc);
+          spielSprung = sU * (vx >= 0 ? 1 : -1);
+          this.tischE = sU;
+          this.tischKlack += 1;
+          this.spitzeGezogen = faktorSp;
+          w.ausbruch = Math.min(1, w.ausbruch + 0.03 * faktorSp);
+          this.ev.add(this.zeit, 'tischZieht', 'Der Tisch hat gezogen! Im Gleichlauf hat der Fräser das Umkehrspiel (' + nf(sU, 2) +
+            ' mm) der Tischspindel herausgerissen – der Zahn bekam schlagartig ' + nf(fzSpitze, 2) + ' mm statt ' + nf(fz, 3) + ' mm. Auf konventionellen Maschinen im Gegenlauf fräsen.', 'warn');
+        } else if (tab.FxMin < -FR) {
+          this.tischE = 0;
         }
       }
+      this.raAkt = 0.5 + 18 * fz * (this.m.rundlauf > 0.01 ? 1.5 : 1) + 1.5 * bue + 0.25 * this.amp + 2 * w.VB + (gleichlauf < 0.5 ? 0.35 : 0) +
+        3 * Math.max(0, w.aufschweiss - 0.5) + Math.min(12, 10 * this.hammer * (m.umkehrspiel || 0) / 2 / Math.max(fz, 0.005)) * 0.3;
     } else {
       this.raAkt = this.raAkt || 1;
+      this.pulsGrad = 0;
+      this.FxMittel = 0;
+      if (!tischVorschub) { this.tischE = 0; }
     }
-    if (!schneidet && this.spielGenommen && Math.abs(vx) < 1e-4) { this.spielGenommen = false; }
 
     this.Fc = Fc; this.M = M / 1000; this.Flat = Flat; this.ae = schneidet ? g.ae : 0; this.apE = schneidet ? g.ap : 0;
     this.fz = fz; this.hm = hm;
     this.Pc = M / 1000 * this.nEff / 9550;
+    this.Minst = M / 1000 * (1 + 0.3 * (this.pulsGrad || 0));
     if (this.Pc > this.st.maxP) { this.st.maxP = this.Pc; }
 
-    // Durchbiegung und Wandfehler
+    // ------------------------------------------------ Durchbiegung und Wandfehler
     var lever = Math.max(1, this.auskrag - g.ap / 2);
-    var delta = Flat * (lever * lever * (3 * this.auskrag - lever)) / (6 * DAT.schneidstoffe[def.stoff].E * Math.PI * Math.pow(def.kern * def.d, 4) / 64) + Flat / (this.m.kHalter || 20000);
+    var cL = this.nachgiebigkeitBei(lever);
+    var delta = Flat * cL;
     this.delta = delta;
-    var richtY = g.beide ? 0.3 : (g.seite > 0 ? -1 : 1) * 0.8;
-    this.deltaY = schneidet ? -richtY * delta * (g.seite > 0 ? 1 : -1) : 0;
-    if (g.beide && schneidet) { this.deltaY = 0.3 * delta * (this.rng.next() - 0.5); }
+    // Die Querkraft drueckt den Fraeser systematisch (in der Vollnut zur Gegenlaufseite)
+    this.deltaY = schneidet && tab ? (vx >= 0 ? 1 : -1) * tab.Fy * cL : 0;
 
-    // Rattern
+    // ------------------------------------------------ Werkstueck im Schraubstock
+    if (schneidet) {
+      var Fsp = { fest: 20000, kraft: 35000, leicht: 4000 }[this.p.spann] || 20000;
+      var FH = 2 * 0.12 * Fsp;
+      if (FlatMax * faktorSp > FH) {
+        var gleit = clamp(FlatMax * faktorSp / FH - 1, 0, 1);
+        this.verschub += Math.abs(vx) * gleit * dt;
+        this.rutscht = gleit;
+        this.yVersatz += (this.rng.next() - 0.5) * 0.004 * gleit;
+        this.ev.einmalig(this.zeit, 'rutscht', 'Das Werkstück rutscht im Schraubstock (Querkraft ' + Math.round(FlatMax) + ' N, die Backen halten etwa ' + Math.round(FH) + ' N). Fester spannen!', 'warn', 6);
+      } else { this.rutscht = 0; }
+    } else { this.rutscht = 0; }
+
+    // ------------------------------------------------ Rattern
     if (schneidet) {
       var bl = this.bLim(kc, ze);
       this.bLimAkt = bl;
@@ -2626,14 +2750,19 @@
     }
     if (this.amp > this.st.maxAmp) { this.st.maxAmp = this.amp; }
 
-    // Werkzeugbelastung
+    // ------------------------------------------------ Werkzeugbelastung
     var stoff = DAT.schneidstoffe[def.stoff];
-    var Fspitze = Flat * (1 + 0.5 / Math.max(ze, 0.5)) * (1 + this.amp / 50);
-    var sigB = Fspitze * lever / this.Wb;
-    var tau = M / (2 * this.Wb);
-    var sigV = Math.sqrt(sigB * sigB + 3 * tau * tau);
-    var dyn = istVHM(def.stoff) ? 1 / 0.55 : 1 / 0.6;
-    var r = belastung(w, sigV * dyn, dt, w.T);
+    var r = 0, sigB = 0, tau = 0;
+    if (!w.gebrochen) {
+      var Fspitze = FlatMax * faktorSp * (1 + this.amp / 50);
+      sigB = Fspitze * lever / this.Wb;
+      tau = M * faktorSp / (2 * this.Wb);
+      var sigV = Math.sqrt(sigB * sigB + 3 * tau * tau);
+      var dyn = istVHM(def.stoff) ? 1 / 0.55 : 1 / 0.6;
+      r = belastung(w, sigV * dyn, dt, w.T);
+      // Ueberlastete Schneidecken broeckeln (Mikroausbrueche, bei Eisen und hoher vc mit Funken)
+      if (r > 0.8 && schneidet) { w.ausbruch = Math.min(1, w.ausbruch + 0.05 * (r - 0.8) * dt); }
+    }
     this.r = r;
     if (r > this.st.maxR) { this.st.maxR = r; }
 
@@ -2654,7 +2783,7 @@
       }
     }
 
-    // Temperatur und Verschleiss
+    // ------------------------------------------------ Temperatur und Verschleiss
     if (schneidet) {
       var Tss = tempStat(mat, vc, Math.max(hm, 0.005), 0.7, kd.temp) + 220 * w.VB + 150 * Math.max(0, w.aufschweiss - 0.5);
       w.T += (Tss - w.T) * Math.min(1, dt / 1.2);
@@ -2663,16 +2792,59 @@
       w.VB = Math.min(1.2, w.VB + dVB * dt);
       w.einsatz += dt;
       this.st.schnittZeit += dt;
+    } else if (stumpf && nRev > 0.05) {
+      // Reibender Stumpf: Reibleistung heizt Stumpf und Werkstueck
+      var vRub = Math.PI * def.d * this.nEff / 60000;
+      var PR = 0.4 * this.stumpfKraft * vRub;
+      w.T += (Math.min(1100, T_UMG + PR * 0.4) - w.T) * Math.min(1, dt / 1.5);
     } else {
       var tauK = kd.kuehl > 0 ? 2 / kd.kuehl : 7;
       w.T += (T_UMG - w.T) * Math.min(1, dt / tauK);
     }
     if (w.T > w.maxT) { w.maxT = w.T; }
 
-    // Bewegung und Abtrag
+    // ------------------------------------------------ Spantemperatur, Gluehen, Funken
+    this.Tspan = schneidet ? T_UMG + 0.85 * (w.T - T_UMG) : T_UMG;
+    this.Tsicht = this.Tspan;
+    var eisen = mat.iso === 'P' || mat.iso === 'M' || mat.iso === 'S' || mat.iso === 'H';
+    this.glut = eisen && schneidet ? clamp((this.Tspan - 550) / 250, 0, 1) * (kd.kuehl > 0.5 ? 0.3 : 1) : 0;
+    var fRate = 0;
+    if (MF > 0 && schneidet) {
+      var Q = g.ap * g.ae * Math.abs(vx) * 60 / 1000;
+      fRate += 60 * clamp((this.Tspan - 750) / 250, 0, 1) * Math.min(1, Q / 10) * (hm < 0.08 ? 1 : 0.5) * (kd.kuehl > 0.5 ? 0.2 : 1);
+      if (mat.iso === 'S' && (this.Tspan > 650 || (w.VB > 0.3 && !kssAn))) { fRate += 30; }
+      fRate *= MF;
+      while (w.ausbruch - this.ausbruchMarke >= 0.05) {
+        this.ausbruchMarke += 0.05;
+        if (vc > 100) { this.funkenPuffer += (2 + 4 * this.rng.next()) * MF; this.knack += 1; }
+      }
+    }
+    this.stumpfReibt = !!stumpf && nRev > 0.05;
+    if (this.stumpfReibt) {
+      var vR = Math.PI * def.d * this.nEff / 60000, PRr = 0.4 * this.stumpfKraft * vR;
+      fRate += MF * 40 * clamp((vR - 1.5) / 2, 0, 1) * clamp(PRr / 1000, 0, 2);
+      this.ev.einmalig(this.zeit, 'stumpf', 'Der abgebrochene Fräserstumpf reibt im Werkstück – es quietscht und raucht. Vorschub aus, Spindel aus!', 'fehler', 6);
+    }
+    this.funken = Math.min(150, fRate);
+    if (this.funken > 5) { this.st.funken = (this.st.funken || 0) + this.funken * dt; }
+
+    // ------------------------------------------------ Ruckeln: Gesamtzustand und Takt
+    var rH = this.hammer, rRi = this.riemenGleitet && this.nEff > 20 ? 1 : 0;
+    var rMo = m.cnc ? 0 : clamp((this.lastM - 1) / 1.5, 0, 1), rK = this.kupplung, rV = this.rutscht ? 1 : 0;
+    this.ruck += ((1 - (1 - rH) * (1 - rRi) * (1 - 0.5 * rMo) * (1 - rK) * (1 - rV)) - this.ruck) * Math.min(1, dt / 0.1);
+    var kand = [[rH, this.fZE], [rRi, 5.4], [0.5 * rMo, nRev], [rK, 8 * (this.p.vf || 100) / 300], [rV, nRev]], kb = kand[0], ki;
+    for (ki = 1; ki < kand.length; ki++) { if (kand[ki][0] > kb[0]) { kb = kand[ki]; } }
+    this.ruckFreq = kb[1];
+    this.ruckPhase = ((this.ruckPhase || 0) + 2 * Math.PI * this.ruckFreq * dt) % (2 * Math.PI);
+
+    // ------------------------------------------------ Bewegung und Abtrag
     var xAlt = this.x;
     this.x += vx * dt + spielSprung;
-    if (Math.abs(this.x - (this.xAbtrag === undefined ? -1e9 : this.xAbtrag)) > FX * 0.5 || spielSprung) {
+    if (spielSprung) {
+      // Querliegende Marke am Nutgrund dort, wo der Tisch gesprungen ist
+      this.markeSprung(xAlt, this.x);
+    }
+    if (!w.gebrochen && (Math.abs(this.x - (this.xAbtrag === undefined ? -1e9 : this.xAbtrag)) > FX * 0.5 || spielSprung)) {
       this.abtragen();
       this.xAbtrag = this.x;
     }
@@ -2680,15 +2852,74 @@
     if (!schneidet && this.pass && Math.abs(this.x - xAlt) > 0 && (this.x - this.R > this.L || this.x + this.R < 0)) {
       this.pass = null;
       this.st.passes += 1;
-      this.spielGenommen = false;
+      this.tischE = 0;
     }
     if (schneidet && g.ae < 1.95 * this.R) {
       this.raWand = this.raAkt;
     }
 
-    if (r >= 1 || w.schaden >= 1) {
+    if (!w.gebrochen && (r >= 1 || w.schaden >= 1)) {
       this.bruch(this.bruchText(r, sigB, tau, g, fz), this.M);
     }
+  };
+
+  // Zahnkraefte ueber eine Zahnteilung (Altintas): je Winkel die Summe ueber alle Zaehne und
+  // Axialscheiben (Drall). Kraefte am Werkzeug im Vorschubsystem: x in Vorschubrichtung,
+  // y quer dazu (+ = Seite, auf der im Gegenlauf geschnitten wird). Gecacht.
+  FraesSim.prototype.zahnTabelle = function (ae, ap, fz, gl, faktor) {
+    var c = this.tabCache, def = this.def, w = this.w;
+    function nah(a, b) { return Math.abs(a - b) <= 0.03 * Math.max(Math.abs(a), Math.abs(b), 1e-6); }
+    if (c && c.gl === gl && c.z === def.z && nah(c.ae, ae) && nah(c.ap, ap) && nah(c.fz, fz) && nah(c.faktor, faktor) && Math.abs(c.VB - w.VB) < 0.02) { return c.erg; }
+    var D = def.d, z = def.z, mat = this.mat;
+    var phiA = Math.acos(clamp(1 - 2 * ae / D, -1, 1));
+    var ein = gl === 0.5 ? 0 : (gl === 1 ? Math.PI - phiA : 0);
+    var aus = gl === 0.5 ? Math.PI : (gl === 1 ? Math.PI : phiA);
+    var MW = 36, K = 6, eRl = this.m.rundlauf / 2, Kr = Math.min(1, 0.35 + 0.8 * w.VB);
+    var tanD = Math.tan(def.drall * DEG), dap = ap / K, tp = 2 * Math.PI / z, zwei = 2 * Math.PI;
+    var sFt = 0, sFx = 0, sFy = 0, maxF = 0, ftMin = 1e9, ftMax = 0, fxMin = 1e9, fxMax = -1e9, mi, j, kk;
+    for (mi = 0; mi < MW; mi++) {
+      var th = tp * mi / MW, Ft = 0, Fx = 0, Fy = 0;
+      for (j = 0; j < z; j++) {
+        var dr = eRl * (Math.cos(j * tp) - Math.cos((j - 1) * tp));
+        for (kk = 0; kk < K; kk++) {
+          var ph = th + j * tp - 2 * (kk + 0.5) * dap * tanD / D;
+          ph = ((ph % zwei) + zwei) % zwei;
+          if (ph < ein || ph > aus) { continue; }
+          var hh = fz * Math.sin(ph) + dr;
+          if (hh <= 0) { continue; }
+          var dFt = kcKienzle(mat, Math.max(hh, 0.005)) * faktor * hh * dap, dFr = Kr * dFt;
+          Ft += dFt;
+          Fx += -dFt * Math.cos(ph) - dFr * Math.sin(ph);
+          Fy += dFt * Math.sin(ph) - dFr * Math.cos(ph);
+        }
+      }
+      sFt += Ft; sFx += Fx; sFy += Fy;
+      var F = Math.sqrt(Fx * Fx + Fy * Fy);
+      if (F > maxF) { maxF = F; }
+      if (Ft < ftMin) { ftMin = Ft; }
+      if (Ft > ftMax) { ftMax = Ft; }
+      if (Fx < fxMin) { fxMin = Fx; }
+      if (Fx > fxMax) { fxMax = Fx; }
+    }
+    var Ftm = sFt / MW, Fxm = sFx / MW, Fym = sFy / MW;
+    var erg = { Ft: Ftm, Fx: Fxm, Fy: Fym, FxMin: fxMin, FxMax: fxMax, Flat: Math.sqrt(Fxm * Fxm + Fym * Fym), FlatMax: maxF,
+      puls: Ftm > 0 ? (ftMax - ftMin) / (2 * Ftm) : 0 };
+    this.tabCache = { gl: gl, z: def.z, ae: ae, ap: ap, fz: fz, faktor: faktor, VB: w.VB, erg: erg };
+    return erg;
+  };
+
+  // Querliegende Marke im Nutgrund an der Stelle eines Tischsprungs
+  FraesSim.prototype.markeSprung = function (x0, x1) {
+    var a = Math.max(0, Math.floor(Math.min(x0, x1) / FX)), b = Math.min(this.NX - 1, Math.floor(Math.max(x0, x1) / FX) + 1);
+    var y0 = Math.max(0, Math.floor((this.y - this.R) / FY)), y1 = Math.min(this.NY - 1, Math.floor((this.y + this.R) / FY));
+    var ix, iy;
+    for (ix = a; ix <= b; ix++) {
+      for (iy = y0; iy <= y1; iy++) {
+        var c = ix * this.NY + iy;
+        if (this.tiefe[c] > 0.01) { this.raBoden[c] = Math.max(this.raBoden[c] * 3, 6); }
+      }
+    }
+    this.geoVersion++;
   };
 
   FraesSim.prototype.bruchText = function (r, sigB, tau, g, fz) {
@@ -2714,11 +2945,23 @@
     return { art: 'biegung', text: 'Biegebruch am Schaft (' + Math.round(sigB) + ' N/mm²). Auskraglänge ' + Math.round(this.auskrag) + ' mm.' };
   };
 
+  FraesSim.prototype.alarmSetzen = function (text) {
+    if (this.alarm) { return; }
+    this.alarm = text;
+    this.ev.add(this.zeit, 'alarm', text, 'warn');
+  };
+
+  // Bruch: HSS bricht meist am Spannutenauslauf (Stumpf ueber dem Werkstueck), VHM sproede im
+  // Eingriff (Stumpf steckt in der Nut). Bei Eisen und Titan mit vc > 60 m/min ein Funkenblitz.
   FraesSim.prototype.bruch = function (u, mNm) {
-    var w = this.w;
+    var w = this.w, def = this.def;
     if (w.gebrochen) { return; }
     w.gebrochen = true;
     w.bruch = u;
+    var vhm = istVHM(def.stoff);
+    this.bruchZ = vhm ? (0.5 + 0.7 * this.rng.next()) * Math.max(this.apE || 0, 1) : def.lc;
+    var MF = this.mat.funke ? this.mat.funke.f : 0;
+    if (MF > 0 && (this.vc || 0) > 60) { this.funkenPuffer += clamp(5 * this.vc / 60 * (vhm ? 1.5 : 1), 0, 40) * MF; }
     this.ev.add(this.zeit, 'bruch', u.text, 'fehler', { titel: 'Fräserbruch' });
   };
 
@@ -2729,7 +2972,11 @@
       Fc: this.Fc, M: this.M, P: this.Pc, pMax: this.m.P * this.m.eta, last: this.Pc / (this.m.P * this.m.eta),
       T: w.T, tSoft: w.stoff.tSoft, VB: w.VB, amp: this.amp, bLim: this.bLimAkt, fn: this.fn,
       r: this.r || 0, delta: this.delta, x: this.x, y: this.y, z: this.zT, gleichlauf: this.gleichlauf,
-      aufschweiss: w.aufschweiss, gebrochen: w.gebrochen, vcRef: this.vcRef, fzRef: this.fzRef, auszug: this.auszug
+      aufschweiss: w.aufschweiss, gebrochen: w.gebrochen, vcRef: this.vcRef, fzRef: this.fzRef, auszug: this.auszug,
+      cnc: !!this.m.cnc, lastM: this.lastM, motor: this.motorWaerme, fZE: this.fZE, pulsGrad: this.pulsGrad, hammer: this.hammer,
+      tischE: this.tischE, tischKlack: this.tischKlack, riemenGleitet: this.riemenGleitet, kupplung: this.kupplung,
+      ruck: this.ruck, ruckFreq: this.ruckFreq, ruckPhase: this.ruckPhase, funken: this.funken, glut: this.glut, Tspan: this.Tspan,
+      stumpfReibt: this.stumpfReibt, verschub: this.verschub, alarm: this.alarm, knack: this.knack
     };
   };
 

@@ -53,7 +53,7 @@
       brille: false, handschuhe: false, spitze: 'augenmass',
       // CNC-Drehen: zwei Werkzeuge im Revolver, Schnittwerte, Nullpunkt, Programm
       platte2: null, vc1: null, f1: null, ap1: null, vc2: null, f2: null, smax: null, xAuf: 0.4, zAuf: 0.1,
-      zNull: null, tolMitte: false, prog: null, progEigen: false
+      zNull: null, tolMitte: false, prog: null, progEigen: false, spannF: 'fest'
     };
     var erlaubt = this.erlaubteTypen();
     if (erlaubt.length === 1) { w.typ = erlaubt[0]; }
@@ -338,6 +338,11 @@
       var minA = def ? def.lc + 4 : 20;
       if (w.auskrag === null && def) { w.auskrag = def.lc + 8; }
       el.appendChild(zahlFeld('Auskraglänge', 'r-ak', w.auskrag, 'mm', minA, 120, 1, function (v) { w.auskrag = v; neu(); }, def ? 'mindestens ' + minA + ' mm (Schneidenlänge ' + def.lc + ' mm)' : null));
+      el.appendChild(radioFeld('Werkstück im Maschinenschraubstock', 'spannF', [
+        { id: 'fest', name: 'Fest angezogen', text: 'etwa 20 kN Spannkraft' },
+        { id: 'kraft', name: 'Mit Kraftverstärker', text: 'etwa 35 kN' },
+        { id: 'leicht', name: 'Nur leicht angezogen', text: 'etwa 4 kN – das Teil kann rutschen' }
+      ], w.spannF, function (v) { w.spannF = v; neu(); }));
     }
 
     el.appendChild(radioFeld('Kühlschmierung', 'kss', kssOpt, w.kss, function (v) { w.kss = v; neu(); }));
@@ -668,6 +673,7 @@
     } else if (op.typ === 'fraesen') {
       param.vf = w.vf;
       param.auskragung = w.auskrag;
+      param.spann = w.spannF;
       param.apSchnitt = w.apSchnitt;
       param.richtung = 1;
     }

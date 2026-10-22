@@ -356,3 +356,43 @@ test('Funken gibt es bei Stahl nach dem Plattenbruch, bei Aluminium nie', functi
   var alu = ueberlast({ mat: 'AlMgSi1', platte: 'CCGT09T304-AL', n: 2500, f: 0.63, ap: 2, dauer: 30, bisBruch: true });
   assert.strictEqual(alu.funken, 0);
 });
+
+// ------------------------------------------------------------ Ueberlast beim Fraesen
+function fraesUeberlast(o) {
+  var rng = new PH.Zufall(4);
+  var w = new PH.Werkzeug(DAT.fraeser(o.typ, o.d), rng);
+  var sim = new PH.FraesSim({ mat: DAT.werkstoffe[o.mat || 'S235'], wkz: w, masch: DAT.maschinen[o.masch || 'fraesKonv'],
+    param: { n: o.n, vf: o.vf, kss: 'emulsion', richtung: 1, auskragung: 30 }, op: { wst: { L: 80, B: 40, H: 30 }, y: 20 }, rng: rng });
+  var dt = 1 / 480, t = 0, st = { hammer: 0, funken: 0 };
+  while (t < 4) { sim.step(dt, { spindel: true, kss: true, zZiel: o.ap }); t += dt; }
+  while (t < 30 && sim.x < 80 + sim.R + 2 && !sim.alarm) {
+    sim.step(dt, { spindel: true, kss: true, vorschub: true, zZiel: o.ap });
+    t += dt;
+    st.hammer = Math.max(st.hammer, sim.hammer);
+  }
+  st.sim = sim;
+  return st;
+}
+
+test('Fräsen: Langlochfräser mit zu viel Vorschub läßt den Tisch im Umkehrspiel hämmern', function () {
+  var st = fraesUeberlast({ typ: 'HSSZ2', d: 16, n: 250, vf: 40, ap: 8 });
+  assert.ok(st.hammer > 0.5 || st.sim.tischKlack > 0, 'kein Hämmern ' + st.hammer);
+});
+
+test('Fräsen: Zahnkräfte der Vollnut mit z = 4 drücken den Tisch nie nach vorn', function () {
+  var rng = new PH.Zufall(4);
+  var sim = new PH.FraesSim({ mat: DAT.werkstoffe.S235, wkz: new PH.Werkzeug(DAT.fraeser('HSSZ4', 10), rng), masch: DAT.maschinen.baz,
+    param: { n: 710, vf: 100, kss: 'emulsion', richtung: 1, auskragung: 30 }, op: { wst: { L: 80, B: 40, H: 30 }, y: 20 }, rng: rng });
+  var tab = sim.zahnTabelle(10, 6, 0.04, 0.5, 1);
+  assert.ok(tab.FxMax < 0, 'FxMax ' + tab.FxMax);
+  assert.ok(tab.puls < 0.15, 'Pulsation ' + tab.puls);
+  var tab2 = sim.zahnTabelle(10, 6, 0.04, 0.5, 1.0001);
+  assert.strictEqual(tab, tab2, 'Tabelle nicht gecacht');
+});
+
+test('Fräsen: VHM-Bruch in Stahl bei hoher vc gibt einen Funkenblitz, in Aluminium nicht', function () {
+  var stahl = fraesUeberlast({ typ: 'VHMZ4', d: 10, n: 5000, vf: 4000, ap: 10, masch: 'baz', mat: 'C45' });
+  assert.ok(stahl.sim.w.gebrochen && stahl.sim.funkenPuffer > 5, 'Funken ' + stahl.sim.funkenPuffer);
+  var alu = fraesUeberlast({ typ: 'VHMZ4', d: 10, n: 8000, vf: 12000, ap: 15, masch: 'baz', mat: 'AlMgSi1' });
+  assert.strictEqual(alu.sim.funkenPuffer, 0);
+});
