@@ -1191,10 +1191,22 @@
   function winkelSetzen(sim) {
     var def = sim.def;
     var eps = { C: 80, D: 55, V: 35, W: 80, T: 60, S: 90 }[def.form] || 80;
+    sim.eps = eps;
     sim.kappa = def.kappa * DEG;
     sim.kappaPlan = clamp(270 - def.kappa - eps, 30, 150) * DEG;
     sim.sinKappa = Math.sin(sim.kappa);
     sim.sinPlan = Math.max(0.3, Math.sin(sim.kappaPlan));
+    // Freiwinkel: negative Platten (2. Buchstabe N) im Halter 6 Grad, positive 7 Grad
+    sim.alpha0 = def.name && def.name.charAt(1) === 'N' ? 6 : 7;
+  }
+
+  // Wirksamer Einstellwinkel (Grad) je Bewegungsrichtung der Schneide:
+  // laengs zum Futter kappa, laengs zum Reitstock 180 - kappa - eps,
+  // plan einwaerts 270 - kappa - eps (Nebenschneide), plan auswaerts kappa - 90.
+  function kappaWirk(sim, plan, richtung) {
+    var k = sim.def.kappa, e = sim.eps;
+    if (plan) { return richtung < 0 ? 270 - k - e : k - 90; }
+    return richtung < 0 ? k : 180 - k - e;
   }
 
   function DrehSim(o) {
@@ -1239,7 +1251,14 @@
     // Spitzenhoehenfehler in mm (positiv: Schneide ueber Drehmitte)
     this.h = this.p.spitzenhoehe || 0;
     // Axiale Steifigkeit am Werkzeug: Bettschlitten geklemmt oder nicht
-    this.kAx = this.cnc ? 150000 : (this.p.klemmen ? 60000 : 10000);
+    this.kAx = this.cnc ? 60000 : (this.p.klemmen ? 30000 : 10000);
+    // Bettschlitten (ungeklemmt) wandert ruckweise nach +Z, Oberschlitten hat Umkehrspiel
+    this.uS = 0;
+    this.rutschPhi = -1e9;
+    this.oberSpiel = false;
+    this.planAnschlag = !!this.p.planAnschlag;
+    // Saegeschnitt: Schiefe der Stirnseite (tan beta), unterbrochener erster Planschnitt
+    this.tanBeta = wst.saege ? 0.002 + 0.003 * this.rng.next() : 0;
     this.z = this.stirnMax() + 4;
     this.x = this.D0 / 2 + 3;
     this.xZiel = this.x;
@@ -1295,6 +1314,7 @@
     this.eRoh = (wst.unrund !== undefined ? wst.unrund : (wst.saege ? 0.12 : 0.08)) + (this.m.rundlauf || 0);
     // Lage der Schneide ueber dem Spindelwinkel (fuer die Spanungsdicke je Umdrehung)
     this.phiU = 0;
+    this.geoVersion = 0;
     this.hist = { N: 512, n: 0, kopf: 0, phi: new Float64Array(512), z: new Float32Array(512), r: new Float32Array(512) };
     this.vcRef = vcRef(this.mat, this.def);
     this.passung = sortenPassung(this.def, this.mat);
@@ -1382,7 +1402,8 @@
       c = a * a * b * b * b * (3 * L + a) / (12 * E * Ieff * L * L * L);
       c += sq(z / L) / 12000 + sq(a / L) * z * z / 5e8 * 0.3;
     }
-    var kHalter = 3 * 210000 * Math.pow(20, 4) / 12 / Math.pow(25, 3);
+    // Klemmstelle, Stahlhalter bzw. VDI-Revolver: etwa 80 N/um (die Schaftbiegung allein waere viel steifer)
+    var kHalter = 80000;
     this.kHalter = kHalter;
     c += 1 / (this.cnc ? 160000 : 80000) + 1 / kHalter;
     this.c = c;
@@ -1510,7 +1531,9 @@
     var nSoll = 0;
     if (inp.spindel && !notaus && !this.motorAus) {
       if (this.cnc && inp.g96) {
-        // Konstante Schnittgeschwindigkeit: n = vc / (pi d), begrenzt durch G92/LIMS und das Futter
+        // Konstante Schnittgeschwindigkeit: n = vc / (pi d), begrenzt durch G92/LIMS und das Futter.
+        // Im Eilgang rechnet die Steuerung mit dem Zielpunkt.
+        if (inp.bahn && inp.bahn.eil) { r0 = Math.abs(inp.bahn.x) / 2; }
         nSoll = Math.min(inp.g96.smax || m.nMax, m.nMax, m.futter.nMax, inp.g96.vc * 1000 / (Math.PI * 2 * Math.max(r0, 0.25)));
       } else if (this.cnc) {
         nSoll = Math.min(inp.n || 0, m.nMax);
@@ -1521,7 +1544,8 @@
     }
     this.nSoll = nSoll;
     var aRamp = (this.cnc ? m.nMax : Math.max(this.p.n, 100)) / m.hochlauf;
-    if (this.n < nSoll) { this.n = Math.min(nSoll, this.n + aRamp * dt); }
+    if (this.cnc) { this.n = nSoll; }
+    else if (this.n < nSoll) { this.n = Math.min(nSoll, this.n + aRamp * dt); }
     else if (this.n > nSoll) { this.n = Math.max(nSoll, this.n - aRamp * (notaus ? 2.5 : 0.8) * dt); }
 
     var mo = this.momente();
@@ -1530,22 +1554,21 @@
     var mu = Mlast / Math.max(mo.nenn, 0.1);
     this.lastM = mu;
     if (this.cnc) {
-      // Servospindel: haelt die Drehzahl bis zur Momentgrenze, darueber bricht sie ein
-      var Mmax = mo.max;
+      // Servospindel: Hochlauf und Bremsen durch Moment bzw. Leistung begrenzt (Traegheit J),
+      // im Schnitt drehzahlfest bis zur Momentgrenze, darueber bricht sie ein
+      var Mmax = mo.max, Mreib = 3 + 0.002 * this.nEff;
       if (this.nEff < this.n) {
-        var aUp = Math.max(0, (Mmax - Mlast)) / J * 9.55;
-        this.nEff = Math.min(this.n, this.nEff + Math.min(aUp, aRamp * 1.5) * dt);
-      } else if (Mlast <= Mmax) {
-        this.nEff = this.n;
+        this.nEff = Math.min(this.n, this.nEff + Math.max(0, Mmax - Mlast - Mreib) / J * 9.55 * dt);
+      } else if (this.nEff > this.n) {
+        this.nEff = Math.max(this.n, this.nEff - (Mmax + Mlast + Mreib) / J * 9.55 * dt);
       }
       if (Mlast > Mmax && this.nEff > 0) { this.nEff = Math.max(0, this.nEff - (Mlast - Mmax) / J * 9.55 * dt); }
-      if (this.nEff > this.n) { this.nEff = this.n; }
       var mS1 = m.mS1 || Mmax;
       if (Mlast > mS1) { this.i2t += (sq(Mlast / mS1) - 1) * dt / 240; } else { this.i2t -= this.i2t * dt / 600; }
       if (this.i2t >= 1) { this.alarmSetzen('Alarm 2001: Spindel i²t-Überlast – Vorschubhalt.'); }
-      if (nSoll > 50 && this.n >= nSoll * 0.98 && this.nEff < 0.9 * nSoll) {
+      if (nSoll > 50 && (this.modus === 'laengs' || this.modus === 'plan') && this.nEff < 0.85 * nSoll) {
         this.nFehlerZeit += dt;
-        if (this.nFehlerZeit > 0.3) { this.alarmSetzen('Alarm 2002: Spindeldrehzahl außerhalb der Toleranz (' + Math.round(this.nEff) + ' statt ' + Math.round(nSoll) + ' 1/min) – Vorschubhalt.'); }
+        if (this.nFehlerZeit > 1) { this.alarmSetzen('Alarm 2002: Spindeldrehzahl außerhalb der Toleranz (' + Math.round(this.nEff) + ' statt ' + Math.round(nSoll) + ' 1/min) – Vorschubhalt.'); }
       } else { this.nFehlerZeit = 0; }
     } else {
       // Asynchronmotor + Keilriemen + Stufengetriebe
@@ -1595,7 +1618,7 @@
       // NC-Bahn: Zielpunkt (Durchmesser, z) im Eilgang, mit mm/U (G95) oder mm/min (G94)
       var tx = inp.bahn.x / 2, tz = inp.bahn.z;
       var ddx = tx - this.x, ddz = tz - this.z, lenB = Math.sqrt(ddx * ddx + ddz * ddz);
-      var vB = this.alarm ? 0 : (inp.bahn.eil ? (m.eilgang || 200) * Math.min(1, ovF + 0.25) : (inp.bahn.fmin ? inp.bahn.fmin / 60 : inp.bahn.f * nRev) * ovF);
+      var vB = this.alarm ? 0 : (inp.bahn.eil ? (m.eilgang || 200) * Math.min(1, ovF) : (inp.bahn.fmin ? inp.bahn.fmin / 60 : inp.bahn.f * nRev) * ovF);
       if (lenB > 1e-7 && vB > 0) {
         var anteil = Math.min(1, vB * dt / lenB);
         vx = ddx * anteil / dt;
@@ -1632,11 +1655,13 @@
       } else if (inp.zHand && !inp.klemmen) {
         vz = inp.zHand * (inp.eil ? 25 : 4);
         this.zZiel = null;
+        this.uS = 0;
       } else if (inp.zHand && inp.klemmen) {
         this.ev.einmalig(this.zeit, 'klemmHand', 'Der Bettschlitten ist geklemmt. Für die Planzustellung den Oberschlitten benutzen.', 'info', 6);
       } else if (this.zZiel !== null) {
-        // Oberschlitten: feinfuehlige Zustellung in z
+        // Oberschlitten: feinfuehlige Zustellung in z. Zuletzt zurueckgekurbelt (+Z) -> Spiel auf der Kraftseite
         vz = clamp((this.zZiel - this.z) / dt, -1.2, 1.2);
+        if (vz > 1e-6) { this.oberSpiel = true; } else if (vz < -1e-6) { this.oberSpiel = false; }
         if (Math.abs(this.zZiel - this.z) < 1e-5) { this.zZiel = null; }
       }
       // Ueberlast-Rastkupplung im Schlosskasten: ausgerastet steht der Schlitten, die Zugspindel dreht weiter
@@ -1671,11 +1696,20 @@
     }
     if (!inp.vorschub) { this.anschlagAus = false; }
     var xNeu = this.x + vx * dt;
-    if (!inp.bahn && inp.plan && xNeu <= 0) {
-      xNeu = 0;
-      if (!this.planAus) {
-        this.planAus = true;
-        this.ev.add(this.zeit, 'mitte', 'Drehmitte erreicht – Planzug ausgekuppelt.', 'info');
+    if (!inp.bahn && inp.plan && !this.cnc) {
+      // Der Planzug kuppelt an der Mitte nicht von selbst aus (nur mit Planschlittenanschlag)
+      var xEnde = this.planAnschlag ? 0 : -8;
+      if (xNeu <= xEnde) {
+        xNeu = xEnde;
+        if (!this.planAus) {
+          this.planAus = true;
+          this.ev.add(this.zeit, 'mitte', this.planAnschlag ? 'Planschlittenanschlag erreicht – Planzug ausgekuppelt.' : 'Der Planschlitten steht am Wegende – Planzug ausgerastet.', 'info');
+        }
+      }
+      if (xNeu < -1 && this.x >= -1) {
+        this.ev.einmalig(this.zeit, 'ueberMitte', 'Über die Drehmitte gefahren! Den Planzug an der Mitte von Hand auskuppeln.', 'warn', 8);
+        var jm;
+        for (jm = 0; jm < Math.min(this.NR, 15); jm++) { this.stirnRa[jm] = Math.max(this.stirnRa[jm], this.stirnRa[jm] + 1.5); }
       }
     }
     var zAlt = this.z, xAlt = this.x;
@@ -1709,7 +1743,7 @@
     }
 
     // ------------------------------------------------ Eingriff (Spanungsdicke aus der letzten Umdrehung)
-    var kAxSoll = this.cnc ? 150000 : (inp.klemmen || this.p.klemmen ? 60000 : 10000);
+    var kAxSoll = this.cnc ? 60000 : (inp.klemmen || this.p.klemmen ? 30000 : 10000);
     if (kAxSoll !== this.kAx) { this.kAx = kAxSoll; this.tNach = -1; }
     if (this.zeit - (this.tNach || 0) > 0.08) { this.nachgiebigkeit(); this.tNach = this.zeit; }
     var vc = Math.PI * Math.max(2 * r, 0.05) * this.nEff / 1000;
@@ -1763,19 +1797,26 @@
     else if (nRev > 0.02 && this.istWerkstoff(this.z - 0.05, r, heiss)) { modus = 'steht'; }
     this.modus = modus;
     var ap = plan ? apZ : apR, f = plan ? fr : fz;
-    var h = f * (plan ? this.sinPlan : this.sinKappa);
+    var kW = kappaWirk(this, plan, plan ? (drU < 0 ? -1 : 1) : (dzU < 0 ? -1 : 1));
+    var sinKW = Math.max(0.05, Math.sin(kW * DEG));
+    var h = f * sinKW;
     this.hAkt = h;
+    this.kappaW = kW;
+    // Kleiner Einstellwinkel (plan auswaerts, laengs zum Reitstock): breiter Span, ab Schneidenlaenge laeuft der Plattensitz an
+    var sitzAn = belastet && kW < 20 && ap > (def.l || 12.9) * Math.sin(Math.max(kW, 1) * DEG);
 
     // Rohteil: Rundlauf und Unrundheit lassen ap einmal je Umdrehung schwanken
     var rohZelle = belastet && (plan ? !this.stirnBearb[jV] : !this.bearb[iV]);
-    var rE = rohZelle ? clamp(this.eRoh / Math.max(ap, 1e-3), 0, 1) : 0;
-    var unterbrochen = rohZelle && this.eRoh > ap;
-    if (unterbrochen) { this.ev.einmalig(this.zeit, 'unterbrochen', 'Unterbrochener Schnitt: Die Zustellung ist kleiner als der Rundlauffehler des Rohteils (' + nf(this.eRoh, 2) + ' mm). Es klopft, und Walzhaut bleibt stehen.', 'warn', 10); }
+    var eRohHier = plan ? (jV + 0.5) * DR * this.tanBeta + (this.saege ? 0.03 : this.eRoh) : this.eRoh;
+    var rE = rohZelle ? clamp(eRohHier / Math.max(ap, 1e-3), 0, 1) : 0;
+    var unterbrochen = rohZelle && eRohHier > ap;
+    if (unterbrochen) { this.ev.einmalig(this.zeit, 'unterbrochen', plan ? 'Unterbrochener Schnitt: Der Sägeschnitt steht schief, die Schneide schneidet nur auf einem Teil des Umfangs. Es klopft – und ist die Zustellung zu klein, bleibt eine Sichel aus Sägeriefen stehen.' :
+      'Unterbrochener Schnitt: Die Zustellung ist kleiner als der Rundlauffehler des Rohteils (' + nf(eRohHier, 2) + ' mm). Es klopft, und Walzhaut bleibt stehen.', 'warn', 10); }
     this.rE = rE;
 
     // Spitzenhoehe: ueber Mitte waechst der wirksame Spanwinkel und der Freiwinkel schrumpft
     var wink = r > 0.01 ? Math.asin(clamp(this.h / r, -1, 1)) / DEG : 0;
-    var alphaEff = 6 - wink;
+    var alphaEff = (this.alpha0 || 6) - wink;
     var stirnHier = this.materialOben(this.z / heiss, Math.max(0, r - DR)) * heiss;
     var beruehrt = nRev > 0.1 && r < rAussen + 0.01 && stirnHier > this.z + 0.005;
     var reib = beruehrt && alphaEff < 0.5 ? clamp((0.5 - alphaEff) / 8, 0.05, 1) : 0;
@@ -1791,7 +1832,7 @@
       var kver = 1 + 1.3 * w.VB + 1.2 * w.ausbruch + (this.platteBruch ? 1.8 : 0);
       var kGamEff = this.h !== 0 ? kGamma(mat, def.gamma + wink) : this.kGam;
       kc = kcKienzle(mat, Math.max(h, 0.01)) * kGamEff * kd.kc * kver * kV(Math.max(vc, 1), def.stoff) * (1 - 0.12 * bue);
-      rp = 0.22 + 0.35 * Math.exp(-ap / def.re);
+      rp = 0.22 + 0.35 * Math.exp(-ap / def.re) + 0.5 * Math.max(0, Math.cos(kW * DEG));
       if (!plan) {
         // Abdraengen verringert die wirksame Schnitttiefe (nur laengs, radial nachgiebig)
         ap = ap / (1 + kc * f * rp * this.c);
@@ -1822,6 +1863,30 @@
     // Momentanes Moment mit der Unrundheit des Rohteils (Wummern einmal je Umdrehung)
     this.Minst = this.M * (1 + rE * Math.cos(this.phiU));
 
+    // Plandrehen konventionell: Die Passivkraft drueckt in +Z. Hat der Oberschlitten sein Spiel auf der
+    // Kraftseite, springt er einmal um das Spiel. Der ungeklemmte Bettschlitten haelt nur durch Reibung
+    // und wandert bei Kraftspitzen ruckweise nach +Z, ohne zurueckzufedern: Flaeche ballig, Teil zu lang.
+    if (!this.cnc && plan && schneidet) {
+      if (this.oberSpiel && Fp > 150) {
+        this.oberSpiel = false;
+        this.z += 0.1;
+        this.ev.add(this.zeit, 'oberschlitten', 'Der Oberschlitten wurde um sein Umkehrspiel (0,1 mm) weggedrückt – zuletzt wurde zurückgekurbelt. Immer aus derselben Richtung zustellen: nach dem Überkurbeln weiter zurück und neu anfahren.', 'warn');
+      }
+      if (!(inp.klemmen || this.p.klemmen)) {
+        var Nf = 700 + Fc;
+        var Fhaft = 0.18 * Nf * (1 - 0.6 * Math.min(1, this.amp / 8)) + 100;
+        var Fakt = Fp * (1 + 0.7 * A) + (unterbrochen ? 0.5 * Fc : 0);
+        if (Fakt > Fhaft && this.phiU - this.rutschPhi > 2 * Math.PI) {
+          this.rutschPhi = this.phiU;
+          var ds = clamp((Fakt - 0.10 * Nf - 100) / (this.uS < 0.12 ? 1500 : 5000), 0.002, 0.08);
+          this.z += ds;
+          this.uS += ds;
+          this.knack += 1;
+          this.ev.einmalig(this.zeit, 'schlitten', 'Der ungeklemmte Bettschlitten wird weggedrückt (Z springt um ' + nf(ds, 3) + ' mm). Die Stirnfläche wird ballig und das Teil zu lang. Bettschlitten klemmen!', 'warn', 6);
+        }
+      }
+    }
+
     // CNC-Achsen: Schleppabstand waechst erst, wenn die Achskraft ausgeschoepft ist (praktisch nur bei Kollision)
     if (this.cnc && schneidet) {
       var fAchse = plan ? (m.fxMax || 6000) : (m.fzMax || 8000);
@@ -1844,8 +1909,12 @@
     // ------------------------------------------------ Spannung im Futter
     var rB = 0;
     if (schneidet) {
-      var fsp = m.futter.Fsp * Math.max(0.15, 1 - 0.6 * sq(this.nEff / m.futter.nMax)) * clamp(this.spannL / (0.5 * this.D0), 0.3, 1);
-      var mHalt = 0.25 * fsp * this.D0 / 2 / 1000;
+      // Spannkraft minus Fliehkraft der drei Backen, Reibwert harte Backen auf Rohteil ca. 0,15
+      var om = this.nEff * Math.PI / 30, fu = m.futter;
+      var fspN = Math.max(0, fu.Fsp - 3 * (fu.mB || 0.45) * (fu.rS || 0.055) * om * om);
+      if (fspN < fu.Fsp / 3) { this.ev.einmalig(this.zeit, 'fliehkraft', 'Bei ' + Math.round(this.nEff) + ' 1/min hat die Fliehkraft der Backen schon zwei Drittel der Spannkraft aufgezehrt. Drehzahl begrenzen (G92)!', 'warn', 10); }
+      var fsp = fspN * clamp(this.spannL / (0.5 * this.D0), 0.3, 1);
+      var mHalt = 0.15 * fsp * this.D0 / 2 / 1000;
       rB = clamp(this.M * (1 + A + rE) / mHalt - 1, 0, 1);
       if (rB > 0 && !this.backenSpur) {
         this.backenSpur = true;
@@ -1938,6 +2007,7 @@
               this.ruckSpur[ii] = this.ruck;
             }
             this.D[ii] = dNeu;
+            this.geoVersion++;
           }
         }
       }
@@ -1955,6 +2025,7 @@
               if (!(unterbrochen && !this.stirnBearb[jr])) { this.stirnBearb[jr] = 1; }
             }
             this.stirn[jr] = zSchnitt;
+            this.geoVersion++;
           }
         }
       }
@@ -2048,12 +2119,15 @@
       if (lastP > 0.95) { hazard = (Math.exp((lastP - 1) * 9.5) - Math.exp(-0.475)) / 60; }
       if (lastP > 1) { w.ausbruch = Math.min(1, w.ausbruch + 0.04 * (lastP - 1) * dt); }
       if (w.VB > 0.5) { hazard += 2 * (w.VB - 0.5); }
+      if (sitzAn) { lastP = 2; }
       if (lastP > 1.8 || this.rng.next() < hazard * dt) {
         this.platteBruch = true;
         w.gebrochen = true;
         if (vc > 30) { this.stoss(120 * MF, 0.3); }
         var txt;
-        if (reib > 0.2) {
+        if (sitzAn) {
+          txt = 'Plattenbruch: In dieser Richtung schneidet die Schneide nur mit ' + Math.round(kW) + '° Einstellwinkel. Bei ' + nf(ap, 2) + ' mm Schnitttiefe lief der Plattensitz an. Mit einem 95°-Halter auswärts bzw. zum Reitstock nur ganz kleine Schlichtzustellungen.';
+        } else if (reib > 0.2) {
           txt = 'Die Schneide ist in der Drehmitte ausgebrochen: Sie stand ' + nf(this.h, 2) + ' mm über Mitte und drückte mit der Freifläche gegen den Butzen.';
         } else if (this.anlaufLast > 0) {
           txt = 'Die Spindel ist unter Last wieder angelaufen – die Schneide steckte im Schnitt und ist ausgebrochen. Nach dem Abwürgen erst das Werkzeug freifahren.';
@@ -2075,6 +2149,15 @@
         w.bruch = { art: 'platte', text: txt };
         this.ev.add(this.zeit, 'bruch', txt, 'fehler', { titel: 'Wendeschneidplatte gebrochen' });
       }
+    }
+    // Falsche Drehrichtung an der CNC: Revolver hinter der Drehmitte, Spanflaeche oben -> M4.
+    // Mit M3 laeuft das Werkstueck gegen Unterseite und Freiflaeche der Platte.
+    if (this.cnc && schneidet && this.drehrichtung === 3 && !this.platteBruch) {
+      this.platteBruch = true;
+      w.gebrochen = true;
+      this.stoss(120 * MF, 0.3);
+      w.bruch = { art: 'drehrichtung', text: 'Falsche Spindeldrehrichtung.' };
+      this.ev.add(this.zeit, 'bruch', 'Plattenbruch bei der ersten Berührung: Die Spindel lief mit M3. An dieser Maschine sitzt der Revolver hinter der Drehmitte, die Spanfläche zeigt nach oben – das Werkstück muss sich mit M4 in die Spanfläche hineindrehen.', 'fehler', { titel: 'Falsche Drehrichtung' });
     }
     if (this.platteBruch && schneidet) {
       this.halterSchaden += dt;
@@ -2166,9 +2249,18 @@
       if (this.stirnRa[j] > ra && (j + 0.5) * DR >= Math.max(1.5, 0.25 * rEnd)) { ra = this.stirnRa[j]; }
       if (!this.stirnBearb[j]) { roh = true; }
     }
+    // Sehr kleine Butzen schert der ablaufende Span ab: zurueck bleibt eine raue Abrisswarze
+    var abriss = false;
+    if (rZapfen > 0 && Math.abs(this.h) < ((this.mat.iso === 'K' || this.mat.iso === 'N') ? 0.15 : 0.08)) {
+      rZapfen = 0;
+      hZapfen = 0;
+      abriss = true;
+    } else if (rZapfen > 0) {
+      rZapfen = Math.max(Math.abs(this.h), Math.min(rZapfen, Math.abs(this.h) + DR));
+    }
     return {
       z: flaeche, gesamt: this.spannL + flaeche, eben: zMax - zMin, ra: ra, roh: roh,
-      zapfenR: rZapfen, zapfenH: hZapfen, zMax: zE
+      zapfenR: rZapfen, zapfenH: hZapfen, zMax: zE, abriss: abriss
     };
   };
 
@@ -2314,6 +2406,7 @@
     this.Fc = 0; this.M = 0; this.Pc = 0; this.Flat = 0; this.ae = 0; this.apE = 0; this.fz = 0; this.delta = 0;
     this.st = { maxR: 0, maxAmp: 0, maxP: 0, schnittZeit: 0, passes: 0 };
     this.pass = null;
+    this.geoVersion = 0;
     this.waende = [];
     this.steifigkeit();
   }
@@ -2401,7 +2494,7 @@
       }
       for (iy = y0; iy <= y1; iy++) {
         var c = ix * this.NY + iy;
-        if (z > this.tiefe[c] + 1e-4) { this.tiefe[c] = z; this.raBoden[c] = ra; }
+        if (z > this.tiefe[c] + 1e-4) { this.tiefe[c] = z; this.raBoden[c] = ra; this.geoVersion++; }
       }
     }
   };

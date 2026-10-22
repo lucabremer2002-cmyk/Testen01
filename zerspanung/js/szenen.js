@@ -1360,5 +1360,13 @@
     ctx.textAlign = 'left';
   };
 
-  ZM.szenen = { BohrSzene: BohrSzene, DrehSzene: DrehSzene, FraesSzene: FraesSzene, resize: resize };
+  ZM.szenen = {
+    BohrSzene: BohrSzene, DrehSzene: DrehSzene, FraesSzene: FraesSzene, resize: resize,
+    // Gemeinsame Helfer fuer die Szenen in eigenen Dateien (szene-dreh.js, szene-fraes.js)
+    hilfen: {
+      F: F, SCHRIFT: SCHRIFT, MONO: MONO, clamp: clamp, zufall: zufall, Partikelsystem: Partikelsystem,
+      zeichneSpan: zeichneSpan, spanFarbe: spanFarbe, spanTyp: spanTyp, resize: resize, hintergrund: hintergrund,
+      metall: metall, metallV: metallV, schraffur: schraffur, mischFarbe: mischFarbe, gluehen: gluehen
+    }
+  };
 })(typeof window !== 'undefined' ? window : globalThis);

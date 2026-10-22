@@ -6,16 +6,17 @@
  * der fertigen Stirnflaeche (minus in Richtung Futter). Die Simulation rechnet
  * mit dem Radius und mit z ab der Backenflaeche; zW ist die Lage von W darin.
  *
- * Unterstuetzt: G0 G1 G2 G3 (mit R) G4 G18 G40 G41 G42 G53 G54 G90 G91 G92 G94
- * G95 G96 G97, LIMS=, M0 M1 M3 M4 M5 M8 M9 M17 M30, T0101 bzw. T1 D1, F S X Z
- * U W (inkrementell) R P. Kommentare in Klammern oder nach Semikolon.
+ * Unterstuetzt: G0 G1 G2 G3 (mit R) G4 G18 G40 G41 G42 G53 G54 G90 G91 G94 G95
+ * G96 G97, Drehzahlbegrenzung G92 S (PAL), G50 S (Fanuc) bzw. LIMS= (Siemens),
+ * M0 M1 M3 M4 M5 M8 M9 M17 M30, T0101 bzw. T1 D1, F S X Z U W (inkrementell) R P.
+ * Kommentare in Klammern oder nach Semikolon.
  */
 (function (root) {
   'use strict';
 
   var ZM = root.ZM = root.ZM || {};
 
-  var G_ERLAUBT = { 0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 18: 1, 40: 1, 41: 1, 42: 1, 53: 1, 54: 1, 90: 1, 91: 1, 92: 1, 94: 1, 95: 1, 96: 1, 97: 1 };
+  var G_ERLAUBT = { 0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 18: 1, 40: 1, 41: 1, 42: 1, 50: 1, 53: 1, 54: 1, 90: 1, 91: 1, 92: 1, 94: 1, 95: 1, 96: 1, 97: 1 };
   var M_ERLAUBT = { 0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 8: 1, 9: 1, 17: 1, 30: 1 };
 
   function fmt(v) {
@@ -118,8 +119,8 @@
       if (s.f !== undefined && !dwell) { st.f = s.f; }
       var z = s.zeile;
       if (s.t !== undefined) { ab.push({ zeile: z, art: 'werkzeug', nr: werkzeugNr(s.t) }); }
-      if (gs.indexOf(92) >= 0) {
-        if (s.s === undefined) { fehler.push({ zeile: z, text: 'Zeile ' + (z + 1) + ': G92 ohne S-Wert' }); }
+      if (gs.indexOf(92) >= 0 || gs.indexOf(50) >= 0) {
+        if (s.s === undefined) { fehler.push({ zeile: z, text: 'Zeile ' + (z + 1) + ': Drehzahlbegrenzung (G92/G50) ohne S-Wert' }); }
         else { ab.push({ zeile: z, art: 'smax', wert: s.s }); }
       } else if (s.s !== undefined) {
         st.s = s.s;
@@ -256,7 +257,10 @@
       if (a.art === 'werkzeug') {
         if (!this.ziel) {
           this.ziel = true;
-          this.warten = this.opt.wechselZeit || 0.8;
+          // Revolver schaltet auf dem kuerzesten Weg: 0,25 s plus 0,1 s je weitere Station
+          var plaetze = sim.m.revolver || 12, dSt = Math.abs(a.nr - zs.tnr);
+          dSt = Math.min(dSt, plaetze - dSt);
+          this.warten = dSt ? (this.opt.wechselZeit || 0.25) + 0.1 * (dSt - 1) : 0.05;
           if (sim.revolverKollision && sim.revolverKollision()) { this.halt = true; return; }
         }
         this.warten -= dt;

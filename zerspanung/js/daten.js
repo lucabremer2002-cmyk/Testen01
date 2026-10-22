@@ -344,16 +344,16 @@
       id: 'drehKonv', name: 'Leit- und Zugspindeldrehmaschine LZ 200', art: ['drehen'], cnc: false,
       P: 7.5, eta: 0.8, drehzahlen: [40, 56, 80, 112, 160, 224, 315, 450, 630, 900, 1250, 1800, 2500],
       vorschuebe: [0.04, 0.05, 0.063, 0.08, 0.1, 0.125, 0.16, 0.2, 0.25, 0.315, 0.4, 0.5, 0.63],
-      futter: { D: 200, Fsp: 45000, nMax: 3000, backenH: 24 }, kMaschine: 40000, rundlauf: 0.01,
+      futter: { D: 200, Fsp: 45000, nMax: 3000, backenH: 24, mB: 0.45, rS: 0.055 }, kMaschine: 40000, rundlauf: 0.01,
       kss: ['trocken', 'emulsion'], hochlauf: 1.5, kupplung: 3000, J: 0.1, kRiemen: 1.7,
       text: 'Dreibackenfutter Ø 200 mm, Reitstock mit mitlaufender Körnerspitze, Planscheibe mit Skalenring. Planvorschub = halber Längsvorschub.'
     },
     drehCNC: {
       id: 'drehCNC', name: 'CNC-Schrägbettdrehmaschine CT 250', art: ['drehen'], cnc: true,
       // Servospindel: S1 11 kW / 105 Nm, S6-40 % 15 kW / 143 Nm, Eckdrehzahl 1000 1/min
-      P: 11, pS6: 15, eta: 1, mS1: 105, mMax: 143, J: 0.12, nMin: 20, nMax: 4500,
-      eilgang: 333, revolver: 8, wechselZeit: 0.8, fzMax: 8000, fxMax: 6000, kv: 2, schleppTol: 1.0,
-      futter: { D: 210, Fsp: 60000, nMax: 4500, backenH: 24 }, kMaschine: 80000, rundlauf: 0.005,
+      P: 11, pS6: 15, eta: 1, mS1: 105, mMax: 143, J: 0.2, nMin: 20, nMax: 4500,
+      eilgang: 400, revolver: 12, wechselZeit: 0.25, fzMax: 8000, fxMax: 6000, kv: 2, schleppTol: 1.0,
+      futter: { D: 210, Fsp: 60000, nMax: 4500, backenH: 24, mB: 0.8, rS: 0.065 }, kMaschine: 80000, rundlauf: 0.005,
       kss: ['trocken', 'emulsion'], hochlauf: 1.6,
       text: 'Servo-Hauptspindel 11 kW (S6: 15 kW, 143 Nm), bis 4500 1/min. 8-fach-Revolver hinter der Drehmitte, Eilgang 20 m/min, Kugelgewindetriebe ohne Spiel.'
     },

@@ -196,7 +196,7 @@ test('ISO-Toleranzen nach ISO 286', function () {
 test('Missionsdaten sind in sich stimmig', function () {
   require('../js/missionen.js');
   var MIS = globalThis.ZM.missionen;
-  assert.strictEqual(MIS.liste.length, 15);
+  assert.strictEqual(MIS.liste.length, 18);
   MIS.liste.forEach(function (m) {
     assert.ok(DAT.werkstoffe[m.mat], m.id + ' Werkstoff');
     m.ops.forEach(function (op, i) {
@@ -206,11 +206,153 @@ test('Missionsdaten sind in sich stimmig', function () {
         assert.deepStrictEqual(m.ops[op.vor].pos, op.pos, m.id + ' Positionen passen nicht zur Vorbohrung');
       }
       if (op.typ === 'gewinde') { assert.ok(DAT.gewinde[op.gw], m.id + ' Gewinde'); }
-      if (op.typ === 'drehen') { assert.ok(op.d < op.wst.D && op.laenge < op.wst.L, m.id + ' Drehmaße'); }
+      if (op.typ === 'drehen') {
+        var K = DAT.drehKontur(op);
+        assert.ok(K.stufen.length || K.plan, m.id + ' Drehen ohne Merkmale');
+        K.stufen.forEach(function (st, k) {
+          assert.ok(st.d < op.wst.D && st.bis < op.wst.L, m.id + ' Drehmaße');
+          if (k) { assert.ok(st.d > K.stufen[k - 1].d && st.bis > K.stufen[k - 1].bis, m.id + ' Kontur steigt nicht'); }
+          assert.ok(DAT.toleranz(st.d, st.tol), m.id + ' Toleranz ' + st.tol);
+        });
+        if (K.plan) { assert.ok(K.plan.gesamt < op.wst.L + op.wst.spannL, m.id + ' Planzugabe fehlt'); }
+      }
     });
     var wz = m.werkzeuge || {};
     (wz.platten || []).forEach(function (id) { assert.ok(DAT.platte(id), m.id + ' Platte ' + id); });
     (wz.bohrer || []).forEach(function (t) { assert.ok(DAT.bohrerTypen[t], m.id + ' Bohrertyp ' + t); });
     (wz.fraeser || []).forEach(function (t) { assert.ok(DAT.fraeserTypen[t], m.id + ' Fräsertyp ' + t); });
   });
+});
+
+// ------------------------------------------------------------ Plandrehen und CNC-Drehen
+require('../js/nc.js');
+var NC = globalThis.ZM.nc;
+
+function planSim(o) {
+  var rng = new PH.Zufall(o.seed || 9);
+  var w = new PH.Werkzeug(Object.assign({ typ: 'platte' }, DAT.platte(o.platte || 'CNMG120408-PM')), rng);
+  return new PH.DrehSim({
+    mat: DAT.werkstoffe[o.mat || 'C45'], wkz: w, masch: DAT.maschinen.drehKonv,
+    param: { n: o.n || 630, f: o.f || 0.2, kss: 'emulsion', zAnschlag: null, spitzenhoehe: o.h || 0, planAnschlag: true },
+    op: { wst: { D: 50, L: 60, spannL: 40, saege: o.saege !== false } }, rng: rng
+  });
+}
+
+function planen(sim, zZiel, klemmen) {
+  var dt = 1 / 480, t = 0;
+  while (t < 8) { sim.step(dt, { spindel: true, kss: true, xZiel: 54, zZiel: t < dt * 1.5 ? zZiel : undefined }); t += dt; }
+  while (t < 90 && !sim.planAus && !sim.w.gebrochen) { sim.step(dt, { spindel: true, kss: true, plan: true, klemmen: klemmen }); t += dt; }
+  return sim.stirnflaeche();
+}
+
+test('Plandrehen mit geklemmtem Bettschlitten: eben, auf Maß, ohne Butzen', function () {
+  var sim = planSim({});
+  var sf = planen(sim, 59.5, true);
+  assert.ok(!sim.w.gebrochen, 'Platte gebrochen');
+  assert.ok(Math.abs(sf.z - 59.5) < 0.02, 'Lage ' + sf.z);
+  assert.ok(sf.eben < 0.01, 'Ebenheit ' + sf.eben);
+  assert.ok(!sf.roh, 'Sägeschnitt stehen geblieben');
+  assert.strictEqual(sf.zapfenH, 0);
+});
+
+test('Ungeklemmter Bettschlitten: Teil zu lang und Fläche nicht eben', function () {
+  var sim = planSim({});
+  var sf = planen(sim, 58, false);
+  assert.ok(sf.z > 58.005, 'Länge ' + sf.z);
+  assert.ok(sf.eben > 0.01, 'Ebenheit ' + sf.eben);
+});
+
+test('Schneide unter Mitte läßt einen Butzen stehen, über Mitte reibt sie', function () {
+  var unter = planSim({ h: -0.3 });
+  var sf = planen(unter, 59.5, true);
+  assert.ok(sf.zapfenH > 0.3 && Math.abs(sf.zapfenR - 0.3) < 0.11, JSON.stringify(sf));
+  var ueber = planSim({ h: 0.3 });
+  planen(ueber, 59.5, true);
+  assert.ok(ueber.st.mitteGerieben, 'Reiben am Butzen nicht erkannt');
+  assert.strictEqual(ueber.funken, 0, 'In der Drehmitte (vc 0) darf es nicht funken');
+});
+
+function cncLauf(o) {
+  var rng = new PH.Zufall(3);
+  function wkz(id) { return new PH.Werkzeug(Object.assign({ typ: 'platte' }, DAT.platte(id)), rng); }
+  var T = { 1: wkz('CNMG120408-PM'), 2: wkz('CNMG120404-PF') };
+  var K = DAT.drehKontur({ kontur: [{ d: 30, tol: 'h9', bis: 20 }, { d: 40, tol: 'h11', bis: 45 }], fase: 1 });
+  var prog = o.prog || NC.erzeugen({ kontur: K, D0: 50, aufmassZ: 3, vc1: 220, f1: 0.3, ap1: 2.5, vc2: 260, f2: 0.12, smax: o.smax === undefined ? 3000 : o.smax, kss: true, mDir: o.mDir });
+  var sim = new PH.DrehSim({ mat: DAT.werkstoffe.C45, wkz: T[1], masch: DAT.maschinen.drehCNC, param: { kss: 'emulsion', zW: 60 },
+    op: { wst: { D: 50, L: 63, spannL: 40, saege: true } }, rng: rng });
+  sim.x = 100;
+  sim.z = 210;
+  var lauf = new NC.Lauf(prog, { zW: 60, werkzeug: function (nr) { return T[nr] || null; } });
+  lauf.halt = false;
+  var inp = {}, dt = 1 / 480, t = 0, maxN = 0;
+  while (t < 300 && !lauf.fertig && !sim.w.gebrochen && !sim.alarm) {
+    lauf.tick(sim, inp, dt);
+    sim.step(dt, inp);
+    t += dt;
+    if (sim.modus === 'plan' && sim.nEff > maxN) { maxN = sim.nEff; }
+  }
+  return { sim: sim, lauf: lauf, t: t, maxN: maxN, fehler: NC.uebersetzen(prog).fehler };
+}
+
+test('CNC: erzeugtes Programm fertigt den Stufenbolzen in Toleranz', function () {
+  var r = cncLauf({});
+  assert.deepStrictEqual(r.fehler, []);
+  assert.ok(r.lauf.fertig, 'Programm nicht fertig, Zeit ' + r.t + ' ' + (r.sim.alarm || ''));
+  var sim = r.sim, zF = sim.laengeZ();
+  assert.ok(Math.abs(sim.spannL + zF - 100) < 0.05, 'Gesamtlänge ' + (sim.spannL + zF));
+  var b30 = sim.bereich(zF - 19, zF - 1.5), b40 = sim.bereich(zF - 44, zF - 21);
+  assert.ok(b30.min >= 29.948 && b30.max <= 30, 'Ø30 h9: ' + b30.min + '…' + b30.max);
+  assert.ok(b40.min >= 39.84 && b40.max <= 40, 'Ø40 h11: ' + b40.min + '…' + b40.max);
+  assert.ok(Math.abs(sim.absatz(35) - 20) < 0.1, 'Schulter ' + sim.absatz(35));
+  assert.ok(b30.ra < 1.6, 'Ra ' + b30.ra);
+});
+
+test('CNC: G96 dreht zur Mitte hoch und hält die Begrenzung G92', function () {
+  var r = cncLauf({ smax: 2500 });
+  assert.ok(r.maxN > 2300 && r.maxN <= 2500.5, 'nMax beim Plandrehen ' + r.maxN);
+});
+
+test('CNC: Mit M3 statt M4 bricht die Platte bei der ersten Berührung', function () {
+  var r = cncLauf({ mDir: 'M3' });
+  assert.ok(r.sim.w.gebrochen && r.sim.w.bruch.art === 'drehrichtung');
+});
+
+function ueberlast(o) {
+  var rng = new PH.Zufall(5);
+  var w = new PH.Werkzeug(Object.assign({ typ: 'platte' }, DAT.platte(o.platte || 'CNMG120408-PM')), rng);
+  if (o.VB) { w.VB = o.VB; }
+  var sim = new PH.DrehSim({ mat: DAT.werkstoffe[o.mat || 'C45'], wkz: w, masch: DAT.maschinen.drehKonv,
+    param: { n: o.n, f: o.f, kss: 'emulsion', zAnschlag: 15 }, op: { wst: { D: 50, L: 60, spannL: 40 } }, rng: rng });
+  var dt = 1 / 480, t = 0, xZ = 50 - 2 * o.ap, st = { minN: 1e9, kupplung: 0, ruck: 0, funken: 0 };
+  while (t < 3) { sim.step(dt, { spindel: true, kss: true, xZiel: xZ }); t += dt; }
+  while (t < (o.dauer || 15) && !sim.anschlagAus && !(o.bisBruch === false && sim.w.gebrochen)) {
+    sim.step(dt, { spindel: true, kss: true, vorschub: true, xZiel: xZ });
+    t += dt;
+    if (t > 4) { st.minN = Math.min(st.minN, sim.nEff); }
+    st.kupplung = Math.max(st.kupplung, sim.kupplung);
+    st.ruck = Math.max(st.ruck, sim.ruck);
+    st.funken = Math.max(st.funken, sim.funken);
+  }
+  st.sim = sim;
+  return st;
+}
+
+test('Überlast: zu hohe Drehzahlstufe würgt die Spindel über den Riemen ab', function () {
+  var st = ueberlast({ n: 1250, f: 0.63, ap: 2.5, dauer: 8 });
+  assert.ok(st.minN < 50, 'Spindel läuft noch: ' + st.minN);
+  assert.ok(!st.sim.riemenHaft, 'Riemen rutscht nicht');
+});
+
+test('Überlast: stumpfe Schneide läßt die Kupplung ratschen, der Schlitten ruckelt', function () {
+  var st = ueberlast({ n: 450, f: 0.5, ap: 3, VB: 0.45, dauer: 10 });
+  assert.ok(st.kupplung > 0.4, 'Kupplung ' + st.kupplung);
+  assert.ok(st.ruck > 0.4, 'Ruck ' + st.ruck);
+});
+
+test('Funken gibt es bei Stahl nach dem Plattenbruch, bei Aluminium nie', function () {
+  var stahl = ueberlast({ platte: 'CNMG120404-PF', n: 1250, f: 0.5, ap: 1, dauer: 30, bisBruch: true });
+  assert.ok(stahl.sim.w.gebrochen, 'C45 sollte brechen');
+  assert.ok(stahl.funken > 50, 'Funken ' + stahl.funken);
+  var alu = ueberlast({ mat: 'AlMgSi1', platte: 'CCGT09T304-AL', n: 2500, f: 0.63, ap: 2, dauer: 30, bisBruch: true });
+  assert.strictEqual(alu.funken, 0);
 });
