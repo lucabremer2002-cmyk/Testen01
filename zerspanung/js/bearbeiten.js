@@ -21,13 +21,14 @@
     this.cnc = !!this.masch.cnc;
     this.rng = k.rng;
     this.wkzListe = [k.wkz];
+    if (k.wkz2 && k.wkz2 !== k.wkz) { this.wkzListe.push(k.wkz2); }
     this.messungen = [];
     this.sicherheit = 0;
     this.wichtig = [];
     this.warnZeit = {};
     this.verlauf = [];
     this.faktor = 1;
-    this.inp = { spindel: false, kss: false, kraft: 0, auto: false, notaus: false, ovF: 1, ovS: 1, vorschub: false, zHand: 0, xHand: 0, eil: false, xZiel: null, zZiel: null, yZiel: null, umsteuern: false };
+    this.inp = { spindel: false, kss: false, kraft: 0, auto: false, notaus: false, ovF: 1, ovS: 1, vorschub: false, zHand: 0, xHand: 0, eil: false, xZiel: null, zZiel: null, yZiel: null, umsteuern: false, plan: false, klemmen: false };
     this.tasten = {};
     this.beendet = false;
     this.cncZustand = null;
@@ -41,9 +42,19 @@
       this.szene = new ZM.szenen.BohrSzene(this.sim, op);
     } else if (this.art === 'dreh') {
       this.sim = new PH.DrehSim({ mat: this.mat, wkz: k.wkz, masch: this.masch, param: p, op: { wst: op.wst }, rng: this.rng });
+      if (this.cnc) {
+        // Revolver: T1 schruppen, T2 schlichten; Start am Wechselpunkt
+        this.revolver = { 1: k.wkz, 2: k.wkz2 || k.wkz };
+        this.korr = { 1: { x: 0, z: 0 }, 2: { x: 0, z: 0 } };
+        this.sim.x = 100;
+        this.sim.z = p.zW + 150;
+        this.sim.xZiel = this.sim.x;
+      } else {
+        this.xZiel = Math.round((op.wst.D + 6) * 10) / 10;
+        this.inp.xZiel = this.xZiel;
+        this.zNull = 0;
+      }
       this.szene = new ZM.szenen.DrehSzene(this.sim);
-      this.xZiel = Math.round((op.wst.D + 6) * 10) / 10;
-      this.inp.xZiel = this.xZiel;
     } else {
       this.sim = new PH.FraesSim({ mat: this.mat, wkz: k.wkz, masch: this.masch, param: p, op: { wst: op.wst, y: op.y }, rng: this.rng });
       this.szene = new ZM.szenen.FraesSzene(this.sim);
@@ -81,7 +92,9 @@
       if (this.sim.typ === 'gewinde') { return 'Spindel an, Hebel leicht ziehen, bis der Gewindebohrer anschneidet. Er zieht sich dann selbst rein.'; }
       return 'Spindel an (Enter), dann den Hebel ziehen: Pfeil ↓ erhöht die Kraft, ↑ nimmt sie zurück, R fährt ganz zurück.';
     }
-    if (this.art === 'dreh') { return 'Erst X-Zielmaß eingeben und zustellen, solange der Meißel rechts vom Werkstück steht. Dann Spindel an und Vorschub (V).'; }
+    if (this.art === 'dreh' && this.cnc) { return 'Erst im Einzelsatz (E) und mit kleinem Override einfahren. NC-Start (Enter) arbeitet Satz für Satz ab, NC-Stopp (S) hält an.'; }
+    if (this.art === 'dreh' && this.op.plan && !this.op.d && !this.op.kontur) { return 'Meißel vor die Stirnseite fahren, Spindel an, ankratzen und Z nullen (0). Bettschlitten klemmen (B), mit dem Oberschlitten zustellen und den Planzug einlegen (P).'; }
+    if (this.art === 'dreh') { return 'Erst X-Zielmaß eingeben und zustellen, solange der Meißel rechts vom Werkstück steht. Dann Spindel an und Vorschub (V). Planen geht mit dem Planzug (P).'; }
     return this.cnc ? 'NC-Start fährt das Programm Schnitt für Schnitt ab.' : 'Tiefe außerhalb des Werkstücks zustellen, Spindel an, dann Vorschub (V).';
   };
 
@@ -91,8 +104,13 @@
     var kopf = U.leeren(U.$('#bb-kopf'));
     var soll = '';
     if (op.typ === 'drehen') {
-      var t = DAT.toleranz(op.d, op.tol);
-      soll = 'Soll Ø ' + DAT.fmtD(op.d) + ' ' + op.tol + ' (' + DAT.fmtD(op.d + t.u) + ' … ' + DAT.fmtD(op.d + t.o) + ') auf ' + DAT.fmtD(op.laenge) + ' mm';
+      var K = DAT.drehKontur(op), teile = [];
+      K.stufen.forEach(function (st) {
+        var t = DAT.toleranz(st.d, st.tol);
+        teile.push('Ø ' + DAT.fmtD(st.d) + ' ' + st.tol + ' (' + DAT.fmtD(st.d + t.u) + ' … ' + DAT.fmtD(st.d + t.o) + ') auf ' + DAT.fmtD(st.bis) + ' mm');
+      });
+      if (K.plan) { teile.push('Gesamtlänge ' + DAT.fmtD(K.plan.gesamt) + ' ±' + DAT.fmtD(K.plan.tol)); }
+      soll = 'Soll ' + teile.join(' · ');
     } else if (op.typ === 'fraesen') {
       soll = 'Soll Nut ' + DAT.fmtD(op.breite) + ' ' + op.breiteTol + ' × ' + DAT.fmtD(op.tiefe) + ' ' + op.tiefeTol;
     } else if (op.typ === 'gewinde') {
@@ -150,8 +168,9 @@
       if (st !== 'meister') { zeile('f', 'F', this.sim.typ === 'gewinde' ? 'mm/U' : 'mm/U'); zeile('vc', 'vc', 'm/min'); }
     } else if (art === 'dreh') {
       zeile('x', 'X Ø', 'mm');
-      zeile('z', 'Z', 'mm');
-      if (st !== 'meister') { zeile('n', 'S', '1/min'); zeile('vc', 'vc', 'm/min'); }
+      zeile('z', cnc ? 'Z (W)' : 'Z', 'mm');
+      if (st !== 'meister' || cnc) { zeile('n', 'S', '1/min'); zeile('vc', 'vc', 'm/min'); }
+      if (cnc) { zeile('f', 'F', 'mm/U'); zeile('t', 'T', ''); }
     } else {
       zeile('x', 'X', 'mm');
       zeile('y', 'Y', 'mm');
@@ -172,6 +191,7 @@
         add('P', 'Leistung', 'kW');
       } else if (art === 'dreh') {
         add('P', 'Leistung', 'kW');
+        add('mo', cnc ? 'Spindellast' : 'Moment / Nennmoment', '%');
         add('pl', 'Plattenlast', '%');
         add('amp', 'Schwingung', 'µm');
         add('T', 'Schneide', '°C');
@@ -270,12 +290,28 @@
       bed.appendChild(g2);
     } else if (art === 'bohr' && cnc) {
       bed.appendChild(this.override());
+    } else if (art === 'dreh' && cnc) {
+      var gc = h('div.gruppe');
+      this.kn.einzel = knopf('Einzelsatz', 'E', null, function () { self.einzelsatz(); });
+      gc.appendChild(this.kn.einzel);
+      gc.appendChild(knopf('Reset', 'R', null, function () { self.ncReset(); }));
+      bed.appendChild(gc);
+      bed.appendChild(this.override());
+      var gk = h('div.gruppe');
+      gk.appendChild(knopf('Messen', 'M', null, function () { self.messen(); }));
+      gk.appendChild(knopf('Korrektur', 'O', null, function () { self.korrekturFenster(); }));
+      gk.appendChild(knopf('Platte', 'W', null, function () { self.platte(); }));
+      bed.appendChild(gk);
     } else if (art === 'dreh') {
       var g3 = h('div.gruppe');
-      this.kn.vorschub = knopf('Vorschub', 'V', null, function () { self.vorschub(); });
+      this.kn.vorschub = knopf('Längszug', 'V', null, function () { self.vorschub(); });
+      this.kn.plan = knopf('Planzug', 'P', null, function () { self.planzug(); });
+      this.kn.klemmen = knopf('Bettschlitten klemmen', 'B', null, function () { self.klemmen(); });
       g3.appendChild(this.kn.vorschub);
+      g3.appendChild(this.kn.plan);
       g3.appendChild(this.halteKnopf('◀', '←', function (v) { self.inp.zHand = v ? -1 : 0; }));
       g3.appendChild(this.halteKnopf('▶', '→', function (v) { self.inp.zHand = v ? 1 : 0; }));
+      g3.appendChild(this.kn.klemmen);
       bed.appendChild(g3);
       var xin = h('input#x-ziel', { type: 'number', step: '0.01', value: String(this.xZiel), 'aria-label': 'X-Zielmaß Durchmesser',
         onkeydown: function (e) { if (e.key === 'Enter') { self.xSetzen(parseFloat(String(e.target.value).replace(',', '.'))); e.target.blur(); } } });
@@ -286,6 +322,17 @@
         gx.appendChild(knopf((d > 0 ? '+' : '−') + DAT.fmtD(Math.abs(d)), null, 'knopf--klein', function () { self.xSetzen(self.xZiel + d); }));
       });
       bed.appendChild(gx);
+      // Oberschlitten: Planzustellung in Z, relativ zum gesetzten Nullpunkt
+      var zin = h('input#z-ober', { type: 'number', step: '0.01', value: '', placeholder: 'Z rel.', 'aria-label': 'Oberschlitten Z-Ziel relativ zum Nullpunkt',
+        onkeydown: function (e) { if (e.key === 'Enter') { self.oberSetzen(parseFloat(String(e.target.value).replace(',', '.'))); e.target.blur(); } } });
+      this.zIn = zin;
+      var gz = h('div.gruppe', [h('span.gruppe__titel', 'Oberschlitten Z'), h('div.xeingabe', [zin,
+        knopf('Anfahren', null, 'knopf--klein', function () { self.oberSetzen(parseFloat(String(zin.value).replace(',', '.'))); })])]);
+      [-1, -0.1, -0.02, 0.02, 0.1, 1].forEach(function (d) {
+        gz.appendChild(knopf((d > 0 ? '+' : '−') + DAT.fmtD(Math.abs(d)), null, 'knopf--klein', function () { self.oberRelativ(d); }));
+      });
+      gz.appendChild(knopf('Z nullen', '0', 'knopf--klein', function () { self.zNullen(); }));
+      bed.appendChild(gz);
       var g4 = h('div.gruppe');
       g4.appendChild(knopf('Messen', 'M', null, function () { self.messen(); }));
       g4.appendChild(knopf('Späne', 'H', null, function () { self.spaene(); }));
@@ -417,9 +464,104 @@
 
   Bearbeitung.prototype.vorschub = function () {
     this.klick();
+    if (this.art === 'dreh' && this.inp.plan && !this.inp.vorschub) { this.log('Erst den Planzug auskuppeln.', 'warn'); return; }
     if (this.art === 'fraes' && this.sim.x > this.sim.L + this.sim.R) { this.log('Der Tisch steht in der Endlage. Erst Eilgang zurück (R).', 'warn'); return; }
     this.inp.vorschub = !this.inp.vorschub;
     this.log(this.inp.vorschub ? 'Vorschub eingekuppelt.' : 'Vorschub ausgekuppelt.', 'info');
+  };
+
+  // ------------------------------------------------------------ Drehen konventionell
+  Bearbeitung.prototype.planzug = function () {
+    this.klick();
+    if (this.inp.vorschub && !this.inp.plan) { this.log('Längs- und Planzug lassen sich nicht gleichzeitig einlegen.', 'warn'); return; }
+    this.inp.plan = !this.inp.plan;
+    this.log(this.inp.plan ? 'Planzug eingelegt (Planvorschub ' + DAT.fmtD(this.k.setup.param.f / 2) + ' mm/U).' : 'Planzug ausgekuppelt.', 'info');
+  };
+
+  Bearbeitung.prototype.klemmen = function () {
+    this.klick();
+    this.inp.klemmen = !this.inp.klemmen;
+    this.log(this.inp.klemmen ? 'Bettschlitten geklemmt. Zustellung in Z jetzt mit dem Oberschlitten.' : 'Bettschlitten-Klemmung gelöst.', 'info');
+  };
+
+  Bearbeitung.prototype.zNullen = function () {
+    this.klick();
+    this.zNull = this.sim.z;
+    this.log('Z genullt: Die Anzeige zeigt jetzt Z relativ zu dieser Stelle (z. B. nach dem Ankratzen an der Stirnseite).', 'info');
+  };
+
+  Bearbeitung.prototype.oberSetzen = function (zRel) {
+    if (isNaN(zRel)) { return; }
+    var ziel = (this.zNull || 0) + zRel;
+    this.inp.zZiel = ziel;
+    this.inp.zHand = 0;
+    if (this.zIn) { this.zIn.value = zRel.toFixed(2); }
+    this.log('Oberschlitten auf Z = ' + zahl(zRel, 2) + ' (relativ).', 'info');
+  };
+
+  Bearbeitung.prototype.oberRelativ = function (d) {
+    var basis = this.inp.zZiel !== null && this.inp.zZiel !== undefined ? this.inp.zZiel : this.sim.z;
+    this.inp.zZiel = basis + d;
+    if (this.zIn) { this.zIn.value = (this.inp.zZiel - (this.zNull || 0)).toFixed(2); }
+  };
+
+  // ------------------------------------------------------------ CNC-Drehen
+  Bearbeitung.prototype.laufNeu = function () {
+    var self = this, p = this.k.setup.param;
+    this.lauf = new ZM.nc.Lauf(this.k.setup.nc, {
+      zW: p.zW,
+      wechselZeit: this.masch.wechselZeit,
+      werkzeug: function (nr) {
+        var w = self.revolver[nr];
+        if (!w) { return null; }
+        var kk = self.korr[nr] || { x: 0, z: 0 };
+        self.lauf.opt.zW = p.zW + kk.z;
+        self.lauf.korrX = kk.x;
+        return w;
+      }
+    });
+    this.lauf.korrX = 0;
+    this.lauf.einzelsatz = !!this.einzel;
+    if (this.lauf.fehler.length) { this.log('Programmfehler: ' + this.lauf.fehler[0].text, 'fehler'); }
+  };
+
+  Bearbeitung.prototype.einzelsatz = function () {
+    this.klick();
+    this.einzel = !this.einzel;
+    if (this.lauf) { this.lauf.einzelsatz = this.einzel; }
+    this.log(this.einzel ? 'Einzelsatz ein: Nach jedem Satz wartet die Steuerung auf NC-Start.' : 'Einzelsatz aus.', 'info');
+  };
+
+  Bearbeitung.prototype.ncReset = function () {
+    this.klick();
+    this.lauf = null;
+    this.sim.alarm = null;
+    this.inp.spindel = false;
+    this.inp.kss = false;
+    this.inp.bahn = null;
+    this.ncZeichnen(-1);
+    this.log('Reset: Programm abgebrochen, Spindel aus. NC-Start beginnt wieder am Programmanfang.', 'info');
+  };
+
+  Bearbeitung.prototype.korrekturFenster = function () {
+    var self = this, box = U.leeren(this.messEl);
+    var felder = {};
+    var zeilen = [1, 2].map(function (nr) {
+      var kx = h('input', { type: 'number', step: '0.001', value: String(self.korr[nr].x), 'aria-label': 'Korrektur T' + nr + ' X' });
+      var kz = h('input', { type: 'number', step: '0.01', value: String(self.korr[nr].z), 'aria-label': 'Korrektur T' + nr + ' Z' });
+      felder[nr] = [kx, kz];
+      return h('div.feld', [h('span.feld__titel', 'T' + nr + ' ' + (self.revolver[nr] ? self.revolver[nr].def.name : '')), h('div.gruppe', [h('span', 'ΔX Ø'), kx, h('span', 'ΔZ'), kz])]);
+    });
+    box.appendChild(h('div.messfenster', [h('h3', 'Werkzeug-Verschleißkorrektur')].concat(zeilen).concat([
+      h('button.knopf.knopf--gelb', { type: 'button', onclick: function () {
+        [1, 2].forEach(function (nr) {
+          var x = parseFloat(String(felder[nr][0].value).replace(',', '.')), z = parseFloat(String(felder[nr][1].value).replace(',', '.'));
+          self.korr[nr] = { x: isNaN(x) ? 0 : x, z: isNaN(z) ? 0 : z };
+        });
+        self.log('Korrektur übernommen: T1 ΔX ' + zahl(self.korr[1].x, 3) + ', T2 ΔX ' + zahl(self.korr[2].x, 3) + '. Wirkt beim nächsten Werkzeugaufruf.', 'info');
+      } }, 'Übernehmen'),
+      h('small.muted', 'Ist der Durchmesser 0,010 zu groß, trägst du ΔX = −0,010 ein und lässt das Programm noch einmal laufen. Die Schruppschnitte gehen dann durch die Luft.')
+    ])));
   };
 
   Bearbeitung.prototype.xSetzen = function (v) {
@@ -471,6 +613,16 @@
     if (this.inp.notaus) { this.log('Erst den Not-Aus entriegeln.', 'warn'); return; }
     if (sim.alarm) { this.log('Alarm quittiert.', 'info'); sim.alarm = null; }
     this.klick();
+    if (this.art === 'dreh') {
+      if (!this.lauf || this.lauf.fertig) {
+        this.laufNeu();
+        this.log('NC-Start: Programm läuft' + (this.einzel ? ' im Einzelsatz' : '') + '.', 'info');
+      } else {
+        this.log('NC-Start: weiter.', 'info');
+      }
+      this.lauf.halt = false;
+      return;
+    }
     this.inp.spindel = true;
     this.inp.kss = this.k.setup.param.kss !== 'trocken';
     if (this.art === 'bohr') {
@@ -495,6 +647,7 @@
 
   Bearbeitung.prototype.ncStopp = function () {
     this.klick();
+    if (this.lauf) { this.lauf.halt = true; this.log('NC-Stopp: Vorschubhalt, Spindel läuft weiter.', 'info'); return; }
     if (this.sim.zyk) { this.sim.zyk.halt = true; }
     if (this.cncZustand) { this.cncZustand.halt = true; }
     this.inp.vorschub = false;
@@ -591,7 +744,8 @@
       return;
     }
     if (this.art === 'dreh') {
-      var zVor = Math.round((op.wst.L - op.laenge / 2) * 10) / 10;
+      var Kd = DAT.drehKontur(op);
+      var zVor = Math.round((sim.laengeZ() - (Kd.stufen.length ? Kd.stufen[0].bis / 2 : 5)) * 10) / 10;
       var zin = h('input#mess-z', { type: 'number', step: '1', min: '0', max: String(op.wst.L), value: String(zVor) });
       var mm = h('select#mess-mm');
       ['messschieber', 'digital', 'buegel', 'buegelDigital'].forEach(function (id) {
@@ -610,11 +764,19 @@
         self.messungen.push({ z: z, wert: r.wert, T: r.T });
         self.log('Messung bei Z = ' + zahl(z, 0) + ' mm: Ø ' + zahl(r.wert, stellen) + ' mm (' + DAT.messmittel[mm.value].name + ', Werkstück ' + zahl(r.T, 0) + ' °C)', 'mess');
       };
+      var laenge = function () {
+        var r = sim.laengeMessen('digital');
+        if (r.fehler) { aus.textContent = r.fehler; return; }
+        aus.textContent = 'L ' + zahl(r.wert, 2);
+        self.messungen.push({ laenge: r.wert, T: r.T });
+        self.log('Gesamtlänge mit dem Messschieber: ' + zahl(r.wert, 2) + ' mm (Werkstück ' + zahl(r.T, 0) + ' °C)', 'mess');
+      };
       box.appendChild(h('div.messfenster', [
         h('h3', 'Messen'),
         h('div.feld', [h('label', { for: 'mess-z' }, 'Position Z (vom Futter, mm)'), zin]),
         h('div.feld', [h('label', { for: 'mess-mm' }, 'Messmittel'), mm]),
-        h('button.knopf.knopf--gelb', { type: 'button', onclick: los }, 'Messen'),
+        h('div.gruppe', [h('button.knopf.knopf--gelb', { type: 'button', onclick: los }, 'Ø messen'),
+          h('button.knopf', { type: 'button', onclick: laenge }, 'Gesamtlänge messen')]),
         aus,
         h('small.muted', 'Das Werkstück wird beim Drehen warm. Gemessen wird bei der aktuellen Temperatur.')
       ]));
@@ -643,6 +805,29 @@
   Bearbeitung.prototype.platte = function () {
     var self = this, sim = this.sim;
     if (sim.nEff > 1) { this.log('Erst die Spindel anhalten.', 'warn'); return; }
+    if (this.cnc && this.revolver) {
+      var kn = [];
+      [1, 2].forEach(function (nr) {
+        var w = self.revolver[nr];
+        if (!w || (nr === 2 && w === self.revolver[1])) { return; }
+        kn.push({ text: 'T' + nr + ': neue Schneidecke (' + U.geld(w.def.preis / w.def.ecken) + ')', aktion: function () {
+          if (w.ecke >= w.ecken) {
+            var neu = self.spiel.werkzeugHolen(w.def, true);
+            self.wkzListe.push(neu);
+            self.revolver[nr] = neu;
+            if (sim.w === w) { sim.werkzeugWechsel(neu); }
+          } else {
+            w.ecke += 1; w.VB = 0; w.ausbruch = 0; w.schaden = 0; w.gebrochen = false; w.bruch = null; w.T = 20;
+            if (sim.w === w) { sim.platteBruch = false; sim.halterSchaden = 0; }
+          }
+          self.log('T' + nr + ': neue Schneidecke eingesetzt.', 'info');
+        } });
+      });
+      kn.push({ text: 'Abbrechen', aktion: function () {} });
+      this.overlay('ok', 'Wendeschneidplatten im Revolver', 'T1: ' + this.revolver[1].def.name + ', VB ' + zahl(this.revolver[1].VB, 2) + ' mm' +
+        (this.revolver[2] && this.revolver[2] !== this.revolver[1] ? ' · T2: ' + this.revolver[2].def.name + ', VB ' + zahl(this.revolver[2].VB, 2) + ' mm' : ''), kn);
+      return;
+    }
     var erlaubt = (this.k.mission.werkzeuge && this.k.mission.werkzeuge.platten) || DAT.katalog().platten.map(function (p) { return p.id; });
     var knoepfe = [{ text: 'Schneidecke drehen (' + U.geld(sim.w.def.preis / sim.w.def.ecken) + ')', aktion: function () {
       if (sim.w.ecke >= sim.w.ecken) { self.neuePlatte(sim.def.id); return; }
@@ -703,6 +888,10 @@
         else { behandelt = false; }
       } else if (cnc) {
         if (key === 's' || key === 'S') { self.ncStopp(); }
+        else if (art === 'dreh' && (key === 'e' || key === 'E')) { self.einzelsatz(); }
+        else if (art === 'dreh' && (key === 'r' || key === 'R')) { self.ncReset(); }
+        else if (art === 'dreh' && (key === 'o' || key === 'O')) { self.korrekturFenster(); }
+        else if (art === 'dreh' && (key === 'w' || key === 'W')) { self.platte(); }
         else if (key === '+' && self.ovFEl) { self.ovFEl.value = String(Math.min(120, parseInt(self.ovFEl.value, 10) + 10)); self.ovFEl.dispatchEvent(new Event('input')); }
         else if (key === '-' && self.ovFEl) { self.ovFEl.value = String(Math.max(0, parseInt(self.ovFEl.value, 10) - 10)); self.ovFEl.dispatchEvent(new Event('input')); }
         else if (key === 'm' || key === 'M') { self.messen(); }
@@ -714,6 +903,11 @@
         else if (key === 'ArrowUp') { self.xSetzen(self.xZiel + schritt); }
         else if (key === 'ArrowDown') { self.xSetzen(self.xZiel - schritt); }
         else if (key === 'v' || key === 'V') { self.vorschub(); }
+        else if (key === 'p' || key === 'P') { self.planzug(); }
+        else if (key === 'b' || key === 'B') { self.klemmen(); }
+        else if (key === '0') { self.zNullen(); }
+        else if (key === '+') { self.oberRelativ(e.altKey ? 0.02 : e.shiftKey ? 1 : 0.1); }
+        else if (key === '-') { self.oberRelativ(-(e.altKey ? 0.02 : e.shiftKey ? 1 : 0.1)); }
         else if (key === 'm' || key === 'M') { self.messen(); }
         else if (key === 'h' || key === 'H') { self.spaene(); }
         else if (key === 'w' || key === 'W') { self.platte(); }
@@ -793,10 +987,28 @@
     }
     var n = Math.max(1, Math.ceil(dt / DT));
     var d = dt / n, i;
+    var huell = this.art === 'dreh' ? this.huelle || (this.huelle = [0, 0, 9]) : null;
     for (i = 0; i < n; i++) {
+      if (this.lauf) { this.lauf.tick(sim, inp, d); }
+      else if (this.art === 'dreh' && this.cnc) { inp.bahn = null; inp.spindel = false; }
       sim.step(d, inp);
       inp.umsteuern = false;
       inp.zyklusStart = false;
+      if (huell) {
+        var lw = this.cnc ? sim.Minst / Math.max(1, sim.m.mS1) : sim.lastM;
+        if (lw > huell[0]) { huell[0] = lw; }
+        if (lw < huell[2]) { huell[2] = lw; }
+        if ((sim.plattenLast || 0) > huell[1]) { huell[1] = sim.plattenLast || 0; }
+      }
+    }
+    if (this.lauf) {
+      var ml = this.lauf.meldungen.splice(0);
+      var selbst = this;
+      ml.forEach(function (mm) {
+        selbst.log(mm.text, mm.art === 'warn' ? 'warn' : 'info');
+        if (mm.art === 'ende') { selbst.live('Programmende M30 – Teil messen oder Arbeitsgang beenden.', false); if (selbst.spiel.klang) { selbst.spiel.klang.erfolg(); } }
+      });
+      this.ncZeichnen(this.lauf.zeile());
     }
     if (this.art === 'bohr' && this.cnc) { this.cncBohrTakt(dt); }
     this.ereignisse();
@@ -804,7 +1016,12 @@
     this.scopeZeit -= dt;
     if (this.scopeZeit <= 0) {
       this.scopeZeit = 1 / 30;
-      this.verlauf.push(this.messwert());
+      var mw = this.messwert();
+      if (this.huelle) {
+        mw = this.stufe === 'azubi' ? [this.huelle[0], this.huelle[1], this.huelle[2]] : [Math.min(1.6, this.huelle[0]), null, this.huelle[2]];
+        this.huelle = [0, 0, 9];
+      }
+      this.verlauf.push(mw);
       if (this.verlauf.length > 240) { this.verlauf.shift(); }
     }
     this.meisterZeit -= dt;
@@ -825,7 +1042,7 @@
     var kl = this.spiel.klang;
     if (!kl || !kl.bereit) { return; }
     var a = this.sim.anzeige(), sim = this.sim;
-    var schnitt = 0, ratter = 0, rf = 900, quiet = 0, schneiden = 2;
+    var schnitt = 0, ratter = 0, rf = 900, quiet = 0, schneiden = 2, extra = null;
     if (this.art === 'bohr') {
       schnitt = a.f > 0.002 && a.n > 5 ? Math.min(1, a.P / 1.2 + 0.25) : 0;
       quiet = (a.f < 0.01 && a.z > 0.3 && a.n > 30 && a.F > 30 ? 0.8 : 0) + Math.min(1, Math.max(0, sim.w.VB - 0.2) * 2) * (schnitt > 0 ? 1 : 0) + (sim.phi > 0.8 ? 0.6 : 0);
@@ -835,13 +1052,16 @@
       ratter = a.amp;
       rf = a.fn;
       schneiden = 1;
+      quiet = a.reib > 0 ? 0.8 : 0;
+      extra = { cnc: this.cnc, iRel: a.iRel, riemen: a.riemenGleitet ? 1 : 0, kupplung: a.kupplung, fRat: a.fRat, puls: a.puls, fcb: a.fcb,
+        klopfen: a.rE > 0.3 && a.n > 5 ? a.rE : 0, nRev: a.n / 60, halterReibt: a.halterReibt, knack: a.knack, kreischen: a.rB };
     } else {
       schnitt = a.ap > 0.005 && a.ae > 0.01 && a.n > 5 ? Math.min(1, a.P / 3 + 0.3) : 0;
       ratter = a.amp;
       rf = a.fn;
       schneiden = sim.def.z;
     }
-    kl.update({ n: a.n, nMax: this.k.setup.param.n, last: a.last, schnitt: schnitt, vc: a.vc, schneiden: schneiden, ratter: ratter, ratterF: rf, quietsch: quiet, kss: this.inp.kss });
+    kl.update({ n: a.n, nMax: this.cnc && this.art === 'dreh' ? Math.max(1, a.nSoll || a.n) : this.k.setup.param.n, last: a.last, schnitt: schnitt, vc: a.vc, schneiden: schneiden, ratter: ratter, ratterF: rf, quietsch: quiet, kss: this.inp.kss, extra: extra });
   };
 
   // ============================================================ Ereignisse
@@ -866,12 +1086,15 @@
         if (self.art === 'bohr') { self.inp.auto = false; }
       } else if (e.typ === 'durchbruch' && e.schwere === 'warn') {
         self.live(e.text, false);
-      } else if (e.typ === 'tischZieht' || e.typ === 'rutsch' || e.typ === 'steckt' || e.typ === 'thermoschock' || e.typ === 'motorschutz' || e.typ === 'alarm') {
+      } else if (e.typ === 'tischZieht' || e.typ === 'rutsch' || e.typ === 'steckt' || e.typ === 'thermoschock' || e.typ === 'motorschutz' || e.typ === 'alarm' || e.typ === 'spanbrand' || e.typ === 'abgewuergt') {
         self.live(e.text, e.typ !== 'rutsch');
-        if (e.typ === 'motorschutz') { self.inp.spindel = false; self.inp.vorschub = false; }
+        if (e.typ === 'motorschutz') { self.inp.spindel = false; self.inp.vorschub = false; self.inp.plan = false; }
         if (e.typ === 'alarm' && kl) { kl.alarm(); }
-      } else if (e.typ === 'rattern' || e.typ === 'wirr' || e.typ === 'riemen' || e.typ === 'aufschweiss' || e.typ === 'auszug' || e.typ === 'halter' || e.typ === 'ausgegluht' || e.typ === 'boden') {
-        if (self.stufe !== 'meister') { self.live(e.text, e.typ === 'halter' || e.typ === 'boden'); }
+      } else if (e.typ === 'mitte') {
+        self.inp.plan = false;
+      } else if (e.typ === 'rattern' || e.typ === 'wirr' || e.typ === 'riemen' || e.typ === 'aufschweiss' || e.typ === 'auszug' || e.typ === 'halter' || e.typ === 'ausgegluht' || e.typ === 'boden' ||
+        e.typ === 'kupplung' || e.typ === 'unterbrochen' || e.typ === 'zapfen' || e.typ === 'geklemmt' || e.typ === 'klemmHand' || e.typ === 'anfahren' || e.typ === 'rutscht') {
+        if (self.stufe !== 'meister' || e.typ === 'geklemmt' || e.typ === 'klemmHand') { self.live(e.text, e.typ === 'halter' || e.typ === 'boden' || e.typ === 'rutscht'); }
       }
       if (e.typ === 'sicherheit') { self.sicherheit += 1; }
     });
@@ -892,6 +1115,8 @@
     this.inp.auto = false;
     if (!this.cnc) { this.setKraft(0); }
     if (this.cncZustand) { this.cncZustand.halt = true; }
+    if (this.lauf) { this.lauf.halt = true; }
+    this.inp.plan = false;
     var preis = sim.def.typ === 'platte' ? sim.def.preis / sim.def.ecken : sim.def.preis;
     var knoepfe = [];
     if (this.art === 'bohr') {
@@ -916,6 +1141,7 @@
         if (self.art === 'dreh') {
           if (sim.w.ecke < sim.w.ecken) { sim.plattenWechsel(); }
           else { self.neuePlatte(sim.def.id); }
+          if (self.cnc) { self.log('An der CNC: Reset (R), dann NC-Start – das Programm beginnt von vorn, die fertigen Schnitte gehen durch die Luft.', 'info'); }
         } else {
           var w2 = self.spiel.werkzeugHolen(sim.def, true);
           self.wkzListe.push(w2);
@@ -1012,10 +1238,17 @@
       if (a.z > 0.2 && a.n > 30 && a.f < 0.01 && a.F > 40 && this.mat.verfest > 0.5) { sag('reib', 'Nicht reiben lassen! Entweder schneiden oder raus.', 5); }
       if (a.z > 0.2 && a.n < 5 && a.F > 150) { sag('steht', 'Die Spindel steht – Druck weg, sonst bricht er beim Anlaufen.', 5); }
     } else if (this.art === 'dreh') {
+      if (a.kupplung > 0.3 && !this.cnc) { sag('kupp', 'Hörst du die Kupplung ratschen? Vorschub raus! Die Vorschubkraft ist zu groß – kleinerer Vorschub, weniger Spantiefe oder eine frische Schneide.', 4); }
+      if (a.riemenGleitet && a.n > 5) { sag('riemen', 'Der Riemen rutscht! Vorschub aus. Eine kleinere Drehzahlstufe hat mehr Moment.', 4); }
+      if (a.riemenGleitet && a.n <= 5) { sag('abgew', 'Abgewürgt. Vorschub aus, Werkzeug zurückziehen, erst dann wieder anlaufen lassen.', 4); }
+      if (a.rS > 0.3) { sag('stau', 'Die Späne stauen sich und hämmern auf die Schneide – der Vorschub liegt über dem Spanformbereich der Platte.', 5); }
+      if (a.modus === 'plan' && !this.cnc && !this.inp.klemmen) { sag('klemm', 'Beim Plandrehen den Bettschlitten klemmen (B), sonst drückt er sich weg.', 10); }
+      if (a.reib > 0.2) { sag('reib', 'Die Schneide steht über Mitte – hörst du das Quietschen? Sofort zurück!', 3); }
+      if (a.glut > 0.3) { sag('glut', 'Die Späne glühen. Das ist die Schnittgeschwindigkeit, nicht der Vorschub.', 8); }
       if (a.amp > 2.5) { sag('amp', 'Es rattert. Weniger Schnitttiefe oder Reitstock.', 6); }
       if (a.plattenLast > 0.85) { sag('pl', 'Die Platte ist am Limit (' + Math.round(a.plattenLast * 100) + ' %).', 4); }
       if (a.spanForm === 'band') { sag('band', 'Bandspäne! Der Vorschub oder die Schnitttiefe liegt unter dem Spanformbereich der Platte.', 12); }
-      if (this.inp.vorschub && sim.p.zAnschlag === null && a.z < 14 && a.x < sim.D0 + 40) { sag('futter', 'Achtung, gleich kommt das Futter! Vorschub aus!', 2); }
+      if (!this.cnc && this.inp.vorschub && (sim.p.zAnschlag === null || sim.p.zAnschlag === undefined) && a.z < 14 && a.x < sim.D0 + 40) { sag('futter', 'Achtung, gleich kommt das Futter! Vorschub aus!', 2); }
       if (a.last > 0.95) { sag('last', 'Die Spindel ist an der Leistungsgrenze.', 6); }
       if (a.T > a.tSoft - 150 && a.ap > 0) { sag('T', 'Die Schneide glüht – Schnittgeschwindigkeit zu hoch.', 6); }
     } else {
@@ -1065,10 +1298,13 @@
       if (this.kn.auto) { this.kn.auto.classList.toggle('knopf--an', this.inp.auto && !sim.autoAus); }
     } else if (this.art === 'dreh') {
       if (v.x) { v.x.textContent = zahl(a.x, 3); }
-      if (v.z) { v.z.textContent = zahl(a.z, 2); }
+      if (v.z) { v.z.textContent = zahl(a.z - (this.cnc ? this.k.setup.param.zW : (this.zNull || 0)), 2); }
       if (v.n) { v.n.textContent = zahl(a.n, 0); }
       if (v.vc) { v.vc.textContent = zahl(a.vc, 0); }
+      if (v.f) { v.f.textContent = zahl(a.f, 3); }
+      if (v.t) { v.t.textContent = this.lauf ? 'T' + this.lauf.zustand.tnr : 'T1'; }
       setB(b.P, a.P, a.P / a.pMax, 1, zahl(a.P, 2) + ' kW');
+      setB(b.mo, a.last, a.last / 2.5, this.cnc ? (sim.m.mMax / sim.m.mS1) / 2.5 : sim.kR / 2.5, zahl(a.last * 100, 0) + ' %');
       setB(b.pl, a.plattenLast, a.plattenLast / 1.4, 1 / 1.4, zahl(a.plattenLast * 100, 0) + ' %');
       setB(b.amp, a.amp, a.amp / 40, 4 / 40, zahl(a.amp, 1));
       setB(b.T, a.T, a.T / (a.tSoft * 1.2), 1 / 1.2, zahl(a.T, 0) + ' °C');
@@ -1081,6 +1317,10 @@
         this.hud.span.textContent = 'Spanform: ' + (sf[a.spanForm] || a.spanForm) + (a.wirr > 0.5 ? ' · Wirrspäne sammeln sich' : '');
       }
       if (this.kn.vorschub) { this.kn.vorschub.classList.toggle('knopf--an', this.inp.vorschub); }
+      if (this.kn.plan) { this.kn.plan.classList.toggle('knopf--an', this.inp.plan); }
+      if (this.kn.klemmen) { this.kn.klemmen.classList.toggle('knopf--an', this.inp.klemmen); }
+      if (this.kn.einzel) { this.kn.einzel.classList.toggle('knopf--an', !!this.einzel); }
+      if (this.hud.span && a.alarm) { this.hud.span.textContent = a.alarm; }
     } else {
       if (v.x) { v.x.textContent = zahl(a.x, 2); }
       if (v.y) { v.y.textContent = zahl(a.y, 2); }
@@ -1098,7 +1338,7 @@
       if (this.kn.vorschub) { this.kn.vorschub.classList.toggle('knopf--an', this.inp.vorschub); }
     }
     if (this.kn.spindel) { this.kn.spindel.classList.toggle('knopf--an', this.inp.spindel); }
-    if (this.kn.start) { this.kn.start.classList.toggle('knopf--an', !!(this.cncZustand && this.cncZustand.lauf && !this.cncZustand.halt)); }
+    if (this.kn.start) { this.kn.start.classList.toggle('knopf--an', !!(this.cncZustand && this.cncZustand.lauf && !this.cncZustand.halt) || !!(this.lauf && !this.lauf.halt && !this.lauf.fertig)); }
     this.kn.kss.classList.toggle('knopf--an', this.inp.kss);
     var w = sim.w;
     this.wkzEl.textContent = (w.def.bez || (w.def.name + ' ' + (w.def.sorte || ''))) + (this.stufe === 'azubi' ? ' · VB ' + zahl(w.VB, 2) + ' mm · max. ' + zahl(w.maxT, 0) + ' °C' : '') + (w.gebrochen ? ' · GEBROCHEN' : '');
@@ -1138,6 +1378,18 @@
       }
       c.stroke();
     }
+    // Huellkurve (min..max je Abtastung), damit schnelles Ruckeln nicht als Scheinmuster erscheint
+    c.strokeStyle = 'rgba(130,245,210,0.35)';
+    c.lineWidth = Math.max(1, W / 240);
+    var jj;
+    for (jj = 0; jj < n; jj++) {
+      if (v[jj].length < 3 || v[jj][2] === undefined || v[jj][2] > 8) { continue; }
+      var xx = W - (n - 1 - jj) * (W / 240);
+      c.beginPath();
+      c.moveTo(xx, H - Math.min(max, v[jj][0]) / max * H);
+      c.lineTo(xx, H - Math.min(max, v[jj][2]) / max * H);
+      c.stroke();
+    }
     kurve(1, 'rgba(242,177,0,0.65)');
     kurve(0, '#82f5d2');
     c.fillStyle = 'rgba(217,45,32,0.9)';
@@ -1171,6 +1423,7 @@
       }
       sim.ergebnisse.forEach(function (r) { opZeit += r.zeitExtra || 0; });
     }
+    if (this.art === 'dreh' && this.k.setup.param.ruestZeit) { opZeit += this.k.setup.param.ruestZeit; }
     U.$('#overlay').hidden = true;
     this.k.fertig({
       sim: sim,

@@ -10,7 +10,10 @@
  *            Arbeitsgangs, dessen Bohrungen aufgebohrt werden
  *   reiben   Reiben einer Passbohrung, vor = Arbeitsgang der Vorbohrung
  *   gewinde  Gewindebohren, vor = Arbeitsgang der Kernlochbohrung
- *   drehen   Laengsdrehen eines Absatzes von rechts
+ *   drehen   Drehen an der konventionellen oder der CNC-Drehmaschine: ein Absatz
+ *            (d, tol, laenge) oder eine Kontur aus Absaetzen (kontur: d, tol, bis =
+ *            Abstand der Schulter von der Stirnflaeche), dazu wahlweise Plandrehen auf
+ *            Gesamtlaenge (plan: gesamt, tol, ra, eben) und eine Fase
  *   fraesen  Nut oder Absatz in Laengsrichtung
  */
 (function (root) {
@@ -159,6 +162,24 @@
       werkzeuge: { platten: ['CNMG120408-PM', 'CNMG120404-PF', 'CNMG120412-PR'] }
     },
     {
+      id: 'M16', jahr: 2, titel: 'Auf Länge planen',
+      kunde: 'Lehrwerkstatt', auftrag: 'LW-0216', lohn: 90,
+      text: 'Ein gesägter Rundstahl Ø 50 × 103 aus C45 wird an der Stirnseite plangedreht: Gesamtlänge 100 ± 0,1 mm, Ra 3,2, eben, und in der Mitte darf kein Butzen stehen bleiben.',
+      meister: [
+        'Der Drehmeißel muss genau auf Mitte stehen. Richte ihn an der Reitstockspitze aus. Steht er darüber, drückt die Freifläche zur Mitte hin gegen den Butzen und die Schneide bricht aus. Steht er darunter, bleibt ein Butzen stehen.',
+        'Vor dem Plandrehen den Bettschlitten klemmen (B). Sonst weicht er unter der Passivkraft aus, und die Stirnfläche rattert oder wird hohl. Zugestellt wird dann mit dem Oberschlitten.',
+        'Der Planvorschub ist an dieser Maschine halb so groß wie der Längsvorschub. Zur Mitte hin sinkt die Schnittgeschwindigkeit gegen null – dort wird die Fläche rauer.',
+        'Ankratzen, Z nullen, dann rechnen: 103 − 100 = 3 mm müssen runter. Schruppen, Länge messen, schlichten.'
+      ],
+      mat: 'C45', zeit: 540, budget: 25,
+      teil: { art: 'welle', name: 'Ronde' },
+      ops: [
+        { typ: 'drehen', name: 'Stirnseite plandrehen', maschine: 'drehKonv', wst: { D: 50, L: 63, spannL: 40, saege: true },
+          plan: { gesamt: 100, tol: 0.1, ra: 3.2, eben: 0.03 } }
+      ],
+      werkzeuge: { platten: ['CNMG120408-PM', 'CNMG120404-PF', 'CNMG120412-PR'] }
+    },
+    {
       id: 'M08', jahr: 2, titel: 'Lagersitz',
       kunde: 'Getriebebau Hofmann', auftrag: 'GH-3381', lohn: 130,
       text: 'Ein Lagersitz Ø 45 k6 (+0,002 bis +0,018) auf 40 mm Länge, Ra 0,8. Das Wälzlager sitzt später mit Übermaß drauf.',
@@ -250,6 +271,25 @@
       werkzeuge: { platten: ['CNMG120408-PM', 'CNMG120404-PF', 'CNMG120408-WM', 'DNMG150608-MM'] }
     },
 
+    {
+      id: 'M17', jahr: 3, titel: 'CNC: Stufenbolzen',
+      kunde: 'Hydraulik Brandt', auftrag: 'HB-3170', lohn: 190,
+      text: 'Dein erstes Teil auf der CNC-Drehmaschine: ein Stufenbolzen aus C45 mit Ø 30 h9 und Ø 40 h11, Fase 1 × 45° und Gesamtlänge 100 ± 0,1. Die Programmierhilfe erzeugt das Programm – Werte eintragen, prüfen, Nullpunkt setzen, einfahren.',
+      meister: [
+        'G96 heißt konstante Schnittgeschwindigkeit: Die Steuerung rechnet die Drehzahl laufend aus dem Durchmesser. Beim Plandrehen zur Mitte hin wird sie immer schneller – deshalb vorher mit G92 begrenzen.',
+        'Der Werkstücknullpunkt W liegt auf der fertigen Stirnfläche. Rohteil 103 lang, Fertigteil 100: Die Stirnseite steht 3 mm über Z0.',
+        'Vor jedem Werkzeugwechsel den Wechselpunkt anfahren, sonst schwenkt der Revolver ins Werkstück.',
+        'Neue Programme im Einzelsatz und mit kleinem Override einfahren. Wer im Eilgang ins Werkstück fährt, zahlt Platte und Halter.'
+      ],
+      mat: 'C45', zeit: 300, budget: 40,
+      teil: { art: 'welle', name: 'Stufenbolzen' },
+      ops: [
+        { typ: 'drehen', name: 'Stufenbolzen komplett', maschine: 'drehCNC', wst: { D: 50, L: 63, spannL: 40, saege: true },
+          plan: { gesamt: 100, tol: 0.1, ra: 3.2, eben: 0.03 },
+          kontur: [{ d: 30, tol: 'h9', bis: 20, ra: 1.6 }, { d: 40, tol: 'h11', bis: 45, ra: 3.2 }], fase: 1, laengeTol: 0.1 }
+      ],
+      werkzeuge: { platten: ['CNMG120408-PM', 'CNMG120412-PR', 'CNMG120404-PF', 'CNMG120408-WM'] }
+    },
     // ------------------------------------------------------------ 4. Lehrjahr
     {
       id: 'M13', jahr: 4, titel: 'Titan für die Medizintechnik',
@@ -286,6 +326,25 @@
           pos: reihe(6, 20, 25, 22, 0).concat(reihe(6, 20, 75, 22, 0)), lageTol: 0.1, ra: 12.5 }
       ],
       werkzeuge: { bohrer: ['HSS', 'HSSE', 'VHM3', 'VHM5I'] }
+    },
+    {
+      id: 'M18', jahr: 4, titel: 'CNC: Achse aus Edelstahl',
+      kunde: 'Lebensmitteltechnik Kraus', auftrag: 'LK-4180', lohn: 240,
+      text: 'Eine Rührwerksachse aus 1.4301: Lagersitz Ø 25 k6 mit Ra 0,8, Bund Ø 32 h9, Fase 0,5 × 45°, Gesamtlänge 80 ± 0,05. Rohteil Ø 36 × 83, gesägt.',
+      meister: [
+        '1.4301 verfestigt sich. Nicht reiben lassen, sondern mit genug Vorschub unter die verfestigte Schicht schneiden. Spantiefen unter 0,3 mm sind Gift.',
+        'Edelstahl leitet die Wärme schlecht, sie bleibt in Schneide und Span. Mit Emulsion und einer M-Sorte bei etwa 160 bis 200 m/min drehen.',
+        'k6 heißt +0,002 bis +0,015 mm. Profis programmieren auf Toleranzmitte, messen nach dem Schlichten und korrigieren den Verschleiß am Werkzeug.',
+        'Das Werkstück wird warm und schrumpft beim Abkühlen. 1.4301 dehnt sich um 16 µm je Meter und Kelvin.'
+      ],
+      mat: '1.4301', zeit: 360, budget: 60,
+      teil: { art: 'welle', name: 'Rührwerksachse' },
+      ops: [
+        { typ: 'drehen', name: 'Achse komplett', maschine: 'drehCNC', wst: { D: 36, L: 58, spannL: 25, saege: true },
+          plan: { gesamt: 80, tol: 0.05, ra: 3.2, eben: 0.02 },
+          kontur: [{ d: 25, tol: 'k6', bis: 30, ra: 0.8 }, { d: 32, tol: 'h9', bis: 50, ra: 1.6 }], fase: 0.5, laengeTol: 0.1 }
+      ],
+      werkzeuge: { platten: ['DNMG150608-MM', 'CNMG120408-PM', 'CNMG120404-PF', 'CNMG120408-WM'] }
     },
     {
       id: 'M15', jahr: 4, titel: 'Gesellenprüfung Teil 2',

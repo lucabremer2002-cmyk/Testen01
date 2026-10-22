@@ -19,6 +19,8 @@
   // kc11, mc   Kienzle-Werte (h = 1 mm, b = 1 mm)
   // E, alpha   Elastizitaetsmodul (N/mm^2), Waermeausdehnung (1/K)
   // rho, cp    Dichte (kg/mm^3), spez. Waermekapazitaet (J/kgK)
+  // lam        Waermeleitfaehigkeit W/(m K), bestimmt mit vc und h die Spantemperatur
+  // funke      Funkenbild: Faktor f (0 = funkt nie), Farbe, Anteil Sternchen (Kohlenstoff), Lebensdauer s
   // span       Spanform: 'lang' (Fliess-/Bandspan), 'mittel', 'broeckel'
   // therm      Temperaturfaktor (schlechte Waermeleitung -> heisse Schneide)
   // abr        Verschleissfaktor (Abrasivitaet, Karbide, Graphit ...)
@@ -36,6 +38,7 @@
       rho: 7.85e-6, cp: 460, span: 'lang', therm: 1.0, abr: 1.0, aufbau: 0.65,
       verfest: 0.0, duktil: 1.0, zieht: 0.15, kleben: 0.1, gamma0: 6, fF: 1.0,
       raMin: 0.3,
+      lam: 50, funke: { f: 0.8, farbe: '#ffd27a', stern: 0.1, leben: 0.45 },
       vc: { bohrHSS: 30, bohrVHM: 110, reibHSS: 10, reibVHM: 30, gewHSS: 14,
             drehHM: 250, fraesHSS: 30, fraesVHM: 160 },
       farbe: '#9ba3aa', roh: '#3b4248', spanFarbe: '#c9ced3', preisKg: 1.6,
@@ -47,6 +50,7 @@
       rho: 7.85e-6, cp: 460, span: 'lang', therm: 1.12, abr: 1.15, aufbau: 0.5,
       verfest: 0.05, duktil: 0.8, zieht: 0.12, kleben: 0.08, gamma0: 6, fF: 0.9,
       raMin: 0.28,
+      lam: 45, funke: { f: 1.0, farbe: '#ffe9a8', stern: 0.4, leben: 0.4 },
       vc: { bohrHSS: 22, bohrVHM: 90, reibHSS: 8, reibVHM: 25, gewHSS: 10,
             drehHM: 220, fraesHSS: 25, fraesVHM: 140 },
       farbe: '#959da4', roh: '#383f45', spanFarbe: '#c4c9ce', preisKg: 2.1,
@@ -58,6 +62,7 @@
       rho: 7.85e-6, cp: 460, span: 'lang', therm: 1.28, abr: 1.35, aufbau: 0.25,
       verfest: 0.1, duktil: 0.6, zieht: 0.1, kleben: 0.05, gamma0: 6, fF: 0.7,
       raMin: 0.25,
+      lam: 42, funke: { f: 0.85, farbe: '#ffb050', stern: 0.2, leben: 0.4 },
       vc: { bohrHSS: 13, bohrVHM: 70, reibHSS: 6, reibVHM: 20, gewHSS: 6,
             drehHM: 160, fraesHSS: 15, fraesVHM: 100 },
       farbe: '#8d949b', roh: '#30363b', spanFarbe: '#b9bec4', preisKg: 3.4,
@@ -69,6 +74,7 @@
       rho: 7.9e-6, cp: 500, span: 'lang', therm: 1.45, abr: 1.4, aufbau: 0.45,
       verfest: 1.0, duktil: 1.4, zieht: 0.1, kleben: 0.3, gamma0: 6, fF: 0.8,
       raMin: 0.45,
+      lam: 15, funke: { f: 0.4, farbe: '#ff8a3a', stern: 0.02, leben: 0.2 },
       vc: { bohrHSS: 11, bohrVHM: 55, reibHSS: 5, reibVHM: 18, gewHSS: 5,
             drehHM: 180, fraesHSS: 15, fraesVHM: 90 },
       farbe: '#a9b0b6', roh: '#8d949a', spanFarbe: '#d2d6da', preisKg: 5.8,
@@ -80,6 +86,7 @@
       rho: 7.2e-6, cp: 500, span: 'broeckel', therm: 0.8, abr: 1.55, aufbau: 0.0,
       verfest: 0.0, duktil: 0.05, zieht: 0.35, kleben: 0.0, gamma0: 2, fF: 1.3,
       raMin: 0.8,
+      lam: 48, funke: { f: 0.3, farbe: '#d0502a', stern: 0.2, leben: 0.15 },
       vc: { bohrHSS: 22, bohrVHM: 100, reibHSS: 8, reibVHM: 30, gewHSS: 10,
             drehHM: 220, fraesHSS: 22, fraesVHM: 150 },
       farbe: '#6f767c', roh: '#4a4f53', spanFarbe: '#55595d', preisKg: 1.9,
@@ -91,6 +98,7 @@
       rho: 2.7e-6, cp: 900, span: 'lang', therm: 0.45, abr: 0.4, aufbau: 0.9,
       verfest: 0.0, duktil: 1.2, zieht: 0.4, kleben: 1.0, gamma0: 15, fF: 1.3,
       raMin: 0.35,
+      lam: 170, funke: { f: 0, farbe: '#d8dce0', stern: 0, leben: 0 },
       vc: { bohrHSS: 60, bohrVHM: 250, reibHSS: 20, reibVHM: 60, gewHSS: 20,
             drehHM: 600, fraesHSS: 100, fraesVHM: 450 },
       farbe: '#c4cad0', roh: '#aab1b8', spanFarbe: '#e6e9ec', preisKg: 4.2,
@@ -102,6 +110,7 @@
       rho: 8.47e-6, cp: 380, span: 'broeckel', therm: 0.5, abr: 0.5, aufbau: 0.05,
       verfest: 0.0, duktil: 0.3, zieht: 1.0, kleben: 0.1, gamma0: 2, fF: 1.2,
       raMin: 0.25,
+      lam: 115, funke: { f: 0, farbe: '#e0c070', stern: 0, leben: 0 },
       vc: { bohrHSS: 60, bohrVHM: 200, reibHSS: 20, reibVHM: 50, gewHSS: 18,
             drehHM: 350, fraesHSS: 70, fraesVHM: 300 },
       farbe: '#c9a74a', roh: '#a88a3c', spanFarbe: '#e2c35c', preisKg: 7.5,
@@ -113,6 +122,7 @@
       rho: 4.43e-6, cp: 560, span: 'lang', therm: 1.75, abr: 1.8, aufbau: 0.3,
       verfest: 0.3, duktil: 1.1, zieht: 0.1, kleben: 0.4, gamma0: 6, fF: 0.7,
       raMin: 0.4, brennbar: true,
+      lam: 7, funke: { f: 1.6, farbe: '#f4f6ff', stern: 0.3, leben: 0.6 },
       vc: { bohrHSS: 8, bohrVHM: 40, reibHSS: 4, reibVHM: 15, gewHSS: 3,
             drehHM: 60, fraesHSS: 10, fraesVHM: 60 },
       farbe: '#9aa0a8', roh: '#7c828a', spanFarbe: '#cfd3d8', preisKg: 38,
@@ -259,29 +269,29 @@
   // fMin..fMax, apMin..apMax: Anwendungsbereich der Spanformstufe
   // hMax: maximal ertragbare Spanungsdicke; kappa: Einstellwinkel mit Halter
   var platten = [
-    { id: 'CNMG120408-PM', name: 'CNMG 120408-PM', sorte: 'P25', iso: 'P', stoff: 'HMCVD', form: 'C', re: 0.8, kappa: 95, gamma: 8,
-      fMin: 0.15, fMax: 0.45, apMin: 0.8, apMax: 5.0, hMax: 0.5, ecken: 4, preis: 9.8, wiper: false,
+    { id: 'CNMG120408-PM', name: 'CNMG 120408-PM', sorte: 'P25', iso: 'P', stoff: 'HMCVD', form: 'C', l: 12.9, re: 0.8, kappa: 95, gamma: 8,
+      fMin: 0.15, fMax: 0.45, apMin: 0.8, apMax: 5.0, hMax: 0.6, ecken: 4, preis: 9.8, wiper: false,
       text: 'Universalplatte für mittlere Bearbeitung in Stahl' },
-    { id: 'CNMG120404-PF', name: 'CNMG 120404-PF', sorte: 'P15', iso: 'P', stoff: 'HMCVD', form: 'C', re: 0.4, kappa: 95, gamma: 10,
-      fMin: 0.07, fMax: 0.25, apMin: 0.25, apMax: 2.0, hMax: 0.3, ecken: 4, preis: 10.4, wiper: false,
+    { id: 'CNMG120404-PF', name: 'CNMG 120404-PF', sorte: 'P15', iso: 'P', stoff: 'HMCVD', form: 'C', l: 12.9, re: 0.4, kappa: 95, gamma: 10,
+      fMin: 0.07, fMax: 0.25, apMin: 0.25, apMax: 2.0, hMax: 0.34, ecken: 4, preis: 10.4, wiper: false,
       text: 'Schlichtplatte, kleiner Eckenradius, geringer Passivdruck' },
-    { id: 'CNMG120412-PR', name: 'CNMG 120412-PR', sorte: 'P35', iso: 'P', stoff: 'HMCVD', form: 'C', re: 1.2, kappa: 95, gamma: 6,
-      fMin: 0.25, fMax: 0.6, apMin: 1.5, apMax: 7.0, hMax: 0.7, ecken: 4, preis: 10.9, wiper: false,
+    { id: 'CNMG120412-PR', name: 'CNMG 120412-PR', sorte: 'P35', iso: 'P', stoff: 'HMCVD', form: 'C', l: 12.9, re: 1.2, kappa: 95, gamma: 6,
+      fMin: 0.25, fMax: 0.6, apMin: 1.5, apMax: 7.0, hMax: 0.8, ecken: 4, preis: 10.9, wiper: false,
       text: 'Schruppplatte mit stabiler Schneidkante' },
-    { id: 'CNMG120408-WM', name: 'CNMG 120408-WM (Wiper)', sorte: 'P25', iso: 'P', stoff: 'HMCVD', form: 'C', re: 0.8, kappa: 95, gamma: 8,
-      fMin: 0.12, fMax: 0.4, apMin: 0.5, apMax: 4.0, hMax: 0.45, ecken: 4, preis: 13.5, wiper: true,
+    { id: 'CNMG120408-WM', name: 'CNMG 120408-WM (Wiper)', sorte: 'P25', iso: 'P', stoff: 'HMCVD', form: 'C', l: 12.9, re: 0.8, kappa: 95, gamma: 8,
+      fMin: 0.12, fMax: 0.4, apMin: 0.5, apMax: 4.0, hMax: 0.52, ecken: 4, preis: 13.5, wiper: true,
       text: 'Wiper-Geometrie: halbe Rauheit bei gleichem Vorschub' },
-    { id: 'DNMG150608-MM', name: 'DNMG 150608-MM', sorte: 'M25', iso: 'M', stoff: 'HMCVD', form: 'D', re: 0.8, kappa: 93, gamma: 12,
-      fMin: 0.12, fMax: 0.35, apMin: 0.5, apMax: 4.0, hMax: 0.4, ecken: 4, preis: 12.2, wiper: false,
+    { id: 'DNMG150608-MM', name: 'DNMG 150608-MM', sorte: 'M25', iso: 'M', stoff: 'HMCVD', form: 'D', l: 15.5, re: 0.8, kappa: 93, gamma: 12,
+      fMin: 0.12, fMax: 0.35, apMin: 0.5, apMax: 4.0, hMax: 0.45, ecken: 4, preis: 12.2, wiper: false,
       text: 'Für rostfreie Stähle, scharfe positive Schneide' },
-    { id: 'CNMG120408-KM', name: 'CNMG 120408-KM', sorte: 'K20', iso: 'K', stoff: 'HMCVD', form: 'C', re: 0.8, kappa: 95, gamma: 2,
-      fMin: 0.15, fMax: 0.45, apMin: 0.5, apMax: 5.0, hMax: 0.55, ecken: 4, preis: 9.9, wiper: false,
+    { id: 'CNMG120408-KM', name: 'CNMG 120408-KM', sorte: 'K20', iso: 'K', stoff: 'HMCVD', form: 'C', l: 12.9, re: 0.8, kappa: 95, gamma: 2,
+      fMin: 0.15, fMax: 0.45, apMin: 0.5, apMax: 5.0, hMax: 0.6, ecken: 4, preis: 9.9, wiper: false,
       text: 'Für Gusseisen, verschleißfeste Al₂O₃-Schicht' },
-    { id: 'CCGT09T304-AL', name: 'CCGT 09T304-AL', sorte: 'N10', iso: 'N', stoff: 'HMPOL', form: 'C', re: 0.4, kappa: 95, gamma: 20,
-      fMin: 0.05, fMax: 0.25, apMin: 0.3, apMax: 4.0, hMax: 0.25, ecken: 2, preis: 11.5, wiper: false,
+    { id: 'CCGT09T304-AL', name: 'CCGT 09T304-AL', sorte: 'N10', iso: 'N', stoff: 'HMPOL', form: 'C', l: 9.7, re: 0.4, kappa: 95, gamma: 20,
+      fMin: 0.05, fMax: 0.25, apMin: 0.3, apMax: 4.0, hMax: 0.3, ecken: 2, preis: 11.5, wiper: false,
       text: 'Polierte, scharfe Platte für Aluminium und Buntmetall' },
-    { id: 'VCMT160404-SF', name: 'VCMT 160404-SF', sorte: 'S15', iso: 'S', stoff: 'HMCVD', form: 'V', re: 0.4, kappa: 93, gamma: 14,
-      fMin: 0.05, fMax: 0.2, apMin: 0.2, apMax: 2.0, hMax: 0.22, ecken: 2, preis: 14.8, wiper: false,
+    { id: 'VCMT160404-SF', name: 'VCMT 160404-SF', sorte: 'S15', iso: 'S', stoff: 'HMCVD', form: 'V', l: 16.6, re: 0.4, kappa: 93, gamma: 14,
+      fMin: 0.05, fMax: 0.2, apMin: 0.2, apMax: 2.0, hMax: 0.25, ecken: 2, preis: 14.8, wiper: false,
       text: 'Für Titan und warmfeste Legierungen, sehr scharf' }
   ];
 
@@ -335,8 +345,17 @@
       P: 7.5, eta: 0.8, drehzahlen: [40, 56, 80, 112, 160, 224, 315, 450, 630, 900, 1250, 1800, 2500],
       vorschuebe: [0.04, 0.05, 0.063, 0.08, 0.1, 0.125, 0.16, 0.2, 0.25, 0.315, 0.4, 0.5, 0.63],
       futter: { D: 200, Fsp: 45000, nMax: 3000, backenH: 24 }, kMaschine: 40000, rundlauf: 0.01,
-      kss: ['trocken', 'emulsion'], hochlauf: 1.5,
-      text: 'Dreibackenfutter Ø 200 mm, Reitstock mit mitlaufender Körnerspitze, Planscheibe mit Skalenring.'
+      kss: ['trocken', 'emulsion'], hochlauf: 1.5, kupplung: 3000, J: 0.1, kRiemen: 1.7,
+      text: 'Dreibackenfutter Ø 200 mm, Reitstock mit mitlaufender Körnerspitze, Planscheibe mit Skalenring. Planvorschub = halber Längsvorschub.'
+    },
+    drehCNC: {
+      id: 'drehCNC', name: 'CNC-Schrägbettdrehmaschine CT 250', art: ['drehen'], cnc: true,
+      // Servospindel: S1 11 kW / 105 Nm, S6-40 % 15 kW / 143 Nm, Eckdrehzahl 1000 1/min
+      P: 11, pS6: 15, eta: 1, mS1: 105, mMax: 143, J: 0.12, nMin: 20, nMax: 4500,
+      eilgang: 333, revolver: 8, wechselZeit: 0.8, fzMax: 8000, fxMax: 6000, kv: 2, schleppTol: 1.0,
+      futter: { D: 210, Fsp: 60000, nMax: 4500, backenH: 24 }, kMaschine: 80000, rundlauf: 0.005,
+      kss: ['trocken', 'emulsion'], hochlauf: 1.6,
+      text: 'Servo-Hauptspindel 11 kW (S6: 15 kW, 143 Nm), bis 4500 1/min. 8-fach-Revolver hinter der Drehmitte, Eilgang 20 m/min, Kugelgewindetriebe ohne Spiel.'
     },
     fraesKonv: {
       id: 'fraesKonv', name: 'Konsolfräsmaschine FK 3', art: ['fraesen'], cnc: false,
@@ -365,6 +384,14 @@
     buegel: { id: 'buegel', name: 'Bügelmessschraube 0,01', aufl: 0.01, fehler: 0.004 },
     buegelDigital: { id: 'buegelDigital', name: 'Digitale Bügelmessschraube 0,001', aufl: 0.001, fehler: 0.002 }
   };
+
+  // ------------------------------------------------------------ Drehteile
+  // Einheitliche Kontur eines Drehteils: Absaetze vom freien Ende her
+  // (bis = Abstand der Schulter von der Stirnflaeche), dazu Planflaeche und Fase.
+  function drehKontur(op) {
+    var stufen = op.kontur ? op.kontur.slice() : (op.d ? [{ d: op.d, tol: op.tol, bis: op.laenge, ra: op.ra }] : []);
+    return { stufen: stufen, plan: op.plan || null, fase: op.fase || 0, laengeTol: op.laengeTol || 0.2 };
+  }
 
   // ------------------------------------------------------------ Toleranzen
   var IT_BEREICHE = [3, 6, 10, 18, 30, 50, 80, 120, 180, 250];
@@ -485,6 +512,7 @@
     spannmittel: spannmittel,
     positionierung: positionierung,
     messmittel: messmittel,
+    drehKontur: drehKontur,
     gewinde: gewinde,
     sortenPassung: sortenPassung,
     BOHRER_D: BOHRER_D,

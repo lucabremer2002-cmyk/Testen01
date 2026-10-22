@@ -11,8 +11,25 @@
   var zahl = U.zahl;
 
   function opText(op) {
-    var t = { bohren: 'Bohren', reiben: 'Reiben', gewinde: 'Gewindebohren', drehen: 'Längsdrehen', fraesen: 'Fräsen' };
+    if (op.typ === 'drehen') {
+      if (DAT.maschinen[op.maschine].cnc) { return 'CNC-Drehen'; }
+      if (op.plan && !op.d && !op.kontur) { return 'Plandrehen'; }
+      return op.plan ? 'Plan- und Längsdrehen' : 'Längsdrehen';
+    }
+    var t = { bohren: 'Bohren', reiben: 'Reiben', gewinde: 'Gewindebohren', fraesen: 'Fräsen' };
     return t[op.typ];
+  }
+
+  // Spitzenhoehe des Drehmeissels: wie genau ausgerichtet wurde
+  var SPITZE = {
+    reitstock: { name: 'An der Reitstockspitze ausgerichtet', text: '±0,02 mm, dauert eine Minute länger', zeit: 60 },
+    augenmass: { name: 'Nach Augenmaß unterlegt', text: 'irgendwo zwischen −0,3 und +0,3 mm', zeit: 0 },
+    ohne: { name: 'Halter ohne Unterlagen gespannt', text: 'spart Zeit – die Schneide steht deutlich unter Mitte', zeit: -15 }
+  };
+  function spitzenhoehe(art, rng) {
+    if (art === 'reitstock') { return (rng.next() * 2 - 1) * 0.02; }
+    if (art === 'ohne') { return -0.75 - rng.next() * 0.15; }
+    return (rng.next() * 2 - 1) * 0.3;
   }
 
   function Ruesten(spiel, mission, opIdx, weiter) {
@@ -32,8 +49,11 @@
       kss: this.masch.kss.indexOf('emulsion') >= 0 ? 'emulsion' : this.masch.kss[0],
       zAnschlagAn: false, zAnschlag: null, spann: 'fest', pos: this.cnc ? 'cnc' : 'anreissen', anbohren: false,
       rutschAn: false, rutsch: 9, zyklus: op.typ === 'gewinde' ? 'G84' : op.typ === 'reiben' ? 'G85' : 'G81', Z: null, Q: null,
-      reitstock: false, laengsAn: op.typ === 'drehen', laenge: op.laenge || null, auskrag: null, apSchnitt: null,
-      brille: false, handschuhe: false
+      reitstock: false, laengsAn: op.typ === 'drehen' && !!op.d, laenge: op.laenge || null, auskrag: null, apSchnitt: null,
+      brille: false, handschuhe: false, spitze: 'augenmass',
+      // CNC-Drehen: zwei Werkzeuge im Revolver, Schnittwerte, Nullpunkt, Programm
+      platte2: null, vc1: null, f1: null, ap1: null, vc2: null, f2: null, smax: null, xAuf: 0.4, zAuf: 0.1,
+      zNull: null, tolMitte: false, prog: null, progEigen: false
     };
     var erlaubt = this.erlaubteTypen();
     if (erlaubt.length === 1) { w.typ = erlaubt[0]; }
@@ -67,6 +87,12 @@
       case 'fraesen': return w.typ && w.d ? DAT.fraeser(w.typ, w.d) : null;
     }
     return null;
+  };
+
+  // Zweites Werkzeug (Schlichten) an der CNC-Drehmaschine
+  Ruesten.prototype.def2 = function () {
+    var w = this.wahl;
+    return this.op.typ === 'drehen' && this.cnc && w.platte2 ? Object.assign({ typ: 'platte' }, DAT.platte(w.platte2)) : null;
   };
 
   Ruesten.prototype.zeige = function () {
@@ -154,14 +180,25 @@
       });
       el.appendChild(liste);
     } else if (op.typ === 'drehen') {
-      typen.forEach(function (id) {
-        var p = DAT.platte(id);
-        var def = Object.assign({ typ: 'platte' }, p);
-        liste.appendChild(karte(def, w.platte === id, function () { w.platte = id; self.aenderung(true); },
-          { titel: p.name + ' ' + p.sorte, text: 'rε ' + DAT.fmtD(p.re) + ' · f ' + DAT.fmtD(p.fMin) + '–' + DAT.fmtD(p.fMax) + ' · ap ' + DAT.fmtD(p.apMin) + '–' + DAT.fmtD(p.apMax) + ' · ' + p.text,
-            preis: p.preis / p.ecken }));
-      });
-      el.appendChild(liste);
+      var plattenListe = function (feld) {
+        var l = h('div.wkz-liste');
+        typen.forEach(function (id) {
+          var p = DAT.platte(id);
+          var def = Object.assign({ typ: 'platte' }, p);
+          l.appendChild(karte(def, w[feld] === id, function () { w[feld] = id; self.aenderung(true); },
+            { titel: p.name + ' ' + p.sorte, text: 'rε ' + DAT.fmtD(p.re) + ' · f ' + DAT.fmtD(p.fMin) + '–' + DAT.fmtD(p.fMax) + ' · ap ' + DAT.fmtD(p.apMin) + '–' + DAT.fmtD(p.apMax) + ' · ' + p.text,
+              preis: p.preis / p.ecken }));
+        });
+        return l;
+      };
+      if (this.cnc) {
+        el.appendChild(h('h3', { style: 'margin:4px 0 8px' }, 'Revolverplatz T1 – Schruppen'));
+        el.appendChild(plattenListe('platte'));
+        el.appendChild(h('h3', { style: 'margin:14px 0 8px' }, 'Revolverplatz T2 – Schlichten'));
+        el.appendChild(plattenListe('platte2'));
+      } else {
+        el.appendChild(plattenListe('platte'));
+      }
     }
     var def = this.def();
     if (def) {
@@ -169,7 +206,7 @@
       if (def.l1) { daten.push('Gesamtlänge ' + def.l1 + ' mm', 'Schneidenlänge ' + (def.l2 || def.lc) + ' mm'); }
       if (def.frei) { daten.push('freie Länge ' + Math.round(def.frei) + ' mm'); }
       if (def.typ === 'gewinde') { daten.push('Steigung ' + DAT.fmtD(def.P) + ' mm', 'Anschnitt ' + DAT.fmtD(def.anschnitt) + ' mm'); }
-      if (def.typ === 'platte') { daten.push('Einstellwinkel ' + def.kappa + '°', def.ecken + ' Schneidecken'); }
+      if (def.typ === 'platte') { daten.push('Einstellwinkel ' + def.kappa + '°', def.ecken + ' Schneidecken', 'Schneidenlänge ' + DAT.fmtD(def.l) + ' mm'); }
       el.appendChild(h('p.muted', { style: 'margin-top:10px;font-size:13px' }, daten.join(' · ')));
     }
   };
@@ -210,7 +247,8 @@
     if (!def) { return null; }
     var e = PH.empfehlung(this.mat, def, this.masch);
     if (def.typ === 'platte') {
-      var dm = (this.op.wst.D + this.op.d) / 2;
+      var dFertig = this.op.d || (this.op.kontur ? this.op.kontur[0].d : this.op.wst.D * 0.5);
+      var dm = (this.op.wst.D + dFertig) / 2;
       e.n = e.vc * 1000 / (Math.PI * dm);
       if (this.masch.drehzahlen) { e.nStufe = DAT.stufeUnter(this.masch.drehzahlen, e.n); }
     }
@@ -230,8 +268,10 @@
     function neu() { self.aenderung(false); }
     var kssOpt = m.kss.map(function (k) { return { id: k, name: DAT.kss[k].name }; });
 
-    // Drehzahl
-    if (m.drehzahlen) {
+    // Drehzahl (an der CNC-Drehmaschine rechnet die Steuerung sie aus vc)
+    if (op.typ === 'drehen' && this.cnc) {
+      this.zeigeCncDrehen(el, e);
+    } else if (m.drehzahlen) {
       el.appendChild(stufenFeld('Drehzahl', 'n', m.drehzahlen, w.n, '1/min', e ? e.nStufe : null, function (v) { w.n = v; self.aenderung(true); }));
     } else {
       el.appendChild(zahlFeld('Drehzahl S', 'r-n', w.n, '1/min', m.nMin, m.nMax, 10, function (v) { w.n = v; neu(); }, 'stufenlos ' + m.nMin + ' … ' + m.nMax + ' 1/min'));
@@ -276,13 +316,17 @@
       } else {
         el.appendChild(zahlFeld('Gewindetiefe Z (Spitze), G84', 'r-z', w.Z, 'mm', 0, 200, 0.1, function (v) { w.Z = v; neu(); }));
       }
-    } else if (op.typ === 'drehen') {
-      el.appendChild(stufenFeld('Vorschub', 'f', m.vorschuebe, w.f, 'mm/U', e ? DAT.stufeUnter(m.vorschuebe, e.f || 0.2) : null, function (v) { w.f = v; self.aenderung(true); }));
+    } else if (op.typ === 'drehen' && !this.cnc) {
+      el.appendChild(stufenFeld('Längsvorschub', 'f', m.vorschuebe, w.f, 'mm/U', e ? DAT.stufeUnter(m.vorschuebe, e.f || 0.2) : null, function (v) { w.f = v; self.aenderung(true); }));
+      if (w.f) { el.appendChild(h('p.muted', { style: 'margin:-8px 0 14px;font-size:13px' }, 'Planvorschub über die Zugspindel: ' + DAT.fmtD(w.f / 2) + ' mm/U (halber Längsvorschub)')); }
       if (op.reitstockErlaubt || this.m.id === 'WERKSTATT') {
         el.appendChild(checkFeld('Mit Reitstock (mitlaufende Körnerspitze)', 'r-rs', w.reitstock, function (v) { w.reitstock = v; neu(); }));
       }
-      el.appendChild(checkFeld('Längsanschlag setzen', 'r-la', w.laengsAn, function (v) { w.laengsAn = v; self.aenderung(true); },
-        w.laengsAn ? zahlFeld('Drehlänge vom freien Ende', 'r-law', w.laenge, 'mm', 1, op.wst.L - 1, 0.1, function (v) { w.laenge = v; neu(); }) : null));
+      if (op.d || op.kontur || this.m.id === 'WERKSTATT') {
+        el.appendChild(checkFeld('Längsanschlag setzen', 'r-la', w.laengsAn, function (v) { w.laengsAn = v; self.aenderung(true); },
+          w.laengsAn ? zahlFeld('Drehlänge vom freien Ende', 'r-law', w.laenge, 'mm', 1, op.wst.L - 1, 0.1, function (v) { w.laenge = v; neu(); }) : null));
+      }
+      el.appendChild(radioFeld('Spitzenhöhe des Drehmeißels', 'spitze', Object.keys(SPITZE).map(function (k) { return { id: k, name: SPITZE[k].name, text: SPITZE[k].text }; }), w.spitze, function (v) { w.spitze = v; neu(); }));
     } else if (op.typ === 'fraesen') {
       if (m.vorschuebeMin) {
         el.appendChild(stufenFeld('Tischvorschub', 'vf', m.vorschuebeMin, w.vf, 'mm/min', e ? e.vfStufe : null, function (v) { w.vf = v; self.aenderung(true); }));
@@ -309,6 +353,55 @@
     }
   };
 
+  // Programmierhilfe fuer die CNC-Drehmaschine: Schnittwerte, Nullpunkt, Begrenzung
+  Ruesten.prototype.zeigeCncDrehen = function (el, e) {
+    var self = this, w = this.wahl, op = this.op;
+    function neu() { w.progEigen = false; self.aenderung(false); }
+    var def1 = this.def(), def2 = this.def2();
+    var vcEmpf = def1 ? Math.round(PH.vcRef(this.mat, def1)) : null;
+    var vcEmpf2 = def2 ? Math.round(PH.vcRef(this.mat, def2)) : null;
+    el.appendChild(h('div.feld', [h('span.feld__titel', 'T1 Schruppen')]));
+    el.appendChild(h('div.gruppe', { style: 'gap:10px;align-items:flex-start' }, [
+      zahlFeld('vc (G96)', 'r-vc1', w.vc1, 'm/min', 10, 600, 5, function (v) { w.vc1 = v; neu(); }, e && vcEmpf ? 'Richtwert ≈ ' + vcEmpf : null),
+      zahlFeld('f', 'r-f1', w.f1, 'mm/U', 0.02, 1, 0.01, function (v) { w.f1 = v; neu(); }, def1 ? DAT.fmtD(def1.fMin) + '–' + DAT.fmtD(def1.fMax) : null),
+      zahlFeld('ap', 'r-ap1', w.ap1, 'mm', 0.2, 8, 0.1, function (v) { w.ap1 = v; neu(); }, def1 ? DAT.fmtD(def1.apMin) + '–' + DAT.fmtD(def1.apMax) : null)
+    ]));
+    el.appendChild(h('div.feld', [h('span.feld__titel', 'T2 Schlichten')]));
+    el.appendChild(h('div.gruppe', { style: 'gap:10px;align-items:flex-start' }, [
+      zahlFeld('vc (G96)', 'r-vc2', w.vc2, 'm/min', 10, 600, 5, function (v) { w.vc2 = v; neu(); }, e && vcEmpf2 ? 'Richtwert ≈ ' + vcEmpf2 : null),
+      zahlFeld('f', 'r-f2', w.f2, 'mm/U', 0.02, 1, 0.01, function (v) { w.f2 = v; neu(); }, def2 ? DAT.fmtD(def2.fMin) + '–' + DAT.fmtD(def2.fMax) : null)
+    ]));
+    el.appendChild(h('div.gruppe', { style: 'gap:10px;align-items:flex-start' }, [
+      zahlFeld('Aufmaß X (Ø)', 'r-xa', w.xAuf, 'mm', 0, 3, 0.05, function (v) { w.xAuf = v; neu(); }),
+      zahlFeld('Aufmaß Z', 'r-za', w.zAuf, 'mm', 0, 2, 0.05, function (v) { w.zAuf = v; neu(); })
+    ]));
+    el.appendChild(zahlFeld('Drehzahlbegrenzung G92 S', 'r-smax', w.smax, '1/min', 100, this.masch.nMax, 50, function (v) { w.smax = v; neu(); },
+      'Futter bis ' + this.masch.futter.nMax + ' 1/min. Ohne Begrenzung dreht G96 zur Mitte hin bis zur Höchstdrehzahl.'));
+    var rohL = op.wst.L + (op.wst.spannL || 0);
+    el.appendChild(zahlFeld('Werkstücknullpunkt: Rohteil-Stirnseite über Z0', 'r-zn', w.zNull, 'mm', -5, 30, 0.05, function (v) { w.zNull = v; neu(); },
+      'Z0 liegt auf der fertigen Stirnfläche. Rohteil ' + DAT.fmtD(rohL) + ' mm lang' + (op.plan ? ', Fertigteil ' + DAT.fmtD(op.plan.gesamt) + ' mm' : '') + '.'));
+    el.appendChild(checkFeld('Durchmesser auf Toleranzmitte programmieren', 'r-tm', w.tolMitte, function (v) { w.tolMitte = v; neu(); }));
+  };
+
+  // NC-Programm fuer das CNC-Drehen erzeugen (Programmierhilfe)
+  Ruesten.prototype.drehProgramm = function () {
+    var w = this.wahl, op = this.op, d1 = this.def(), d2 = this.def2();
+    var K = DAT.drehKontur(op);
+    if (w.tolMitte) {
+      K = Object.assign({}, K, { stufen: K.stufen.map(function (s) {
+        var t = DAT.toleranz(s.d, s.tol);
+        return Object.assign({}, s, { d: Math.round((s.d + (t.o + t.u) / 2) * 1000) / 1000 });
+      }) });
+    }
+    return ZM.nc.erzeugen({
+      kontur: K, D0: op.wst.D, aufmassZ: w.zNull === null ? 0 : w.zNull,
+      t1: d1 ? d1.name : null, t2: d2 ? d2.name : null,
+      vc1: w.vc1 || 0, f1: w.f1 || 0, ap1: w.ap1 || 0, vc2: w.vc2 || w.vc1 || 0, f2: w.f2 || w.f1 || 0,
+      smax: w.smax, xAuf: w.xAuf || 0, zAuf: w.zAuf || 0, kss: w.kss !== 'trocken',
+      name: op.name, nr: 2000 + this.opIdx + 1
+    });
+  };
+
   // ------------------------------------------------------------ Rechner
   Ruesten.prototype.zeigeRechner = function () {
     var op = this.op, w = this.wahl, mat = this.mat;
@@ -324,9 +417,12 @@
     var e = this.stufe === 'meister' ? null : this.empfehlung();
     var n = w.n;
     var d = def.typ === 'platte' ? op.wst.D : def.d;
+    if (def.typ === 'platte') {
+      this.rechnerDrehen(el, r, zeile, def, e);
+      return;
+    }
     if (n) {
       zeile('vc = π · d · n / 1000', zahl(Math.PI * d * n / 1000, 1) + ' m/min');
-      if (def.typ === 'platte') { zeile('vc am Fertigmaß Ø' + DAT.fmtD(op.d), zahl(Math.PI * op.d * n / 1000, 1) + ' m/min'); }
     }
     if (e) {
       zeile('Richtwert vc (Tabellenbuch)', zahl(e.vc, 0) + ' m/min');
@@ -362,20 +458,6 @@
       if (this.stufe === 'azubi') {
         r.appendChild(h('p.rechner__formel', 'Kernloch = Nenndurchmesser − Steigung. Anschnitt ' + DAT.fmtD(def.anschnitt) + ' mm – der Tiefenanschlag muss für ein Durchgangsgewinde mindestens Plattendicke + Anschnitt sein.'));
       }
-    } else if (def.typ === 'platte') {
-      if (w.f) {
-        var rz = w.f * w.f / (8 * def.re) * 1000 * (def.wiper ? 0.5 : 1);
-        zeile('Rz,th = f² / (8 · rε)', zahl(rz, 2) + ' µm');
-        zeile('Ra ≈ Rz / 4', zahl(rz / 4, 2) + ' µm');
-        kc = PH.kcKienzle(mat, w.f);
-        zeile('Fc je mm Schnitttiefe', zahl(kc * w.f, 0) + ' N');
-        if (n) {
-          var vc = Math.PI * op.wst.D * n / 1000;
-          zeile('Pc je mm Schnitttiefe', zahl(kc * w.f * vc / 60000, 2) + ' kW');
-          zeile('th = l / (f · n) je Schnitt', zahl(op.laenge / (w.f * n) * 60, 1) + ' s');
-        }
-        if (w.f < def.fMin || w.f > def.fMax) { r.appendChild(h('p.rechner__warn', 'Vorschub außerhalb des Spanformbereichs der Platte (' + DAT.fmtD(def.fMin) + '–' + DAT.fmtD(def.fMax) + ' mm/U).')); }
-      }
     } else if (def.typ === 'fraeser' && n && w.vf) {
       var fz = w.vf / (def.z * n);
       var hm = fz * 2 / Math.PI;
@@ -386,10 +468,91 @@
       zeile('th = (l + d) / vf je Schnitt', zahl((op.wst.L + def.d + 12) / w.vf * 60, 1) + ' s');
     }
     el.appendChild(r);
-    if (this.cnc) {
+    if (this.cnc && op.typ !== 'drehen') {
       el.appendChild(h('h3', { style: 'margin:14px 0 6px' }, 'NC-Programm'));
       el.appendChild(h('pre.nc', this.ncText(def)));
     }
+  };
+
+  // Rechner fuer das Drehen: Schnittwerte, Rauheit, Leistung und Moment gegen die Maschine
+  Ruesten.prototype.rechnerDrehen = function (el, r, zeile, def, e) {
+    var self = this, w = this.wahl, op = this.op, mat = this.mat, m = this.masch;
+    var K = DAT.drehKontur(op), D0 = op.wst.D;
+    var dMin = K.stufen.length ? Math.min.apply(null, K.stufen.map(function (s) { return s.d; })) : 0;
+    if (e) { zeile('Richtwert vc (Tabellenbuch)', zahl(e.vc, 0) + ' m/min'); }
+    if (!this.cnc) {
+      var n = w.n, f = w.f;
+      if (n) {
+        zeile('vc am Rohteil Ø' + DAT.fmtD(D0), zahl(Math.PI * D0 * n / 1000, 0) + ' m/min');
+        if (dMin) { zeile('vc am Fertigmaß Ø' + DAT.fmtD(dMin), zahl(Math.PI * dMin * n / 1000, 0) + ' m/min'); }
+        if (op.plan) { zeile('vc beim Plandrehen zur Mitte', 'fällt auf 0'); }
+      }
+      if (e && e.n) { zeile('→ n = vc · 1000 / (π · d)', zahl(e.n, 0) + ' 1/min'); }
+      if (f) {
+        var rz = f * f / (8 * def.re) * 1000 * (def.wiper ? 0.5 : 1);
+        zeile('Rz,th = f² / (8 · rε)', zahl(rz, 2) + ' µm (Ra ≈ ' + zahl(rz / 4, 2) + ')');
+        if (op.plan) { zeile('Planvorschub f/2 → Rz,th', zahl(rz / 4, 2) + ' µm'); }
+        var kc = PH.kcKienzle(mat, f);
+        zeile('Fc je mm Schnitttiefe', zahl(kc * f, 0) + ' N');
+        if (n) {
+          var mJe = kc * f * D0 / 2 / 1000;
+          var mStufe = 9550 * m.P * m.eta / n;
+          zeile('Moment je mm Schnitttiefe (Ø' + DAT.fmtD(D0) + ')', zahl(mJe, 1) + ' Nm');
+          zeile('Die Stufe ' + n + ' 1/min liefert', zahl(mStufe, 0) + ' Nm, Riemen rutscht ab ≈ ' + zahl(mStufe * (m.kRiemen || 1.7), 0) + ' Nm');
+          zeile('→ größte Schnitttiefe ohne Überlast', zahl(mStufe / mJe, 1) + ' mm');
+          var vf = 0.42 * kc * f;
+          zeile('Vorschubkraft je mm (neue Schneide)', zahl(vf, 0) + ' N, Kupplung ratscht ab ≈ ' + (m.kupplung || 3000) + ' N');
+          if (dMin) { zeile('th je Längsschnitt (' + DAT.fmtD(K.stufen[K.stufen.length - 1].bis) + ' mm)', zahl(K.stufen[K.stufen.length - 1].bis / (f * n) * 60, 1) + ' s'); }
+          if (op.plan) { zeile('th je Planschnitt bis Mitte', zahl(D0 / 2 / (f / 2 * n) * 60, 1) + ' s'); }
+        }
+        if (f < def.fMin || f > def.fMax) { r.appendChild(h('p.rechner__warn', 'Vorschub außerhalb des Spanformbereichs der Platte (' + DAT.fmtD(def.fMin) + '–' + DAT.fmtD(def.fMax) + ' mm/U).' + (f > def.fMax ? ' Darüber staut sich der Span und hämmert auf die Schneide.' : ' Darunter gibt es lange Bandspäne.'))); }
+      }
+      el.appendChild(r);
+      return;
+    }
+    // CNC: Drehzahlen aus G96, Begrenzung, Leistung
+    var def2 = this.def2();
+    if (w.vc1) {
+      var n1 = w.vc1 * 1000 / (Math.PI * D0);
+      zeile('T1: n am Rohteil Ø' + DAT.fmtD(D0), zahl(n1, 0) + ' 1/min');
+      if (w.f1 && w.ap1) {
+        var kc1 = PH.kcKienzle(mat, w.f1 * Math.sin(def.kappa * Math.PI / 180));
+        var Fc1 = kc1 * w.ap1 * w.f1, P1 = Fc1 * w.vc1 / 60000, M1 = Fc1 * D0 / 2000;
+        zeile('T1: Fc = kc · ap · f', zahl(Fc1, 0) + ' N');
+        zeile('T1: Pc = Fc · vc / 60000', zahl(P1, 1) + ' kW (Spindel ' + m.P + ' kW, kurzzeitig ' + (m.pS6 || m.P) + ' kW)');
+        zeile('T1: Moment am Rohteil', zahl(M1, 0) + ' Nm (bei ' + zahl(n1, 0) + ' 1/min verfügbar ' + zahl(Math.min(m.mMax, 9550 * (m.pS6 || m.P) / Math.max(n1, 1)), 0) + ' Nm)');
+        if (w.f1 > def.fMax || w.f1 < def.fMin) { r.appendChild(h('p.rechner__warn', 'T1: Vorschub außerhalb des Spanformbereichs (' + DAT.fmtD(def.fMin) + '–' + DAT.fmtD(def.fMax) + ' mm/U).')); }
+      }
+    }
+    if (w.vc2 && dMin) {
+      zeile('T2: n am Fertigmaß Ø' + DAT.fmtD(dMin), zahl(w.vc2 * 1000 / (Math.PI * dMin), 0) + ' 1/min');
+    }
+    if (w.f2 && def2) {
+      var rz2 = w.f2 * w.f2 / (8 * def2.re) * 1000 * (def2.wiper ? 0.5 : 1);
+      zeile('T2: Rz,th = f² / (8 · rε)', zahl(rz2, 2) + ' µm (Ra ≈ ' + zahl(rz2 / 4, 2) + ')');
+    }
+    zeile('Plandrehen bis X−1,6 mit G96', w.smax ? 'begrenzt auf ' + w.smax + ' 1/min' : 'bis ' + m.nMax + ' 1/min!');
+    if (!w.smax) { r.appendChild(h('p.rechner__warn', 'Ohne G92 dreht die Spindel beim Plandrehen zur Mitte bis auf Höchstdrehzahl. Das Futter verliert dabei Spannkraft.')); }
+    el.appendChild(r);
+    // Programm (bearbeitbar)
+    el.appendChild(h('h3', { style: 'margin:14px 0 6px' }, 'NC-Programm'));
+    if (!w.progEigen || !w.prog) { w.prog = this.drehProgramm(); }
+    var fehlerBox = h('div');
+    var ta = h('textarea.nc', { rows: '18', spellcheck: 'false', 'aria-label': 'NC-Programm', style: 'width:100%;resize:vertical',
+      oninput: function (ev) { w.prog = ev.target.value; w.progEigen = true; zeigeFehler(); } });
+    ta.value = w.prog;
+    function zeigeFehler() {
+      U.leeren(fehlerBox);
+      var u = ZM.nc.uebersetzen(w.prog);
+      u.fehler.slice(0, 6).forEach(function (f) { fehlerBox.appendChild(h('p.rechner__warn', f.text)); });
+      if (!u.fehler.length) { fehlerBox.appendChild(h('p.rechner__formel', 'Syntax in Ordnung: ' + u.saetze.length + ' Sätze. Ob die Bahn stimmt, zeigt erst der Einzelsatz an der Maschine.')); }
+    }
+    el.appendChild(ta);
+    el.appendChild(fehlerBox);
+    el.appendChild(h('div.gruppe', { style: 'margin-top:8px' }, [
+      h('button.knopf.knopf--klein', { type: 'button', onclick: function () { w.progEigen = false; self.zeigeRechner(); } }, 'Programm neu erzeugen')
+    ]));
+    zeigeFehler();
   };
 
   Ruesten.prototype.ncText = function (def) {
@@ -443,7 +606,18 @@
   Ruesten.prototype.starten = function () {
     var w = this.wahl, op = this.op, def = this.def();
     var fehler = null;
+    var cncDreh = op.typ === 'drehen' && this.cnc;
     if (!def) { fehler = 'Es ist noch kein Werkzeug ausgewählt.'; }
+    else if (cncDreh) {
+      if (!w.platte2) { fehler = 'Für T2 (Schlichten) ist noch keine Platte gewählt.'; }
+      else if (!w.vc1 || !w.f1 || !w.ap1) { fehler = 'Für T1 fehlen Schnittgeschwindigkeit, Vorschub oder Zustellung.'; }
+      else if (!w.vc2 || !w.f2) { fehler = 'Für T2 fehlen Schnittgeschwindigkeit oder Vorschub.'; }
+      else if (w.zNull === null) { fehler = 'Der Werkstücknullpunkt fehlt: Wie weit steht die Rohteil-Stirnseite über Z0?'; }
+      else {
+        var uP = ZM.nc.uebersetzen(w.prog || this.drehProgramm());
+        if (uP.fehler.length) { fehler = 'Das NC-Programm hat Fehler: ' + uP.fehler[0].text; }
+      }
+    }
     else if (!w.n) { fehler = 'Die Drehzahl fehlt.'; }
     else if (op.typ === 'bohren' || op.typ === 'reiben') {
       if ((w.vorschub === 'auto' || this.cnc) && !w.fAuto) { fehler = 'Der Vorschub fehlt.'; }
@@ -454,7 +628,7 @@
     } else if (op.typ === 'gewinde') {
       if (!this.cnc && !w.zAnschlag) { fehler = 'Ohne Tiefenanschlag steuert der Gewindeschneidapparat nicht um.'; }
       if (this.cnc && !w.Z) { fehler = 'Die Gewindetiefe Z fehlt.'; }
-    } else if (op.typ === 'drehen') {
+    } else if (op.typ === 'drehen' && !cncDreh) {
       if (!w.f) { fehler = 'Der Vorschub fehlt.'; }
       if (w.laengsAn && !w.laenge) { fehler = 'Die Länge für den Längsanschlag fehlt.'; }
     } else if (op.typ === 'fraesen') {
@@ -478,17 +652,26 @@
       param.zAnschlag = this.cnc ? null : w.zAnschlag;
       param.rutsch = !this.cnc && w.rutschAn ? w.rutsch : null;
       if (this.cnc) { param.zyklus = { art: 'G84', Z: w.Z }; }
+    } else if (cncDreh) {
+      param.n = 0;
+      param.zW = op.wst.L - w.zNull;
+      param.spitzenhoehe = (this.spiel.rng.next() * 2 - 1) * 0.01;
+      param.vc1 = w.vc1;
+      param.smax = w.smax;
     } else if (op.typ === 'drehen') {
       param.f = w.f;
       param.reitstock = w.reitstock;
       param.zAnschlag = w.laengsAn ? op.wst.L - w.laenge : null;
+      param.spitzenhoehe = spitzenhoehe(w.spitze, this.spiel.rng);
+      param.spitze = w.spitze;
+      param.ruestZeit = SPITZE[w.spitze].zeit;
     } else if (op.typ === 'fraesen') {
       param.vf = w.vf;
       param.auskragung = w.auskrag;
       param.apSchnitt = w.apSchnitt;
       param.richtung = 1;
     }
-    this.weiter({ def: def, param: param, nc: this.cnc ? this.ncText(def) : null });
+    this.weiter({ def: def, def2: cncDreh ? this.def2() : null, param: param, nc: cncDreh ? (w.prog || this.drehProgramm()) : (this.cnc ? this.ncText(def) : null) });
   };
 
   ZM.Ruesten = Ruesten;

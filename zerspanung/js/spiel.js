@@ -81,6 +81,8 @@
   // ============================================================ Karriere
   Spiel.prototype.freigeschaltet = function (idx) {
     if (this.stand.einstellungen.alles || idx === 0) { return true; }
+    // Schon bearbeitete Auftraege bleiben offen, auch wenn davor neue eingefuegt wurden
+    if (this.stand.fortschritt[MIS.liste[idx].id]) { return true; }
     var vorher = MIS.liste[idx - 1];
     return !!(this.stand.fortschritt[vorher.id] && this.stand.fortschritt[vorher.id].bestanden);
   };
@@ -218,9 +220,10 @@
       vor = er && er.sim && er.sim.ergebnisse ? er.sim.ergebnisse : [];
     }
     var wkz = this.werkzeugHolen(setup.def, false);
+    var wkz2 = setup.def2 ? (setup.def2.id === setup.def.id ? this.werkzeugHolen(setup.def2, true) : this.werkzeugHolen(setup.def2, false)) : null;
     U.zeige('bearbeiten');
     this.bb = new ZM.Bearbeitung(this, {
-      mission: m, op: op, opIdx: opIdx, setup: setup, wkz: wkz, vor: vor, rng: this.rng,
+      mission: m, op: op, opIdx: opIdx, setup: setup, wkz: wkz, wkz2: wkz2, vor: vor, rng: this.rng,
       fertig: function (ergebnis) { self.opFertig(opIdx, ergebnis); }
     });
   };
@@ -267,7 +270,7 @@
     var f = U.leeren(U.$('#werkstatt'));
     var c = this.werkstattWahl || (this.werkstattWahl = {
       verfahren: 'bohren', maschine: 'saeule', mat: 'S235', dicke: 12, durch: true, tiefe: 20, anzahl: 2, d: 8,
-      vorD: 9.8, reibD: 10, gw: 'M8', kern: 6.8, D: 40, L: 80, spannL: 40, dZiel: 36, laenge: 50,
+      vorD: 9.8, reibD: 10, gw: 'M8', kern: 6.8, D: 40, L: 80, spannL: 40, dZiel: 36, laenge: 50, planen: true, planZ: 2,
       Lb: 80, Bb: 40, Hb: 30, breite: 10, nTiefe: 5
     });
     function feld(titel, inhalt) { return h('div.feld', [h('span.feld__titel', titel), inhalt]); }
@@ -279,7 +282,7 @@
     function nummer(key, schritt) {
       return h('input', { type: 'number', step: schritt || '0.1', value: String(c[key]), oninput: function (e) { var v = parseFloat(String(e.target.value).replace(',', '.')); if (!isNaN(v)) { c[key] = v; } } });
     }
-    var maschinen = c.verfahren === 'drehen' ? [['drehKonv', DAT.maschinen.drehKonv.name]] :
+    var maschinen = c.verfahren === 'drehen' ? [['drehKonv', DAT.maschinen.drehKonv.name], ['drehCNC', DAT.maschinen.drehCNC.name]] :
       c.verfahren === 'fraesen' ? [['fraesKonv', DAT.maschinen.fraesKonv.name], ['baz', DAT.maschinen.baz.name]] :
       [['saeule', DAT.maschinen.saeule.name], ['baz', DAT.maschinen.baz.name]];
     if (!maschinen.some(function (mm) { return mm[0] === c.maschine; })) { c.maschine = maschinen[0][0]; }
@@ -308,8 +311,10 @@
       p2.appendChild(feld('Rohteil Ø (mm)', nummer('D', '1')));
       p2.appendChild(feld('Ausspannlänge (mm)', nummer('L', '1')));
       p2.appendChild(feld('Spannlänge (mm)', nummer('spannL', '1')));
-      p2.appendChild(feld('Ziel-Ø (mm)', nummer('dZiel', '0.1')));
+      p2.appendChild(feld('Ziel-Ø (mm, = Rohteil-Ø: kein Absatz)', nummer('dZiel', '0.1')));
       p2.appendChild(feld('Drehlänge (mm)', nummer('laenge', '1')));
+      p2.appendChild(h('div.feld', h('div.wahl', h('label', [h('input', { type: 'checkbox', checked: c.planen, onchange: function (e) { c.planen = e.target.checked; self.zeigeWerkstatt(); } }), h('span', 'Stirnseite plandrehen (Rohteil gesägt)')]))));
+      if (c.planen) { p2.appendChild(feld('Planzugabe (mm)', nummer('planZ', '0.5'))); }
     } else {
       p2.appendChild(feld('Block Länge × Breite × Höhe (mm)', h('div.gruppe', [nummer('Lb', '1'), nummer('Bb', '1'), nummer('Hb', '1')])));
       p2.appendChild(feld('Nutbreite (mm)', nummer('breite', '1')));
@@ -352,7 +357,17 @@
       m.vorbereitet = [{ sim: { ergebnisse: vorbohr }, zeit: 0, werkzeuge: [], wichtig: [], sicherheit: 0, unfall: null }];
     } else if (v === 'drehen') {
       m.teil = { art: 'welle', name: 'Versuchswelle' };
-      m.ops = [{ typ: 'drehen', name: 'Längsdrehen', maschine: 'drehKonv', wst: { D: c.D, L: c.L, spannL: c.spannL }, d: Math.min(c.dZiel, c.D - 0.2), tol: '±0.05', laenge: Math.min(c.laenge, c.L - 2), laengeTol: 0.3, ra: 3.2, reitstockErlaubt: true }];
+      var opD = { typ: 'drehen', name: 'Drehen', maschine: c.maschine, wst: { D: c.D, L: c.L, spannL: c.spannL, saege: !!c.planen }, laengeTol: 0.3, reitstockErlaubt: c.maschine === 'drehKonv' };
+      var planZ = c.planen ? Math.max(0.2, Math.min(c.planZ, c.L / 3)) : 0;
+      if (c.planen) { opD.plan = { gesamt: c.spannL + c.L - planZ, tol: 0.1, ra: 3.2, eben: 0.05 }; }
+      if (c.dZiel < c.D - 0.1) {
+        var lD = Math.min(c.laenge, c.L - planZ - 2);
+        if (c.maschine === 'drehCNC') { opD.kontur = [{ d: c.dZiel, tol: '±0.05', bis: lD, ra: 3.2 }]; opD.fase = 0.5; }
+        else { opD.d = c.dZiel; opD.tol = '±0.05'; opD.laenge = lD; opD.ra = 3.2; }
+      }
+      if (!opD.plan && !opD.d && !opD.kontur) { opD.d = c.D - 2; opD.tol = '±0.05'; opD.laenge = Math.min(c.laenge, c.L - 2); opD.ra = 3.2; }
+      opD.name = c.maschine === 'drehCNC' ? 'CNC-Drehen' : (opD.plan && !opD.d ? 'Plandrehen' : opD.plan ? 'Plan- und Längsdrehen' : 'Längsdrehen');
+      m.ops = [opD];
     } else {
       m.teil = { art: 'nutblock', name: 'Versuchsblock', L: c.Lb, B: c.Bb, H: c.Hb };
       m.ops = [{ typ: 'fraesen', name: 'Nut fräsen', maschine: maschine, wst: { L: c.Lb, B: c.Bb, H: c.Hb }, art: 'nut', breite: c.breite, breiteTol: '+0.1/+0', tiefe: c.nTiefe, tiefeTol: '±0.1', y: c.Bb / 2, lageTol: 0.1, ra: 3.2 }];

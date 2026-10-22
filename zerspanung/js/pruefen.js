@@ -75,24 +75,55 @@
   }
 
   function bewerteDrehen(op, er, liste, hinweise) {
-    var sim = er.sim;
-    var tol = DAT.toleranz(op.d, op.tol);
-    var st = tol.o - tol.u < 0.05 ? 3 : 2;
-    var zA = sim.L - op.laenge + 1.5, zB = sim.L - 0.5;
-    var b = sim.bereich(zA, zB);
-    if (b.roh) {
-      merkmal(liste, op.name, '', 'Bearbeitet auf ganzer Länge', 'ja', 'Rohstellen', { ok: false, p: 0 });
+    var sim = er.sim, K = DAT.drehKontur(op);
+    var zF = sim.laengeZ();
+    var stufen = K.stufen;
+    var hw = hinweise.drehen = { stufen: [], op: op, plan: null };
+    stufen.forEach(function (s, k) {
+      var tol = DAT.toleranz(s.d, s.tol);
+      var st = tol.o - tol.u < 0.05 ? 3 : 2;
+      var von = k === 0 ? 0 : stufen[k - 1].bis;
+      var zA = zF - s.bis + 1.5, zB = zF - von - (k === 0 ? Math.max(0.5, K.fase + 0.5) : 1.5);
+      var b = sim.bereich(zA, zB);
+      var pos = stufen.length > 1 ? 'Ø ' + DAT.fmtD(s.d) : '';
+      if (b.roh) {
+        merkmal(liste, op.name, pos, 'Bearbeitet auf ganzer Länge', 'ja', 'Rohstellen', { ok: false, p: 0 });
+      }
+      merkmal(liste, op.name, pos, 'Ø kleinste Stelle', fmtTol(s.d, tol, st), zahl(b.min, st), bewerteMass(b.min, s.d, tol));
+      merkmal(liste, op.name, pos, 'Ø größte Stelle', fmtTol(s.d, tol, st), zahl(b.max, st), bewerteMass(b.max, s.d, tol));
+      var naechst = k + 1 < stufen.length ? stufen[k + 1].d : sim.D0;
+      var len = sim.absatz((s.d + naechst) / 2);
+      var lt = { o: K.laengeTol, u: -K.laengeTol };
+      merkmal(liste, op.name, pos, stufen.length > 1 ? 'Länge bis Schulter' : 'Absatzlänge', fmtTol(s.bis, lt, 2), zahl(len, 2), bewerteMass(len, s.bis, lt));
+      if (s.ra) {
+        merkmal(liste, op.name, pos, 'Rauheit Mantelfläche', '≤ Ra ' + zahl(s.ra, 1) + ' µm', zahl(b.ra, 2) + ' µm', b.ra <= s.ra ? { ok: true, p: 10 } : b.ra <= s.ra * 1.5 ? { ok: false, p: 4 } : { ok: false, p: 0 });
+      }
+      hw.stufen.push({ b: b, len: len, tol: tol, s: s, kegel: sim.D[sim.idx(zB)] - sim.D[sim.idx(zA)] });
+      if (b.ratter > 6) { hinweise.ratter = true; }
+      if (b.ruck > 0.3) { hinweise.ruck = true; }
+    });
+    if (K.plan) {
+      var P = K.plan;
+      var rA = (stufen.length ? stufen[0].d / 2 - K.fase : sim.D0 / 2) - 0.3;
+      var sf = sim.stirnflaeche(rA);
+      var gesamt = sim.spannL + sf.z;
+      var gt = { o: P.tol, u: -P.tol };
+      if (sf.roh) {
+        merkmal(liste, op.name, 'Stirnfläche', 'Stirnfläche bearbeitet', 'ja', 'Sägeschnitt sichtbar', { ok: false, p: 0 });
+      }
+      merkmal(liste, op.name, 'Stirnfläche', 'Gesamtlänge', fmtTol(P.gesamt, gt, 2), zahl(gesamt, 2), bewerteMass(gesamt, P.gesamt, gt));
+      if (P.eben) {
+        merkmal(liste, op.name, 'Stirnfläche', 'Ebenheit', '≤ ' + zahl(P.eben, 2), zahl(sf.eben, 3), sf.eben <= P.eben ? { ok: true, p: 10 } : sf.eben <= 2 * P.eben ? { ok: false, p: 4, nach: true } : { ok: false, p: 0 });
+      }
+      var butzen = sf.zapfenH > 0.03;
+      merkmal(liste, op.name, 'Stirnfläche', 'Butzen in der Mitte', 'keiner', butzen ? 'Ø ' + zahl(2 * sf.zapfenR, 1) + ' × ' + zahl(sf.zapfenH, 2) + ' hoch' : 'keiner', butzen ? { ok: false, p: 4, nach: true } : { ok: true, p: 10 });
+      if (P.ra) {
+        merkmal(liste, op.name, 'Stirnfläche', 'Rauheit Stirnfläche', '≤ Ra ' + zahl(P.ra, 1) + ' µm', zahl(sf.ra, 2) + ' µm', sf.ra <= P.ra ? { ok: true, p: 10 } : sf.ra <= P.ra * 1.5 ? { ok: false, p: 4 } : { ok: false, p: 0 });
+      }
+      hw.plan = { sf: sf, gesamt: gesamt, P: P };
     }
-    merkmal(liste, op.name, '', 'Ø kleinste Stelle', fmtTol(op.d, tol, st), zahl(b.min, st), bewerteMass(b.min, op.d, tol));
-    merkmal(liste, op.name, '', 'Ø größte Stelle', fmtTol(op.d, tol, st), zahl(b.max, st), bewerteMass(b.max, op.d, tol));
-    var grenze = (op.d + sim.D0) / 2;
-    var len = sim.absatz(grenze);
-    var lt = { o: op.laengeTol, u: -op.laengeTol };
-    merkmal(liste, op.name, '', 'Absatzlänge', fmtTol(op.laenge, lt, 2), zahl(len, 2), bewerteMass(len, op.laenge, lt));
-    merkmal(liste, op.name, '', 'Rauheit Mantelfläche', '≤ Ra ' + zahl(op.ra, 1) + ' µm', zahl(b.ra, 2) + ' µm', b.ra <= op.ra ? { ok: true, p: 10 } : b.ra <= op.ra * 1.5 ? { ok: false, p: 4 } : { ok: false, p: 0 });
-    hinweise.drehen = { b: b, len: len, tol: tol, op: op, kegel: sim.D[sim.idx(zB)] - sim.D[sim.idx(zA)] };
-    if (b.ratter > 6) { hinweise.ratter = true; }
     if (sim.backenSpur) { hinweise.backen = true; }
+    if (sim.st.kupplung > 0 || sim.st.maxRuck > 0.4) { hinweise.ruck = true; }
   }
 
   function bewerteFraesen(op, er, liste, hinweise) {
@@ -198,22 +229,44 @@
     });
     if (hw.drehen) {
       var d = hw.drehen;
-      if (d.kegel > 0.012) {
-        t.push('Die Welle ist am freien Ende ' + zahl(d.kegel * 1000, 0) + ' µm dicker als am Absatz. Das ist die Durchbiegung unter der Passivkraft. Beim Schlichten eine kleine Schnitttiefe nehmen und lange Teile mit dem Reitstock abstützen.');
-      }
-      if (d.b.min < d.op.d + d.tol.u) {
-        t.push('Untermaß: Bei der Endmessung (20 °C) ist der Durchmesser kleiner als beim Messen an der Maschine. Ein warmes Werkstück schrumpft beim Abkühlen. Rechne die Wärmedehnung ein oder lass es abkühlen.');
-      }
-      if (d.b.ra > d.op.ra) {
-        t.push('Rauheit zu hoch. Theoretisch gilt Rz ≈ f² / (8 · rε) und Ra ≈ Rz / 4. Kleinerer Vorschub, größerer Eckenradius oder eine Wiper-Platte helfen. Aufbauschneiden bei zu kleiner vc und Rattern verschlechtern das zusätzlich.');
-      }
-      if (d.b.max > d.op.d + d.tol.o) {
-        t.push('Übermaß: Der Durchmesser ist noch zu groß. Nach dem Messen die Differenz zustellen – am Durchmesser gemessen, am Skalenring oder an der Digitalanzeige als Durchmesser eingestellt.');
-      }
-      if (Math.abs(d.len - d.op.laenge) > d.op.laengeTol) {
-        t.push('Die Absatzlänge stimmt nicht. Mit dem Längsanschlag fällt der Absatz jedes Mal an dieselbe Stelle.');
+      d.stufen.forEach(function (x, k) {
+        var nenn = DAT.fmtD(x.s.d);
+        if (k === 0 && x.kegel > 0.012 && !d.op.kontur) {
+          t.push('Die Welle ist am freien Ende ' + zahl(x.kegel * 1000, 0) + ' µm dicker als am Absatz. Das ist die Durchbiegung unter der Passivkraft. Beim Schlichten eine kleine Schnitttiefe nehmen und lange Teile mit dem Reitstock abstützen.');
+        }
+        if (x.b.min < x.s.d + x.tol.u) {
+          t.push('Ø ' + nenn + ' hat Untermaß. Ein warmes Werkstück schrumpft beim Abkühlen, gemessen wird bei 20 °C. Rechne die Wärmedehnung ein, lass es abkühlen – und programmiere bzw. stelle auf Toleranzmitte zu, nicht auf Nennmaß.');
+        }
+        if (x.b.max > x.s.d + x.tol.o) {
+          t.push('Ø ' + nenn + ' ist noch zu groß. Nach dem Messen die Differenz zustellen' + (d.op.maschine === 'drehCNC' ? ' bzw. an der CNC die Verschleißkorrektur des Schlichtwerkzeugs in X eintragen und den Schlichtschnitt wiederholen.' : ' – am Durchmesser gemessen, an der Digitalanzeige als Durchmesser eingestellt.'));
+        }
+        if (x.s.ra && x.b.ra > x.s.ra) {
+          t.push('Ø ' + nenn + ' ist zu rau. Theoretisch gilt Rz ≈ f² / (8 · rε) und Ra ≈ Rz / 4. Kleinerer Vorschub, größerer Eckenradius oder eine Wiper-Platte helfen. Aufbauschneiden bei zu kleiner vc, Rattern und ein ruckender Vorschub verschlechtern das zusätzlich.');
+        }
+        if (Math.abs(x.len - x.s.bis) > (d.op.laengeTol || 0.2)) {
+          t.push('Die Länge bis zur Schulter von Ø ' + nenn + ' stimmt nicht. Gemessen wird von der Stirnfläche. ' + (d.op.maschine === 'drehCNC' ? 'Prüfe den Werkstücknullpunkt in Z.' : 'Mit dem Längsanschlag fällt der Absatz jedes Mal an dieselbe Stelle.'));
+        }
+      });
+      if (d.plan) {
+        var pl = d.plan;
+        if (Math.abs(pl.gesamt - pl.P.gesamt) > pl.P.tol) {
+          t.push('Die Gesamtlänge ist ' + zahl(pl.gesamt, 2) + ' statt ' + DAT.fmtD(pl.P.gesamt) + ' mm. ' + (d.op.maschine === 'drehCNC' ?
+            'Der Werkstücknullpunkt in Z sitzt falsch: Die Stirnseite des Rohteils muss um Rohteillänge minus Fertiglänge über Z0 stehen.' :
+            'Ankratzen, Z nullen, Länge messen und dann die Differenz mit dem Oberschlitten zustellen. Ein ungeklemmter Bettschlitten weicht dabei aus.'));
+        }
+        if (pl.P.eben && pl.sf.eben > pl.P.eben) {
+          t.push('Die Stirnfläche ist nicht eben (' + zahl(pl.sf.eben * 1000, 0) + ' µm). Beim Plandrehen drückt die Passivkraft den Schlitten axial weg – deshalb den Bettschlitten klemmen. Rattern hinterlässt Wellen.');
+        }
+        if (pl.sf.zapfenH > 0.03) {
+          t.push('In der Mitte ist ein Butzen von Ø ' + zahl(2 * pl.sf.zapfenR, 1) + ' mm stehen geblieben. Die Schneide stand nicht genau auf Drehmitte – an der Reitstockspitze ausrichten oder Unterlagen anpassen.' + (d.op.maschine === 'drehCNC' ? ' An der CNC über die Mitte hinaus planen (X−1,6).' : ''));
+        }
+        if (pl.P.ra && pl.sf.ra > pl.P.ra) {
+          t.push('Die Stirnfläche ist zu rau. Mit fester Drehzahl sinkt die Schnittgeschwindigkeit zur Mitte gegen null – dort entstehen Aufbauschneiden. An der CNC hält G96 die Schnittgeschwindigkeit konstant.');
+        }
+        if (pl.sf.roh) { t.push('Auf der Stirnfläche ist noch der Sägeschnitt zu sehen: Es wurde nicht tief genug geplant. Gesägte Flächen sind nicht eben und schlagen axial.'); }
       }
     }
+    if (hw.ruck) { t.push('Der Vorschub hat geruckt (Überlastkupplung, rutschender Riemen oder Spanstau). Das hinterlässt unregelmäßige Riefen und Halteringe. Ursache ist zu viel Spanabnahme für Maschine oder Schneide: Vorschub über dem Spanformbereich, zu große Schnitttiefe oder eine zu hohe Drehzahlstufe.'); }
     if (hw.ratter) { t.push('Rattermarken auf der Oberfläche. Regeneratives Rattern beginnt, wenn die Schnitttiefe die Stabilitätsgrenze des schwingenden Systems überschreitet. Die Grenze hängt von der Steifigkeit (Ausspannlänge!), der Dämpfung und der Drehzahl ab.'); }
     if (hw.fraesen) {
       var f = hw.fraesen;
@@ -245,7 +298,7 @@
     };
     nio.forEach(function (m) {
       var key = m.name;
-      if (/^Ø|Absatz|Nut|Lage Nut|Rauheit Nut|Rauheit Mantel|Bearbeitet/.test(key)) { return; }
+      if (/^Ø|Absatz|Länge bis|Nut|Lage Nut|Rauheit Nut|Rauheit Mantel|Bearbeitet|Gesamtlänge|Ebenheit|Butzen|Rauheit Stirn|Stirnfläche/.test(key)) { return; }
       if (erklaert[key] || !texte[key]) { return; }
       erklaert[key] = true;
       t.push(texte[key]);
