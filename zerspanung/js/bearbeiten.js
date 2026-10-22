@@ -300,6 +300,7 @@
       var gk = h('div.gruppe');
       gk.appendChild(knopf('Messen', 'M', null, function () { self.messen(); }));
       gk.appendChild(knopf('Korrektur', 'O', null, function () { self.korrekturFenster(); }));
+      gk.appendChild(knopf('Späne', 'H', null, function () { self.spaene(); }));
       gk.appendChild(knopf('Platte', 'W', null, function () { self.platte(); }));
       bed.appendChild(gk);
     } else if (art === 'dreh') {
@@ -892,6 +893,7 @@
         else if (art === 'dreh' && (key === 'r' || key === 'R')) { self.ncReset(); }
         else if (art === 'dreh' && (key === 'o' || key === 'O')) { self.korrekturFenster(); }
         else if (art === 'dreh' && (key === 'w' || key === 'W')) { self.platte(); }
+        else if (art === 'dreh' && (key === 'h' || key === 'H')) { self.spaene(); }
         else if (key === '+' && self.ovFEl) { self.ovFEl.value = String(Math.min(120, parseInt(self.ovFEl.value, 10) + 10)); self.ovFEl.dispatchEvent(new Event('input')); }
         else if (key === '-' && self.ovFEl) { self.ovFEl.value = String(Math.max(0, parseInt(self.ovFEl.value, 10) - 10)); self.ovFEl.dispatchEvent(new Event('input')); }
         else if (key === 'm' || key === 'M') { self.messen(); }

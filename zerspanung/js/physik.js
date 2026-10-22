@@ -1987,6 +1987,8 @@
         if (this.wirr > 1) { this.ev.einmalig(this.zeit, 'wirr', 'Wirrspäne wickeln sich um Werkstück und Halter. Maschine anhalten und mit dem Spänehaken entfernen (H).', 'warn', 8); }
       }
     }
+    // Kurze Spaene und ein kraeftiger KSS-Strahl spuelen das Knaeuel nach und nach weg
+    if (spanForm !== 'band' && this.wirr > 0) { this.wirr = Math.max(0, this.wirr - dt * (kssAn ? (this.cnc ? 0.15 : 0.05) : 0.02)); }
     this.spanForm = spanForm;
 
     // ------------------------------------------------ Werkstoff abtragen

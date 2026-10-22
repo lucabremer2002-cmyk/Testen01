@@ -332,7 +332,7 @@
       kunde: 'Lebensmitteltechnik Kraus', auftrag: 'LK-4180', lohn: 240,
       text: 'Eine Rührwerksachse aus 1.4301: Lagersitz Ø 25 k6 mit Ra 0,8, Bund Ø 32 h9, Fase 0,5 × 45°, Gesamtlänge 80 ± 0,05. Rohteil Ø 36 × 83, gesägt.',
       meister: [
-        '1.4301 verfestigt sich. Nicht reiben lassen, sondern mit genug Vorschub unter die verfestigte Schicht schneiden. Spantiefen unter 0,3 mm sind Gift.',
+        '1.4301 verfestigt sich. Nicht reiben lassen, sondern mit genug Vorschub unter die verfestigte Schicht schneiden. Auch beim Schlichten muss die Platte im Spanformbereich bleiben (Vorschub und Schnitttiefe), sonst wickeln sich Bandspäne um das Teil und zerkratzen die Fläche.',
         'Edelstahl leitet die Wärme schlecht, sie bleibt in Schneide und Span. Mit Emulsion und einer M-Sorte bei etwa 160 bis 200 m/min drehen.',
         'k6 heißt +0,002 bis +0,015 mm. Profis programmieren auf Toleranzmitte, messen nach dem Schlichten und korrigieren den Verschleiß am Werkzeug.',
         'Das Werkstück wird warm und schrumpft beim Abkühlen. 1.4301 dehnt sich um 16 µm je Meter und Kelvin.'
