@@ -1340,10 +1340,10 @@
   // Aeusserer Werkstoffradius in Zelle i (beruecksichtigt die Stirnflaeche)
   DrehSim.prototype.materialRadius = function (i) {
     var zc = (i + 0.5) * DZ, R = this.D[i] / 2;
-    if (zc < this.stirnBei(Math.max(0, R - 0.05))) { return R; }
-    var j;
-    for (j = this.jdx(R); j >= 0; j--) {
-      if (this.stirn[j] > zc) { return Math.min(R, (j + 1) * DR); }
+    // aeusserster Ring, dessen Mitte noch innerhalb von R liegt
+    var j0 = Math.min(this.NR - 1, Math.floor(R / DR - 0.5)), j;
+    for (j = j0; j >= 0; j--) {
+      if (this.stirn[j] > zc) { return j === j0 ? R : Math.min(R, (j + 1) * DR); }
     }
     return 0;
   };
@@ -1366,17 +1366,26 @@
       var R = this.materialRadius(i);
       if (R > 0.05) {
         var mx = 0;
-        for (j = 0; j <= this.jdx(R - 0.01); j++) { if (this.stirn[j] > mx) { mx = this.stirn[j]; } }
-        return Math.min(mx, (i + 1) * DZ);
+        for (j = 0; j <= Math.min(this.NR - 1, Math.floor(R / DR - 0.5)); j++) { if (this.stirn[j] > mx) { mx = this.stirn[j]; } }
+        return mx;
       }
     }
     return 0;
   };
 
   // Lage der Stirnflaeche fuer Laengenmasse: Mittelwert im aeusseren Ringbereich
+  // Radius der Stirnflaeche: Werkstoffradius knapp unter dem hoechsten Punkt (ein Butzen zaehlt nicht)
+  DrehSim.prototype.stirnRadius = function () {
+    var zE = this.laengeMax(), i;
+    for (i = this.idx(Math.max(0, zE - 0.01)); i >= 0; i--) {
+      var R = this.materialRadius(i);
+      if (R > Math.min(2.5, 0.3 * this.D0 / 2)) { return { r: R, i: i }; }
+    }
+    return { r: this.D0 / 2, i: 0 };
+  };
+
   DrehSim.prototype.laengeZ = function () {
-    var zE = this.stirnMax();
-    var rEnd = this.D[this.idx(Math.max(0, zE - 0.6))] / 2;
+    var rEnd = this.stirnRadius().r;
     var j0 = this.jdx(0.35 * rEnd), j1 = this.jdx(0.9 * rEnd), j, s = 0, n = 0;
     for (j = j0; j <= j1; j++) { s += this.stirn[j]; n++; }
     return n ? s / n : this.L;
@@ -1738,8 +1747,8 @@
       if (nRev > 0.5 && !this.cnc) { this.unfall = { art: 'kollision', text: 'Kollision mit laufendem Futter.' }; }
       return;
     }
-    if (this.reitstock && this.z > this.stirnMax() + 1.5 && r < 12) {
-      this.z = Math.min(this.z, this.stirnMax() + 1.5);
+    if (this.reitstock && r < 12 && this.z > (this.zReitstock || (this.zReitstock = this.laengeMax())) + 1.5) {
+      this.z = Math.min(this.z, this.zReitstock + 1.5);
     }
 
     // ------------------------------------------------ Eingriff (Spanungsdicke aus der letzten Umdrehung)
@@ -1998,14 +2007,14 @@
         var rSchnitt = Math.sqrt(xS * xS + this.h * this.h);
         for (ii = i0; ii <= i1; ii++) {
           var dNeu = 2 * rSchnitt / heiss;
-          if (dNeu < this.D[ii] - 1e-5) {
-            if (this.materialRadius(ii) * 2 > dNeu + 1e-5) {
-              this.Ra[ii] = raBasis * (0.95 + 0.1 * this.rng.next());
-              // Ist die Zustellung kleiner als der Rundlauffehler, putzt die Flaeche nicht aus
-              if (!(unterbrochen && !this.bearb[ii])) { this.bearb[ii] = 1; }
-              this.ratter[ii] = this.amp;
-              this.ruckSpur[ii] = this.ruck;
-            }
+          // Nur wo in der Zellmitte wirklich Werkstoff ausserhalb der Schneide liegt. Sonst wuerde eine
+          // Bewegung durch Luft knapp ueber der Stirnflaeche eine duenne Restschicht in der Zelle loeschen.
+          if (dNeu < this.D[ii] - 1e-5 && this.materialRadius(ii) * 2 > dNeu + 1e-5) {
+            this.Ra[ii] = raBasis * (0.95 + 0.1 * this.rng.next());
+            // Ist die Zustellung kleiner als der Rundlauffehler, putzt die Flaeche nicht aus
+            if (!(unterbrochen && !this.bearb[ii])) { this.bearb[ii] = 1; }
+            this.ratter[ii] = this.amp;
+            this.ruckSpur[ii] = this.ruck;
             this.D[ii] = dNeu;
             this.geoVersion++;
           }
@@ -2019,7 +2028,7 @@
         // Zur Mitte hin sinkt vc gegen null: Aufbauschneide, Reiben, rauere Mitte
         var raMitte = vc < 30 ? (30 - vc) / 30 * 2.2 * (0.4 + mat.aufbau) : 0;
         for (jr = j0; jr <= j1; jr++) {
-          if (this.stirn[jr] > zSchnitt + 1e-5) {
+          if (this.stirn[jr] > zSchnitt + 1e-5 && this.materialOben(zSchnitt, (jr + 0.5) * DR) > zSchnitt + 1e-5) {
             if ((jr + 0.5) * DR < rMat) {
               this.stirnRa[jr] = (raBasis + raMitte) * (0.95 + 0.1 * this.rng.next());
               if (!(unterbrochen && !this.stirnBearb[jr])) { this.stirnBearb[jr] = 1; }
@@ -2231,7 +2240,7 @@
   // Auswertung der Stirnflaeche: Lage, Ebenheit, Zapfen in der Mitte, Rauheit
   DrehSim.prototype.stirnflaeche = function (rAuswert) {
     var zE = this.laengeMax();
-    var rEnd = this.D[this.idx(Math.max(0, this.laengeZ() - 0.6))] / 2;
+    var rEnd = this.stirnRadius().r;
     var jEnd = this.jdx(Math.max(0, Math.min(rEnd - 0.3, rAuswert || 1e9)));
     var j, zMin = 1e9, zMax = -1e9, ra = 0, roh = false;
     var rZapfen = 0, hZapfen = 0;
@@ -2245,8 +2254,8 @@
       }
       if (this.stirn[j] < zMin) { zMin = this.stirn[j]; }
       if (this.stirn[j] > zMax) { zMax = this.stirn[j]; }
-      // Rauheit quer ueber die Flaeche, ohne den Mittenpunkt (dort ist vc = 0)
-      if (this.stirnRa[j] > ra && (j + 0.5) * DR >= Math.max(1.5, 0.25 * rEnd)) { ra = this.stirnRa[j]; }
+      // Rauheit wie beim Tastschnitt auf dem aeusseren Teil des Radius (in der Mitte ist vc = 0)
+      if (this.stirnRa[j] > ra && (j + 0.5) * DR >= Math.max(1.5, 0.4 * rEnd)) { ra = this.stirnRa[j]; }
       if (!this.stirnBearb[j]) { roh = true; }
     }
     // Sehr kleine Butzen schert der ablaufende Span ab: zurueck bleibt eine raue Abrisswarze
@@ -2306,7 +2315,7 @@
   DrehSim.prototype.absatz = function (dGrenze) {
     var i, zE = this.laengeZ();
     for (i = this.idx(zE - 0.01); i >= 0; i--) {
-      if (this.D[i] > dGrenze) { return zE - (i + 1) * DZ; }
+      if (this.materialRadius(i) * 2 > dGrenze) { return zE - (i + 1) * DZ; }
     }
     return zE;
   };
