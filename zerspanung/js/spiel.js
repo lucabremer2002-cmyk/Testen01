@@ -384,7 +384,7 @@
     var inhalt = h('div');
     var seiten = [
       ['schnitt', 'Schnittwerte'], ['kienzle', 'Schnittkraft'], ['gewinde', 'Gewinde'], ['toleranz', 'ISO-Toleranzen'],
-      ['formeln', 'Formeln'], ['werkstoffe', 'Werkstoffe'], ['sicherheit', 'Arbeitssicherheit']
+      ['formeln', 'Formeln'], ['cnc', 'CNC-Drehen'], ['ueberlast', 'Überlast erkennen'], ['werkstoffe', 'Werkstoffe'], ['sicherheit', 'Arbeitssicherheit']
     ];
     var aktiv = this.tbSeite || 'schnitt';
     seiten.forEach(function (s) {
@@ -462,9 +462,56 @@
         ['Hauptnutzungszeit', 'th = L · i / (f · n)', 'L = Weg inkl. An- und Überlauf, i = Anzahl Schnitte'],
         ['Wärmedehnung', 'Δl = α · l · ΔT', 'Stahl α ≈ 11,5 µm/(m·K); Aluminium 23 µm/(m·K)'],
         ['Knicklast (Euler)', 'Fk = π² · E · I / (β · l)²', 'Lange, dünne Bohrer knicken schon bei wenigen hundert Newton.'],
-        ['Durchbiegung Kragträger', 'f = F · l³ / (3 · E · I)', 'Doppelte Ausspannlänge → achtfache Durchbiegung']
+        ['Durchbiegung Kragträger', 'f = F · l³ / (3 · E · I)', 'Doppelte Ausspannlänge → achtfache Durchbiegung'],
+        ['Plandrehen: Schnittgeschwindigkeit', 'vc = π · d · n / 1000 → 0 zur Mitte', 'Bei fester Drehzahl wird die Mitte rauer (Aufbauschneide). Die CNC hält vc mit G96 konstant, bis die Begrenzung G92 greift.'],
+        ['Planvorschub (LZ 200)', 'f_plan = f_längs / 2', 'Der Planzug läuft über die Planspindel, er steht auf der Vorschubtabelle in einer eigenen Spalte.'],
+        ['Spitzenhöhe', 'Butzen-Ø = 2 · |h|', 'Unter Mitte bleibt ein Butzen stehen, über Mitte drückt die Freifläche dagegen (α_wirk = α − asin(h/r)).'],
+        ['G96 mit Begrenzung', 'r_g = 1000 · vc / (2π · S_max)', 'Unterhalb dieses Radius dreht die Spindel mit S_max, vc fällt wieder gegen null.'],
+        ['Moment der Drehzahlstufe', 'M = 9550 · P · η / n', 'Kleinere Stufe = mehr Moment. Der Keilriemen rutscht ab etwa 1,7 · M.']
       ];
       inhalt.appendChild(h('div.tb-raster', f.map(function (x) { return h('div.panel', [h('h3', x[0]), h('p', { style: 'margin:8px 0' }, h('span.formel', x[1])), h('p.muted', x[2])]); })));
+    } else if (aktiv === 'cnc') {
+      inhalt.appendChild(h('p.muted', { style: 'margin-bottom:10px' }, 'Wegbedingungen und Zusatzfunktionen der CNC-Drehmaschine CT 250 (DIN 66025, PAL-nah). X wird als Durchmesser programmiert, Z ab dem Werkstücknullpunkt W auf der fertigen Stirnfläche (minus = Richtung Futter).'));
+      inhalt.appendChild(tabelle(['Adresse', 'Bedeutung', 'Hinweis'], [
+        ['G0', 'Eilgang', 'Nie im Eilgang ins Werkstück – Sicherheitsabstand Z2 bzw. X + 2 über Rohmaß'],
+        ['G1', 'Gerade im Vorschub', 'braucht F'],
+        ['G2 / G3', 'Kreis im / gegen den Uhrzeigersinn mit R', 'Blick mit Z nach rechts, X nach oben'],
+        ['G4 F…', 'Verweilzeit in s', ''],
+        ['G90 / G91', 'absolut / inkrementell (auch U, W)', ''],
+        ['G92 S…', 'Drehzahlbegrenzung (PAL)', 'Fanuc G50 S…, Siemens LIMS=… – immer vor G96'],
+        ['G94 / G95', 'Vorschub in mm/min / mm je Umdrehung', 'Drehen fast immer G95'],
+        ['G96 S…', 'konstante Schnittgeschwindigkeit vc in m/min', 'n steigt zur Mitte bis zur Begrenzung'],
+        ['G97 S…', 'konstante Drehzahl in 1/min', 'für Bohren auf Mitte und Gewinde'],
+        ['T0101 / T1 D1', 'Werkzeug und Korrekturspeicher aufrufen', 'vorher den Wechselpunkt anfahren'],
+        ['M3 / M4', 'Spindel rechts / links', 'CT 250: Revolver hinter der Mitte, Spanfläche oben → M4'],
+        ['M5', 'Spindel aus', ''],
+        ['M8 / M9', 'Kühlschmierstoff ein / aus', ''],
+        ['M0 / M1', 'programmierter Halt', 'weiter mit NC-Start'],
+        ['M30', 'Programmende', '']
+      ]));
+      inhalt.appendChild(h('div.tb-raster', { style: 'margin-top:16px' }, [
+        h('div.panel', [h('h2', 'Programmaufbau'), h('pre.nc', 'N10 G18 G54 G90 G95\nN20 G0 X200 Z150   (Wechselpunkt)\nN30 T0101          (Schruppen)\nN40 G92 S3000\nN50 G96 S220 M4\nN60 M8\nN70 G0 X54 Z2.5\nN80 G0 Z0.1\nN90 G1 X-1.6 F0.3  (plan, über Mitte)\n…\nN300 G0 X200 Z150 M9\nN310 M30')]),
+        h('div.panel', [h('h2', 'Einfahren'), h('ol.regeln', [
+          'Nullpunkt prüfen: Wie weit steht die Rohteil-Stirnseite über Z0?',
+          'Einzelsatz ein, Override klein, Hand am NC-Stopp.',
+          'Plandrehen bis X −2 · rε, sonst bleibt ein Zapfen.',
+          'Nach dem Schlichten messen und die Verschleißkorrektur eintragen (ΔX am Durchmesser).',
+          'Auf Toleranzmitte programmieren, nicht auf Nennmaß.'
+        ])])
+      ]));
+    } else if (aktiv === 'ueberlast') {
+      inhalt.appendChild(h('p.muted', { style: 'margin-bottom:10px' }, 'Was eine überlastete Maschine zeigt, woher es kommt und was hilft. Funken entstehen beim Spanen nicht von selbst – sie sind fast immer schon ein Schaden.'));
+      inhalt.appendChild(tabelle(['Anzeichen', 'Ursache', 'Abhilfe'], [
+        ['Knattern, dicke dunkle Späne, Schneide bröckelt', 'Vorschub über dem Spanformbereich: Der Span staut sich und hämmert auf die Schneide', 'Vorschub senken oder Schruppplatte (PR) nehmen'],
+        ['Keilriemen quietscht, Drehzahl bricht ein, Spindel bleibt stehen', 'Moment größer als die Drehzahlstufe liefern kann (M = Fc · r)', 'Kleinere Drehzahlstufe (mehr Moment) oder weniger Spantiefe. Nicht mit Werkzeug im Schnitt anlaufen.'],
+        ['Rastkupplung ratscht, Schlitten kommt ruckweise, Zugspindel dreht weiter', 'Vorschubkraft über der Kupplungsgrenze, oft durch eine stumpfe Schneide', 'Vorschub/Spantiefe verringern, Schneide wechseln'],
+        ['Tisch ruckt nach vorn oder hämmert (Fräsmaschine)', 'Gleichlauf bzw. wechselnde Vorschubkraft im Umkehrspiel der Tischspindel', 'Gegenlauf, mehr Zähne, kleinerer Zahnvorschub, Klemmung leicht anziehen'],
+        ['Rattern: Pfeifen oder Schnarren, regelmäßige Marken', 'Regeneratives Rattern – zu viel Schnitttiefe für die Steifigkeit', 'Weniger ap, andere Drehzahl, Reitstock, kürzer ausspannen, Bettschlitten klemmen'],
+        ['Glühende Späne', 'Hohe Schnittgeschwindigkeit, hohe Festigkeit, schlechte Wärmeleitung (Edelstahl, Titan)', 'vc senken, Kühlschmierstoff. Blaue Späne sind beim Hartmetall-Trockendrehen normal.'],
+        ['Funken', 'Platte gebrochen und der Halter schneidet mit, Stumpf reibt, Schneide völlig verschlissen, Kollision', 'Sofort anhalten. Aluminium und Messing funken nie.'],
+        ['Quietschen beim Plandrehen in der Mitte', 'Schneide über Mitte – die Freifläche drückt gegen den Butzen', 'Spitzenhöhe ausrichten'],
+        ['CNC: Alarm, Vorschubhalt', 'Spindelmoment ausgeschöpft (i²t, Drehzahlabweichung) oder Achse blockiert', 'Schnittwerte reduzieren; die CNC ruckelt nicht, sie hält an']
+      ]));
     } else if (aktiv === 'werkstoffe') {
       inhalt.appendChild(tabelle(['Werkstoff', 'Werkstoff-Nr.', 'Rm (N/mm²)', 'Härte HB', 'Spanform', 'Hinweis'],
         Object.keys(W).map(function (k) { var m = W[k]; return [matZelle(m), m.nr, m.rm, m.hb, { lang: 'lang', mittel: 'mittel', broeckel: 'kurz/bröckelig' }[m.span], m.text]; })));

@@ -77,6 +77,7 @@ game.js      Spiellogik und Rendering auf dem Canvas
 ## Weitere Spiele in diesem Repository
 
 * [`zerspanung/`](zerspanung/) – **Spanwerk**, ein Zerspanungsmechaniker-Simulator
-  mit Bohren, Gewindebohren, Reiben, Drehen und Fräsen, 15 Aufträgen bis zur
-  Gesellenprüfung und echter Zerspanungsphysik. Details in
+  mit Bohren, Gewindebohren, Reiben, Längs- und Plandrehen (auch an der
+  CNC-Drehmaschine) und Fräsen, 18 Aufträgen bis zur Gesellenprüfung und echter
+  Zerspanungsphysik einschließlich Überlast. Details in
   [`zerspanung/README.md`](zerspanung/README.md).
