@@ -396,3 +396,37 @@ test('Fräsen: VHM-Bruch in Stahl bei hoher vc gibt einen Funkenblitz, in Alumin
   var alu = fraesUeberlast({ typ: 'VHMZ4', d: 10, n: 8000, vf: 12000, ap: 15, masch: 'baz', mat: 'AlMgSi1' });
   assert.strictEqual(alu.sim.funkenPuffer, 0);
 });
+
+test('CNC: Einzelsatz hält am Satzende, bevor der nächste Satz etwas tut', function () {
+  var rng = new PH.Zufall(3);
+  var T1 = new PH.Werkzeug(Object.assign({ typ: 'platte' }, DAT.platte('CNMG120408-PM')), rng);
+  var sim = new PH.DrehSim({ mat: DAT.werkstoffe.C45, wkz: T1, masch: DAT.maschinen.drehCNC, param: { kss: 'emulsion', zW: 60 },
+    op: { wst: { D: 50, L: 63, spannL: 40 } }, rng: rng });
+  sim.x = 100; sim.z = 210;
+  var lauf = new NC.Lauf('N10 G0 X200 Z150\nN20 G96 S220 M4\nN30 G0 X60 Z20\nM30', { zW: 60, werkzeug: function () { return T1; } });
+  lauf.einzelsatz = true;
+  lauf.halt = false;
+  var inp = {}, t = 0;
+  while (t < 10 && !lauf.halt) { lauf.tick(sim, inp, 1 / 480); sim.step(1 / 480, inp); t += 1 / 480; }
+  assert.strictEqual(lauf.zustand.dir, 0, 'Spindel schon an: der Halt kam erst im nächsten Satz');
+  assert.ok(Math.abs(sim.z - 210) < 1e-6, 'Z ist schon gefahren');
+});
+
+test('CNC: Spindel-Override überschreitet die G92-Begrenzung nicht', function () {
+  var rng = new PH.Zufall(3);
+  var T1 = new PH.Werkzeug(Object.assign({ typ: 'platte' }, DAT.platte('CNMG120408-PM')), rng);
+  var sim = new PH.DrehSim({ mat: DAT.werkstoffe.C45, wkz: T1, masch: DAT.maschinen.drehCNC, param: { kss: 'emulsion', zW: 60 },
+    op: { wst: { D: 50, L: 63, spannL: 40 } }, rng: rng });
+  var i;
+  for (i = 0; i < 480; i++) { sim.step(1 / 480, { spindel: true, g96: { vc: 250, smax: 2000 }, ovS: 1.5, bahn: { x: 5, z: 70, eil: true } }); }
+  assert.ok(sim.nSoll <= 2000 + 1e-6, 'nSoll ' + sim.nSoll);
+});
+
+test('CNC: Generator mit Wiper-Platte und G97 ohne S', function () {
+  var K = DAT.drehKontur({ kontur: [{ d: 30, tol: 'h9', bis: 20 }], fase: 1 });
+  var prog = NC.erzeugen({ kontur: K, D0: 50, aufmassZ: 3, vc1: 220, f1: 0.3, ap1: 2.5, vc2: 260, f2: 0.12, t2: 'CNMG 120408-WM (Wiper)' });
+  assert.deepStrictEqual(NC.uebersetzen(prog).fehler, []);
+  var ab = NC.uebersetzen('G96 S220 M4\nG97\nG96\nM30').ab.filter(function (a) { return a.art === 'drehzahl'; });
+  assert.strictEqual(ab[1].s, null, 'G97 ohne S muss die Drehzahl einfrieren');
+  assert.strictEqual(ab[2].s, 220, 'G96 ohne S nimmt die letzte Schnittgeschwindigkeit');
+});

@@ -1543,13 +1543,14 @@
         // Konstante Schnittgeschwindigkeit: n = vc / (pi d), begrenzt durch G92/LIMS und das Futter.
         // Im Eilgang rechnet die Steuerung mit dem Zielpunkt.
         if (inp.bahn && inp.bahn.eil) { r0 = Math.abs(inp.bahn.x) / 2; }
-        nSoll = Math.min(inp.g96.smax || m.nMax, m.nMax, m.futter.nMax, inp.g96.vc * 1000 / (Math.PI * 2 * Math.max(r0, 0.25)));
+        // Der Spindel-Override wirkt vor den Begrenzungen (G92/LIMS, Futter, Maschine)
+        var ovS = inp.ovS !== undefined ? inp.ovS : 1;
+        nSoll = Math.min(inp.g96.smax || m.nMax, m.nMax, m.futter.nMax, ovS * inp.g96.vc * 1000 / (Math.PI * 2 * Math.max(r0, 0.25)));
       } else if (this.cnc) {
-        nSoll = Math.min(inp.n || 0, m.nMax);
+        nSoll = Math.min((inp.n || 0) * (inp.ovS !== undefined ? inp.ovS : 1), m.nMax);
       } else {
         nSoll = this.p.n;
       }
-      nSoll *= this.cnc && inp.ovS !== undefined ? inp.ovS : 1;
     }
     this.nSoll = nSoll;
     var aRamp = (this.cnc ? m.nMax : Math.max(this.p.n, 100)) / m.hochlauf;

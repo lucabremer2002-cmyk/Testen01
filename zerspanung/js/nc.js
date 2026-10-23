@@ -102,8 +102,10 @@
   // Satzfolge in einen Ablauf aus Einzelschritten uebersetzen (modal)
   function uebersetzen(text) {
     var gelesen = lesen(text);
-    var st = { mot: 0, abs: true, g95: true, g96: false, x: null, z: null, f: 0, s: 0 };
+    // getrennte Register: Schnittgeschwindigkeit (G96) und Drehzahl (G97) wie an der echten Steuerung
+    var st = { mot: 0, abs: true, g95: true, g96: false, x: null, z: null, f: 0, vc: 0, n: 0 };
     var ab = [], fehler = gelesen.fehler.slice();
+    if (!gelesen.saetze.length) { fehler.push({ zeile: 0, text: 'Das Programm enthält keine Sätze.' }); }
     gelesen.saetze.forEach(function (s, idx) {
       var gs = s.g;
       var dwell = gs.indexOf(4) >= 0;
@@ -122,11 +124,15 @@
       if (gs.indexOf(92) >= 0 || gs.indexOf(50) >= 0) {
         if (s.s === undefined) { fehler.push({ zeile: z, text: 'Zeile ' + (z + 1) + ': Drehzahlbegrenzung (G92/G50) ohne S-Wert' }); }
         else { ab.push({ zeile: z, art: 'smax', wert: s.s }); }
-      } else if (s.s !== undefined) {
-        st.s = s.s;
+      } else if (s.s !== undefined && !dwell) {
+        if (st.g96) { st.vc = s.s; } else { st.n = s.s; }
         ab.push({ zeile: z, art: 'drehzahl', g96: st.g96, s: s.s });
-      } else if (gs.indexOf(96) >= 0 || gs.indexOf(97) >= 0) {
-        ab.push({ zeile: z, art: 'drehzahl', g96: st.g96, s: st.s });
+      } else if (gs.indexOf(96) >= 0) {
+        if (!st.vc) { fehler.push({ zeile: z, text: 'Zeile ' + (z + 1) + ': G96 ohne Schnittgeschwindigkeit S' }); }
+        ab.push({ zeile: z, art: 'drehzahl', g96: true, s: st.vc });
+      } else if (gs.indexOf(97) >= 0) {
+        // G97 ohne S: die gerade ausgegebene Drehzahl wird eingefroren
+        ab.push({ zeile: z, art: 'drehzahl', g96: false, s: null });
       }
       if (s.lims) { ab.push({ zeile: z, art: 'smax', wert: s.lims }); }
       s.m.forEach(function (m) {
@@ -134,12 +140,16 @@
         if (m === 8) { ab.push({ zeile: z, art: 'kss', an: true }); }
       });
       if (dwell) {
-        var t = s.f !== undefined ? s.f : s.p !== undefined ? s.p / 1000 : s.x !== undefined ? s.x : 0;
-        ab.push({ zeile: z, art: 'warte', t: t });
+        // G4 F/X in Sekunden, P in Millisekunden, S in Spindelumdrehungen (Siemens)
+        if (s.s !== undefined) { ab.push({ zeile: z, art: 'warte', t: 0, umdr: s.s }); }
+        else { ab.push({ zeile: z, art: 'warte', t: s.f !== undefined ? s.f : s.p !== undefined ? s.p / 1000 : s.x !== undefined ? s.x : 0 }); }
       } else if (s.x !== undefined || s.z !== undefined || s.u !== undefined || s.w !== undefined) {
         var nx = st.x, nz = st.z;
         if (s.x !== undefined) { nx = st.abs ? s.x : (st.x === null ? s.x : st.x + s.x); }
         if (s.z !== undefined) { nz = st.abs ? s.z : (st.z === null ? s.z : st.z + s.z); }
+        if ((s.u !== undefined && st.x === null) || (s.w !== undefined && st.z === null)) {
+          fehler.push({ zeile: z, text: 'Zeile ' + (z + 1) + ': U/W inkrementell, aber die Position ist noch nicht bekannt' });
+        }
         if (s.u !== undefined) { nx = (st.x === null ? 0 : st.x) + s.u; }
         if (s.w !== undefined) { nz = (st.z === null ? 0 : st.z) + s.w; }
         if (nx === null || nz === null) {
@@ -197,15 +207,16 @@
 
   Lauf.prototype.melden = function (text, art) { this.meldungen.push({ text: text, art: art || 'info' }); };
 
-  // Solldrehzahl, die die Steuerung gerade ausgibt
-  Lauf.prototype.nSoll = function (sim) {
-    var zs = this.zustand, m = sim.m;
+  // Solldrehzahl, die die Steuerung gerade ausgibt. Der Override wirkt vor den Begrenzungen:
+  // G92/LIMS und die Futter- bzw. Maschinendrehzahl ueberschreitet er nie.
+  Lauf.prototype.nSoll = function (sim, ovS) {
+    var zs = this.zustand, m = sim.m, ov = ovS === undefined ? 1 : ovS;
     if (!zs.dir) { return 0; }
     if (zs.g96) {
       var d = Math.max(2 * sim.rEff(), 0.5);
-      return Math.min(zs.smax || m.nMax, m.nMax, zs.s * 1000 / (Math.PI * d));
+      return Math.min(zs.smax || m.nMax, m.nMax, m.futter.nMax || m.nMax, ov * zs.s * 1000 / (Math.PI * d));
     }
-    return Math.min(zs.s, m.nMax);
+    return Math.min(ov * zs.s, m.nMax);
   };
 
   Lauf.prototype.weiter = function () {
@@ -227,8 +238,14 @@
     if (this.fertig || this.halt || sim.alarm || inp.notaus) { return; }
     var schritte = 0;
     while (schritte++ < 20 && this.k < this.ab.length) {
+      if (this.halt) { inp.bahn = null; break; }
       var a = this.ab[this.k];
-      if (a.art === 'drehzahl') { zs.g96 = a.g96; zs.s = a.s; this.weiter(); continue; }
+      if (a.art === 'drehzahl') {
+        if (a.s === null) { zs.s = Math.round(this.nSoll(sim)); } else { zs.s = a.s; }
+        zs.g96 = a.g96;
+        this.weiter();
+        continue;
+      }
       if (a.art === 'smax') { zs.smax = a.wert; this.weiter(); continue; }
       if (a.art === 'spindel') {
         zs.dir = a.dir;
@@ -249,7 +266,7 @@
         return;
       }
       if (a.art === 'warte') {
-        if (this.warten <= 0 && !this.ziel) { this.warten = a.t; this.ziel = true; }
+        if (this.warten <= 0 && !this.ziel) { this.warten = a.umdr ? a.umdr / Math.max(sim.nEff / 60, 0.05) : a.t; this.ziel = true; }
         this.warten -= dt;
         if (this.warten <= 0) { this.warten = 0; this.weiter(); continue; }
         break;
@@ -261,7 +278,7 @@
           var plaetze = sim.m.revolver || 12, dSt = Math.abs(a.nr - zs.tnr);
           dSt = Math.min(dSt, plaetze - dSt);
           this.warten = dSt ? (this.opt.wechselZeit || 0.25) + 0.1 * (dSt - 1) : 0.05;
-          if (sim.revolverKollision && sim.revolverKollision()) { this.halt = true; return; }
+          if (dSt > 0 && sim.revolverKollision && sim.revolverKollision()) { this.halt = true; return; }
         }
         this.warten -= dt;
         if (this.warten > 0) { break; }
@@ -280,13 +297,18 @@
       if (a.art === 'eil' || a.art === 'lin') {
         var tx = a.x === null ? sim.x * 2 : a.x + (this.korrX || 0);
         var tz = a.z === null ? sim.z : this.opt.zW + a.z;
+        if (tz > sim.L + 200 + 1e-6 || tx < -6 - 1e-6) {
+          sim.alarmSetzen('Alarm 1011: Software-Endschalter ' + (tx < -6 ? 'X−' : 'Z+') + ' – der Zielpunkt liegt außerhalb des Verfahrbereichs.');
+          this.halt = true;
+          return;
+        }
         if (a.art === 'lin') {
           if (!zs.dir) {
             if (!this.wartetSpindel) { this.melden('Vorschub wartet: Die Spindel ist nicht eingeschaltet (M3/M4 fehlt).', 'warn'); }
             this.wartetSpindel = true;
             break;
           }
-          if (sim.nEff < 0.85 * this.nSoll(sim) && a.g95) { break; }
+          if (sim.nEff < 0.85 * this.nSoll(sim, inp.ovS) && a.g95) { break; }
         }
         this.wartetSpindel = false;
         inp.bahn = { x: tx, z: tz, eil: a.art === 'eil', f: a.g95 ? a.f : 0, fmin: a.g95 ? 0 : a.f };
@@ -310,31 +332,35 @@
     function satz(t) { z.push('N' + nr + ' ' + t); nr += 10; }
     var D0 = c.D0, xs = D0 + 4, k = c.kontur, st = k.stufen;
     var mDir = c.mDir || 'M4';
-    z.push('%O' + (c.nr || 2000) + ' (' + (c.name || 'DREHTEIL').toUpperCase() + ')');
+    // Klammern im Plattennamen wuerden den Kommentar vorzeitig schliessen
+    function kom(t) { return String(t).toUpperCase().replace(/[()]/g, ''); }
+    z.push('%O' + (c.nr || 2000) + ' (' + kom(c.name || 'DREHTEIL') + ')');
     satz('G18 G54 G90 G95');
     satz('G0 X200 Z150');
-    satz('T0101 (' + (c.t1 ? c.t1.toUpperCase() : 'SCHRUPPEN') + ')');
+    satz('T0101 (' + (c.t1 ? kom(c.t1) : 'SCHRUPPEN') + ')');
     if (c.smax) { satz('G92 S' + Math.round(c.smax)); }
     satz('G96 S' + Math.round(c.vc1 || 0) + ' ' + mDir);
     if (c.kss) { satz('M8'); }
     // Planschruppen in Ebenen bis auf das Planaufmass, jede Ebene von aussen zur Mitte
     var aufZ = c.aufmassZ || 0;
     var xAuf = c.xAuf === undefined ? 0.4 : c.xAuf, zAuf = c.zAuf === undefined ? 0.1 : c.zAuf;
-    var apP = c.apPlan || c.ap1 || 2;
+    var apP = Math.max(0.1, c.apPlan || c.ap1 || 2);
     if (aufZ > zAuf + 0.01) {
-      var zp = aufZ, ebenen = 0;
+      // gleich tiefe Ebenen, so viele wie noetig
+      var nP = Math.ceil((aufZ - zAuf) / apP - 1e-6), ip, zp;
       satz('G0 X' + fmt(xs) + ' Z' + fmt(aufZ + 2));
-      while (zp > zAuf + 1e-6 && ebenen < 20) {
-        zp = Math.max(zAuf, zp - apP);
-        ebenen++;
-        if (ebenen > 1) { satz('G0 X' + fmt(xs)); }
+      for (ip = 1; ip <= nP; ip++) {
+        zp = aufZ - (aufZ - zAuf) * ip / nP;
+        if (ip > 1) { satz('G0 X' + fmt(xs)); }
         satz('G0 Z' + fmt(zp));
         satz('G1 X-1.6 F' + fmt(c.f1));
         satz('G0 Z' + fmt(zp + 2));
       }
     }
+    // Sicherheitsebene 2 mm vor der (geschruppten bzw. rohen) Stirnflaeche
+    var zS = Math.max(aufZ, zAuf) + 2;
     // Laengsschruppen mit Aufmass, Ebene fuer Ebene von aussen
-    var ap = c.ap1 || 2, k2;
+    var ap = Math.max(0.1, c.ap1 || 2), k2;
     // Stuetzstellen: Rohdurchmesser und jede Stufe mit Schlichtaufmass; dazwischen gleich tiefe Schnitte
     var stuetz = [D0];
     st.map(function (s) { return s.d + 2 * xAuf; }).sort(function (p, q) { return q - p; }).forEach(function (t) {
@@ -345,26 +371,26 @@
       var oben = stuetz[i2 - 1], unten = stuetz[i2], nS = Math.max(1, Math.ceil((oben - unten) / (2 * ap) - 1e-6)), j2;
       for (j2 = 1; j2 <= nS; j2++) { ebenenX.push(oben - (oben - unten) * j2 / nS); }
     }
-    ebenenX.slice(0, 60).forEach(function (x) {
+    ebenenX.forEach(function (x) {
       // Laenge dieser Ebene: bis zur ersten Schulter, deren Durchmesser (mit Aufmass) groesser ist
       var bis = 0;
       for (k2 = 0; k2 < st.length; k2++) {
         if (st[k2].d + 2 * xAuf <= x + 1e-6) { bis = st[k2].bis; } else { break; }
       }
       if (bis <= 0) { return; }
-      satz('G0 X' + fmt(x) + ' Z2');
+      satz('G0 X' + fmt(x) + ' Z' + fmt(zS));
       satz('G1 Z' + fmt(-(bis - zAuf)) + ' F' + fmt(c.f1));
       satz('G1 X' + fmt(x + 1.5));
-      satz('G0 Z2');
+      satz('G0 Z' + fmt(zS));
     });
     satz('G0 X200 Z150 M9');
     // Schlichten mit T2
-    satz('T0202 (' + (c.t2 ? c.t2.toUpperCase() : 'SCHLICHTEN') + ')');
+    satz('T0202 (' + (c.t2 ? kom(c.t2) : 'SCHLICHTEN') + ')');
     satz('G96 S' + Math.round(c.vc2 || c.vc1 || 0) + ' ' + mDir);
     if (c.kss) { satz('M8'); }
     // Plan schlichten auf Z0, dann die Kontur mit Fase von der Stirnseite zum Futter
     var f2 = c.f2 || c.f1, fa = k.fase || 0;
-    satz('G0 X' + fmt(xs) + ' Z2');
+    satz('G0 X' + fmt(xs) + ' Z' + fmt(zS));
     satz('G0 Z0');
     satz('G1 X-1.6 F' + fmt(f2));
     satz('G0 Z1');

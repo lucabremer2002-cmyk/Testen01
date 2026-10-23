@@ -609,6 +609,13 @@
     this.setKraft(0);
     if (this.cncZustand) { this.cncZustand.halt = true; }
     if (this.sim.zyk) { this.sim.zyk.halt = true; }
+    if (this.lauf) {
+      // Not-Aus wirkt an der CNC wie Reset: Programm abgebrochen, nach dem Entriegeln laeuft nichts von selbst an
+      this.lauf = null;
+      this.inp.bahn = null;
+      this.inp.kss = false;
+      this.ncZeichnen(-1);
+    }
     this.kn.notaus.classList.add('aktiv');
     if (this.spiel.klang) { this.spiel.klang.alarm(); }
     this.log('NOT-AUS betätigt.', 'warn');
