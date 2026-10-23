@@ -1638,7 +1638,10 @@
       vx = 0;
       vz = 0;
     } else {
-      if (inp.xZiel !== undefined && inp.xZiel !== null) { this.xZiel = inp.xZiel / 2; }
+      // Handrad-Befehle wirken einmal (Flanke): danach bleibt der Schlitten, wo er ist, auch
+      // wenn ihn Planzug, Handkurbel oder Laengszug inzwischen woanders hingefahren haben
+      if (inp.xZiel !== undefined && inp.xZiel !== null && (inp.xZiel !== this.xZielInp || inp.xNr !== this.xNrInp)) { this.xZiel = inp.xZiel / 2; }
+      this.xZielInp = inp.xZiel; this.xNrInp = inp.xNr;
       if (inp.plan && nRev > 0.002 && !this.planAus) {
         // Planzug ueber die Zugspindel: Planvorschub ist halb so gross wie der Laengsvorschub
         vx = -0.5 * this.p.f * nRev;
@@ -1650,7 +1653,8 @@
       }
       if (!inp.plan) { this.planAus = false; }
       var dirZ = this.p.richtung || -1;
-      if (inp.zZiel !== undefined && inp.zZiel !== null) { this.zZiel = inp.zZiel; }
+      if (inp.zZiel !== undefined && inp.zZiel !== null && (inp.zZiel !== this.zZielInp || inp.zNr !== this.zNrInp)) { this.zZiel = inp.zZiel; }
+      this.zZielInp = inp.zZiel; this.zNrInp = inp.zNr;
       if (inp.vorschub && nRev > 0.002 && !this.anschlagAus) {
         vz = dirZ * this.p.f * nRev;
         this.zZiel = null;

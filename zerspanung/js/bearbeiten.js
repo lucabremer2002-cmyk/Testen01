@@ -476,6 +476,11 @@
     this.klick();
     if (this.inp.vorschub && !this.inp.plan) { this.log('Längs- und Planzug lassen sich nicht gleichzeitig einlegen.', 'warn'); return; }
     this.inp.plan = !this.inp.plan;
+    if (!this.inp.plan) {
+      // Planzug aus: der Querschlitten bleibt stehen, die Skala zeigt die Ist-Lage
+      this.xZiel = Math.round(this.sim.x * 200) / 100;
+      if (this.xIn) { this.xIn.value = this.xZiel.toFixed(2); }
+    }
     this.log(this.inp.plan ? 'Planzug eingelegt (Planvorschub ' + DAT.fmtD(this.k.setup.param.f / 2) + ' mm/U).' : 'Planzug ausgekuppelt.', 'info');
   };
 
@@ -495,14 +500,17 @@
     if (isNaN(zRel)) { return; }
     var ziel = (this.zNull || 0) + zRel;
     this.inp.zZiel = ziel;
+    this.inp.zNr = (this.inp.zNr || 0) + 1;
     this.inp.zHand = 0;
     if (this.zIn) { this.zIn.value = zRel.toFixed(2); }
     this.log('Oberschlitten auf Z = ' + zahl(zRel, 2) + ' (relativ).', 'info');
   };
 
   Bearbeitung.prototype.oberRelativ = function (d) {
-    var basis = this.inp.zZiel !== null && this.inp.zZiel !== undefined ? this.inp.zZiel : this.sim.z;
+    // vom laufenden Ziel aus weiterkurbeln, sonst von der Ist-Lage (Handkurbel, Laengszug)
+    var basis = this.sim.zZiel !== null && this.sim.zZiel !== undefined ? this.sim.zZiel : this.sim.z;
     this.inp.zZiel = basis + d;
+    this.inp.zNr = (this.inp.zNr || 0) + 1;
     if (this.zIn) { this.zIn.value = (this.inp.zZiel - (this.zNull || 0)).toFixed(2); }
   };
 
@@ -571,6 +579,7 @@
     v = Math.max(1, Math.min(this.op.wst.D + 40, v));
     this.xZiel = v;
     this.inp.xZiel = v;
+    this.inp.xNr = (this.inp.xNr || 0) + 1;
     if (this.xIn) { this.xIn.value = v.toFixed(2); }
   };
 
