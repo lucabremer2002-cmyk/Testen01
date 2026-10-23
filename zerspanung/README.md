@@ -38,6 +38,12 @@ ohne Internet wird eine Ersatzschrift verwendet.
   Schruppen, Schlichten mit Fase); die Steuerung arbeitet es Satz für Satz ab
   (G0–G3, G4, G90/G91, G92/G50/LIMS, G94/G95, G96/G97, T, M3/M4/M5/M8/M9/M30),
   mit Einzelsatz, Override, Reset, Verschleißkorrektur und Alarmen.
+* **Darstellung und Klang:** Dreh- und Fräsmaschinen in 2.5D (Schrägansicht
+  mit Hallenlicht): Walzhaut, gedrehte Absätze und Fasen, Nutböden und -wände
+  aus der Höhenkarte, Komma-, C- und Wendelspäne mit Anlauffarben, Funken nur
+  dort, wo die Physik sie erzeugt. Der Klang ist synthetisch: 100-Hz-Brummen
+  mit Schlupfschwebung, Servo-Singen der CNC, Riemenquietschen, Kupplungsratschen,
+  Späneknistern, Klopfen, Hämmern und Tischanschlag im Umkehrspiel.
 * **Realismusstufen:** *Azubi* (alle Messwerte, Bruchgrenzen, Meister warnt),
   *Geselle* (Drehzahl, Vorschub, Spindellast), *Meister* (nur Digitalanzeige,
   Geräusch und Späne).
