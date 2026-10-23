@@ -334,6 +334,7 @@
       });
       gz.appendChild(knopf('Z nullen', '0', 'knopf--klein', function () { self.zNullen(); }));
       bed.appendChild(gz);
+      bed.appendChild(this.getriebe());
       var g4 = h('div.gruppe');
       g4.appendChild(knopf('Messen', 'M', null, function () { self.messen(); }));
       g4.appendChild(knopf('Späne', 'H', null, function () { self.spaene(); }));
@@ -360,6 +361,33 @@
     }
     this.kn.notaus = h('button.notaus', { type: 'button', onclick: function () { self.notaus(); }, 'aria-label': 'Not-Aus (Leertaste)' }, ['NOT', h('br'), 'AUS']);
     bed.appendChild(h('div', { style: 'margin-left:auto' }, this.kn.notaus));
+  };
+
+  // Hebel am Spindelstock und am Vorschubgetriebe der konventionellen Drehmaschine:
+  // geschaltet wird nur bei stehender Spindel und ausgekuppeltem Zug (z. B. Schruppen, dann Schlichten)
+  Bearbeitung.prototype.getriebe = function () {
+    var self = this, m = this.masch, p = this.k.setup.param;
+    function wahl(titel, label, werte, key, text, einheit) {
+      var sel = h('select', { 'aria-label': label, onchange: function (e) {
+        var v = parseFloat(e.target.value), sim = self.sim;
+        var grund = sim.nEff > 1 || self.inp.spindel ? 'Getriebe nur bei stehender Spindel schalten – sonst schlagen die Zahnräder aus.' :
+          self.inp.vorschub || self.inp.plan ? 'Erst Längs- bzw. Planzug auskuppeln.' : null;
+        if (grund) { e.target.value = String(p[key]); self.log(grund, 'warn'); return; }
+        p[key] = v;
+        self.klick();
+        self.log(label + ' auf ' + text(v) + ' ' + einheit + ' geschaltet.', 'info');
+      } });
+      werte.forEach(function (v) {
+        var o = h('option', { value: String(v) }, text(v));
+        if (v === p[key]) { o.selected = true; }
+        sel.appendChild(o);
+      });
+      return h('div.hebel', [h('span.gruppe__titel', titel), sel]);
+    }
+    return h('div.gruppe', [
+      wahl('n 1/min', 'Drehzahl', m.drehzahlen, 'n', function (v) { return String(v); }, '1/min'),
+      wahl('f mm/U', 'Längsvorschub', m.vorschuebe, 'f', function (v) { return DAT.fmtD(v); }, 'mm/U')
+    ]);
   };
 
   Bearbeitung.prototype.override = function () {
@@ -755,7 +783,6 @@
     var box = U.leeren(this.messEl);
     if (sim.nEff > 1) {
       this.sicherheit += 1;
-      if (this.art === 'dreh') { sim.sicherheitsVerstoss = (sim.sicherheitsVerstoss || 0) + 1; }
       this.log('Messen bei laufender Spindel ist verboten! Erst Spindel aus.', 'fehler');
       this.live('Niemals an laufenden Teilen messen!', true);
       return;
@@ -814,7 +841,7 @@
     if (this.sim.spaeneEntfernen()) {
       this.log('Wirrspäne mit dem Spänehaken entfernt.', 'info');
     } else {
-      this.sicherheit += 1;
+      // gezaehlt wird ueber das Ereignis 'sicherheit' der Simulation
       this.live('Späne nie bei laufender Spindel entfernen!', true);
     }
   };
@@ -1271,7 +1298,10 @@
       if (a.spanForm === 'band') { sag('band', 'Bandspäne! Der Vorschub oder die Schnitttiefe liegt unter dem Spanformbereich der Platte.', 12); }
       if (!this.cnc && this.inp.vorschub && (sim.p.zAnschlag === null || sim.p.zAnschlag === undefined) && a.z < 14 && a.x < sim.D0 + 40) { sag('futter', 'Achtung, gleich kommt das Futter! Vorschub aus!', 2); }
       if (a.last > 0.95) { sag('last', 'Die Spindel ist an der Leistungsgrenze.', 6); }
-      if (a.T > a.tSoft - 150 && a.ap > 0) { sag('T', 'Die Schneide glüht – Schnittgeschwindigkeit zu hoch.', 6); }
+      // Heisse Schneide ist bei Richtwert-vc normal (Edelstahl, Titan); gewarnt wird erst darueber
+      // bzw. kurz vor der Warmhaertegrenze
+      if (a.ap > 0 && a.T > a.tSoft - 60) { sag('T', 'Die Schneide ist an der Warmhärtegrenze (' + Math.round(a.T) + ' °C) – Schnittgeschwindigkeit senken, Kühlung prüfen.', 6); }
+      else if (a.ap > 0 && a.T > a.tSoft - 150 && a.vc > 1.15 * (a.vcRef || 1e9)) { sag('T', 'Die Schneide wird sehr heiß – die Schnittgeschwindigkeit liegt über dem Richtwert.', 6); }
     } else {
       if (a.hammer > 0.3) { sag('hammer', 'Der Tisch hämmert im Spiel der Spindel – weniger Zahnvorschub oder ein Fräser mit mehr Zähnen.', 5); }
       if (a.riemenGleitet) { sag('riemen', 'Der Riemen rutscht! Vorschub aus. Bei dieser Drehzahlstufe hat die Spindel kaum Moment.', 4); }
@@ -1456,7 +1486,7 @@
       werkzeuge: this.wkzListe,
       wichtig: this.wichtig,
       unfall: sim.unfall || null,
-      sicherheit: this.sicherheit + (sim.sicherheitsVerstoss || 0),
+      sicherheit: this.sicherheit,
       messungen: this.messungen
     });
   };

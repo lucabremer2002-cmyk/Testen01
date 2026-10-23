@@ -436,11 +436,12 @@
       var rechne = function () {
         var nm = parseFloat(String(nenn.value).replace(',', '.'));
         var t = DAT.toleranz(nm, String(feldI.value).trim());
+        if (!t) { aus.textContent = 'Toleranzfeld nicht hinterlegt: Wellen f, g, h, js, k, m, n, p, Bohrungen F, G, H, JS, Grade IT5 bis IT14.'; return; }
         aus.textContent = isNaN(nm) ? '–' : DAT.fmtD(nm) + ' ' + feldI.value + ': ' + zahl(t.u * 1000, 0) + ' … ' + zahl(t.o * 1000, 0) + ' µm  →  ' + zahl(nm + t.u, 3) + ' … ' + zahl(nm + t.o, 3) + ' mm';
       };
       nenn.addEventListener('input', rechne);
       feldI.addEventListener('input', rechne);
-      inhalt.appendChild(h('div.panel', [h('h2', 'Rechner ISO 286'), h('div.gruppe', [h('div.feld', [h('span.feld__titel', 'Nennmaß'), nenn]), h('div.feld', [h('span.feld__titel', 'Toleranzklasse (H, h, k, js + IT)'), feldI])]), aus]));
+      inhalt.appendChild(h('div.panel', [h('h2', 'Rechner ISO 286'), h('div.gruppe', [h('div.feld', [h('span.feld__titel', 'Nennmaß'), nenn]), h('div.feld', [h('span.feld__titel', 'Toleranzklasse (z. B. H7, g6, k6)'), feldI])]), aus]));
       rechne();
       var nm = [6, 8, 10, 20, 25, 36, 45, 55];
       inhalt.appendChild(h('div', { style: 'margin-top:16px' }, tabelle(['Nennmaß', 'H7 (µm)', 'h6', 'h7', 'h9', 'h11', 'k6'],

@@ -22,6 +22,12 @@
     liste.push({ op: op, pos: pos, name: name, soll: soll, ist: ist, ok: r.ok, nach: !!r.nach, p: r.p, max: 10 });
   }
 
+  // Nachkommastellen im Protokoll: drei, sobald ein Grenzmass sonst gerundet wuerde (z. B. h9: 31,938)
+  function stellen(nenn, tol) {
+    function dritte(v) { return Math.abs(Math.round(v * 100) - v * 100) > 1e-6; }
+    return dritte(nenn + tol.u) || dritte(nenn + tol.o) ? 3 : 2;
+  }
+
   function fmtTol(nenn, tol, st) {
     return DAT.fmtD(nenn) + ' (' + zahl(nenn + tol.u, st) + ' … ' + zahl(nenn + tol.o, st) + ')';
   }
@@ -29,7 +35,7 @@
   function bewerteBohren(op, er, liste, hinweise) {
     var sim = er.sim;
     var tol = op.d ? DAT.toleranz(op.d, op.tol) : null;
-    var st = tol && tol.o - tol.u < 0.05 ? 3 : 2;
+    var st = tol ? stellen(op.d, tol) : 2;
     op.pos.forEach(function (p, i) {
       var r = sim.ergebnisse[i];
       var pos = 'Pos. ' + (i + 1);
@@ -81,7 +87,7 @@
     var hw = hinweise.drehen = { stufen: [], op: op, plan: null };
     stufen.forEach(function (s, k) {
       var tol = DAT.toleranz(s.d, s.tol);
-      var st = tol.o - tol.u < 0.05 ? 3 : 2;
+      var st = stellen(s.d, tol);
       var von = k === 0 ? 0 : stufen[k - 1].bis;
       var zA = zF - s.bis + 1.5, zB = zF - von - (k === 0 ? Math.max(0.5, K.fase + 0.5) : 1.5);
       var b = sim.bereich(zA, zB);

@@ -408,6 +408,14 @@
     14: [250, 300, 360, 430, 520, 620, 740, 870, 1000, 1150]
   };
   var K_EI = [0, 1, 1, 1, 2, 2, 2, 3, 3, 4];
+  // Grundabmasse (um) je Nennmassbereich: oberes Abmass es fuer f, g; unteres ei fuer m, n, p
+  var GRUND = {
+    f: [-6, -10, -13, -16, -20, -25, -30, -36, -43, -50],
+    g: [-2, -4, -5, -6, -7, -9, -10, -12, -14, -15],
+    m: [2, 4, 6, 7, 8, 9, 11, 13, 15, 17],
+    n: [4, 8, 10, 12, 15, 17, 20, 23, 27, 31],
+    p: [6, 12, 15, 18, 22, 26, 32, 37, 43, 50]
+  };
 
   function bereichIndex(nenn) {
     var i;
@@ -415,16 +423,21 @@
     return IT_BEREICHE.length - 1;
   }
 
-  // Liefert {o, u} (oberes/unteres Abmass in mm) fuer z.B. ('H', 7) oder ('k', 6)
+  // Liefert {o, u} (oberes/unteres Abmass in mm) fuer z.B. ('H', 7) oder ('k', 6),
+  // null fuer nicht hinterlegte Toleranzfelder bzw. Grundtoleranzgrade
   function iso286(nenn, feld, grad) {
+    if (!IT[grad]) { return null; }
     var i = bereichIndex(nenn);
     var it = IT[grad][i] / 1000;
     switch (feld) {
       case 'H': return { o: it, u: 0 };
       case 'h': return { o: 0, u: -it };
-      case 'k': return { o: K_EI[i] / 1000 + it, u: K_EI[i] / 1000 };
-      case 'js': return { o: it / 2, u: -it / 2 };
-      default: return { o: it / 2, u: -it / 2 };
+      case 'k': var ei = grad >= 4 && grad <= 7 ? K_EI[i] / 1000 : 0; return { o: ei + it, u: ei };
+      case 'js': case 'JS': case 'Js': return { o: it / 2, u: -it / 2 };
+      case 'f': case 'g': return { o: GRUND[feld][i] / 1000, u: GRUND[feld][i] / 1000 - it };
+      case 'm': case 'n': case 'p': return { o: GRUND[feld][i] / 1000 + it, u: GRUND[feld][i] / 1000 };
+      case 'F': case 'G': return { o: -GRUND[feld.toLowerCase()][i] / 1000 + it, u: -GRUND[feld.toLowerCase()][i] / 1000 };
+      default: return null;
     }
   }
 
@@ -447,6 +460,7 @@
     m = /^([A-Za-z]{1,2})(\d{1,2})$/.exec(angabe);
     if (m) {
       r = iso286(nenn, m[1], parseInt(m[2], 10));
+      if (!r) { return null; }
       return { nenn: nenn, o: r.o, u: r.u, text: fmtD(nenn) + ' ' + angabe, iso: angabe };
     }
     m = /^±([\d.]+)$/.exec(angabe);

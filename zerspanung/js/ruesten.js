@@ -324,7 +324,7 @@
       }
       if (op.d || op.kontur || this.m.id === 'WERKSTATT') {
         el.appendChild(checkFeld('Längsanschlag setzen', 'r-la', w.laengsAn, function (v) { w.laengsAn = v; self.aenderung(true); },
-          w.laengsAn ? zahlFeld('Drehlänge vom freien Ende', 'r-law', w.laenge, 'mm', 1, op.wst.L - 1, 0.1, function (v) { w.laenge = v; neu(); }) : null));
+          w.laengsAn ? zahlFeld(op.plan ? 'Drehlänge ab fertiger Stirnfläche' : 'Drehlänge vom freien Ende', 'r-law', w.laenge, 'mm', 1, op.wst.L - 1, 0.1, function (v) { w.laenge = v; neu(); }) : null));
       }
       el.appendChild(radioFeld('Spitzenhöhe des Drehmeißels', 'spitze', Object.keys(SPITZE).map(function (k) { return { id: k, name: SPITZE[k].name, text: SPITZE[k].text }; }), w.spitze, function (v) { w.spitze = v; neu(); }));
     } else if (op.typ === 'fraesen') {
@@ -666,7 +666,9 @@
     } else if (op.typ === 'drehen') {
       param.f = w.f;
       param.reitstock = w.reitstock;
-      param.zAnschlag = w.laengsAn ? op.wst.L - w.laenge : null;
+      // Wird auch geplant, zaehlt die Laenge (wie in der Zeichnung) ab der fertigen Stirnflaeche
+      var zStirn = op.plan ? op.plan.gesamt - (op.wst.spannL || 0) : op.wst.L;
+      param.zAnschlag = w.laengsAn ? zStirn - w.laenge : null;
       param.spitzenhoehe = spitzenhoehe(w.spitze, this.spiel.rng);
       param.spitze = w.spitze;
       param.ruestZeit = SPITZE[w.spitze].zeit;
