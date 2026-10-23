@@ -470,7 +470,7 @@
     }
     m = /^([+-][\d.]+)\/([+-][\d.]+)$/.exec(angabe);
     if (m) {
-      return { nenn: nenn, o: parseFloat(m[1]), u: parseFloat(m[2]), text: fmtD(nenn) + ' ' + angabe.replace('/', ' / ') };
+      return { nenn: nenn, o: parseFloat(m[1]), u: parseFloat(m[2]), text: fmtD(nenn) + ' ' + angabe.replace('/', ' / ').replace(/\./g, ',') };
     }
     return { nenn: nenn, o: 0.1, u: -0.1, text: fmtD(nenn) + ' ±0,1' };
   }

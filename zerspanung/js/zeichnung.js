@@ -230,7 +230,7 @@
         gr.label = gr.pos.length + '× ' + fin.gw + (fin.durch ? '' : ' ↧' + fmt(fin.tiefe));
       } else {
         gr.dSicht = fin.d || 6;
-        var tol = fin.tol && fin.tol !== '2768-m' ? (fin.tol.indexOf('/') > 0 ? ' ' + fin.tol.replace('/', ' / ') : ' ' + fin.tol) : '';
+        var tol = fin.tol && fin.tol !== '2768-m' ? (fin.tol.indexOf('/') > 0 ? ' ' + fin.tol.replace('/', ' / ').replace(/\./g, ',') : ' ' + fin.tol.replace(/\./g, ',')) : '';
         gr.label = gr.pos.length + '× Ø' + fmt(fin.d || 6) + tol + (fin.durch ? '' : ' ↧' + fmt(fin.tiefe));
       }
     });
@@ -294,7 +294,7 @@
       b.hinweis(hx, hy, hx + 34, y0 - 18 - i * 22 > 30 ? y0 - 18 - i * 22 : hy - 30, gr.label);
     });
     if (nut) {
-      b.text('Nut ' + fmt(nut.breite) + ' ' + nut.breiteTol.replace('/', ' / ') + ' × ' + fmt(nut.tiefe) + ' ' + nut.tiefeTol, x0 + w - 4, py(nut.y) + 4, 12, 'right');
+      b.text('Nut ' + fmt(nut.breite) + ' ' + nut.breiteTol.replace('/', ' / ').replace(/\./g, ',') + ' × ' + fmt(nut.tiefe) + ' ' + nut.tiefeTol.replace(/\./g, ','), x0 + w - 4, py(nut.y) + 4, 12, 'right');
     }
 
     // Seitenansicht von links: Eintrittsflaeche links, Dicke nach rechts
@@ -308,8 +308,8 @@
       b.linie(sx0, py(nut.y + nut.breite / 2), sx0 + nt, py(nut.y + nut.breite / 2), 'dick');
       b.linie(sx0 + nt, py(nut.y + nut.breite / 2), sx0 + nt, py(nut.y - nut.breite / 2), 'dick');
       b.linie(sx0, py(nut.y - nut.breite / 2), sx0 + nt, py(nut.y - nut.breite / 2), 'dick');
-      b.mass(sx0, py(nut.y + nut.breite / 2), sx0 + nt, py(nut.y + nut.breite / 2), 16, fmt(nut.tiefe) + ' ' + nut.tiefeTol, 11);
-      b.mass(sx0 + sw, py(nut.y + nut.breite / 2), sx0 + sw, py(nut.y - nut.breite / 2), -18, fmt(nut.breite) + ' ' + nut.breiteTol.replace('/', ' / '), 11);
+      b.mass(sx0, py(nut.y + nut.breite / 2), sx0 + nt, py(nut.y + nut.breite / 2), 16, fmt(nut.tiefe) + ' ' + nut.tiefeTol.replace(/\./g, ','), 11);
+      b.mass(sx0 + sw, py(nut.y + nut.breite / 2), sx0 + sw, py(nut.y - nut.breite / 2), -18, fmt(nut.breite) + ' ' + nut.breiteTol.replace('/', ' / ').replace(/\./g, ','), 11);
       b.rauheit(sx0 + nt + 2, py(nut.y) + 4, nut.ra);
     }
     var gezeichnet = {};
@@ -408,7 +408,7 @@
     st.forEach(function (x, k) {
       var von = k === 0 ? 0 : st[k - 1].bis;
       var xm = xs((x.bis + von) / 2) + (k === 0 && fa > 0 ? -8 : 0);
-      b.mass(xm, yc + x.d / 2 * s, xm, yc - x.d / 2 * s, 0, 'Ø' + fmt(x.d) + ' ' + x.tol, 13);
+      b.mass(xm, yc + x.d / 2 * s, xm, yc - x.d / 2 * s, 0, 'Ø' + fmt(x.d) + ' ' + String(x.tol).replace(/\./g, ','), 13);
       if (x.ra) { b.rauheit(xm - 8 + dx, yc - x.d / 2 * s, x.ra); }
     });
     var xRoh = st.length ? (x0 + xs(st[st.length - 1].bis)) / 2 : (x0 + xE) / 2;
@@ -464,7 +464,7 @@
     var ty = 470;
     st.forEach(function (x) {
       var t = ZM.daten.toleranz(x.d, x.tol);
-      b.text('Ø' + fmt(x.d) + ' ' + x.tol + ' = ' + fmt(x.d + t.u) + ' … ' + fmt(x.d + t.o) + ' mm', 60, ty, 14);
+      b.text('Ø' + fmt(x.d) + ' ' + String(x.tol).replace(/\./g, ',') + ' = ' + fmt(x.d + t.u) + ' … ' + fmt(x.d + t.o) + ' mm', 60, ty, 14);
       ty += 18;
     });
     b.text('Rohteil: Rundstahl Ø' + fmt(D) + (op.wst.saege ? ', gesägt' : '') + ', Länge ' + fmt(spannL + op.wst.L) + ' mm, im Dreibackenfutter gespannt (Spannlänge ' + fmt(spannL) + ' mm)', 60, ty + 2, 13);
@@ -509,7 +509,7 @@
     c.stroke();
     b.text('Seitenansicht', sx + sw / 2, y0 - 44, 12, 'center');
     b.linie((ny0 + ny1) / 2, y0 - 12, (ny0 + ny1) / 2, y0 + h + 10, 'mitte');
-    b.mass(ny0, y0, ny1, y0, -18, fmt(op.breite) + ' ' + op.breiteTol.replace('/', ' / '), 12);
+    b.mass(ny0, y0, ny1, y0, -18, fmt(op.breite) + ' ' + op.breiteTol.replace('/', ' / ').replace(/\./g, ','), 12);
     b.mass(sx + sw, y0, sx + sw, y0 + op.tiefe * s, -26, fmt(op.tiefe) + ' ' + op.tiefeTol, 12);
     b.linie(ny1, y0 + op.tiefe * s, sx + sw + 4, y0 + op.tiefe * s, 'duenn');
     b.mass(sx, y0 + h, (ny0 + ny1) / 2, y0 + h, 22, fmt(op.y) + ' ±' + fmt(op.lageTol), 12);

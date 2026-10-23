@@ -107,16 +107,16 @@
       var K = DAT.drehKontur(op), teile = [];
       K.stufen.forEach(function (st) {
         var t = DAT.toleranz(st.d, st.tol);
-        teile.push('Ø ' + DAT.fmtD(st.d) + ' ' + st.tol + ' (' + DAT.fmtD(st.d + t.u) + ' … ' + DAT.fmtD(st.d + t.o) + ') auf ' + DAT.fmtD(st.bis) + ' mm');
+        teile.push('Ø ' + DAT.fmtD(st.d) + ' ' + String(st.tol).replace(/\./g, ',') + ' (' + DAT.fmtD(st.d + t.u) + ' … ' + DAT.fmtD(st.d + t.o) + ') auf ' + DAT.fmtD(st.bis) + ' mm');
       });
       if (K.plan) { teile.push('Gesamtlänge ' + DAT.fmtD(K.plan.gesamt) + ' ±' + DAT.fmtD(K.plan.tol)); }
       soll = 'Soll ' + teile.join(' · ');
     } else if (op.typ === 'fraesen') {
-      soll = 'Soll Nut ' + DAT.fmtD(op.breite) + ' ' + op.breiteTol + ' × ' + DAT.fmtD(op.tiefe) + ' ' + op.tiefeTol;
+      soll = 'Soll Nut ' + DAT.fmtD(op.breite) + ' ' + op.breiteTol.replace(/\./g, ',') + ' × ' + DAT.fmtD(op.tiefe) + ' ' + op.tiefeTol.replace(/\./g, ',');
     } else if (op.typ === 'gewinde') {
       soll = op.gw + (op.durch ? ' durchgehend, Dicke ' + DAT.fmtD(op.dicke) + ' mm' : ' × ' + DAT.fmtD(op.tiefe));
     } else {
-      soll = (op.d ? 'Ø ' + DAT.fmtD(op.d) + (op.tol && op.tol !== '2768-m' ? ' ' + op.tol : '') : 'Vorbohrung') + (op.durch ? ', durch ' + DAT.fmtD(op.dicke) + ' mm' : ', ' + DAT.fmtD(op.tiefe) + ' tief');
+      soll = (op.d ? 'Ø ' + DAT.fmtD(op.d) + (op.tol && op.tol !== '2768-m' ? ' ' + op.tol.replace(/\./g, ',') : '') : 'Vorbohrung') + (op.durch ? ', durch ' + DAT.fmtD(op.dicke) + ' mm' : ', ' + DAT.fmtD(op.tiefe) + ' tief');
     }
     this.elZeit = h('span.chip', '0:00');
     kopf.appendChild(h('h2', op.name));
