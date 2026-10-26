@@ -55,7 +55,7 @@
   // Freigeschaltete Auftraege (IDs) und der naechste offene Auftrag
   Spiel.prototype.freieIds = function () {
     var self = this;
-    return MIS.liste.filter(function (m, i) { return self.freigeschaltet(i); }).map(function (m) { return m.id; });
+    return MIS.liste.filter(function (m, i) { return self.freigeschaltet(i, true); }).map(function (m) { return m.id; });
   };
   Spiel.prototype.naechsterOffen = function () {
     var i;
@@ -110,7 +110,7 @@
     if (!t) { return null; }
     var m = MIS.finde(t.id), mod = B.modVon(t.mod), p = B.profil(this.stand);
     return h('div.tageskarte' + (t.erledigt ? '.tageskarte--fertig' : ''), [
-      h('div.tageskarte__kopf', [h('span.tageskarte__label', 'Tagesauftrag'), p.serie.tage > 0 ? h('span.hudchip.hudchip--serie', '🔥 ' + p.serie.tage + (p.serie.tage === 1 ? ' Tag' : ' Tage')) : null]),
+      h('div.tageskarte__kopf', [h('span.tageskarte__label', 'Tagesauftrag'), B.serieAktiv(p) ? h('span.hudchip.hudchip--serie', '🔥 ' + p.serie.tage + (p.serie.tage === 1 ? ' Tag' : ' Tage')) : null]),
       h('b.tageskarte__titel', m.titel),
       h('span.tageskarte__mod', mod.text),
       h('div.tageskarte__fuss', [
@@ -138,8 +138,9 @@
   };
 
   // ============================================================ Karriere
-  Spiel.prototype.freigeschaltet = function (idx) {
-    if (this.stand.einstellungen.alles || idx === 0) { return true; }
+  // normal: ohne die Einstellung "Alle Auftraege freischalten" (fuer den Tagesauftrag)
+  Spiel.prototype.freigeschaltet = function (idx, normal) {
+    if ((!normal && this.stand.einstellungen.alles) || idx === 0) { return true; }
     // Schon bearbeitete Auftraege bleiben offen, auch wenn davor neue eingefuegt wurden
     if (this.stand.fortschritt[MIS.liste[idx].id]) { return true; }
     var vorher = MIS.liste[idx - 1];
@@ -174,8 +175,8 @@
         st += fp && fp.sterne ? fp.sterne : 0;
         var verfahren = [];
         m.ops.forEach(function (op) { if (verfahren.indexOf(OP_NAMEN[op.typ]) < 0) { verfahren.push(OP_NAMEN[op.typ]); } });
-        var klassen = 'button.mkarte' + (!frei ? '.mkarte--zu' : '') + (naechst && naechst.id === m.id ? '.mkarte--naechste' : '') + (fp && fp.sterne === 3 ? '.mkarte--gold' : '');
         var band = naechst && naechst.id === m.id ? h('span.mkarte__band', fp ? 'Weiter' : 'Neu') : (t && t.id === m.id && !t.erledigt ? h('span.mkarte__band.mkarte__band--tag', 'Tagesauftrag') : null);
+        var klassen = 'button.mkarte' + (!frei ? '.mkarte--zu' : '') + (naechst && naechst.id === m.id ? '.mkarte--naechste' : '') + (fp && fp.sterne === 3 ? '.mkarte--gold' : '') + (band ? '.mkarte--band' : '');
         var karte = h(klassen, { type: 'button', disabled: !frei, onclick: function () { self.missionStarten(m.id); } }, [
           band,
           h('div.mkarte__kopf', [h('span.mkarte__nr', m.auftrag), fp ? sternReihe(fp.sterne || 0) : (band ? null : frei ? h('span.chip', 'offen') : h('span.chip.chip--zu', '🔒 gesperrt'))]),
@@ -339,7 +340,7 @@
       var alt = this.stand.fortschritt[m.id];
       var bestanden = aw.note.note <= 4;
       if (!alt || aw.punkte > alt.punkte) {
-        this.stand.fortschritt[m.id] = { punkte: aw.punkte, note: aw.note.note, bestanden: bestanden || (alt && alt.bestanden) };
+        this.stand.fortschritt[m.id] = { punkte: aw.punkte, note: aw.note.note, bestanden: bestanden || (alt && alt.bestanden), sterne: alt && alt.sterne ? alt.sterne : 0 };
       } else if (bestanden) {
         alt.bestanden = true;
       }
@@ -366,7 +367,7 @@
         h('div', [h('dt', 'Sterne'), h('dd', '★ ' + B.sterneGesamt(this.stand) + ' / ' + MIS.liste.length * 3)]),
         h('div', [h('dt', 'Kontostand'), h('dd', U.zahl(p.geld, 0) + ' €')]),
         h('div', [h('dt', 'Aufträge bestanden'), h('dd', bestanden + ' / ' + MIS.liste.length)]),
-        h('div', [h('dt', 'Serie'), h('dd', '🔥 ' + (p.serie.tage || 0))]),
+        h('div', [h('dt', 'Serie'), h('dd', '🔥 ' + (B.serieAktiv(p) ? p.serie.tage : 0))]),
         h('div', [h('dt', 'Werkzeugbrüche'), h('dd', String(st.werkzeugBruch))]),
         h('div', [h('dt', 'Erfolge'), h('dd', Object.keys(p.erfolge).length + ' / ' + B.ERFOLGE.length)])
       ])

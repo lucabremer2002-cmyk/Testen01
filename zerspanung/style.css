@@ -1122,7 +1122,7 @@ body {
   box-shadow: 0 2px 6px rgba(0, 0, 0, .35);
 }
 .mkarte__band--tag { background: linear-gradient(90deg, var(--xp-1), var(--xp-2)); }
-.mkarte .mkarte__kopf { padding-right: 34px; }
+.mkarte--band .mkarte__kopf { padding-right: 70px; }
 .lohn { font-family: var(--font-display); font-weight: 600; color: #9be7b8; }
 
 /* ------------------------------------------------------------ Combo an der Maschine */

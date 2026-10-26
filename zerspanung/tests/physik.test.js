@@ -459,12 +459,13 @@ test('Belohnung: Tagesauftrag ist je Tag fest und wechselt', function () {
 
 test('Belohnung: Abschluss gibt Erfahrung, Sterne, Geld und Serie nur einmal je Tag', function () {
   var m = MISS.finde('M07'), heute = BEL.datumKey();
-  var spiel = { stand: { fortschritt: { M07: { punkte: 100, note: 1, bestanden: true } } } };
+  var spiel = { stand: { fortschritt: {} } };
   var p = BEL.profil(spiel.stand);
+  spiel.stand.fortschritt.M07 = { punkte: 100, note: 1, bestanden: true };
   p.tages = { datum: heute, id: 'M07', mod: 'note1', erledigt: false };
   p.serie = { tage: 2, letzter: BEL.vortag(heute) };
-  var aw = { note: { note: 1 }, punkte: 100, brueche: 0, zeit: 100, kostenWkz: 1, praemie: 80, sicherheit: 0, merkmale: [] };
-  var r = BEL.abschluss(spiel, m, aw, false, [{ schicht: { wert: 1000, maxKette: 4 } }]);
+  var aw = { note: { note: 1 }, punkte: 100, brueche: 0, zeit: 100, kostenWkz: 1, praemie: 80, sicherheit: 0, merkmale: [{ ok: true, name: 'x' }] };
+  var r = BEL.abschluss(spiel, m, aw, false, [{ schicht: { wert: 1000, maxKette: 4, schnitt: 30 } }]);
   assert.strictEqual(r.sterne, 3);
   assert.strictEqual(spiel.stand.fortschritt.M07.sterne, 3);
   assert.ok(r.tagesErledigt && p.serie.tage === 3, 'Serie ' + p.serie.tage);
@@ -474,4 +475,24 @@ test('Belohnung: Abschluss gibt Erfahrung, Sterne, Geld und Serie nur einmal je 
   assert.ok(!r2.tagesErledigt && p.serie.tage === 3);
   assert.ok(!r2.xpZeilen.some(function (z) { return /Stern|Erstabschluss/.test(z.text); }), 'Sterne/Erstabschluss doppelt');
   assert.strictEqual(r2.erfolge.length, 0);
+});
+
+test('Belohnung: leere Versuche bringen nichts, Wiederholungen weniger, alte Staende werden uebernommen', function () {
+  var m = MISS.finde('M01');
+  var spiel = { stand: { fortschritt: {} } };
+  BEL.profil(spiel.stand);
+  var leer = BEL.abschluss(spiel, m, { note: { note: 6 }, punkte: 0, brueche: 0, zeit: 5, merkmale: [{ ok: false, name: 'x' }] }, false, [{ schicht: { wert: 0, schnitt: 0 } }]);
+  assert.strictEqual(leer.xp, 0);
+  var ws = BEL.abschluss(spiel, { id: 'WERKSTATT', ops: [] }, { note: { note: 6 }, punkte: 0, merkmale: [], zeit: 3 }, true, [{ schicht: { wert: 0, schnitt: 1 } }]);
+  assert.strictEqual(ws.xp, 0);
+  var aw = { note: { note: 2 }, punkte: 85, brueche: 0, zeit: 100, kostenWkz: 1, praemie: 60, sicherheit: 0, merkmale: [{ ok: true, name: 'x' }] };
+  spiel.stand.fortschritt.M01 = { punkte: 85, note: 2, bestanden: true };
+  var erst = BEL.abschluss(spiel, m, aw, false, [{ schicht: { wert: 99999, schnitt: 60 } }]);
+  var flow = erst.xpZeilen.filter(function (z) { return z.text === 'Flow-Bonus'; })[0];
+  assert.ok(flow && flow.xp <= 150, 'Flow-Bonus ungedeckelt');
+  var nochmal = BEL.abschluss(spiel, m, aw, false, [{ schicht: { wert: 0, schnitt: 60 } }]);
+  assert.ok(nochmal.wiederholung && nochmal.xp < erst.xp && nochmal.geld === 30, 'Wiederholung ' + nochmal.xp + ' ' + nochmal.geld);
+  var alt = { fortschritt: { M01: { punkte: 95, note: 1, bestanden: true } } };
+  var p = BEL.profil(alt);
+  assert.ok(p.xp > 0 && alt.fortschritt.M01.sterne === 2 && p.zaehler.bestanden_M01);
 });

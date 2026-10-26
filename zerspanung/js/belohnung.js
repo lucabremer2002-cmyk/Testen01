@@ -47,7 +47,28 @@
     p.serie = p.serie || { tage: 0, letzter: null };
     p.rekorde = p.rekorde || {};
     p.gesehen = p.gesehen || {};
+    if (!p.v) {
+      // Spielstand von vor der Spielebene: Sterne aus der Note, Erfahrung fuer bestandene Auftraege
+      Object.keys(stand.fortschritt || {}).forEach(function (id) {
+        var fp = stand.fortschritt[id];
+        if (!fp || !fp.bestanden) { return; }
+        if (fp.sterne === undefined) { fp.sterne = fp.note <= 2 ? 2 : 1; }
+        if (!p.zaehler['bestanden_' + id]) {
+          p.zaehler['bestanden_' + id] = true;
+          p.xp += 100 + 80 + ({ 1: 120, 2: 70, 3: 35, 4: 10 }[fp.note] || 0) + 60 * fp.sterne;
+        }
+        if (!p.erfolge.erster) { p.erfolge.erster = datumKey(); }
+        if (fp.note === 1 && !p.erfolge.einser) { p.erfolge.einser = datumKey(); }
+      });
+      p.v = 1;
+    }
     return p;
+  }
+
+  // Serie zaehlt nur, solange der letzte erledigte Tagesauftrag von heute oder gestern ist
+  function serieAktiv(p) {
+    var heute = datumKey();
+    return (p.serie.tage || 0) > 0 && (p.serie.letzter === heute || p.serie.letzter === vortag(heute));
   }
 
   // ============================================================ Sterne
@@ -94,7 +115,7 @@
   function tagesauftrag(stand, frei, key) {
     var p = profil(stand);
     key = key || datumKey();
-    if (p.tages && p.tages.datum === key && frei.indexOf(p.tages.id) >= 0) { return p.tages; }
+    if (p.tages && p.tages.datum === key) { return p.tages; }
     if (!frei.length) { return null; }
     var h = hash('spanwerk' + key);
     p.tages = { datum: key, id: frei[h % frei.length], mod: MODS[(h >>> 8) % MODS.length].id, erledigt: false };
@@ -144,12 +165,12 @@
     { id: 'sternealle', icon: '🌌', titel: 'Sternenhimmel', text: 'Alle Sterne der Karriere.', pruef: function (x) { return x.sterneGesamt >= x.sterneMax; } },
     { id: 'flow', icon: '🔥', titel: 'Im Flow', text: 'Combo ×5 an der Maschine.' },
     { id: 'schnell', icon: '⏱️', titel: 'Schneller als die Uhr', text: 'Bestanden in der halben Vorgabezeit.', pruef: function (x) { return x.bestanden && !!x.mission.zeit && x.aw.zeit <= 0.5 * x.mission.zeit; } },
-    { id: 'spiegel', icon: '✨', titel: 'Spiegelglanz', text: 'Eine Fläche mit Ra 0,4 µm oder besser.', pruef: function (x) { return merkmalMit(x.aw, function (m) { return m.ok && /Rauheit/.test(m.name) && zahlAus(m.ist) !== null && zahlAus(m.ist) <= 0.4; }); } },
-    { id: 'mitte', icon: '🎯', titel: 'Toleranzmitte', text: 'Ein Passmaß auf ein Zehntel der Toleranz in der Mitte getroffen.', pruef: function (x) { return merkmalMit(x.aw, function (m) { return m.ok && m.rel !== undefined && m.rel <= 0.1 && m.band <= 0.06; }); } },
+    { id: 'spiegel', icon: '✨', titel: 'Spiegelglanz', text: 'Eine Fläche mit Ra 0,4 µm oder besser.', pruef: function (x) { return !x.werkstatt && merkmalMit(x.aw, function (m) { return m.ok && /Rauheit/.test(m.name) && zahlAus(m.ist) !== null && zahlAus(m.ist) <= 0.4; }); } },
+    { id: 'mitte', icon: '🎯', titel: 'Toleranzmitte', text: 'Ein Passmaß auf ein Zehntel der Toleranz in der Mitte getroffen.', pruef: function (x) { return !x.werkstatt && merkmalMit(x.aw, function (m) { return m.ok && m.rel !== undefined && m.rel <= 0.1 && m.band <= 0.06; }); } },
     { id: 'feinfuehl', icon: '🪶', titel: 'Feingefühl', text: 'Fünf Aufträge in Folge ohne Werkzeugbruch.', pruef: function (x) { return (x.p.zaehler.ohneBruch || 0) >= 5; } },
     { id: 'sicher', icon: '🦺', titel: 'Sicherheit zuerst', text: 'Zehn Aufträge in Folge ohne Sicherheitsverstoß.', pruef: function (x) { return (x.p.zaehler.sicher || 0) >= 10; } },
     { id: 'cnc', icon: '💾', titel: 'Programmierer', text: 'Einen CNC-Auftrag bestanden.', pruef: function (x) { return x.bestanden && cncAuftrag(x.mission); } },
-    { id: 'plan', icon: '📏', titel: 'Plan wie ein Spiegel', text: 'Ebenheit 0,01 mm oder besser.', pruef: function (x) { return merkmalMit(x.aw, function (m) { return m.ok && m.name === 'Ebenheit' && zahlAus(m.ist) !== null && zahlAus(m.ist) <= 0.01; }); } },
+    { id: 'plan', icon: '📏', titel: 'Plan wie ein Spiegel', text: 'Ebenheit 0,01 mm oder besser.', pruef: function (x) { return !x.werkstatt && merkmalMit(x.aw, function (m) { return m.ok && m.name === 'Ebenheit' && zahlAus(m.ist) !== null && zahlAus(m.ist) <= 0.01; }); } },
     { id: 'geselle', icon: '📜', titel: 'Gesellenbrief', text: 'Die Gesellenprüfung bestanden.', pruef: function (x) { return x.bestanden && x.mission.id === 'M15'; } },
     { id: 'tages', icon: '📅', titel: 'Tagwerk', text: 'Einen Tagesauftrag erledigt.', pruef: function (x) { return !!x.tagesErledigt; } },
     { id: 'serie3', icon: '📆', titel: 'Dranbleiber', text: 'An drei Tagen in Folge den Tagesauftrag erledigt.', pruef: function (x) { return (x.p.serie.tage || 0) >= 3; } },
@@ -178,38 +199,51 @@
   // Rechnet Erfahrung, Geld, Sterne, Rekorde, Tagesauftrag und Erfolge und schreibt sie in den Stand.
   function abschluss(spiel, mission, aw, werkstatt, ergebnisse) {
     var stand = spiel.stand, p = profil(stand), MIS = ZM.missionen;
+    if (spiel.tages) { spiel.tages(); }
     var vorher = levelInfo(p.xp), xpZeilen = [], geld = 0;
-    var kette = 0, schichtWert = 0;
+    var kette = 0, schichtWert = 0, schnitt = 0;
     (ergebnisse || []).forEach(function (er) {
-      if (er && er.schicht) { schichtWert += er.schicht.wert || 0; kette = Math.max(kette, er.schicht.maxKette || 0); }
+      if (er && er.schicht) { schichtWert += er.schicht.wert || 0; kette = Math.max(kette, er.schicht.maxKette || 0); schnitt += er.schicht.schnitt || 0; }
     });
     var bestanden = !werkstatt && !aw.unfall && aw.note.note <= 4;
+    // Ohne Span gibt es nichts: mindestens 5 s zerspant oder ein Merkmal in Toleranz
+    var gearbeitet = !aw.unfall && (schnitt >= 5 || (aw.merkmale || []).some(function (m) { return m.ok; }));
     var fp = werkstatt ? null : stand.fortschritt[mission.id];
     var alteSterne = fp && fp.sterne ? fp.sterne : 0;
     var neueSterne = werkstatt ? 0 : sterne(aw, mission);
     var erstmals = bestanden && !(p.zaehler['bestanden_' + mission.id]);
     function xp(text, wert) { if (wert > 0) { xpZeilen.push({ text: text, xp: Math.round(wert) }); } }
 
+    var wiederholung = bestanden && !erstmals;
     if (werkstatt) {
-      xp('Werkstattversuch', 15);
-      xp('Flow-Bonus', Math.min(60, schichtWert / 40));
-      p.zaehler.werkstatt = (p.zaehler.werkstatt || 0) + 1;
+      if (gearbeitet) {
+        xp('Werkstattversuch', 15);
+        xp('Flow-Bonus', Math.min(60, schichtWert / 40));
+        p.zaehler.werkstatt = (p.zaehler.werkstatt || 0) + 1;
+      }
     } else {
       if (bestanden) {
-        xp('Auftrag bestanden', 100);
-        xp('Note ' + aw.note.note, { 1: 120, 2: 70, 3: 35, 4: 10 }[aw.note.note]);
+        xp(wiederholung ? 'Auftrag wiederholt' : 'Auftrag bestanden', wiederholung ? 40 : 100);
+        xp('Note ' + aw.note.note, { 1: 120, 2: 70, 3: 35, 4: 10 }[aw.note.note] * (wiederholung ? 0.5 : 1));
         if (neueSterne > alteSterne) { xp((neueSterne - alteSterne) + (neueSterne - alteSterne > 1 ? ' neue Sterne' : ' neuer Stern'), 60 * (neueSterne - alteSterne)); }
         if (erstmals) { xp('Erstabschluss', 80); }
         if (!aw.brueche) { xp('Ohne Werkzeugbruch', 30); }
         if (mission.zeit && aw.zeit <= mission.zeit) { xp(aw.zeit <= 0.5 * mission.zeit ? 'Doppelt so schnell wie die Vorgabe' : 'In der Vorgabezeit', aw.zeit <= 0.5 * mission.zeit ? 60 : 30); }
         p.zaehler['bestanden_' + mission.id] = true;
-        geld += Math.max(0, aw.praemie || 0);
-      } else {
+        // Wiederholte Auftraege bringen die halbe Praemie (Nachauftrag)
+        geld += Math.max(0, aw.praemie || 0) * (wiederholung ? 0.5 : 1);
+      } else if (gearbeitet) {
         xp('Erfahrung gesammelt', 25);
       }
-      xp('Flow-Bonus', schichtWert / 20);
-      p.zaehler.ohneBruch = aw.brueche ? 0 : (p.zaehler.ohneBruch || 0) + 1;
-      p.zaehler.sicher = aw.sicherheit ? 0 : (p.zaehler.sicher || 0) + 1;
+      if (gearbeitet) { xp('Flow-Bonus', Math.min(150, schichtWert / 20)); }
+      if (aw.unfall) { p.zaehler.ohneBruch = 0; p.zaehler.sicher = 0; }
+      else if (bestanden) {
+        p.zaehler.ohneBruch = aw.brueche ? 0 : (p.zaehler.ohneBruch || 0) + 1;
+        p.zaehler.sicher = aw.sicherheit ? 0 : (p.zaehler.sicher || 0) + 1;
+      } else {
+        if (aw.brueche) { p.zaehler.ohneBruch = 0; }
+        if (aw.sicherheit) { p.zaehler.sicher = 0; }
+      }
       if (fp) { fp.sterne = Math.max(alteSterne, neueSterne); }
     }
 
@@ -241,7 +275,7 @@
     var xpSumme = 0;
     xpZeilen.forEach(function (z) { xpSumme += z.xp; });
     p.xp += xpSumme;
-    p.geld += geld;
+    p.geld += Math.round(geld);
     var nachher = levelInfo(p.xp);
 
     // Erfolge
@@ -259,7 +293,7 @@
     return {
       xpZeilen: xpZeilen, xp: xpSumme, vorher: vorher, nachher: nachher, levelUp: nachher.level > vorher.level,
       rangVorher: rang(vorher.level), rangNachher: rang(nachher.level),
-      geld: geld, kontostand: p.geld, sterne: neueSterne, alteSterne: alteSterne, rekord: rekord,
+      geld: Math.round(geld), kontostand: p.geld, sterne: neueSterne, alteSterne: alteSterne, besteSterne: fp ? fp.sterne || 0 : 0, wiederholung: wiederholung, rekord: rekord,
       erfolge: neueErfolge, tagesErledigt: tagesErledigt, schichtWert: Math.round(schichtWert), kette: kette
     };
   }
@@ -376,8 +410,7 @@
     el('hud-sterne').textContent = '★ ' + sterneGesamt(spiel.stand);
     var s = el('hud-serie');
     if (s) {
-      var aktiv = p.serie.tage > 0 && (p.serie.letzter === datumKey() || p.serie.letzter === vortag(datumKey()));
-      s.hidden = !aktiv;
+      s.hidden = !serieAktiv(p);
       s.textContent = '🔥 ' + p.serie.tage;
       s.title = p.serie.tage + (p.serie.tage === 1 ? ' Tag' : ' Tage') + ' in Folge den Tagesauftrag erledigt';
     }
@@ -399,6 +432,7 @@
     this.bb = bb;
     this.wert = 0; this.kette = 0; this.maxKette = 0; this.fluss = 0; this.sauber = 0;
     this.akku = 0; this.popZeit = 0; this.letzterBruch = -10; this.zeit = 0; this.loecher = 0;
+    this.schnitt = 0; this.seitBonus = 0;
     this.massBonus = {};
     this.angezeigt = -1;
     if (!hatDom) { return; }
@@ -422,10 +456,11 @@
     buehne.appendChild(this.pops);
   }
 
-  // Zustand der Zerspanung: schneidet, gut (im Lastfenster, ruhig), schlecht (mit Grund)
+  // Zustand der Zerspanung: schneidet, gut (im Lastfenster, ruhig), schlecht (mit Grund),
+  // prod: Produktivitaet gegenueber dem Richtwert (langsames Arbeiten bringt nicht mehr Punkte)
   Schicht.prototype.bewerten = function () {
     var bb = this.bb, sim = bb.sim, a = sim.anzeige(), art = bb.art;
-    var z = { schneidet: false, gut: false, schlecht: null };
+    var z = { schneidet: false, gut: false, schlecht: null, prod: 1 };
     if (a.gebrochen || sim.unfall) { return z; }
     if (art === 'dreh') {
       z.schneidet = a.ap > 0.005 && a.n > 5 && (a.modus === 'laengs' || a.modus === 'plan');
@@ -434,7 +469,10 @@
       if (a.amp > 8) { z.schlecht = 'Rattern!'; }
       else if (a.ruck > 0.35) { z.schlecht = 'Überlast!'; }
       else if (pl > 1.05) { z.schlecht = 'Platte am Limit!'; }
-      z.gut = !z.schlecht && pl >= 0.12 && pl <= 0.92 && (a.last || 0) < 0.98 && a.amp < 3 && a.ruck < 0.15 && a.spanForm !== 'band';
+      z.gut = !z.schlecht && pl >= 0.12 && pl <= 0.92 && (a.last || 0) < 0.98 && a.amp < 3 && a.ruck < 0.15;
+      // Bandspaene: Schnitt zaehlt, aber nur halb (Spankontrolle gehoert zum sauberen Arbeiten)
+      z.halb = a.spanForm === 'band';
+      z.prod = clamp(pl / 0.45, 0.4, 1.3) * clamp(a.vc / Math.max(1, a.vcRef || a.vc), 0.5, 1.2) * (z.halb ? 0.5 : 1);
     } else if (art === 'fraes') {
       z.schneidet = a.ap > 0.005 && a.ae > 0.01 && a.n > 5;
       if (!z.schneidet) { return z; }
@@ -442,13 +480,18 @@
       else if (a.ruck > 0.35) { z.schlecht = 'Überlast!'; }
       else if (a.r > 0.95) { z.schlecht = 'Fräser am Limit!'; }
       z.gut = !z.schlecht && a.r >= 0.1 && a.r <= 0.85 && a.amp < 3 && a.ruck < 0.15 && (a.hammer || 0) < 0.2;
+      z.prod = clamp(a.r / 0.4, 0.4, 1.3) * clamp(a.vc / Math.max(1, a.vcRef || a.vc), 0.5, 1.2);
     } else {
       z.schneidet = a.f > 0.002 && a.n > 5 && a.M > 0.001;
       if (!z.schneidet) { return z; }
       var m = a.M / Math.max(0.01, a.mBruch);
       if (m > 0.9) { z.schlecht = 'Kurz vorm Bruch!'; }
       else if (a.phi > 0.85) { z.schlecht = 'Spänestau!'; }
-      z.gut = !z.schlecht && m >= 0.1 && m <= 0.75 && a.phi < 0.6 && (a.last || 0) < 0.95;
+      // Bohren und Reiben: Vorschub und vc am Richtwert des Werkzeugs; Gewinde: Vorschub = Steigung
+      var fv = a.fRef ? a.f / a.fRef : 1, vv = a.vcRef ? a.vc / a.vcRef : 1;
+      var imFenster = sim.typ === 'gewinde' ? true : fv >= 0.5 && fv <= 1.4 && vv >= 0.6 && vv <= 1.35;
+      z.gut = !z.schlecht && imFenster && m <= 0.75 && a.phi < 0.6 && (a.last || 0) < 0.95;
+      z.prod = sim.typ === 'gewinde' ? 1 : clamp(fv, 0.4, 1.25) * clamp(vv, 0.5, 1.2);
     }
     return z;
   };
@@ -457,12 +500,13 @@
     if (!(dt > 0)) { return; }
     this.zeit += dt;
     var z = this.bewerten();
+    if (z.schneidet) { this.schnitt += dt; this.seitBonus += dt; }
     if (z.schlecht) {
       this.brechen(z.schlecht);
     } else if (z.gut) {
       this.sauber += dt;
-      this.fluss += dt / STUFE_ZEIT;
-      this.akku += RATE * MULTI[this.kette] * dt;
+      this.fluss += dt / STUFE_ZEIT * (z.halb ? 0.5 : 1);
+      this.akku += RATE * MULTI[this.kette] * z.prod * dt;
       this.popZeit += dt;
       if (this.popZeit >= 1.3) { this.gutschreiben(); }
       if (this.fluss >= 1) {
@@ -487,9 +531,10 @@
     // Bohrungen: jede fertige Bohrung ist ein kleiner Bonus
     var sim = this.bb.sim;
     if (this.bb.art === 'bohr' && sim.ergebnisse && sim.ergebnisse.length > this.loecher) {
-      var neu = sim.ergebnisse.length - this.loecher;
+      var neu = 0, k;
+      for (k = this.loecher; k < sim.ergebnisse.length; k++) { if (sim.ergebnisse[k].gebohrt && !sim.ergebnisse[k].defekt) { neu++; } }
       this.loecher = sim.ergebnisse.length;
-      if (!sim.w.gebrochen) { this.bonus(neu > 1 ? neu + ' Bohrungen fertig' : 'Bohrung fertig', 25 * neu); }
+      if (neu && !sim.w.gebrochen) { this.bonus(neu > 1 ? neu + ' Bohrungen fertig' : 'Bohrung fertig', 25 * neu); }
     }
     this.anzeigen();
   };
@@ -530,7 +575,11 @@
     if (!e) { return; }
     if (e.typ === 'bruch') { freischalten(this.bb.spiel, 'lehrgeld'); }
     if (BRUCH_TEXT[e.typ] && e.schwere !== 'info') { this.brechen(BRUCH_TEXT[e.typ]); return; }
-    if (e.typ === 'anschlag' && this.bb.art === 'dreh') { this.bonus('Punktlandung am Anschlag', 30); }
+    // Anschlag: nur nach einem echten Schnitt seit dem letzten Bonus
+    if (e.typ === 'anschlag' && this.bb.art === 'dreh' && this.seitBonus >= 2) {
+      this.seitBonus = 0;
+      this.bonus('Punktlandung am Anschlag', 30);
+    }
   };
 
   // Gemessenes Mass in der Toleranz: einmal je Merkmal ein Bonus
@@ -552,7 +601,7 @@
 
   Schicht.prototype.ergebnis = function () {
     if (this.akku > 0) { this.wert += Math.round(this.akku); this.akku = 0; }
-    return { wert: Math.round(this.wert), maxKette: this.maxKette, sauber: this.sauber };
+    return { wert: Math.round(this.wert), maxKette: this.maxKette, sauber: this.sauber, schnitt: this.schnitt };
   };
 
   Schicht.prototype.entfernen = function () {
@@ -561,7 +610,7 @@
   };
 
   ZM.belohnung = {
-    bedarf: bedarf, levelInfo: levelInfo, rang: rang, RAENGE: RAENGE, profil: profil, sterne: sterne, sterneGesamt: sterneGesamt,
+    bedarf: bedarf, levelInfo: levelInfo, rang: rang, RAENGE: RAENGE, profil: profil, serieAktiv: serieAktiv, sterne: sterne, sterneGesamt: sterneGesamt,
     datumKey: datumKey, vortag: vortag, tagesauftrag: tagesauftrag, MODS: MODS, modVon: modVon, TAGES_XP: TAGES_XP, TAGES_GELD: TAGES_GELD,
     LACKE: LACKE, lackVon: lackVon, lackAnwenden: lackAnwenden, lackKaufen: lackKaufen,
     ERFOLGE: ERFOLGE, erfolgVon: erfolgVon, freischalten: freischalten, abschluss: abschluss,

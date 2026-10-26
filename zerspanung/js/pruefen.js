@@ -322,8 +322,16 @@
   function belohnungZeigen(spiel, mission, aw, werkstatt, bel, stempel) {
     var B = ZM.belohnung, kl = spiel.klang;
     if (!B || !bel) { return null; }
-    var schritte = [], abbruch = false, timer = null;
+    var schritte = [], abbruch = false, timer = null, levelGezeigt = false;
+    function sichtbar() { return document.body.contains(feld) && U.ansicht() === 'pruefen'; }
     function weiter() {
+      // Spieler hat das Protokoll verlassen: nichts mehr einblenden, nur die Kopfleiste nachziehen
+      if (!sichtbar()) {
+        schritte = [];
+        spiel.kopf(true);
+        if (bel.levelUp && !levelGezeigt) { levelGezeigt = true; U.toast('Level ' + bel.nachher.level + ' erreicht – ' + bel.rangNachher + '!'); }
+        return;
+      }
       if (!schritte.length) { spiel.kopf(true); return; }
       var s = schritte.shift();
       var warte = s();
@@ -359,7 +367,7 @@
     // Geld
     var geldWert = h('b', '+0 €');
     if (!werkstatt) {
-      feld.appendChild(h('div.belohnung__geld', [h('span.muenze', '€'), h('div', [h('small.muted', 'Prämie' + (bel.tagesErledigt ? ' + Tagesbonus' : '')), geldWert]), h('small.muted', 'Kontostand ' + U.zahl(bel.kontostand, 0) + ' €')]));
+      feld.appendChild(h('div.belohnung__geld', [h('span.muenze', '€'), h('div', [h('small.muted', (bel.wiederholung ? 'Prämie Nachauftrag (50 %)' : 'Prämie') + (bel.tagesErledigt ? ' + Tagesbonus' : '')), geldWert]), h('small.muted', 'Kontostand ' + U.zahl(bel.kontostand, 0) + ' €')]));
     }
     var erfolgsBox = h('div.belohnung__erfolge');
     feld.appendChild(erfolgsBox);
@@ -417,11 +425,13 @@
         lvlZahl.textContent = String(nach.level);
         lvlRang.textContent = bel.rangNachher;
         lvlZahl.parentNode.classList.add('puls');
+        if (!sichtbar()) { return; }
         balken.style.transition = 'none';
         balken.style.width = '0%';
         void balken.offsetWidth;
         setze(nach.anteil, 700);
         xpText.textContent = nach.rest + ' / ' + nach.bedarf + ' XP';
+        levelGezeigt = true;
         levelUp(spiel, lv, nach.level, bel.rangVorher, bel.rangNachher);
       }, abbruch ? 0 : 650);
       return 1400;
@@ -448,14 +458,20 @@
   function levelUp(spiel, von, bis, rangVon, rangBis) {
     var B = ZM.belohnung;
     var neu = B.LACKE.filter(function (l) { return l.level > von && l.level <= bis && l.preis > 0; });
-    var box = h('div.levelup', { role: 'dialog', 'aria-label': 'Level aufgestiegen' }, h('div.levelup__karte', [
+    function zu() {
+      if (box.parentNode) { box.parentNode.removeChild(box); }
+      document.removeEventListener('keydown', taste);
+    }
+    function taste(ev) { if (ev.key === 'Escape' || ev.key === 'Enter') { ev.preventDefault(); zu(); } }
+    var box = h('div.levelup', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Level aufgestiegen', onclick: function (ev) { if (ev.target === box) { zu(); } } }, h('div.levelup__karte', [
       h('p.levelup__titel', 'Level up!'),
       h('div.levelup__zahl', String(bis)),
       rangBis !== rangVon ? h('p.levelup__rang', ['Neuer Rang: ', h('b', rangBis)]) : h('p.levelup__rang', rangBis),
       neu.length ? h('p.muted', 'Im Profil freigeschaltet: Lackierung ' + neu.map(function (l) { return l.name; }).join(', ')) : null,
-      h('button.knopf.knopf--gelb', { type: 'button', onclick: function () { if (box.parentNode) { box.parentNode.removeChild(box); } } }, 'Weiter')
+      h('button.knopf.knopf--gelb', { type: 'button', onclick: zu }, 'Weiter')
     ]));
     document.body.appendChild(box);
+    document.addEventListener('keydown', taste);
     B.konfetti(220);
     if (spiel.klang) { spiel.klang.levelUp(); }
     var k = box.querySelector('button');
@@ -468,12 +484,13 @@
     var stempel = werkstatt ? null : h('div.notenstempel.note-' + note.note, [h('div', [h('b', String(note.note)), h('span', note.text), h('small', aw.punkte + ' Punkte')])]);
     var bestanden = !aw.unfall && note.note <= 4;
     var fehlend = !werkstatt && !bestanden && !aw.unfall ? Math.max(1, 50 - aw.punkte) : 0;
+    var nichtBestanden = fehlend > 0 && fehlend <= 10 ? 'Knapp daneben – es fehlen ' + fehlend + ' Punkte zum Bestehen.' : 'Nicht bestanden.';
     var kopf = h('div.pruef__kopf', [
       h('div', [
         h('p.eyebrow', werkstatt ? 'Freie Werkstatt' : mission.auftrag + ' · ' + mission.kunde),
         h('h1', werkstatt ? 'Messprotokoll' : (bestanden ? (note.note === 1 ? 'Hervorragend!' : note.note === 2 ? 'Stark gemacht!' : 'Bestanden!') + ' ' : '') + mission.titel),
         h('p.muted', { style: 'margin-top:6px' }, werkstatt ? 'Werte der Koordinatenmessmaschine bei 20 °C.' :
-          (aw.unfall ? 'Die Prüfung wurde wegen eines Unfalls abgebrochen.' : (bestanden ? 'Bestanden.' : 'Knapp daneben – es fehlen ' + fehlend + ' Punkte zum Bestehen.')) + ' ' + aw.merkmale.filter(function (m) { return m.ok; }).length + ' von ' + aw.merkmale.length + ' Merkmalen in Toleranz.')
+          (aw.unfall ? 'Die Prüfung wurde wegen eines Unfalls abgebrochen.' : (bestanden ? 'Bestanden.' : nichtBestanden)) + ' ' + aw.merkmale.filter(function (m) { return m.ok; }).length + ' von ' + aw.merkmale.length + ' Merkmalen in Toleranz.')
       ]),
       stempel
     ]);
@@ -512,9 +529,10 @@
 
     box.appendChild(h('div.pruef__raster', [h('div.tabelle-wrap', tab), rechts]));
     var fuss = h('div.fussleiste');
-    var mehrSterne = !werkstatt && bel && bel.sterne < 3;
-    fuss.appendChild(h('button.knopf' + (mehrSterne && note.note > 4 ? '.knopf--gelb' : ''), { type: 'button', onclick: function () { spiel.missionStarten(mission.id === 'WERKSTATT' ? null : mission.id, true); } },
-      mehrSterne ? 'Nochmal – ' + (bel.sterne === 0 ? 'diesmal klappt’s' : 'für ' + (bel.sterne + 1) + ' Sterne') : 'Nochmal'));
+    var beste = bel ? Math.max(bel.besteSterne || 0, bel.sterne) : 3;
+    var mehrSterne = !werkstatt && bel && beste > 0 && beste < 3;
+    fuss.appendChild(h('button.knopf', { type: 'button', onclick: function () { spiel.missionStarten(mission.id === 'WERKSTATT' ? null : mission.id, true); } },
+      mehrSterne ? 'Nochmal – für ' + (beste + 1) + ' Sterne' : (!werkstatt && !bestanden ? 'Nochmal versuchen' : 'Nochmal')));
     if (!werkstatt) {
       var naechste = spiel.naechsteMission(mission.id);
       if (naechste && note.note <= 4) {

@@ -816,8 +816,9 @@
             var lo = zF - st.bis, hi = zF - vonS;
             vonS = st.bis;
             if (z <= lo || z >= hi) { return; }
-            var tl = DAT.toleranz(st.d, st.tol);
-            if (tl && r.wert >= st.d + tl.u - 1e-9 && r.wert <= st.d + tl.o + 1e-9) { self.schicht.mass('d' + si, 'Ø ' + DAT.fmtD(st.d) + ' in Toleranz!'); }
+            // Bewertet wird bei 20 °C: warm gemessenes Mass auf Raumtemperatur umrechnen
+            var tl = DAT.toleranz(st.d, st.tol), kalt = r.wert / (1 + (sim.mat.alpha || 11.5e-6) * ((r.T || 20) - 20));
+            if (tl && kalt >= st.d + tl.u - 1e-9 && kalt <= st.d + tl.o + 1e-9) { self.schicht.mass('d' + si, 'Ø ' + DAT.fmtD(st.d) + ' in Toleranz!'); }
           });
         }
         self.log('Messung bei Z = ' + zahl(z, 0) + ' mm: Ø ' + zahl(r.wert, stellen) + ' mm (' + DAT.messmittel[mm.value].name + ', Werkstück ' + zahl(r.T, 0) + ' °C)', 'mess');
