@@ -8,6 +8,7 @@
   var ZM = root.ZM;
   var DAT = ZM.daten, PH = ZM.physik, U = ZM.ui, h = U.h, zahl = U.zahl;
   var MIS = ZM.missionen;
+  var B = ZM.belohnung;
 
   var STUFEN = { azubi: 'Azubi', geselle: 'Geselle', meister: 'Meister' };
   var OP_NAMEN = { bohren: 'Bohren', reiben: 'Reiben', gewinde: 'Gewindebohren', drehen: 'Drehen', fraesen: 'Fräsen' };
@@ -15,6 +16,8 @@
   function Spiel() {
     var self = this;
     this.stand = U.laden();
+    B.profil(this.stand);
+    B.lackAnwenden(this.stand);
     this.klang = new ZM.Klang();
     this.klang.an = this.stand.einstellungen.ton;
     this.klang.vol = this.stand.einstellungen.vol;
@@ -44,7 +47,29 @@
     this.tonAnzeige();
     this.stufeAnzeige();
     this.startStatistik();
+    this.kopf();
   }
+
+  Spiel.prototype.kopf = function (puls) { B.kopfAktualisieren(this, puls); };
+
+  // Freigeschaltete Auftraege (IDs) und der naechste offene Auftrag
+  Spiel.prototype.freieIds = function () {
+    var self = this;
+    return MIS.liste.filter(function (m, i) { return self.freigeschaltet(i); }).map(function (m) { return m.id; });
+  };
+  Spiel.prototype.naechsterOffen = function () {
+    var i;
+    for (i = 0; i < MIS.liste.length; i++) {
+      var fp = this.stand.fortschritt[MIS.liste[i].id];
+      if (this.freigeschaltet(i) && !(fp && fp.bestanden)) { return MIS.liste[i]; }
+    }
+    return null;
+  };
+  Spiel.prototype.tages = function () {
+    var t = B.tagesauftrag(this.stand, this.freieIds());
+    U.sichern(this.stand);
+    return t;
+  };
 
   Spiel.prototype.tonAnzeige = function () {
     var b = U.$('#ton');
@@ -57,9 +82,42 @@
   };
 
   Spiel.prototype.startStatistik = function () {
-    var s = this.stand.statistik;
+    var self = this, s = this.stand.statistik;
     var fertig = Object.keys(this.stand.fortschritt).filter(function (k) { return this.stand.fortschritt[k].bestanden; }, this).length;
     U.$('#stat-schild').textContent = 'Aufträge bestanden ' + fertig + ' / ' + MIS.liste.length + ' · Werkzeugbrüche ' + s.werkzeugBruch + ' · Unfälle ' + s.unfaelle;
+    // Weiterspielen statt Karriere beginnen, sobald es Fortschritt gibt
+    var naechst = this.naechsterOffen();
+    var kn = U.leeren(U.$('#start-knoepfe'));
+    if (fertig > 0 && naechst) {
+      kn.appendChild(h('button.knopf.knopf--gelb.knopf--gross', { type: 'button', onclick: function () { self.missionStarten(naechst.id); } }, [h('small', 'Weiterspielen'), naechst.titel]));
+    } else {
+      kn.appendChild(h('button.knopf.knopf--gelb.knopf--gross', { type: 'button', onclick: function () { self.zeigeKarriere(); } }, [h('small', fertig ? 'Alle Aufträge bestanden' : 'Los geht’s'), fertig ? 'Sterne sammeln' : 'Karriere beginnen']));
+    }
+    kn.appendChild(h('button.knopf', { type: 'button', onclick: function () { self.zeigeWerkstatt(); } }, 'Freie Werkstatt'));
+    var box = U.leeren(U.$('#start-spiel'));
+    box.appendChild(this.tagesKarte());
+    var p = B.profil(this.stand), li = B.levelInfo(p.xp);
+    box.appendChild(h('button.spielerkarte', { type: 'button', onclick: function () { self.zeigeProfil(); } }, [
+      h('span.spielerkarte__lvl', [h('small', 'Level'), String(li.level)]),
+      h('span.spielerkarte__text', [h('b', B.rang(li.level)), h('span.xpbar.xpbar--gross', h('span', { style: 'width:' + Math.round(li.anteil * 100) + '%' })),
+        h('small.muted', li.rest + ' / ' + li.bedarf + ' XP · ★ ' + B.sterneGesamt(this.stand) + ' / ' + MIS.liste.length * 3 + ' · ' + Object.keys(p.erfolge).length + ' / ' + B.ERFOLGE.length + ' Erfolge')])
+    ]));
+  };
+
+  // Karte des Tagesauftrags (Start und Karriere)
+  Spiel.prototype.tagesKarte = function () {
+    var self = this, t = this.tages();
+    if (!t) { return null; }
+    var m = MIS.finde(t.id), mod = B.modVon(t.mod), p = B.profil(this.stand);
+    return h('div.tageskarte' + (t.erledigt ? '.tageskarte--fertig' : ''), [
+      h('div.tageskarte__kopf', [h('span.tageskarte__label', 'Tagesauftrag'), p.serie.tage > 0 ? h('span.hudchip.hudchip--serie', '🔥 ' + p.serie.tage + (p.serie.tage === 1 ? ' Tag' : ' Tage')) : null]),
+      h('b.tageskarte__titel', m.titel),
+      h('span.tageskarte__mod', mod.text),
+      h('div.tageskarte__fuss', [
+        h('span.tageskarte__lohn', t.erledigt ? '✓ Erledigt – morgen gibt es einen neuen' : '+' + B.TAGES_XP + ' XP · +' + B.TAGES_GELD + ' €'),
+        t.erledigt ? null : h('button.knopf.knopf--klein.knopf--gelb', { type: 'button', onclick: function () { self.missionStarten(t.id); } }, 'Los')
+      ])
+    ]);
   };
 
   Spiel.prototype.laufendeBeenden = function () {
@@ -75,6 +133,7 @@
       case 'werkstatt': this.zeigeWerkstatt(); break;
       case 'tabellenbuch': this.zeigeTabellenbuch(false); break;
       case 'einstellungen': this.zeigeEinstellungen(); break;
+      case 'profil': this.zeigeProfil(); break;
     }
   };
 
@@ -87,28 +146,55 @@
     return !!(this.stand.fortschritt[vorher.id] && this.stand.fortschritt[vorher.id].bestanden);
   };
 
+  function sternReihe(n, gross) {
+    var r = h('span.sterne' + (gross ? '.sterne--gross' : ''), { 'aria-label': n + ' von 3 Sternen' }), i;
+    for (i = 0; i < 3; i++) { r.appendChild(h('span.stern' + (i < n ? '.stern--an' : ''), '★')); }
+    return r;
+  }
+
   Spiel.prototype.zeigeKarriere = function () {
     var self = this, box = U.leeren(U.$('#missionen'));
+    var naechst = this.naechsterOffen(), t = this.tages();
+    var kz = U.$('#karriere-kopf');
+    if (kz) {
+      U.leeren(kz);
+      kz.appendChild(h('span.hudchip.hudchip--stern', '★ ' + B.sterneGesamt(this.stand) + ' / ' + MIS.liste.length * 3));
+      var tk = this.tagesKarte();
+      if (tk) { kz.appendChild(tk); }
+    }
     MIS.jahre.forEach(function (jahrName, j) {
-      var karten = h('div.karten');
+      var karten = h('div.karten'), anz = 0, ok = 0, st = 0;
       MIS.liste.forEach(function (m, idx) {
         if (m.jahr !== j + 1) { return; }
         var mat = DAT.werkstoffe[m.mat];
         var fp = self.stand.fortschritt[m.id];
         var frei = self.freigeschaltet(idx);
+        anz++;
+        if (fp && fp.bestanden) { ok++; }
+        st += fp && fp.sterne ? fp.sterne : 0;
         var verfahren = [];
         m.ops.forEach(function (op) { if (verfahren.indexOf(OP_NAMEN[op.typ]) < 0) { verfahren.push(OP_NAMEN[op.typ]); } });
-        var karte = h('button.mkarte', { type: 'button', disabled: !frei, onclick: function () { self.missionStarten(m.id); } }, [
-          h('div.mkarte__kopf', [h('span.mkarte__nr', m.auftrag), fp ? h('span.chip.' + (fp.bestanden ? 'chip--ok' : 'chip--nio'), 'Note ' + fp.note) : (frei ? h('span.chip', 'offen') : h('span.chip', 'gesperrt'))]),
+        var klassen = 'button.mkarte' + (!frei ? '.mkarte--zu' : '') + (naechst && naechst.id === m.id ? '.mkarte--naechste' : '') + (fp && fp.sterne === 3 ? '.mkarte--gold' : '');
+        var band = naechst && naechst.id === m.id ? h('span.mkarte__band', fp ? 'Weiter' : 'Neu') : (t && t.id === m.id && !t.erledigt ? h('span.mkarte__band.mkarte__band--tag', 'Tagesauftrag') : null);
+        var karte = h(klassen, { type: 'button', disabled: !frei, onclick: function () { self.missionStarten(m.id); } }, [
+          band,
+          h('div.mkarte__kopf', [h('span.mkarte__nr', m.auftrag), fp ? sternReihe(fp.sterne || 0) : (band ? null : frei ? h('span.chip', 'offen') : h('span.chip.chip--zu', '🔒 gesperrt'))]),
           h('h3', m.titel),
           h('div.mkarte__meta', [h('span.iso.iso--' + mat.iso, mat.iso), h('span', mat.name), h('span', verfahren.join(', '))]),
-          h('div.mkarte__fuss', [h('span.muted', m.kunde), fp ? h('span.note-gross', fp.punkte + ' P.') : h('span.muted', U.geld(m.lohn))])
+          h('div.mkarte__fuss', [h('span.muted', m.kunde), fp ? h('span.note-gross', 'Note ' + fp.note + ' · ' + fp.punkte + ' P.') : h('span.lohn', U.geld(m.lohn))])
         ]);
         karten.appendChild(karte);
       });
-      box.appendChild(h('section.jahr', [h('h2', jahrName), karten]));
+      var anteil = anz ? ok / anz : 0;
+      box.appendChild(h('section.jahr', [
+        h('div.jahr__kopf', [h('h2', jahrName), h('span.jahr__stand', ok + ' / ' + anz + ' bestanden · ★ ' + st + ' / ' + anz * 3),
+          h('span.xpbar.jahr__balken', h('span', { style: 'width:' + Math.round(anteil * 100) + '%' }))]),
+        karten
+      ]));
     });
     U.zeige('karriere');
+    var ziel = box.querySelector('.mkarte--naechste');
+    if (ziel && ziel.scrollIntoView && root.innerHeight && ziel.getBoundingClientRect().top > root.innerHeight * 0.8) { ziel.scrollIntoView({ block: 'center' }); }
   };
 
   Spiel.prototype.naechsteMission = function (id) {
@@ -259,9 +345,71 @@
       }
       if (bestanden) { st.auftraege += 1; }
     }
+    var bel = B.abschluss(this, m, aw, werkstatt, this.ergebnisse);
     U.sichern(this.stand);
-    if (this.klang && aw.note.note <= 2 && !werkstatt) { this.klang.erfolg(); }
-    ZM.pruefung.zeige(this, m, aw, werkstatt);
+    ZM.pruefung.zeige(this, m, aw, werkstatt, bel);
+  };
+
+  // ============================================================ Profil
+  Spiel.prototype.zeigeProfil = function () {
+    var self = this, box = U.leeren(U.$('#profil')), p = B.profil(this.stand), li = B.levelInfo(p.xp), st = this.stand.statistik;
+    var bestanden = Object.keys(this.stand.fortschritt).filter(function (k) { return self.stand.fortschritt[k].bestanden; }).length;
+    box.appendChild(h('section.profil__held', [
+      h('div.profil__lvl', [h('small', 'Level'), h('b', String(li.level))]),
+      h('div.profil__text', [
+        h('p.eyebrow', 'Rang'),
+        h('h1', B.rang(li.level)),
+        h('span.xpbar.xpbar--gross', h('span', { style: 'width:' + Math.round(li.anteil * 100) + '%' })),
+        h('p.muted', li.rest + ' / ' + li.bedarf + ' XP bis Level ' + (li.level + 1) + ' · gesamt ' + U.zahl(p.xp, 0) + ' XP')
+      ]),
+      h('dl.profil__zahlen', [
+        h('div', [h('dt', 'Sterne'), h('dd', '★ ' + B.sterneGesamt(this.stand) + ' / ' + MIS.liste.length * 3)]),
+        h('div', [h('dt', 'Kontostand'), h('dd', U.zahl(p.geld, 0) + ' €')]),
+        h('div', [h('dt', 'Aufträge bestanden'), h('dd', bestanden + ' / ' + MIS.liste.length)]),
+        h('div', [h('dt', 'Serie'), h('dd', '🔥 ' + (p.serie.tage || 0))]),
+        h('div', [h('dt', 'Werkzeugbrüche'), h('dd', String(st.werkzeugBruch))]),
+        h('div', [h('dt', 'Erfolge'), h('dd', Object.keys(p.erfolge).length + ' / ' + B.ERFOLGE.length)])
+      ])
+    ]));
+    // Raenge
+    var leiter = h('ol.rangleiter');
+    B.RAENGE.forEach(function (r, i) {
+      var naechsteSchwelle = i + 1 < B.RAENGE.length ? B.RAENGE[i + 1][0] : 999;
+      var aktiv = li.level >= r[0] && li.level < naechsteSchwelle, erreicht = li.level >= r[0];
+      leiter.appendChild(h('li' + (aktiv ? '.aktiv' : erreicht ? '.erreicht' : ''), [h('b', r[1]), h('small', 'ab Level ' + r[0])]));
+    });
+    box.appendChild(h('section.panel', [h('h2', 'Ränge'), leiter]));
+    // Erfolge
+    var raster = h('div.erfolge');
+    B.ERFOLGE.forEach(function (e) {
+      var hat = p.erfolge[e.id];
+      raster.appendChild(h('div.erfolg' + (hat ? '.erfolg--frei' : ''), [h('span.erfolg__icon', hat ? e.icon : '🔒'), h('div', [h('b', e.titel), h('span', e.text), hat ? h('small', 'Freigeschaltet am ' + hat.split('-').reverse().join('.')) : null])]));
+    });
+    box.appendChild(h('section.panel', [h('h2', 'Erfolge ' + Object.keys(p.erfolge).length + ' / ' + B.ERFOLGE.length), raster]));
+    // Lackierungen
+    var lacke = h('div.lacke');
+    B.LACKE.forEach(function (l) {
+      var hat = !!p.lacke[l.id], aktiv = p.lack === l.id, gesperrt = li.level < l.level;
+      var knopfText = aktiv ? 'Aktiv' : hat ? 'Lackieren' : gesperrt ? 'ab Level ' + l.level : l.preis + ' €';
+      lacke.appendChild(h('div.lack' + (aktiv ? '.lack--aktiv' : ''), [
+        h('span.lack__muster', { style: 'background:' + l.hex }),
+        h('b', l.name),
+        h('button.knopf.knopf--klein' + (!hat && !gesperrt && p.geld >= l.preis ? '.knopf--gelb' : ''), { type: 'button', disabled: aktiv || gesperrt, onclick: function () {
+          var r = B.lackKaufen(self.stand, l.id);
+          if (!r.ok) { U.toast(r.text); return; }
+          U.sichern(self.stand);
+          if (r.gekauft) {
+            if (self.klang) { self.klang.muenze(); }
+            B.freischalten(self, 'lack');
+            U.toast(l.name + ' gekauft – Dreh- und Fräsmaschinen sind neu lackiert.');
+          } else { U.toast('Maschinen in ' + l.name + '.'); }
+          self.kopf(true);
+          self.zeigeProfil();
+        } }, knopfText)
+      ]));
+    });
+    box.appendChild(h('section.panel', [h('h2', 'Lackierung der Maschinen'), h('p.muted', { style: 'margin-bottom:12px' }, 'Bezahlt wird mit den Prämien aus bestandenen Aufträgen. Die Farbe gilt für Dreh- und Fräsmaschinen.'), lacke]));
+    U.zeige('profil');
   };
 
   // ============================================================ Freie Werkstatt
@@ -552,7 +700,11 @@
         self.stand = U.laden();
         self.stand.fortschritt = {};
         self.stand.statistik = { werkzeugBruch: 0, bohrerBruch: 0, unfaelle: 0, auftraege: 0, loecher: 0 };
+        self.stand.spieler = null;
+        B.profil(self.stand);
+        B.lackAnwenden(self.stand);
         U.sichern(self.stand);
+        self.kopf();
         U.toast('Fortschritt gelöscht.');
         self.zeigeEinstellungen();
       } }, 'Ja, löschen'));

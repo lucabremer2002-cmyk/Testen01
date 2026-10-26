@@ -10,16 +10,18 @@
   var DAT = ZM.daten, U = ZM.ui, h = U.h, zahl = U.zahl;
   var MASCHINENSTUNDE = 85;
 
+  // rel: Abstand von der Toleranzmitte bezogen auf die halbe Toleranz (0 = genau Mitte), band: Toleranzbreite
   function bewerteMass(ist, nenn, tol) {
     var lo = nenn + tol.u, hi = nenn + tol.o, b = hi - lo;
-    if (ist >= lo - 1e-9 && ist <= hi + 1e-9) { return { ok: true, p: 10 }; }
+    var rel = b > 0 ? Math.abs(ist - (lo + hi) / 2) / (b / 2) : 1;
+    if (ist >= lo - 1e-9 && ist <= hi + 1e-9) { return { ok: true, p: 10, rel: rel, band: b }; }
     var ab = ist < lo ? lo - ist : ist - hi;
-    if (ab <= b) { return { ok: false, p: 4, nach: true }; }
-    return { ok: false, p: 0 };
+    if (ab <= b) { return { ok: false, p: 4, nach: true, rel: rel, band: b }; }
+    return { ok: false, p: 0, rel: rel, band: b };
   }
 
   function merkmal(liste, op, pos, name, soll, ist, r) {
-    liste.push({ op: op, pos: pos, name: name, soll: soll, ist: ist, ok: r.ok, nach: !!r.nach, p: r.p, max: 10 });
+    liste.push({ op: op, pos: pos, name: name, soll: soll, ist: ist, ok: r.ok, nach: !!r.nach, p: r.p, max: 10, rel: r.rel, band: r.band });
   }
 
   // Nachkommastellen im Protokoll: drei, sobald ein Grenzmass sonst gerundet wuerde (z. B. h9: 31,938)
@@ -314,19 +316,170 @@
     return t;
   }
 
-  function zeige(spiel, mission, aw, werkstatt) {
+  // ------------------------------------------------------------ Belohnung inszenieren
+  // Ablauf: Stempel, Sterne einzeln, Erfahrung zeilenweise, Balken (Level-up mit Konfetti),
+  // Praemie, neue Erfolge. Ein Klick auf das Feld spult ans Ende.
+  function belohnungZeigen(spiel, mission, aw, werkstatt, bel, stempel) {
+    var B = ZM.belohnung, kl = spiel.klang;
+    if (!B || !bel) { return null; }
+    var schritte = [], abbruch = false, timer = null;
+    function weiter() {
+      if (!schritte.length) { spiel.kopf(true); return; }
+      var s = schritte.shift();
+      var warte = s();
+      if (abbruch) { weiter(); return; }
+      timer = setTimeout(weiter, warte || 0);
+    }
+    var feld = h('section.belohnung', { title: 'Klicken zum Überspringen' });
+    // Sterne
+    var sterne = null;
+    if (!werkstatt) {
+      sterne = h('div.belohnung__sterne');
+      var i;
+      for (i = 0; i < 3; i++) { sterne.appendChild(h('span.bstern', '★')); }
+      feld.appendChild(sterne);
+      var zeile = [];
+      if (bel.rekord) { zeile.push(h('span.abzeichen.abzeichen--rekord', bel.rekord === 'punkte' ? 'Neuer Punkterekord!' : 'Neue Bestzeit!')); }
+      if (bel.tagesErledigt) { zeile.push(h('span.abzeichen.abzeichen--tag', 'Tagesauftrag erledigt!')); }
+      if (bel.sterne > bel.alteSterne && bel.alteSterne > 0) { zeile.push(h('span.abzeichen', 'Mehr Sterne als beim letzten Mal')); }
+      if (zeile.length) { feld.appendChild(h('div.belohnung__abzeichen', zeile)); }
+    }
+    // Erfahrung
+    var liste = h('ul.xpliste');
+    var summe = h('b.xpsumme', '+0 XP');
+    var lvlZahl = h('span.blevel__zahl', String(bel.vorher.level));
+    var lvlRang = h('span.blevel__rang', bel.rangVorher);
+    var balken = h('span', { style: 'width:' + Math.round(bel.vorher.anteil * 100) + '%' });
+    var xpText = h('small.muted', bel.vorher.rest + ' / ' + bel.vorher.bedarf + ' XP');
+    feld.appendChild(h('div.belohnung__xp', [
+      h('div.blevel', [h('small', 'Level'), lvlZahl]),
+      h('div.belohnung__xpmitte', [h('div.belohnung__xpkopf', [lvlRang, summe]), h('span.xpbar.xpbar--gross', balken), xpText]),
+      liste
+    ]));
+    // Geld
+    var geldWert = h('b', '+0 €');
+    if (!werkstatt) {
+      feld.appendChild(h('div.belohnung__geld', [h('span.muenze', '€'), h('div', [h('small.muted', 'Prämie' + (bel.tagesErledigt ? ' + Tagesbonus' : '')), geldWert]), h('small.muted', 'Kontostand ' + U.zahl(bel.kontostand, 0) + ' €')]));
+    }
+    var erfolgsBox = h('div.belohnung__erfolge');
+    feld.appendChild(erfolgsBox);
+    feld.addEventListener('click', function () {
+      if (!schritte.length) { return; }
+      abbruch = true;
+      clearTimeout(timer);
+      weiter();
+    });
+
+    // --- Ablauf
+    schritte.push(function () {
+      if (stempel) { stempel.classList.add('stempel-an'); }
+      if (kl) { kl.stempel(); }
+      return 450;
+    });
+    if (sterne) {
+      [0, 1, 2].forEach(function (k) {
+        schritte.push(function () {
+          if (k >= bel.sterne) { return 0; }
+          sterne.childNodes[k].classList.add('an');
+          if (kl) { kl.stern(k); }
+          return 380;
+        });
+      });
+      schritte.push(function () {
+        if (bel.sterne === 3) { B.konfetti(160); } else if (bel.sterne === 2) { B.konfetti(60); }
+        return bel.sterne >= 2 ? 300 : 0;
+      });
+    }
+    var lauf = 0;
+    bel.xpZeilen.forEach(function (z) {
+      schritte.push(function () {
+        var w = h('b', '+0');
+        liste.appendChild(h('li', [h('span', z.text), w]));
+        lauf += z.xp;
+        var bis = lauf;
+        B.zaehlen(w, 0, z.xp, abbruch ? 0 : 380, function (v) { return '+' + Math.round(v); });
+        summe.textContent = '+' + bis + ' XP';
+        if (kl) { kl.tick(liste.childNodes.length); }
+        return 260;
+      });
+    });
+    // Balken fuellen, bei Level-up ueber die Grenze
+    schritte.push(function () {
+      var lv = bel.vorher.level, nach = bel.nachher;
+      function setze(anteil, ms) { balken.style.transition = abbruch ? 'none' : 'width ' + ms + 'ms cubic-bezier(.2,.8,.2,1)'; balken.style.width = Math.round(anteil * 100) + '%'; }
+      if (!bel.levelUp) {
+        setze(nach.anteil, 900);
+        xpText.textContent = nach.rest + ' / ' + nach.bedarf + ' XP';
+        return 900;
+      }
+      setze(1, 600);
+      setTimeout(function () {
+        lvlZahl.textContent = String(nach.level);
+        lvlRang.textContent = bel.rangNachher;
+        lvlZahl.parentNode.classList.add('puls');
+        balken.style.transition = 'none';
+        balken.style.width = '0%';
+        void balken.offsetWidth;
+        setze(nach.anteil, 700);
+        xpText.textContent = nach.rest + ' / ' + nach.bedarf + ' XP';
+        levelUp(spiel, lv, nach.level, bel.rangVorher, bel.rangNachher);
+      }, abbruch ? 0 : 650);
+      return 1400;
+    });
+    if (!werkstatt) {
+      schritte.push(function () {
+        B.zaehlen(geldWert, 0, bel.geld, abbruch ? 0 : 700, function (v) { return '+' + U.zahl(v, 0) + ' €'; });
+        if (kl && bel.geld > 0) { kl.muenze(); }
+        return 750;
+      });
+    }
+    bel.erfolge.forEach(function (e, k) {
+      schritte.push(function () {
+        erfolgsBox.appendChild(h('div.erfolg.erfolg--frei.erfolg--neu', [h('span.erfolg__icon', e.icon), h('div', [h('small', 'Neuer Erfolg'), h('b', e.titel), h('span', e.text)])]));
+        if (kl) { kl.erfolgFrei(); }
+        return 450;
+      });
+    });
+    setTimeout(weiter, 250);
+    return feld;
+  }
+
+  // Level-up: Einblendung mit Konfetti und Fanfare
+  function levelUp(spiel, von, bis, rangVon, rangBis) {
+    var B = ZM.belohnung;
+    var neu = B.LACKE.filter(function (l) { return l.level > von && l.level <= bis && l.preis > 0; });
+    var box = h('div.levelup', { role: 'dialog', 'aria-label': 'Level aufgestiegen' }, h('div.levelup__karte', [
+      h('p.levelup__titel', 'Level up!'),
+      h('div.levelup__zahl', String(bis)),
+      rangBis !== rangVon ? h('p.levelup__rang', ['Neuer Rang: ', h('b', rangBis)]) : h('p.levelup__rang', rangBis),
+      neu.length ? h('p.muted', 'Im Profil freigeschaltet: Lackierung ' + neu.map(function (l) { return l.name; }).join(', ')) : null,
+      h('button.knopf.knopf--gelb', { type: 'button', onclick: function () { if (box.parentNode) { box.parentNode.removeChild(box); } } }, 'Weiter')
+    ]));
+    document.body.appendChild(box);
+    B.konfetti(220);
+    if (spiel.klang) { spiel.klang.levelUp(); }
+    var k = box.querySelector('button');
+    if (k) { k.focus(); }
+  }
+
+  function zeige(spiel, mission, aw, werkstatt, bel) {
     var box = U.leeren(U.$('#pruefen'));
     var note = aw.note;
+    var stempel = werkstatt ? null : h('div.notenstempel.note-' + note.note, [h('div', [h('b', String(note.note)), h('span', note.text), h('small', aw.punkte + ' Punkte')])]);
+    var bestanden = !aw.unfall && note.note <= 4;
+    var fehlend = !werkstatt && !bestanden && !aw.unfall ? Math.max(1, 50 - aw.punkte) : 0;
     var kopf = h('div.pruef__kopf', [
       h('div', [
         h('p.eyebrow', werkstatt ? 'Freie Werkstatt' : mission.auftrag + ' · ' + mission.kunde),
-        h('h1', werkstatt ? 'Messprotokoll' : mission.titel),
+        h('h1', werkstatt ? 'Messprotokoll' : (bestanden ? (note.note === 1 ? 'Hervorragend!' : note.note === 2 ? 'Stark gemacht!' : 'Bestanden!') + ' ' : '') + mission.titel),
         h('p.muted', { style: 'margin-top:6px' }, werkstatt ? 'Werte der Koordinatenmessmaschine bei 20 °C.' :
-          (aw.unfall ? 'Die Prüfung wurde wegen eines Unfalls abgebrochen.' : (note.note <= 4 ? 'Bestanden.' : 'Nicht bestanden.')) + ' ' + aw.merkmale.filter(function (m) { return m.ok; }).length + ' von ' + aw.merkmale.length + ' Merkmalen in Toleranz.')
+          (aw.unfall ? 'Die Prüfung wurde wegen eines Unfalls abgebrochen.' : (bestanden ? 'Bestanden.' : 'Knapp daneben – es fehlen ' + fehlend + ' Punkte zum Bestehen.')) + ' ' + aw.merkmale.filter(function (m) { return m.ok; }).length + ' von ' + aw.merkmale.length + ' Merkmalen in Toleranz.')
       ]),
-      werkstatt ? null : h('div.notenstempel.note-' + note.note, [h('div', [h('b', String(note.note)), h('span', note.text), h('small', aw.punkte + ' Punkte')])])
+      stempel
     ]);
     box.appendChild(kopf);
+    var feld = belohnungZeigen(spiel, mission, aw, werkstatt, bel, stempel);
+    if (feld) { box.appendChild(feld); } else if (stempel) { stempel.classList.add('stempel-an'); }
 
     var tab = h('table');
     tab.appendChild(h('thead', h('tr', [h('th', 'Arbeitsgang'), h('th', 'Merkmal'), h('th.zahl', 'Soll'), h('th.zahl', 'Ist'), h('th', 'Ergebnis')])));
@@ -359,7 +512,9 @@
 
     box.appendChild(h('div.pruef__raster', [h('div.tabelle-wrap', tab), rechts]));
     var fuss = h('div.fussleiste');
-    fuss.appendChild(h('button.knopf', { type: 'button', onclick: function () { spiel.missionStarten(mission.id === 'WERKSTATT' ? null : mission.id, true); } }, 'Nochmal'));
+    var mehrSterne = !werkstatt && bel && bel.sterne < 3;
+    fuss.appendChild(h('button.knopf' + (mehrSterne && note.note > 4 ? '.knopf--gelb' : ''), { type: 'button', onclick: function () { spiel.missionStarten(mission.id === 'WERKSTATT' ? null : mission.id, true); } },
+      mehrSterne ? 'Nochmal – ' + (bel.sterne === 0 ? 'diesmal klappt’s' : 'für ' + (bel.sterne + 1) + ' Sterne') : 'Nochmal'));
     if (!werkstatt) {
       var naechste = spiel.naechsteMission(mission.id);
       if (naechste && note.note <= 4) {

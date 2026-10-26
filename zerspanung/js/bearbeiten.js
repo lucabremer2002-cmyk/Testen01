@@ -64,6 +64,8 @@
     this.ncZeilen = k.setup.nc ? k.setup.nc.split('\n') : null;
 
     this.aufbauen();
+    // Spielebene: Schichtpunkte und Combo fuer sauberes Zerspanen
+    this.schicht = ZM.belohnung ? new ZM.belohnung.Schicht(this) : null;
     this.tastenAn();
     this.letzte = null;
     this.hudZeit = 0;
@@ -783,6 +785,7 @@
     var box = U.leeren(this.messEl);
     if (sim.nEff > 1) {
       this.sicherheit += 1;
+      if (this.schicht) { this.schicht.brechen('Sicherheit!'); }
       this.log('Messen bei laufender Spindel ist verboten! Erst Spindel aus.', 'fehler');
       this.live('Niemals an laufenden Teilen messen!', true);
       return;
@@ -806,6 +809,17 @@
         aus.textContent = 'Ø ' + zahl(r.wert, stellen);
         self.szene.messung(z);
         self.messungen.push({ z: z, wert: r.wert, T: r.T });
+        // Spielebene: Mass einer Stufe in der Toleranz getroffen
+        if (self.schicht) {
+          var zF = sim.laengeZ(), vonS = 0;
+          Kd.stufen.forEach(function (st, si) {
+            var lo = zF - st.bis, hi = zF - vonS;
+            vonS = st.bis;
+            if (z <= lo || z >= hi) { return; }
+            var tl = DAT.toleranz(st.d, st.tol);
+            if (tl && r.wert >= st.d + tl.u - 1e-9 && r.wert <= st.d + tl.o + 1e-9) { self.schicht.mass('d' + si, 'Ø ' + DAT.fmtD(st.d) + ' in Toleranz!'); }
+          });
+        }
         self.log('Messung bei Z = ' + zahl(z, 0) + ' mm: Ø ' + zahl(r.wert, stellen) + ' mm (' + DAT.messmittel[mm.value].name + ', Werkstück ' + zahl(r.T, 0) + ' °C)', 'mess');
       };
       var laenge = function () {
@@ -840,6 +854,7 @@
     this.klick();
     if (this.sim.spaeneEntfernen()) {
       this.log('Wirrspäne mit dem Spänehaken entfernt.', 'info');
+      if (ZM.belohnung) { ZM.belohnung.freischalten(this.spiel, 'bandsalat'); }
     } else {
       // gezaehlt wird ueber das Ereignis 'sicherheit' der Simulation
       this.live('Späne nie bei laufender Spindel entfernen!', true);
@@ -1072,6 +1087,7 @@
     this.meisterZeit -= dt;
     if (this.meisterZeit <= 0) { this.meisterZeit = 0.25; this.meister(); }
     this.klang();
+    if (this.schicht) { this.schicht.takt(dt); }
   };
 
   // Hauptmesswert relativ zur Grenze (1 = Grenze)
@@ -1117,6 +1133,7 @@
     var self = this, liste = this.sim.ev.holen();
     liste.forEach(function (e) {
       self.szene.ereignis(e);
+      if (self.schicht) { self.schicht.ereignis(e); }
       var klasse = e.schwere === 'info' ? 'info' : e.schwere;
       self.log(e.text, klasse);
       if (e.schwere !== 'info') { self.wichtig.push(e); }
@@ -1456,6 +1473,7 @@
   Bearbeitung.prototype.abbrechen = function () {
     if (this.beendet) { return; }
     this.beendet = true;
+    if (this.schicht) { this.schicht.entfernen(); }
     root.cancelAnimationFrame(this.raf);
     this.tastenAus();
     if (this.spiel.klang) { this.spiel.klang.stille(); }
@@ -1487,8 +1505,10 @@
       wichtig: this.wichtig,
       unfall: sim.unfall || null,
       sicherheit: this.sicherheit,
-      messungen: this.messungen
+      messungen: this.messungen,
+      schicht: this.schicht ? this.schicht.ergebnis() : null
     });
+    if (this.schicht) { this.schicht.entfernen(); }
   };
 
   ZM.Bearbeitung = Bearbeitung;

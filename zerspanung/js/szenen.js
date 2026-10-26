@@ -226,7 +226,17 @@
   // =====================================================================
   //                               BOHREN
   // =====================================================================
+  // Lackierung aus dem Profil auf die Maschinenfarben uebertragen
+  function lackFarben() {
+    var hex = ZM.optik && ZM.optik.lack;
+    if (!hex) { return; }
+    var r = parseInt(hex.substr(1, 2), 16), g = parseInt(hex.substr(3, 2), 16), b = parseInt(hex.substr(5, 2), 16);
+    function t(k, add) { return 'rgb(' + [r, g, b].map(function (c) { return Math.round(clamp(c * k + add, 0, 255)); }).join(',') + ')'; }
+    F.masch = hex; F.maschD = t(0.65, 0); F.maschH = t(1, 34);
+  }
+
   function BohrSzene(sim, op) {
+    lackFarben();
     this.sim = sim;
     this.op = op;
     this.teile = new Partikelsystem(420);

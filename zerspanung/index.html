@@ -21,10 +21,22 @@
       <button type="button" data-nav="karriere">Karriere</button>
       <button type="button" data-nav="werkstatt">Freie Werkstatt</button>
       <button type="button" data-nav="tabellenbuch">Tabellenbuch</button>
+      <button type="button" data-nav="profil">Profil</button>
       <button type="button" data-nav="einstellungen">Einstellungen</button>
     </nav>
     <div class="kopf__rechts">
-      <span id="stufe-chip" class="chip chip--stufe">Azubi</span>
+      <button type="button" class="spieler" data-nav="profil" aria-label="Profil, Level und Erfolge">
+        <span class="spieler__lvl" id="hud-level">1</span>
+        <span class="spieler__info">
+          <span class="spieler__rang" id="hud-rang">Neuling</span>
+          <span class="xpbar" title="Erfahrung bis zum nächsten Level"><span id="hud-xp"></span></span>
+          <span class="spieler__xp" id="hud-xp-text">0 / 100 XP</span>
+        </span>
+      </button>
+      <span class="hudchip hudchip--serie" id="hud-serie" hidden>🔥 0</span>
+      <span class="hudchip hudchip--stern" id="hud-sterne" title="Sterne in der Karriere">★ 0</span>
+      <span class="hudchip hudchip--geld" id="hud-geld" title="Kontostand aus Prämien">0 €</span>
+      <span id="stufe-chip" class="chip chip--stufe" title="Realismusstufe">Azubi</span>
       <button type="button" id="ton" class="knopf knopf--klein" aria-pressed="true">Ton an</button>
     </div>
   </header>
@@ -35,12 +47,13 @@
       <div class="start">
         <div class="start__text">
           <p class="eyebrow">Ausbildungsberuf Zerspanungsmechaniker/-in</p>
-          <h1 class="start__titel">Wer zu fest zieht, bricht den Bohrer.</h1>
+          <h1 class="start__titel">Wer zu fest zieht, <span class="glanz">bricht den Bohrer.</span></h1>
           <p class="start__lead">Bohren, Gewindebohren, Reiben, Längs- und Plandrehen und Fräsen an Säulenbohrmaschine, konventioneller und CNC-Drehmaschine, Konsolfräsmaschine und Bearbeitungszentrum. Schnittkraft nach Kienzle, Verschleiß nach Taylor, Spänestau, Knicken, Rattern, Wärmedehnung – und was passiert, wenn man die Maschine überlastet: rutschender Riemen, ratschende Kupplung, hämmernder Tisch, Funken erst beim Bruch.</p>
-          <div class="start__knoepfe">
+          <div class="start__knoepfe" id="start-knoepfe">
             <button type="button" class="knopf knopf--gelb" data-nav="karriere">Karriere beginnen</button>
             <button type="button" class="knopf" data-nav="werkstatt">Freie Werkstatt</button>
           </div>
+          <div id="start-spiel" class="start__spiel"></div>
         </div>
         <div class="typenschild" aria-label="Typenschild">
           <span class="niete niete--lo"></span><span class="niete niete--ro"></span>
@@ -77,8 +90,9 @@
     <section id="v-karriere" class="ansicht" hidden>
       <div class="kopfzeile">
         <h1>Karriere</h1>
-        <p class="muted">Vom ersten Lehrjahr bis zur Gesellenprüfung. Bewertet wird nach dem IHK-Punkteschlüssel.</p>
+        <p class="muted">Vom ersten Lehrjahr bis zur Gesellenprüfung. Bewertet wird nach dem IHK-Punkteschlüssel. Drei Sterne gibt es für Note 1 ohne Werkzeugbruch in der Vorgabezeit.</p>
       </div>
+      <div id="karriere-kopf" class="karriere-kopf"></div>
       <div id="missionen" class="missionen"></div>
     </section>
 
@@ -135,6 +149,11 @@
       <div id="tabellenbuch" class="tabellenbuch"></div>
     </section>
 
+    <!-- ======================================================== Profil -->
+    <section id="v-profil" class="ansicht" hidden>
+      <div id="profil" class="profil"></div>
+    </section>
+
     <!-- ======================================================== Einstellungen -->
     <section id="v-einstellungen" class="ansicht" hidden>
       <div class="kopfzeile"><h1>Einstellungen</h1></div>
@@ -154,6 +173,7 @@
   <script src="js/szene-dreh.js"></script>
   <script src="js/szene-fraes.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/belohnung.js"></script>
   <script src="js/ruesten.js"></script>
   <script src="js/bearbeiten.js"></script>
   <script src="js/pruefen.js"></script>

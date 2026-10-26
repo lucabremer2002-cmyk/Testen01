@@ -38,6 +38,12 @@ ohne Internet wird eine Ersatzschrift verwendet.
   Schruppen, Schlichten mit Fase); die Steuerung arbeitet es Satz für Satz ab
   (G0–G3, G4, G90/G91, G92/G50/LIMS, G94/G95, G96/G97, T, M3/M4/M5/M8/M9/M30),
   mit Einzelsatz, Override, Reset, Verschleißkorrektur und Alarmen.
+* **Spiel:** Schichtpunkte und Combo bis ×5 für sauberes Zerspanen im richtigen
+  Lastbereich (Rattern, Überlast, Bruch oder ein Sicherheitsverstoß kosten die Combo,
+  nie die Punkte), Bonus für getroffene Maße und den Längsanschlag. Nach jedem Auftrag
+  Sterne (★ bestanden, ★★ Note 2, ★★★ Note 1 ohne Bruch in der Vorgabezeit),
+  Erfahrung, Level und Ränge vom Neuling bis zur Spanwerk-Legende, Prämie aufs Konto,
+  23 Erfolge, ein Tagesauftrag mit Serie und Lackierungen für die Maschinen.
 * **Darstellung und Klang:** Dreh- und Fräsmaschinen in 2.5D (Schrägansicht
   mit Hallenlicht): Walzhaut, gedrehte Absätze und Fasen, Nutböden und -wände
   aus der Höhenkarte, Komma-, C- und Wendelspäne mit Anlauffarben, Funken nur
@@ -92,7 +98,8 @@ js/daten.js         Werkstoffe, Schneidstoffe, Werkzeuge, Maschinen, Toleranzen
 js/physik.js        Prozessphysik (BohrSim, DrehSim, FraesSim)
 js/nc.js            NC-Interpreter und Programmierhilfe der CNC-Drehmaschine
 js/missionen.js     Aufträge und IHK-Notenschlüssel
-js/audio.js         Maschinengeräusche (Web Audio, synthetisch)
+js/audio.js         Maschinengeräusche und Spielklänge (Web Audio, synthetisch)
+js/belohnung.js     Spielebene: Combo, Erfahrung, Sterne, Erfolge, Tagesauftrag, Lackierungen
 js/zeichnung.js     Technische Zeichnungen
 js/szenen.js        Canvas-Darstellung (Bohren) und gemeinsame Helfer
 js/szene-dreh.js    Drehmaschinen in 2.5D

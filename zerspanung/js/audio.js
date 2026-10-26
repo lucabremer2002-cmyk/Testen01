@@ -499,5 +499,104 @@
     ping(this.ctx, this.master, 784, 0.8, 0.12, t + 0.2);
   };
 
+  // ---------------------------------------------------------- Spielgeraeusche
+  // Dur-Tonleiter ab C5: jede Combo-Stufe klingt eine Terz hoeher
+  var LEITER = [523.25, 587.33, 659.25, 698.46, 783.99, 880, 987.77, 1046.5, 1174.66, 1318.51, 1396.91, 1567.98];
+  function ton(self, f, start, dauer, lautst, typ) {
+    var c = self.ctx, o = c.createOscillator(), g = c.createGain();
+    o.type = typ || 'triangle';
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.exponentialRampToValueAtTime(lautst, start + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dauer);
+    o.connect(g);
+    g.connect(self.master);
+    o.start(start);
+    o.stop(start + dauer + 0.05);
+  }
+
+  // Punkte gutgeschrieben: kurzer Blip, Tonhoehe steigt mit der Combo
+  Klang.prototype.punkt = function (stufe) {
+    if (!this.bereit) { return; }
+    var t = this.ctx.currentTime, i = Math.min(LEITER.length - 1, 2 * (stufe || 0));
+    ton(this, LEITER[i], t, 0.09, 0.07, 'square');
+    ton(this, LEITER[i] * 2, t + 0.03, 0.08, 0.03, 'sine');
+  };
+
+  // Combo-Stufe erreicht: aufsteigendes Arpeggio
+  Klang.prototype.comboHoch = function (stufe) {
+    if (!this.bereit) { return; }
+    var t = this.ctx.currentTime, k, b = Math.min(LEITER.length - 3, 2 * (stufe || 0));
+    for (k = 0; k < 3; k++) { ton(this, LEITER[Math.min(LEITER.length - 1, b + k * 2)], t + k * 0.06, 0.16, 0.08, 'square'); }
+  };
+
+  // Combo verloren: abfallender, gedaempfter Ton
+  Klang.prototype.comboWeg = function () {
+    if (!this.bereit) { return; }
+    var c = this.ctx, t = c.currentTime, o = c.createOscillator(), g = c.createGain(), lp = filter(c, 'lowpass', 900, 1);
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(320, t);
+    o.frequency.exponentialRampToValueAtTime(90, t + 0.35);
+    g.gain.setValueAtTime(0.12, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+    o.connect(lp);
+    lp.connect(g);
+    g.connect(this.master);
+    o.start(t);
+    o.stop(t + 0.45);
+  };
+
+  // Stern i (0..2): Glockenton, jeder hoeher
+  Klang.prototype.stern = function (i) {
+    if (!this.bereit) { return; }
+    var t = this.ctx.currentTime, f = [783.99, 987.77, 1174.66][Math.min(2, i || 0)];
+    ton(this, f, t, 0.6, 0.12, 'sine');
+    ton(this, f * 2.01, t, 0.35, 0.05, 'sine');
+    ton(this, f * 3.02, t + 0.01, 0.2, 0.025, 'sine');
+  };
+
+  // Muenze: zwei schnelle hohe Toene
+  Klang.prototype.muenze = function () {
+    if (!this.bereit) { return; }
+    var t = this.ctx.currentTime;
+    ton(this, 1318.51, t, 0.07, 0.06, 'square');
+    ton(this, 1975.53, t + 0.06, 0.18, 0.06, 'square');
+  };
+
+  // Ticken beim Hochzaehlen
+  Klang.prototype.tick = function (i) {
+    if (!this.bereit) { return; }
+    ton(this, 1400 + 40 * ((i || 0) % 12), this.ctx.currentTime, 0.03, 0.025, 'square');
+  };
+
+  // Stempel auf dem Pruefprotokoll
+  Klang.prototype.stempel = function () {
+    if (!this.bereit) { return; }
+    var t = this.ctx.currentTime;
+    stueck(this, t, 0.09, 'lowpass', 600, 0.8, 0.9);
+    ping(this.ctx, this.master, 90, 0.15, 0.4, t);
+  };
+
+  // Level-up: Fanfare mit Glitzer
+  Klang.prototype.levelUp = function () {
+    if (!this.bereit) { return; }
+    var t = this.ctx.currentTime, k;
+    var folge = [[523.25, 0], [659.25, 0.09], [783.99, 0.18], [1046.5, 0.3]];
+    folge.forEach(function (n) { ton(this, n[0], t + n[1], 0.5, 0.1, 'square'); ton(this, n[0] / 2, t + n[1], 0.5, 0.06, 'triangle'); }, this);
+    ton(this, 1046.5, t + 0.3, 1.1, 0.08, 'sine');
+    ton(this, 1318.51, t + 0.3, 1.1, 0.06, 'sine');
+    ton(this, 1567.98, t + 0.3, 1.1, 0.06, 'sine');
+    for (k = 0; k < 8; k++) { ton(this, 2093 + 300 * Math.random(), t + 0.45 + k * 0.05, 0.12, 0.025, 'sine'); }
+  };
+
+  // Erfolg freigeschaltet: kurzer Jingle
+  Klang.prototype.erfolgFrei = function () {
+    if (!this.bereit) { return; }
+    var t = this.ctx.currentTime;
+    ton(this, 783.99, t, 0.18, 0.08, 'square');
+    ton(this, 1046.5, t + 0.1, 0.18, 0.08, 'square');
+    ton(this, 1567.98, t + 0.2, 0.5, 0.08, 'triangle');
+  };
+
   ZM.Klang = Klang;
 })(typeof window !== 'undefined' ? window : globalThis);

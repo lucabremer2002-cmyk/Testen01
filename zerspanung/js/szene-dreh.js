@@ -342,7 +342,15 @@
   }
 
   // Maschinenfarben
-  var LACK = rgb('#5f7560'), LACK_H = rgb('#82987f'), LACK_D = rgb('#3b4a3c');
+  // Lackierung aus dem Profil (ZM.optik.lack), Licht- und Schattenton daraus abgeleitet
+  var LACK, LACK_H, LACK_D;
+  function lackSetzen() {
+    var hex = (ZM.optik && ZM.optik.lack) || '#5f7560';
+    LACK = rgb(hex);
+    LACK_H = misch(LACK, [255, 255, 255], 0.2);
+    LACK_D = [LACK[0] * 0.62, LACK[1] * 0.62, LACK[2] * 0.62];
+  }
+  lackSetzen();
   var RAL7035 = rgb('#c5c9c4'), RAL7016 = rgb('#383e42');
   var BLANKSTAHL = rgb('#9ea6ac'), BRUENIERT = rgb('#2e3338'), FUEHRUNG = rgb('#aab2b8');
 
@@ -350,6 +358,7 @@
   //                              SZENE
   // =====================================================================
   function DrehSzene(sim) {
+    lackSetzen();
     this.sim = sim;
     this.cnc = !!sim.cnc;
     this.A = aussehen(sim.mat);
@@ -385,12 +394,15 @@
     var n = A.walz ? 110 : A.guss ? 140 : 30;
     for (i = 0; i < n; i++) {
       var typ = A.walz ? (r() < 0.22 ? 1 : r() < 0.45 ? 2 : 0) : A.guss ? 4 : 3;
+      // Umriss: zehn Radienfaktoren, damit Zunder- und Rostflecken unregelmaessig und rundlich werden
+      var rand = [], k;
+      for (k = 0; k < 10; k++) { rand.push(0.62 + 0.5 * r()); }
       list.push({ a: -BACKE_A + r() * (sim.L + BACKE_A), th: r() * TAU, wa: (A.walz ? 1.2 + r() * 7 : A.guss ? 0.6 + r() * 1.6 : 2 + r() * 12),
-        wt: A.walz ? 0.06 + r() * 0.32 : A.guss ? 0.03 + r() * 0.08 : 0.02 + r() * 0.05, typ: typ });
+        wt: A.walz ? 0.06 + r() * 0.32 : A.guss ? 0.03 + r() * 0.08 : 0.02 + r() * 0.05, typ: typ, rand: rand });
     }
     return list;
   };
-  var FLECK = [['#171b1e', 0.6], ['#6e4a2e', 0.55], ['#727b82', 0.4], ['#ffffff', 0.13], ['#25292c', 0.5]];
+  var FLECK = [['#171b1e', 0.6], ['#6e4a2e', 0.5], ['#727b82', 0.28], ['#ffffff', 0.13], ['#25292c', 0.5]];
 
   DrehSzene.prototype.ereignis = function (e) {
     switch (e.typ) {
@@ -1043,18 +1055,17 @@
         var th = f.th + z.phi + z.rot * j * z.dphi / m;
         var c = Math.cos(th - cth);
         if (c < 0.05) { continue; }
-        var a0 = Math.max(run.a0, f.a), a1 = Math.min(run.a1, f.a + f.wa);
-        var t0 = th - f.wt / 2, t1 = th + f.wt / 2;
-        var fc = FLECK[f.typ];
+        var am = f.a + f.wa / 2, fc = FLECK[f.typ], q, n = f.rand.length;
         ctx.fillStyle = fc[0];
         ctx.globalAlpha = fc[1] * (1 - beta) * dichte / m * Math.min(1, c * 2.5);
         ctx.beginPath();
-        ctx.moveTo(k.X(a0, r * Math.cos(t0)), k.Y(a0, r * Math.cos(t0), r * Math.sin(t0)));
-        ctx.lineTo(k.X(a1, r * Math.cos(t0)), k.Y(a1, r * Math.cos(t0), r * Math.sin(t0)));
-        ctx.lineTo(k.X(a1, r * Math.cos(th)), k.Y(a1, r * Math.cos(th), r * Math.sin(th)));
-        ctx.lineTo(k.X(a1, r * Math.cos(t1)), k.Y(a1, r * Math.cos(t1), r * Math.sin(t1)));
-        ctx.lineTo(k.X(a0, r * Math.cos(t1)), k.Y(a0, r * Math.cos(t1), r * Math.sin(t1)));
-        ctx.lineTo(k.X(a0, r * Math.cos(th)), k.Y(a0, r * Math.cos(th), r * Math.sin(th)));
+        // unregelmaessige Ellipse in (a, Winkel), axial auf den bearbeiteten Bereich beschnitten
+        for (q = 0; q <= n; q++) {
+          var w = q / n * TAU, rf = f.rand[q % n];
+          var aa = clamp(am + Math.cos(w) * f.wa / 2 * rf, run.a0, run.a1), tt = th + Math.sin(w) * f.wt / 2 * rf;
+          var px = k.X(aa, r * Math.cos(tt)), py = k.Y(aa, r * Math.cos(tt), r * Math.sin(tt));
+          if (q === 0) { ctx.moveTo(px, py); } else { ctx.lineTo(px, py); }
+        }
         ctx.closePath();
         ctx.fill();
       }

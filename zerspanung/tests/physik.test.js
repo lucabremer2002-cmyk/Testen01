@@ -430,3 +430,48 @@ test('CNC: Generator mit Wiper-Platte und G97 ohne S', function () {
   assert.strictEqual(ab[1].s, null, 'G97 ohne S muss die Drehzahl einfrieren');
   assert.strictEqual(ab[2].s, 220, 'G96 ohne S nimmt die letzte Schnittgeschwindigkeit');
 });
+
+// ------------------------------------------------------------ Spielebene
+require('../js/missionen.js');
+require('../js/belohnung.js');
+var BEL = globalThis.ZM.belohnung, MISS = globalThis.ZM.missionen;
+
+test('Belohnung: Levelkurve, Rang und Sterne', function () {
+  assert.strictEqual(BEL.levelInfo(0).level, 1);
+  assert.strictEqual(BEL.levelInfo(99).level, 1);
+  assert.strictEqual(BEL.levelInfo(100).level, 2);
+  assert.strictEqual(BEL.rang(10), 'Geselle');
+  var m = MISS.finde('M07');
+  assert.strictEqual(BEL.sterne({ note: { note: 1 }, brueche: 0, zeit: 10 }, m), 3);
+  assert.strictEqual(BEL.sterne({ note: { note: 1 }, brueche: 1, zeit: 10 }, m), 2);
+  assert.strictEqual(BEL.sterne({ note: { note: 1 }, brueche: 0, zeit: m.zeit + 1 }, m), 2);
+  assert.strictEqual(BEL.sterne({ note: { note: 4 }, brueche: 0, zeit: 10 }, m), 1);
+  assert.strictEqual(BEL.sterne({ note: { note: 5 }, brueche: 0, zeit: 10 }, m), 0);
+});
+
+test('Belohnung: Tagesauftrag ist je Tag fest und wechselt', function () {
+  var frei = MISS.liste.map(function (m) { return m.id; }), i, mods = {};
+  var a = BEL.tagesauftrag({ fortschritt: {} }, frei, '2026-10-26'), b = BEL.tagesauftrag({ fortschritt: {} }, frei, '2026-10-26');
+  assert.ok(a.id === b.id && a.mod === b.mod);
+  for (i = 1; i <= 28; i++) { mods[BEL.tagesauftrag({ fortschritt: {} }, frei, '2026-02-' + (i < 10 ? '0' : '') + i).mod] = 1; }
+  assert.ok(Object.keys(mods).length >= 4, 'zu wenig Abwechslung ' + Object.keys(mods));
+});
+
+test('Belohnung: Abschluss gibt Erfahrung, Sterne, Geld und Serie nur einmal je Tag', function () {
+  var m = MISS.finde('M07'), heute = BEL.datumKey();
+  var spiel = { stand: { fortschritt: { M07: { punkte: 100, note: 1, bestanden: true } } } };
+  var p = BEL.profil(spiel.stand);
+  p.tages = { datum: heute, id: 'M07', mod: 'note1', erledigt: false };
+  p.serie = { tage: 2, letzter: BEL.vortag(heute) };
+  var aw = { note: { note: 1 }, punkte: 100, brueche: 0, zeit: 100, kostenWkz: 1, praemie: 80, sicherheit: 0, merkmale: [] };
+  var r = BEL.abschluss(spiel, m, aw, false, [{ schicht: { wert: 1000, maxKette: 4 } }]);
+  assert.strictEqual(r.sterne, 3);
+  assert.strictEqual(spiel.stand.fortschritt.M07.sterne, 3);
+  assert.ok(r.tagesErledigt && p.serie.tage === 3, 'Serie ' + p.serie.tage);
+  assert.strictEqual(r.geld, 80 + BEL.TAGES_GELD);
+  assert.ok(r.levelUp && r.xp > 500, 'XP ' + r.xp);
+  var r2 = BEL.abschluss(spiel, m, aw, false, []);
+  assert.ok(!r2.tagesErledigt && p.serie.tage === 3);
+  assert.ok(!r2.xpZeilen.some(function (z) { return /Stern|Erstabschluss/.test(z.text); }), 'Sterne/Erstabschluss doppelt');
+  assert.strictEqual(r2.erfolge.length, 0);
+});

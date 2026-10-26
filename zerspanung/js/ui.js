@@ -111,6 +111,7 @@
       if (roh) {
         var d = JSON.parse(roh);
         s.fortschritt = d.fortschritt || {};
+        s.spieler = d.spieler || null;
         Object.keys(d.einstellungen || {}).forEach(function (k) { s.einstellungen[k] = d.einstellungen[k]; });
         Object.keys(d.statistik || {}).forEach(function (k) { s.statistik[k] = d.statistik[k]; });
       }

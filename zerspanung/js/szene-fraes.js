@@ -776,7 +776,7 @@
       c.fillRect(0, 0, W, H);
     } else {
       // Staender der Konsolfraesmaschine hinter dem Tisch (Resedagruen) mit Fuehrungsbahnen
-      var gr = hexRgb('#5f7560'), yS = yb + 70, xa = -700, xb = sim.L + 700;
+      var gr = hexRgb((ZM.optik && ZM.optik.lack) || '#5f7560'), yS = yb + 70, xa = -700, xb = sim.L + 700;
       var gg = c.createLinearGradient(0, this.by(0, yS, 300), 0, this.by(0, yS, this.zT - 100));
       gg.addColorStop(0, rgb(gr, I_VORN * 1.1));
       gg.addColorStop(1, rgb(gr, I_VORN * 0.55));
@@ -1505,7 +1505,7 @@
     // Spindelkopf: Pinole im Gehaeuse (konventionell) bzw. Spindelgehaeuse BAZ
     var cnc = !!sim.m.cnc;
     var x0 = G.xc - 125, x1 = G.xc + 125, y0 = G.yc - 115, zK = z;
-    var farbe = cnc ? hexRgb('#3a4046') : hexRgb('#5f7560');
+    var farbe = cnc ? hexRgb('#3a4046') : hexRgb((ZM.optik && ZM.optik.lack) || '#5f7560');
     var Yk = this.by(x0, y0, zK);
     if (Yk > -10) {
       var P = [x0, y0, zK, x1, y0, zK, x1, y0, zK + 700, x0, y0, zK + 700];
