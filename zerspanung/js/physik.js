@@ -1747,7 +1747,8 @@
     var backenR = Math.max(this.D0, 20) / 2 + m.futter.backenH;
     if (this.z < 0.6 && r < backenR && !this.kollidiert) {
       this.z = Math.max(this.z, 0.2);
-      this.crash(nRev > 0.5 ? 'Der Drehmeißel ist in die laufenden Futterbacken gefahren. Platte zerstört, Futter beschädigt. Vorschub rechtzeitig auskuppeln oder Längsanschlag setzen.' :
+      this.crash(nRev > 0.5 ? (this.cnc ? 'Das Werkzeug ist in die laufenden Futterbacken gefahren. Platte zerstört, Futter beschädigt. Verfahrwege im Programm prüfen (Z-Werte gegen die Spannlänge) und neue Programme im Einzelsatz mit kleinem Override einfahren.' :
+        'Der Drehmeißel ist in die laufenden Futterbacken gefahren. Platte zerstört, Futter beschädigt. Vorschub rechtzeitig auskuppeln oder Längsanschlag setzen.') :
         'Der Drehmeißel ist gegen die Futterbacken gefahren. Platte zerstört.');
       if (nRev > 0.5 && !this.cnc) { this.unfall = { art: 'kollision', text: 'Kollision mit laufendem Futter.' }; }
       return;
@@ -2079,6 +2080,8 @@
       var R = mat.rho * mat.cp * vc * Math.max(h, 0.01) * 1e6 / (60 * (mat.lam || 45));
       var beta = 0.9 * R / (R + 8);
       this.Tspan = T_UMG + beta * kc * 1e-3 / (mat.rho * mat.cp * 1.15) * (kssAn ? 0.85 : 1);
+      // Ueber die Solidustemperatur kann der Span nicht kommen: der Werkstoff schmiert und klebt vorher
+      if (mat.tSchmelz) { this.Tspan = Math.min(this.Tspan, mat.tSchmelz - 80); }
       this.Tsicht = this.Tspan + 0.25 * Math.max(0, w.T - this.Tspan);
     } else {
       this.Tspan = T_UMG;
@@ -2787,7 +2790,7 @@
       var affin = stoff.alAffin ? 2.0 : (def.al ? 0.2 : 0.8);
       var rate = mat.kleben * affin * (kd.schmier > 0.3 || kd.kuehl > 0.5 ? 0.12 : 1) * (0.5 + w.T / 400) * 0.06;
       w.aufschweiss = Math.min(2, w.aufschweiss + rate * dt);
-      if (w.aufschweiss > 0.8) { this.ev.einmalig(this.zeit, 'aufschweiss', 'Aluminium schweißt in die Spannuten auf. Die Spanräume setzen sich zu.', 'warn', 6); }
+      if (w.aufschweiss > 0.8) { this.ev.einmalig(this.zeit, 'aufschweiss', (mat.iso === 'N' ? 'Aluminium' : 'Der Werkstoff') + ' schweißt in die Spannuten auf. Die Spanräume setzen sich zu.', 'warn', 6); }
     }
 
     // Auszug aus der Spannzange
@@ -2821,6 +2824,7 @@
 
     // ------------------------------------------------ Spantemperatur, Gluehen, Funken
     this.Tspan = schneidet ? T_UMG + 0.85 * (w.T - T_UMG) : T_UMG;
+    if (mat.tSchmelz) { this.Tspan = Math.min(this.Tspan, mat.tSchmelz - 80); }
     this.Tsicht = this.Tspan;
     var eisen = mat.iso === 'P' || mat.iso === 'M' || mat.iso === 'S' || mat.iso === 'H';
     this.glut = eisen && schneidet ? clamp((this.Tspan - 550) / 250, 0, 1) * (kd.kuehl > 0.5 ? 0.3 : 1) : 0;
@@ -2944,7 +2948,8 @@
       return { art: 'spiel', text: 'Der Tisch hat im Gleichlauf gezogen – die schlagartig erhöhte Spanungsdicke hat den Fräser abgeschert.' };
     }
     if (w.aufschweiss > 1) {
-      return { art: 'aufschweiss', text: 'Die Spannuten sind mit aufgeschweißtem Aluminium zugesetzt. Der Fräser konnte keine Späne mehr aufnehmen und ist gebrochen. Alufräser (poliert, unbeschichtet) und Kühlschmierung verwenden.' };
+      return { art: 'aufschweiss', text: this.mat.iso === 'N' ? 'Die Spannuten sind mit aufgeschweißtem Aluminium zugesetzt. Der Fräser konnte keine Späne mehr aufnehmen und ist gebrochen. Alufräser (poliert, unbeschichtet) und Kühlschmierung verwenden.' :
+        'Die Spannuten sind mit aufgeschweißtem Werkstoff zugesetzt. Der Fräser konnte keine Späne mehr aufnehmen und ist gebrochen. Scharfe Fräser, kleinere vc und reichlich Kühlschmierung verwenden.' };
     }
     if (this.amp > 15) {
       return { art: 'rattern', text: 'Rattern hat den Fräser zerrüttet.' };

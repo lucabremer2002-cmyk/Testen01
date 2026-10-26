@@ -623,6 +623,9 @@
   // =====================================================================
   DrehSzene.prototype.zeichne = function (cv, dt, a) {
     var t0 = jetzt();
+    // Echtzeit fuer Blitz und Schuetteln: sie klingen auch ab, solange ein Dialog die Simulation anhaelt
+    var echt = this.tWand ? clamp((t0 - this.tWand) / 1000, 0, 0.1) : 0;
+    this.tWand = t0;
     var gr = groesse(cv);
     if (!gr) { return; }
     var ctx = gr.ctx, W = gr.w, H = gr.h, sim = this.sim, k = this.kam;
@@ -653,7 +656,7 @@
       this.bewegen(dt, z);
     }
 
-    var sh = this.schuetteln(dt);
+    var sh = this.schuetteln(echt);
     ctx.fillStyle = '#121618';
     ctx.fillRect(0, 0, W, H);
     ctx.save();
@@ -683,7 +686,7 @@
     if (this.blitz > 0) {
       ctx.fillStyle = 'rgba(217,45,32,' + (this.blitz * 0.35).toFixed(3) + ')';
       ctx.fillRect(0, 0, W, H);
-      this.blitz = Math.max(0, this.blitz - dt * 1.5);
+      this.blitz = Math.max(0, this.blitz - echt * 1.5);
     }
     var ms = jetzt() - t0;
     this.ms = this.ms ? this.ms * 0.9 + ms * 0.1 : ms;
@@ -1995,7 +1998,8 @@
           ctx.stroke();
         }
       }
-      if (q.T > 600) { glueh.push(q); }
+      // Nur Eisenwerkstoffe und Titan gluehen sichtbar; Aluminium und Messing schmelzen vorher
+      if (q.T > 600 && this.A.anlauf) { glueh.push(q); }
     }
     ctx.globalAlpha = 1;
     // Gluehende Spanstuecke additiv

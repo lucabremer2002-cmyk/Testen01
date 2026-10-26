@@ -893,6 +893,9 @@
   // =====================================================================
   FraesSzene.prototype.zeichne = function (cv, dt, a) {
     var t0 = jetzt();
+    // Echtzeit fuer Blitz und Schuetteln: sie klingen auch ab, solange ein Dialog die Simulation anhaelt
+    var echt = this.tWand ? clamp((t0 - this.tWand) / 1000, 0, 0.1) : 0;
+    this.tWand = t0;
     a = a || {};
     var r = groesse(cv), ctx = r.ctx, W = r.w, H = r.h;
     if (W < 20 || H < 20) { return; }
@@ -911,7 +914,7 @@
     var G = this.werkzeugGeo();
     this.emittieren(dts, G, a);
     this.bewegen(dts);
-    var sh = this.schuetteln(dt);
+    var sh = this.schuetteln(echt);
 
     ctx.save();
     ctx.translate(sh[0], sh[1]);
@@ -929,7 +932,8 @@
     // 3. bewegliche Backe, liegende Spaene oben
     ctx.drawImage(this.stV, ox, oy, W, H);
     if (this.obenDirty) { this.obenBacken(); }
-    ctx.drawImage(this.cvO, ox, oy, W, H);
+    // liegende Spaene auf der Oberseite bewegen sich mit dem (verrutschten) Werkstueck
+    ctx.drawImage(this.cvO, wox, woy, W, H);
     this.stueckeLiegend(ctx, ox, oy);
     // 4. Fraeser oberhalb der Oberflaeche, Aufnahme, Spindel, KSS
     this.schattenWerkzeug(ctx, wox, woy, G);
@@ -946,7 +950,7 @@
     if (this.blitz > 0) {
       ctx.fillStyle = rgba(this.blitzFarbe, this.blitz * 0.35);
       ctx.fillRect(0, 0, W, H);
-      this.blitz = Math.max(0, this.blitz - dt * 1.6);
+      this.blitz = Math.max(0, this.blitz - echt * 1.6);
     }
     this.dauer = jetzt() - t0;
   };
@@ -1583,9 +1587,11 @@
     this.blitz = 0.55;
     this.blitzFarbe = [217, 45, 32];
     var x = G.xc, y = G.yc, zz = Math.max(G.zTip + zB, -2);
-    // Bruchschauer: Funken nur bei Eisenwerkstoffen und Titan mit vc > 60 m/min
-    if (mat.funke && mat.funke.f > 0 && vcm > 60) {
-      var nF = Math.round(clamp(5 * vcm / 60 * (vhm ? 1.5 : 1) * mat.funke.f, 6, 60));
+    // Bruchschauer: die Physik legt die Funkenzahl fest (nur Eisenwerkstoffe und Titan, vc > 60 m/min);
+    // hier wird der Puffer als radialer Schauer verbraucht, damit er nicht doppelt erscheint
+    if (mat.funke && mat.funke.f > 0 && vcm > 60 && this.sim.funkenPuffer > 0) {
+      var nF = Math.round(clamp(this.sim.funkenPuffer, 0, 60));
+      this.sim.funkenPuffer = 0;
       for (i = 0; i < nF; i++) { this.funkeNeu(x, y, zz, zufall(0, PI2), zufall(3000, 9000), 0.5 + Math.random() * 0.6); }
     }
     // Splitter in Schneidstofffarbe, Spaene
@@ -1899,7 +1905,7 @@
       return;
     }
     var ax = Math.abs(x - xm);
-    if (ax < 70 && y >= -58 && y < 0) { this._hz = this.zJ; this._kat = K_OBEN; return; }
+    if (ax < 70 && y >= -58 && y < 0) { this._hz = this.zJ; this._kat = K_VORN; return; }
     if (ax < 70 && y >= B && y < B + 55) { this._hz = this.zJ; this._kat = K_HINTEN; return; }
     if (ax < 75 && y >= 0 && y < B) {
       this._hz = ((y >= 3 && y < 9) || (y >= B - 9 && y < B - 3)) && -sim.H > this.zB ? -sim.H : this.zB;
@@ -2194,7 +2200,7 @@
     ctx.globalCompositeOperation = 'lighter';
     ctx.lineCap = 'round';
     // Gluehen an der Schnittstelle bzw. am reibenden Stumpf
-    var gl = Math.max(glut, sim.stumpfReibt && sim.nEff > 20 ? clamp(((sim.w ? sim.w.T : 0) - 450) / 300, 0.15, 1) : 0);
+    var gl = Math.max(glut, sim.stumpfReibt && sim.nEff > 20 ? clamp(((sim.w ? sim.w.T : 0) - 550) / 300, 0, 1) : 0);
     if (gl > 0.02) {
       var aus = this.austritt(G), rg = (G.r * 1.3 + 2) * s;
       var xg = G.xc + G.r * Math.cos(aus.phi) * 0.8, yg = G.yc + G.r * Math.sin(aus.phi) * 0.8;

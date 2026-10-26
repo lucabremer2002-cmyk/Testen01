@@ -1308,7 +1308,7 @@
       if (a.stumpfReibt) { sag('stumpf', 'Der Stumpf reibt im Werkstück – sofort Vorschub und Spindel aus!', 3); }
       if (a.r > 0.72) { sag('r', 'Der Fräser ist bei ' + Math.round(a.r * 100) + ' % seiner Bruchgrenze!', 3); }
       if (a.amp > 2.5) { sag('amp', 'Der Fräser rattert. Weniger Tiefe oder andere Drehzahl.', 6); }
-      if (a.aufschweiss > 0.5) { sag('al', 'Das Aluminium schweißt auf den Fräser.', 8); }
+      if (a.aufschweiss > 0.5) { sag('al', sim.mat.iso === 'N' ? 'Das Aluminium schweißt auf den Fräser.' : 'Der Werkstoff klebt an den Schneiden und setzt die Spannuten zu.', 8); }
       if (a.last > 0.95) { sag('last', 'Spindel an der Leistungsgrenze.', 6); }
       if (a.T > a.tSoft - 80 && a.ap > 0) { sag('T', 'Die Schneide wird zu heiß.', 6); }
     }
