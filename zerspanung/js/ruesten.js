@@ -645,6 +645,7 @@
     if (fehler) { U.toast(fehler); return; }
 
     var param = {
+      arcade: this.spiel.stand.einstellungen.modus !== 'simulation',
       n: w.n, kss: w.kss, spann: w.spann, pos: w.pos, anbohren: w.anbohren && op.typ === 'bohren' && !op.vor,
       psa: { brille: w.brille, handschuhe: w.handschuhe }
     };

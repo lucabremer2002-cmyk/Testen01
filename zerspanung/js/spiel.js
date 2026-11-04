@@ -29,6 +29,7 @@
     U.$$('[data-nav]').forEach(function (b) {
       b.addEventListener('click', function () { self.navigiere(b.getAttribute('data-nav')); });
     });
+    U.$('#modus-chip').addEventListener('click', function () { self.modusWechseln(); });
     U.$('#ton').addEventListener('click', function () {
       self.stand.einstellungen.ton = !self.stand.einstellungen.ton;
       self.klang.start();
@@ -79,6 +80,29 @@
 
   Spiel.prototype.stufeAnzeige = function () {
     U.$('#stufe-chip').textContent = STUFEN[this.stand.einstellungen.stufe];
+    var arcade = this.stand.einstellungen.modus !== 'simulation', mc = U.$('#modus-chip');
+    if (mc) {
+      mc.textContent = arcade ? 'Arcade' : 'Simulation';
+      mc.classList.toggle('chip--sim', !arcade);
+      mc.title = arcade ? 'Arcade: nichts bricht, nichts crasht. Klick für die echte Simulation.' : 'Simulation: echte Brüche, Crashs und Unfälle. Klick für Arcade.';
+    }
+  };
+
+  // Gilt sofort, auch an der laufenden Maschine und in den offenen Einstellungen
+  Spiel.prototype.modusAnwenden = function () {
+    var arcade = this.stand.einstellungen.modus !== 'simulation';
+    if (this.bb) { this.bb.arcade = arcade; if (this.bb.sim) { this.bb.sim.arcade = arcade; } }
+    var r = document.querySelector('input[name="modus"][value="' + (arcade ? 'arcade' : 'simulation') + '"]');
+    if (r) { r.checked = true; }
+  };
+
+  Spiel.prototype.modusWechseln = function () {
+    var e = this.stand.einstellungen;
+    e.modus = e.modus === 'simulation' ? 'arcade' : 'simulation';
+    U.sichern(this.stand);
+    this.stufeAnzeige();
+    this.modusAnwenden();
+    U.toast(e.modus === 'arcade' ? 'Arcade-Modus: Werkzeuge brechen nicht, kein Crash, kein Unfall. Überlast ruckelt und funkt nur.' : 'Simulation: echte Physik – Werkzeuge brechen, Crashs und Unfälle zählen.');
   };
 
   Spiel.prototype.startStatistik = function () {
@@ -95,6 +119,11 @@
     }
     kn.appendChild(h('button.knopf', { type: 'button', onclick: function () { self.zeigeWerkstatt(); } }, 'Freie Werkstatt'));
     var box = U.leeren(U.$('#start-spiel'));
+    box.appendChild(h('button.drechselkarte', { type: 'button', onclick: function () { self.zeigeDrechseln(); } }, [
+      h('span.drechselkarte__neu', 'Neu'),
+      h('b', 'Drechselbank'),
+      h('span', 'Freier Modus: Holz drehen, so viel wegnehmen, wie du willst – ohne Crash.')
+    ]));
     box.appendChild(this.tagesKarte());
     var p = B.profil(this.stand), li = B.levelInfo(p.xp);
     box.appendChild(h('button.spielerkarte', { type: 'button', onclick: function () { self.zeigeProfil(); } }, [
@@ -123,6 +152,12 @@
   Spiel.prototype.laufendeBeenden = function () {
     if (this.bb && !this.bb.beendet) { this.bb.abbrechen(); }
     this.bb = null;
+    if (this.drechsel) { this.drechsel.pause(); }
+  };
+
+  Spiel.prototype.zeigeDrechseln = function () {
+    if (!this.drechsel) { this.drechsel = new ZM.Drechselbank(this); }
+    this.drechsel.zeigen();
   };
 
   Spiel.prototype.navigiere = function (ziel) {
@@ -134,6 +169,7 @@
       case 'tabellenbuch': this.zeigeTabellenbuch(false); break;
       case 'einstellungen': this.zeigeEinstellungen(); break;
       case 'profil': this.zeigeProfil(); break;
+      case 'drechseln': this.zeigeDrechseln(); break;
     }
   };
 
@@ -712,6 +748,17 @@
       reset.appendChild(h('button.knopf', { type: 'button', onclick: function () { self.zeigeEinstellungen(); } }, 'Abbrechen'));
     } }, 'Fortschritt zurücksetzen');
     reset.appendChild(resetKnopf);
+    var modi = h('div.wahl');
+    [['arcade', 'Arcade', 'Werkzeuge brechen nicht, kein Crash, keine Unfälle. Überlast ruckelt und funkt nur – perfekt zum Ausprobieren.'],
+      ['simulation', 'Simulation', 'Echte Zerspanungsphysik: Brüche, Kollisionen und Unfälle wie in der Werkstatt.']].forEach(function (m) {
+      modi.appendChild(h('label', [h('input', { type: 'radio', name: 'modus', value: m[0], checked: (e.modus || 'arcade') === m[0], onchange: function () { e.modus = m[0]; U.sichern(self.stand); self.stufeAnzeige(); self.modusAnwenden(); } }), h('span', [m[1], h('small.muted', m[2])])]));
+    });
+    var hinweise = h('div.wahl');
+    [['alle', 'Alle Hinweise', 'Der Meister sagt alles, was ihm auffällt.'], ['wenige', 'Wenige Hinweise', 'Jeder Tipp nur einmal, nie zwei kurz hintereinander.'], ['aus', 'Keine Hinweise', 'Nur noch Kritisches wird eingeblendet.']].forEach(function (m) {
+      hinweise.appendChild(h('label', [h('input', { type: 'radio', name: 'hinweise', value: m[0], checked: (e.hinweise || 'wenige') === m[0], onchange: function () { e.hinweise = m[0]; U.sichern(self.stand); } }), h('span', [m[1], h('small.muted', m[2])])]));
+    });
+    f.appendChild(h('section.panel', [h('h2', 'Spielmodus'), modi]));
+    f.appendChild(h('section.panel', [h('h2', 'Hinweise an der Maschine'), hinweise]));
     f.appendChild(h('section.panel', [h('h2', 'Realismusstufe'), stufen]));
     f.appendChild(h('section.panel', [h('h2', 'Ton und Ablauf'), h('div.wahl', [check('ton', 'Maschinengeräusche'), check('zeitraffer', 'Zeitraffer an der Maschine anbieten'), check('alles', 'Alle Aufträge freischalten')]),
       h('div.feld', { style: 'margin-top:12px' }, [h('span.feld__titel', 'Lautstärke'), vol])]));

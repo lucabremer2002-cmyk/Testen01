@@ -190,6 +190,16 @@
     return l;
   };
 
+  // Arcade-Modus: statt Bruch, Crash oder Unfall nur ein Ruck mit Funken und eine kurze Meldung
+  function arcadeStoss(sim, typ, text) {
+    if (sim.arcadeZeit !== undefined && sim.zeit - sim.arcadeZeit < 1.2) { return; }
+    sim.arcadeZeit = sim.zeit;
+    var MF = sim.mat && sim.mat.funke ? sim.mat.funke.f : 0;
+    if (sim.stoss) { sim.stoss(90 * MF, 0.2); }
+    if (sim.funkenPuffer !== undefined) { sim.funkenPuffer += 14 * MF; }
+    sim.ev.add(sim.zeit, typ, text, 'warn');
+  }
+
   function nf(v, s) {
     return v.toFixed(s === undefined ? 1 : s).replace('.', ',');
   }
@@ -207,6 +217,7 @@
     this.def = def;
     this.m = o.masch;
     this.p = o.param;
+    this.arcade = !!(o.param && o.param.arcade);
     this.op = o.op;
     this.rng = o.rng;
     this.vor = o.vor || [];
@@ -569,7 +580,7 @@
         verschleissThermisch(w.T, w.stoff.tSoft) * (rubbing ? 3 : 1);
       if (this.hart && this.z > this.hart.von && this.z < this.hart.bis) { dVB *= 2.5; }
       if (istHSS(def.stoff) && (mat.iso === 'M' || mat.iso === 'S') && def.stoff === 'HSS') { dVB *= 1.8; }
-      w.VB = Math.min(1.2, w.VB + dVB * dt);
+      w.VB = Math.min(1.2, w.VB + dVB * dt * (this.arcade ? 0.35 : 1));
       w.einsatz += dt;
       this.schnittZeit += dt;
       if (schneidet) {
@@ -751,6 +762,7 @@
   BohrSim.prototype.bruch = function (u, mNm) {
     var w = this.w;
     if (w.gebrochen) { return; }
+    if (this.arcade) { arcadeStoss(this, 'ueberlast', 'Überlast! In der Simulation wäre das Werkzeug jetzt gebrochen: ' + u.text); return; }
     w.gebrochen = true;
     var rest = this.typ === 'reibahle' ? 0 : clamp(this.z, 0, this.def.l2);
     var lage = clamp(this.z - Math.max(this.def.d * 0.7, Math.min(this.z * 0.6, this.def.l2 * 0.5)), -this.def.frei * 0.5, this.def.l2);
@@ -762,6 +774,7 @@
   };
 
   BohrSim.prototype.unfallSetzen = function (art, text) {
+    if (this.arcade) { arcadeStoss(this, 'schreck', 'Uff! In echt wäre das ein Unfall gewesen: ' + text); return; }
     this.unfall = { art: art, text: text };
     this.n = 0;
     this.nEff = 0;
@@ -987,7 +1000,7 @@
       var Tss = tempStat(mat, vc, Math.max(h, 0.01), 0.9, kd.temp) + 200 * w.VB + 80 * Math.max(0, this.phi - 0.6);
       w.T += (Tss - w.T) * Math.min(1, dt / 1.0);
       var tL = standzeitMin(vc, this.vcRef, w.stoff.invN, 30);
-      w.VB = Math.min(1.2, w.VB + 0.3 / (tL * 60) * mat.abr * verschleissThermisch(w.T, w.stoff.tSoft) * dt);
+      w.VB = Math.min(1.2, w.VB + 0.3 / (tL * 60) * mat.abr * verschleissThermisch(w.T, w.stoff.tSoft) * dt * (this.arcade ? 0.35 : 1));
       w.einsatz += dt;
       this.schnittZeit += dt;
     } else {
@@ -1215,6 +1228,7 @@
     this.def = o.wkz.def;
     this.m = o.masch;
     this.p = o.param;
+    this.arcade = !!(o.param && o.param.arcade);
     this.op = o.op;
     this.rng = o.rng;
     this.kssDef = DAT.kss[this.p.kss] || DAT.kss.trocken;
@@ -1502,6 +1516,7 @@
   DrehSim.prototype.revolverKollision = function () {
     var r = this.rEff();
     if (r < this.D0 / 2 + 18 && this.z < this.laengeMax() + 25 && this.z > -5) {
+      if (this.arcade) { arcadeStoss(this, 'klonk', 'Klonk! Der Revolver hat das Werkstück gestreift – im Arcade-Modus ohne Schaden. Vor dem Wechsel besser den Wechselpunkt anfahren.'); return false; }
       this.crash('Der Revolver hat zu nah am Werkstück geschwenkt – die Werkzeuge sind ins Werkstück geschlagen. Vor dem Werkzeugwechsel immer den Wechselpunkt anfahren (z. B. G0 X200 Z150).');
       return true;
     }
@@ -1510,6 +1525,7 @@
 
   DrehSim.prototype.crash = function (text) {
     var w = this.w;
+    if (this.arcade) { arcadeStoss(this, 'klonk', 'Klonk! ' + text.split('.')[0] + ' – im Arcade-Modus ohne Schaden.'); return; }
     this.kollidiert = true;
     w.gebrochen = true;
     w.bruch = { art: 'kollision', text: text };
@@ -1745,6 +1761,12 @@
 
     // Kollision mit den Futterbacken
     var backenR = Math.max(this.D0, 20) / 2 + m.futter.backenH;
+    if (this.z < 0.6 && r < backenR && !this.kollidiert && this.arcade) {
+      // Arcade: der Schlitten prallt am Futter ab, der Vorschub geht aus
+      this.z = 0.65;
+      this.anschlagAus = true;
+      arcadeStoss(this, 'klonk', 'Klonk! Fast in die Futterbacken gefahren – im Arcade-Modus prallt der Schlitten nur ab.');
+    }
     if (this.z < 0.6 && r < backenR && !this.kollidiert) {
       this.z = Math.max(this.z, 0.2);
       this.crash(nRev > 0.5 ? (this.cnc ? 'Das Werkzeug ist in die laufenden Futterbacken gefahren. Platte zerstört, Futter beschädigt. Verfahrwege im Programm prüfen (Z-Werte gegen die Spannlänge) und neue Programme im Einzelsatz mit kleinem Override einfahren.' :
@@ -1939,7 +1961,9 @@
       if (!this.reitstock) {
         var kipp = Math.sqrt(FcSpitze * FcSpitze + sq(plan ? Ff : Fp)) * this.z;
         var kippHalt = fsp * this.spannL / 4;
-        if (kipp > kippHalt * 1.6) {
+        if (kipp > kippHalt * 1.6 && this.arcade) {
+          arcadeStoss(this, 'schreck', 'Uff! So viel Kraft hätte das Werkstück in echt aus dem Futter gerissen. Lange Teile mit Reitstock abstützen.');
+        } else if (kipp > kippHalt * 1.6) {
           this.unfall = { art: 'herausgerissen', text: 'Das Werkstück wurde aus dem Futter gerissen.' };
           this.ev.add(this.zeit, 'unfall', 'Das Werkstück wurde aus dem Futter gerissen! Die Ausspannlänge (' + Math.round(this.L) +
             ' mm) ist für diese Schnittkraft viel zu groß, die Spannlänge (' + Math.round(this.spannL) + ' mm) zu kurz. Lange Teile mit Reitstock abstützen.', 'unfall');
@@ -2061,7 +2085,7 @@
       var dVB = 0.3 / (tL * 60) * Math.pow(f / fBez, 0.5) * Math.pow(Math.max(ap, 0.2), 0.15) * mat.abr *
         this.passung[0] * verschleissThermisch(w.T, w.stoff.tSoft);
       if (bue > 0.4) { dVB *= 1 + bue; }
-      w.VB = Math.min(1.2, w.VB + dVB * dt);
+      w.VB = Math.min(1.2, w.VB + dVB * dt * (this.arcade ? 0.35 : 1));
       w.einsatz += dt;
       this.st.schnittZeit += dt;
       // Waerme ins Werkstueck: etwa 12 % der Schnittleistung
@@ -2139,7 +2163,9 @@
       if (lastP > 1) { w.ausbruch = Math.min(1, w.ausbruch + 0.04 * (lastP - 1) * dt); }
       if (w.VB > 0.5) { hazard += 2 * (w.VB - 0.5); }
       if (sitzAn) { lastP = 2; }
-      if (lastP > 1.8 || this.rng.next() < hazard * dt) {
+      if (this.arcade && lastP > 1.05) {
+        arcadeStoss(this, 'ueberlast', 'Überlast! Platte bei ' + Math.round(lastP * 100) + ' % – in der Simulation wäre sie jetzt gebrochen.');
+      } else if (!this.arcade && (lastP > 1.8 || this.rng.next() < hazard * dt)) {
         this.platteBruch = true;
         w.gebrochen = true;
         if (vc > 30) { this.stoss(120 * MF, 0.3); }
@@ -2171,7 +2197,9 @@
     }
     // Falsche Drehrichtung an der CNC: Revolver hinter der Drehmitte, Spanflaeche oben -> M4.
     // Mit M3 laeuft das Werkstueck gegen Unterseite und Freiflaeche der Platte.
-    if (this.cnc && schneidet && this.drehrichtung === 3 && !this.platteBruch) {
+    if (this.cnc && schneidet && this.drehrichtung === 3 && !this.platteBruch && this.arcade) {
+      this.ev.einmalig(this.zeit, 'drehrichtung', 'Die Spindel läuft mit M3 – an dieser Maschine gehört M4 hin. In der Simulation wäre die Platte sofort gebrochen.', 'warn', 30);
+    } else if (this.cnc && schneidet && this.drehrichtung === 3 && !this.platteBruch) {
       this.platteBruch = true;
       w.gebrochen = true;
       this.stoss(120 * MF, 0.3);
@@ -2202,6 +2230,7 @@
   };
 
   DrehSim.prototype.spaeneEntfernen = function () {
+    if (this.nEff > 1 && this.arcade) { this.wirr = 0; return true; }
     if (this.nEff > 1) {
       this.ev.add(this.zeit, 'sicherheit', 'Späne niemals bei laufender Spindel entfernen! Erst Hauptspindel aus.', 'warn');
       this.sicherheitsVerstoss = (this.sicherheitsVerstoss || 0) + 1;
@@ -2389,6 +2418,7 @@
     this.def = o.wkz.def;
     this.m = o.masch;
     this.p = o.param;
+    this.arcade = !!(o.param && o.param.arcade);
     this.op = o.op;
     this.rng = o.rng;
     this.kssDef = DAT.kss[this.p.kss] || DAT.kss.trocken;
@@ -2808,7 +2838,7 @@
       w.T += (Tss - w.T) * Math.min(1, dt / 1.2);
       var tL = standzeitMin(vc, this.vcRef, stoff.invN, 30) * Math.pow(this.fzRef / Math.max(fz, 0.003), 0.3);
       var dVB = 0.3 / (tL * 60) * mat.abr * verschleissThermisch(w.T, stoff.tSoft) * (gleichlauf < 0.5 ? 1.3 : 1) * (hm < 0.008 ? 2 : 1);
-      w.VB = Math.min(1.2, w.VB + dVB * dt);
+      w.VB = Math.min(1.2, w.VB + dVB * dt * (this.arcade ? 0.35 : 1));
       w.einsatz += dt;
       this.st.schnittZeit += dt;
     } else if (stumpf && nRev > 0.05) {
@@ -2977,6 +3007,7 @@
   FraesSim.prototype.bruch = function (u, mNm) {
     var w = this.w, def = this.def;
     if (w.gebrochen) { return; }
+    if (this.arcade) { arcadeStoss(this, 'ueberlast', 'Überlast! In der Simulation wäre der Fräser jetzt gebrochen: ' + u.text); return; }
     w.gebrochen = true;
     w.bruch = u;
     var vhm = istVHM(def.stoff);

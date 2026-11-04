@@ -598,5 +598,47 @@
     ton(this, 1567.98, t + 0.2, 0.5, 0.08, 'triangle');
   };
 
+  // ---------------------------------------------------------- Drechselbank
+  // Holz klingt anders als Stahl: Rauschen ohne Pfeifen, am Kantholz ein Klopfen im Takt der Kanten,
+  // Schleifpapier zischt, der Brenndraht knistert, der Umrichter singt leise mit der Drehzahl
+  Klang.prototype.holzStart = function () {
+    if (!this.bereit || this.holz) { return; }
+    var c = this.ctx, h = this.holz = {};
+    h.motor = osz(c, 'triangle', 120); h.motorG = verstaerker(c, 0);
+    h.motor.connect(h.motorG); h.motorG.connect(this.master);
+    h.q = rauschQuelle(c, this.rauschen, 1); h.bp = filter(c, 'bandpass', 1400, 0.8); h.am = verstaerker(c, 1); h.g = verstaerker(c, 0);
+    h.q.connect(h.bp); h.bp.connect(h.am); h.am.connect(h.g); h.g.connect(this.master);
+    h.amOsc = osz(c, 'square', 40); h.amT = verstaerker(c, 0); h.amOsc.connect(h.amT); h.amT.connect(h.am.gain);
+    h.sq = rauschQuelle(c, this.rauschen, 1.3); h.hp = filter(c, 'highpass', 3200, 0.7); h.sg = verstaerker(c, 0);
+    h.sq.connect(h.hp); h.hp.connect(h.sg); h.sg.connect(this.master);
+    h.kq = rauschQuelle(c, this.knister, 1.4); h.kg = verstaerker(c, 0); h.kq.connect(h.kg); h.kg.connect(this.master);
+    [h.motor, h.q, h.amOsc, h.sq, h.kq].forEach(function (n) { n.start(); });
+  };
+
+  // z: { n, rate (mm³/s), eckig (0..1), schleifen, brennen, haerte }
+  Klang.prototype.holzUpdate = function (z) {
+    var h = this.holz;
+    if (!h) { return; }
+    var t = this.ctx.currentTime, n = z.n || 0;
+    ziel(h.motor.frequency, 70 + n * 0.11, t, 0.2);
+    ziel(h.motorG.gain, n > 5 ? 0.01 + 0.018 * Math.min(1, n / 3000) : 0, t, 0.3);
+    var st = clamp(Math.sqrt(Math.max(0, z.rate || 0)) / 45, 0, 1);
+    ziel(h.g.gain, 0.42 * st, t, 0.03);
+    ziel(h.bp.frequency, 600 + 1700 * (z.haerte || 0.5) + n * 0.25, t, 0.1);
+    ziel(h.amOsc.frequency, Math.max(4, n / 60 * 4), t, 0.05);
+    ziel(h.amT.gain, 0.7 * clamp(z.eckig || 0, 0, 1), t, 0.05);
+    ziel(h.sg.gain, 0.1 * (z.schleifen || 0), t, 0.05);
+    ziel(h.kg.gain, 0.32 * (z.brennen || 0), t, 0.05);
+  };
+
+  Klang.prototype.holzStopp = function () {
+    var h = this.holz;
+    if (!h) { return; }
+    this.holz = null;
+    var t = this.ctx.currentTime;
+    [h.motorG, h.g, h.sg, h.kg].forEach(function (g) { g.gain.setTargetAtTime(0, t, 0.05); });
+    setTimeout(function () { [h.motor, h.q, h.amOsc, h.sq, h.kq].forEach(function (n) { try { n.stop(); } catch (e) { /* schon gestoppt */ } }); }, 400);
+  };
+
   ZM.Klang = Klang;
 })(typeof window !== 'undefined' ? window : globalThis);

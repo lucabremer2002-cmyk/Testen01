@@ -99,7 +99,7 @@
   function standard() {
     return {
       fortschritt: {},
-      einstellungen: { stufe: 'azubi', ton: true, vol: 0.6, alles: false, zeitraffer: true },
+      einstellungen: { stufe: 'azubi', ton: true, vol: 0.6, alles: false, zeitraffer: true, modus: 'arcade', hinweise: 'wenige' },
       statistik: { werkzeugBruch: 0, bohrerBruch: 0, unfaelle: 0, auftraege: 0, loecher: 0 }
     };
   }

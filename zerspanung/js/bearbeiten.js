@@ -15,6 +15,12 @@
     this.k = k;
     this.op = k.op;
     this.stufe = spiel.stand.einstellungen.stufe;
+    this.arcade = spiel.stand.einstellungen.modus !== 'simulation';
+    // Hinweise: alle, wenige (jede Warnung einmal, mit Abstand) oder aus (nur Kritisches)
+    this.hinweise = spiel.stand.einstellungen.hinweise || 'wenige';
+    this.gesagt = {};
+    this.zuletztLive = {};
+    this.letzterMeister = -99;
     this.masch = DAT.maschinen[this.op.maschine];
     this.mat = DAT.werkstoffe[k.mission.mat];
     this.art = this.op.typ === 'drehen' ? 'dreh' : this.op.typ === 'fraesen' ? 'fraes' : 'bohr';
@@ -73,7 +79,7 @@
     this.meisterZeit = 0;
     this.raf = root.requestAnimationFrame(function (t) { self.schleife(t); });
     this.log('Arbeitsplatz gerüstet: ' + (k.setup.def.bez || k.setup.def.name) + ', n = ' + p.n + ' 1/min.', 'info');
-    if (p.psa && !this.cnc) {
+    if (p.psa && !this.cnc && !this.arcade) {
       if (!p.psa.brille) {
         this.sicherheit += 1;
         this.log('Ohne Schutzbrille an der Maschine – Späne fliegen dir in die Augen. Verstoß gegen die Betriebsanweisung.', 'fehler');
@@ -85,7 +91,7 @@
         this.live('Keine Handschuhe an drehenden Spindeln!', true);
       }
     }
-    if (this.stufe === 'azubi') { this.meisterSagt(this.einstiegsTipp()); }
+    if (this.stufe === 'azubi' && this.hinweise !== 'aus') { this.meisterSagt(this.einstiegsTipp()); }
   }
 
   Bearbeitung.prototype.einstiegsTipp = function () {
@@ -783,6 +789,13 @@
     var self = this, sim = this.sim, op = this.op;
     this.klick();
     var box = U.leeren(this.messEl);
+    if (sim.nEff > 1 && this.arcade) {
+      // Arcade: Spindel geht von selbst aus, gemessen wird, sobald sie steht
+      if (!this.cnc) { this.inp.spindel = false; }
+      this.messenNach = true;
+      this.log(this.cnc ? 'Gemessen wird, sobald die Spindel steht (NC-Stopp oder Programmende).' : 'Spindel aus – gemessen wird, sobald sie steht.', 'info');
+      return;
+    }
     if (sim.nEff > 1) {
       this.sicherheit += 1;
       if (this.schicht) { this.schicht.brechen('Sicherheit!'); }
@@ -1089,6 +1102,7 @@
     if (this.meisterZeit <= 0) { this.meisterZeit = 0.25; this.meister(); }
     this.klang();
     if (this.schicht) { this.schicht.takt(dt); }
+    if (this.messenNach && sim.nEff <= 1) { this.messenNach = false; this.messen(); }
   };
 
   // Hauptmesswert relativ zur Grenze (1 = Grenze)
@@ -1153,14 +1167,17 @@
       } else if (e.typ === 'durchbruch' && e.schwere === 'warn') {
         self.live(e.text, false);
       } else if (e.typ === 'tischZieht' || e.typ === 'rutsch' || e.typ === 'steckt' || e.typ === 'stall' || e.typ === 'stumpf' || e.typ === 'thermoschock' || e.typ === 'motorschutz' || e.typ === 'alarm' || e.typ === 'spanbrand' || e.typ === 'abgewuergt') {
-        self.live(e.text, e.typ !== 'rutsch');
+        if (self.hinweise !== 'aus' || e.typ !== 'rutsch') { self.live(e.text, e.typ !== 'rutsch'); }
         if (e.typ === 'motorschutz') { self.inp.spindel = false; self.inp.vorschub = false; self.inp.plan = false; }
+        // Arcade: beim Abwuergen kuppelt der Vorschub von selbst aus
+        if (e.typ === 'abgewuergt' && self.arcade && self.art === 'dreh' && !self.cnc) { self.inp.vorschub = false; self.inp.plan = false; }
         if (e.typ === 'alarm' && kl) { kl.alarm(); }
       } else if (e.typ === 'mitte') {
         self.inp.plan = false;
       } else if (e.typ === 'rattern' || e.typ === 'wirr' || e.typ === 'riemen' || e.typ === 'aufschweiss' || e.typ === 'auszug' || e.typ === 'halter' || e.typ === 'ausgegluht' || e.typ === 'boden' ||
         e.typ === 'kupplung' || e.typ === 'unterbrochen' || e.typ === 'zapfen' || e.typ === 'haemmern' || e.typ === 'schlitten' || e.typ === 'oberschlitten' || e.typ === 'ueberMitte' || e.typ === 'fliehkraft' || e.typ === 'geklemmt' || e.typ === 'klemmHand' || e.typ === 'anfahren' || e.typ === 'rutscht') {
-        if (self.stufe !== 'meister' || e.typ === 'geklemmt' || e.typ === 'klemmHand') { self.live(e.text, e.typ === 'halter' || e.typ === 'boden' || e.typ === 'rutscht'); }
+        var krit = e.typ === 'halter' || e.typ === 'boden' || e.typ === 'rutscht';
+        if ((self.stufe !== 'meister' && (self.hinweise === 'alle' || krit)) || e.typ === 'geklemmt' || e.typ === 'klemmHand') { self.live(e.text, krit); }
       }
       if (e.typ === 'sicherheit') { self.sicherheit += 1; }
     });
@@ -1270,12 +1287,38 @@
     while (el.childNodes.length > 80) { el.removeChild(el.lastChild); }
   };
 
+  // Einblendung auf der Buehne: hoechstens zwei, gleiche Texte nicht wiederholt, ohne Kritisches je nach Einstellung
+  // Kurzfassung fuer die Einblendung: ganze Saetze, solange es unter 90 Zeichen bleibt.
+  // Der volle Text steht immer im Protokoll.
+  function kurzfassung(text) {
+    if (text.length <= 90) { return text; }
+    var re = /[.!?](?=\s+[A-ZÄÖÜ„(])/g, m, ende = -1;
+    while ((m = re.exec(text))) {
+      if (/(^|[\s(])(z|B|ca|bzw|vgl|Nr|max|min)$/.test(text.slice(Math.max(0, m.index - 4), m.index))) { continue; }
+      var e = m.index + 1;
+      if (ende > 0 && e > 90) { break; }
+      ende = e;
+      if (e > 90) { break; }
+    }
+    return ende > 0 ? text.slice(0, ende) : text;
+  }
+
   Bearbeitung.prototype.live = function (text, kritisch) {
+    var jetzt = Date.now(), modus = this.hinweise;
+    if (!kritisch && modus === 'aus') { return; }
+    if (this.zuletztLive[text] && jetzt - this.zuletztLive[text] < 12000) { return; }
+    // Wenige/keine Hinweise: immer nur eine Einblendung; ein frischer kritischer Hinweis
+    // wird nicht von einem Tipp verdraengt
+    var max = modus === 'alle' ? 3 : 1;
+    if (!kritisch && max === 1 && this.liveKritischBis > jetzt) { return; }
+    this.zuletztLive[text] = jetzt;
+    if (kritisch) { this.liveKritischBis = jetzt + 2500; }
     var box = U.$('#live');
-    var d = h('div' + (kritisch ? '.kritisch' : ''), text);
+    var d = h('div' + (kritisch ? '.kritisch' : ''), modus === 'alle' ? text : kurzfassung(text));
     box.appendChild(d);
-    while (box.childNodes.length > 3) { box.removeChild(box.firstChild); }
-    setTimeout(function () { if (d.parentNode) { d.parentNode.removeChild(d); } }, 4200);
+    while (box.childNodes.length > max) { box.removeChild(box.firstChild); }
+    setTimeout(function () { d.classList.add('weg'); }, kritisch ? 4600 : 3200);
+    setTimeout(function () { if (d.parentNode) { d.parentNode.removeChild(d); } }, kritisch ? 5000 : 3600);
   };
 
   Bearbeitung.prototype.meisterSagt = function (text) {
@@ -1288,8 +1331,13 @@
     if (this.stufe !== 'azubi' || this.sim.w.gebrochen || this.sim.unfall) { return; }
     var a = this.sim.anzeige(), sim = this.sim, self = this, t = sim.zeit;
     function sag(key, text, pause) {
+      if (self.hinweise === 'aus') { return; }
       if (self.warnZeit[key] !== undefined && t - self.warnZeit[key] < (pause || 6)) { return; }
+      // Wenige Hinweise: jeder Tipp nur einmal, und nicht zwei kurz hintereinander
+      if (self.hinweise === 'wenige' && (self.gesagt[key] || t - self.letzterMeister < 12)) { return; }
       self.warnZeit[key] = t;
+      self.gesagt[key] = true;
+      self.letzterMeister = t;
       self.meisterSagt(text);
     }
     if (this.art === 'bohr') {

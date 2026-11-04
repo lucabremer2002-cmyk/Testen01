@@ -180,7 +180,13 @@
     { id: 'bandsalat', icon: '🍝', titel: 'Bandsalat', text: 'Wirrspäne mit dem Spänehaken entfernt – bei stehender Spindel.' },
     { id: 'level10', icon: '🎖️', titel: 'Geselle im Herzen', text: 'Level 10 erreicht.', pruef: function (x) { return x.level >= 10; } },
     { id: 'reich', icon: '💰', titel: 'Gut verdient', text: '1000 € Prämie auf dem Konto.', pruef: function (x) { return x.p.geld >= 1000; } },
-    { id: 'lack', icon: '🎨', titel: 'Neuer Anstrich', text: 'Eine Maschine neu lackiert.' }
+    { id: 'lack', icon: '🎨', titel: 'Neuer Anstrich', text: 'Eine Maschine neu lackiert.' },
+    { id: 'drechsler', icon: '🪵', titel: 'Drechsler', text: 'Das erste Stück an der Drechselbank fertig.' },
+    { id: 'vorlage3', icon: '🏆', titel: 'Nach Plan', text: 'Eine Vorlage mit drei Sternen gedrechselt.' },
+    { id: 'regenbogen', icon: '🌈', titel: 'Regenbogenzauber', text: 'Ein Stück aus Regenbogenholz mit Oberfläche.' },
+    { id: 'brandmeister', icon: '♨️', titel: 'Brandmeister', text: 'Brandlinien mit dem Draht gezogen.' },
+    { id: 'glanzstueck', icon: '💎', titel: 'Glanzstück', text: 'Fein geschliffen und dann gewachst oder lackiert.' },
+    { id: 'sammler', icon: '🏺', titel: 'Sammler', text: 'Zehn Stücke in der Vitrine.' }
   ];
   function erfolgVon(id) { var i; for (i = 0; i < ERFOLGE.length; i++) { if (ERFOLGE[i].id === id) { return ERFOLGE[i]; } } return null; }
 
@@ -296,6 +302,64 @@
       geld: Math.round(geld), kontostand: p.geld, sterne: neueSterne, alteSterne: alteSterne, besteSterne: fp ? fp.sterne || 0 : 0, wiederholung: wiederholung, rekord: rekord,
       erfolge: neueErfolge, tagesErledigt: tagesErledigt, schichtWert: Math.round(schichtWert), kette: kette
     };
+  }
+
+  // ============================================================ Drechselbank
+  var DRECHSEL_TAG = 10;      // Stuecke je Tag, die Erfahrung bringen
+
+  // st: { name, holz, art, beize, prof, brand, glaette, prozent, vorlage, seed, abtrag, schnittZeit, gebrannt }
+  function drechselAbschluss(spiel, st) {
+    var p = profil(spiel.stand), heute = datumKey();
+    var dr = p.drechseln || (p.drechseln = { vorlagen: {}, heute: null, stuecke: 0 });
+    dr.vorlagen = dr.vorlagen || {};
+    var vorher = levelInfo(p.xp), zeilen = [], hinweis = null;
+    function xp(text, wert) { if (wert > 0) { zeilen.push({ text: text, xp: Math.round(wert) }); } }
+    var sterne = st.vorlage ? (st.prozent >= 85 ? 3 : st.prozent >= 70 ? 2 : st.prozent >= 50 ? 1 : 0) :
+      (st.glaette >= 0.85 && st.art !== 'roh' ? 3 : st.glaette >= 0.6 || st.art !== 'roh' ? 2 : 1);
+    var alt = st.vorlage ? dr.vorlagen[st.vorlage] : null, besteAlt = alt ? alt.sterne : 0;
+    var gearbeitet = (st.abtrag || 0) >= 15000 || (st.schnittZeit || 0) >= 20;
+    if (!dr.heute || dr.heute.datum !== heute) { dr.heute = { datum: heute, n: 0 }; }
+    if (!gearbeitet) {
+      hinweis = 'Erfahrung gibt es, sobald richtig Späne geflogen sind.';
+    } else if (dr.heute.n >= DRECHSEL_TAG) {
+      hinweis = 'Für heute ist die Erfahrung an der Drechselbank voll – drehen macht trotzdem Spaß.';
+    } else {
+      dr.heute.n++;
+      if (st.vorlage) {
+        xp('Vorlage gedrechselt', 20);
+        if (!alt) { xp('Zum ersten Mal', 25); }
+        if (sterne > besteAlt) { xp((sterne - besteAlt) + (sterne - besteAlt > 1 ? ' neue Sterne' : ' neuer Stern'), 30 * (sterne - besteAlt)); }
+      } else {
+        xp('Drechselstück', 20);
+        if (st.glaette >= 0.85) { xp('Fein geschliffen', 10); }
+        if (st.art !== 'roh') { xp('Oberfläche', 10); }
+        if (st.beize) { xp('Gebeizt', 5); }
+        if (st.gebrannt) { xp('Brandlinien', 5); }
+      }
+    }
+    if (st.vorlage) {
+      if (!alt || st.prozent > alt.prozent) { dr.vorlagen[st.vorlage] = { sterne: Math.max(sterne, besteAlt), prozent: st.prozent }; }
+      else { alt.sterne = Math.max(alt.sterne, sterne); }
+    }
+    dr.stuecke = (dr.stuecke || 0) + 1;
+    p.vitrine = p.vitrine || [];
+    p.vitrine.unshift({ name: st.name, holz: st.holz, art: st.art, beize: st.beize || null, prof: st.prof, brand: st.brand || null, glaette: st.glaette,
+      prozent: st.prozent === undefined ? null : st.prozent, vorlage: st.vorlage || null, seed: st.seed, sterne: sterne, datum: heute });
+    if (p.vitrine.length > 40) { p.vitrine.length = 40; }
+    var summe = 0;
+    zeilen.forEach(function (z) { summe += z.xp; });
+    p.xp += summe;
+    var nachher = levelInfo(p.xp), neu = [];
+    function frei(id) { if (!p.erfolge[id]) { p.erfolge[id] = heute; var e = erfolgVon(id); if (e) { neu.push(e); } } }
+    frei('drechsler');
+    if (st.vorlage && sterne === 3) { frei('vorlage3'); }
+    if (st.holz === 'regenbogen' && st.art !== 'roh') { frei('regenbogen'); }
+    if (st.gebrannt) { frei('brandmeister'); }
+    if (st.glaette >= 0.9 && (st.art === 'wachs' || st.art === 'lack')) { frei('glanzstueck'); }
+    if (p.vitrine.length >= 10) { frei('sammler'); }
+    if (nachher.level >= 10) { frei('level10'); }
+    return { xpZeilen: zeilen, xp: summe, vorher: vorher, nachher: nachher, levelUp: nachher.level > vorher.level,
+      rangVorher: rang(vorher.level), rangNachher: rang(nachher.level), sterne: sterne, besteSterne: Math.max(sterne, besteAlt), erfolge: neu, hinweis: hinweis };
   }
 
   // ============================================================ Effekte
@@ -425,7 +489,8 @@
     rattern: 'Rattern!', haemmern: 'Tisch hämmert!', tischZieht: 'Tisch zieht!', rutscht: 'Werkstück rutscht!', rutsch: 'Werkstück rutscht!',
     riemen: 'Riemen rutscht!', kupplung: 'Kupplung ratscht!', wirr: 'Wirrspäne!', aufschweiss: 'Aufschweißen!', motorschutz: 'Motorschutz!',
     stall: 'Abgewürgt!', abgewuergt: 'Abgewürgt!', steckt: 'Bohrer steckt!', bruch: 'Werkzeugbruch!', kollision: 'Kollision!', unfall: 'Unfall!',
-    sicherheit: 'Sicherheit!', alarm: 'Alarm!', stumpf: 'Stumpf reibt!', halter: 'Halter schneidet mit!'
+    sicherheit: 'Sicherheit!', alarm: 'Alarm!', stumpf: 'Stumpf reibt!', halter: 'Halter schneidet mit!',
+    ueberlast: 'Überlast!', klonk: 'Klonk!', schreck: 'Uff!'
   };
 
   function Schicht(bb) {
@@ -573,6 +638,12 @@
 
   Schicht.prototype.ereignis = function (e) {
     if (!e) { return; }
+    // Arcade: Kollision und Schreck sichtbar machen, auch ohne laufende Combo
+    if (e.typ === 'klonk' || e.typ === 'schreck' || e.typ === 'ueberlast') {
+      if (!(this.kette > 0 || this.fluss > 0.3)) { popup(this.pops, BRUCH_TEXT[e.typ], 'weg', 50, 34); }
+      wackeln(this.buehne);
+      if (e.typ !== 'ueberlast' && this.bb.spiel.klang) { this.bb.spiel.klang.stempel(); }
+    }
     if (e.typ === 'bruch') { freischalten(this.bb.spiel, 'lehrgeld'); }
     if (BRUCH_TEXT[e.typ] && e.schwere !== 'info') { this.brechen(BRUCH_TEXT[e.typ]); return; }
     // Anschlag: nur nach einem echten Schnitt seit dem letzten Bonus
@@ -613,7 +684,7 @@
     bedarf: bedarf, levelInfo: levelInfo, rang: rang, RAENGE: RAENGE, profil: profil, serieAktiv: serieAktiv, sterne: sterne, sterneGesamt: sterneGesamt,
     datumKey: datumKey, vortag: vortag, tagesauftrag: tagesauftrag, MODS: MODS, modVon: modVon, TAGES_XP: TAGES_XP, TAGES_GELD: TAGES_GELD,
     LACKE: LACKE, lackVon: lackVon, lackAnwenden: lackAnwenden, lackKaufen: lackKaufen,
-    ERFOLGE: ERFOLGE, erfolgVon: erfolgVon, freischalten: freischalten, abschluss: abschluss,
+    ERFOLGE: ERFOLGE, erfolgVon: erfolgVon, freischalten: freischalten, abschluss: abschluss, drechselAbschluss: drechselAbschluss,
     konfetti: konfetti, zaehlen: zaehlen, popup: popup, erfolgToast: erfolgToast, wackeln: wackeln, kopfAktualisieren: kopfAktualisieren,
     Schicht: Schicht, MULTI: MULTI
   };

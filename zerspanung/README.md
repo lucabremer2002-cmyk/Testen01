@@ -11,6 +11,11 @@ zieht, bricht das Werkzeug. Wer die Maschine überlastet, merkt es wie in echt:
 Der Keilriemen quietscht und würgt die Spindel ab, die Vorschubkupplung ratscht,
 der Frästisch hämmert im Umkehrspiel, die CNC hält mit Alarm an.
 
+Wer lieber spielt als büffelt, bleibt im **Arcade-Modus** (Standard): Dort
+bricht nichts und es kracht nichts, Überlast ruckelt nur und sprüht Funken.
+Und an der **Drechselbank** dreht man Holz frei von Hand – so viel Abtrag wie
+man will, ohne Crash.
+
 ## Starten
 
 ```bash
@@ -43,7 +48,20 @@ ohne Internet wird eine Ersatzschrift verwendet.
   nie die Punkte), Bonus für getroffene Maße und den Längsanschlag. Nach jedem Auftrag
   Sterne (★ bestanden, ★★ Note 2, ★★★ Note 1 ohne Bruch in der Vorgabezeit),
   Erfahrung, Level und Ränge vom Neuling bis zur Spanwerk-Legende, Prämie aufs Konto,
-  23 Erfolge, ein Tagesauftrag mit Serie und Lackierungen für die Maschinen.
+  29 Erfolge, ein Tagesauftrag mit Serie und Lackierungen für die Maschinen.
+* **Drechselbank (freier Modus):** ein Kantholz zwischen den Spitzen, das Werkzeug
+  folgt Maus oder Finger. Acht Werkzeuge (Schruppröhre, Formröhre, Schlichtmeißel,
+  Spitzmeißel, Perlstab, Abstechstahl, Brenndraht, Schleifpapier), elf Hölzer von
+  Fichte bis Ebenholz plus Regenbogen- und Epoxidholz, Öl, Wachs, Lack und
+  Beizen. Frei drehen oder eine Vorlage nachdrehen (Kreisel, Schachfigur Bauer, Pilz,
+  Vase …) mit Formtreue-Anzeige und Sternen; fertige Stücke landen in der Vitrine.
+  Kein Bruch, kein Crash, unbegrenzt Rückgängig (30 Schritte).
+* **Arcade oder Simulation:** Im Arcade-Modus (Standard, umschaltbar mit dem Chip
+  oben rechts) brechen keine Werkzeuge, es gibt keine Kollisionen und keine
+  Unfälle – Überlast ruckelt, funkt und kostet die Combo. Zum Messen hält die
+  Spindel von selbst an. Die Simulation rechnet alles wie in echt.
+* **Hinweise:** *Alle*, *Wenige* (Standard: jeder Tipp nur einmal, immer nur eine
+  kurze Einblendung, der volle Text steht im Protokoll) oder *Keine*.
 * **Darstellung und Klang:** Dreh- und Fräsmaschinen in 2.5D (Schrägansicht
   mit Hallenlicht): Walzhaut, gedrehte Absätze und Fasen, Nutböden und -wände
   aus der Höhenkarte, Komma-, C- und Wendelspäne mit Anlauffarben, Funken nur
@@ -88,6 +106,7 @@ stimmen, die Nachkommastellen sind kein Ersatz für einen Zerspanungsversuch.
 | CNC-Drehmaschine | `Enter` NC-Start · `S` NC-Stopp · `E` Einzelsatz · `R` Reset · `O` Verschleißkorrektur · `W` Platten · `M` Messen |
 | Konsolfräsmaschine | `←` `→` Tisch · `V` Vorschub · `R` Eilgang zurück · `M` Messen · `W` Fräser |
 | CNC | `S` NC-Stopp · `+` / `−` Vorschub-Override |
+| Drechselbank | Maus bzw. Finger führt das Werkzeug (gedrückt halten = schneiden) · `1`–`8` Werkzeuge · `Leertaste` Spindel · `Strg+Z` Rückgängig · Pfeiltasten (mit `Shift` schneller) · `F` Fertig |
 
 ## Dateien
 
@@ -100,6 +119,9 @@ js/nc.js            NC-Interpreter und Programmierhilfe der CNC-Drehmaschine
 js/missionen.js     Aufträge und IHK-Notenschlüssel
 js/audio.js         Maschinengeräusche und Spielklänge (Web Audio, synthetisch)
 js/belohnung.js     Spielebene: Combo, Erfahrung, Sterne, Erfolge, Tagesauftrag, Lackierungen
+js/holz.js          Drechselmodell: Hölzer, Werkzeuge, Vorlagen, Profil und Abtrag
+js/szene-holz.js    Drechselbank im Bild: Holzshader, Späne, Öl, Lack und Beize
+js/drechseln.js     Drechselbank: Auswahl, Steuerung, Präsentation, Vitrine
 js/zeichnung.js     Technische Zeichnungen
 js/szenen.js        Canvas-Darstellung (Bohren) und gemeinsame Helfer
 js/szene-dreh.js    Drehmaschinen in 2.5D

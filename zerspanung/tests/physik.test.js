@@ -35,7 +35,7 @@ function drehLauf(o) {
   var w = new PH.Werkzeug(Object.assign({ typ: 'platte' }, DAT.platte(o.platte || 'CNMG120408-PM')), rng);
   var sim = new PH.DrehSim({
     mat: DAT.werkstoffe[o.mat || 'S235'], wkz: w, masch: DAT.maschinen.drehKonv,
-    param: { n: o.n, f: o.f, kss: 'emulsion', reitstock: !!o.reitstock, zAnschlag: 2 },
+    param: { n: o.n, f: o.f, kss: 'emulsion', reitstock: !!o.reitstock, zAnschlag: 2, arcade: !!o.arcade },
     op: { wst: { D: o.D, L: o.L, spannL: o.spannL || 40 } }, rng: rng
   });
   var dt = 1 / 480, t = 0, xZiel = o.D - 2 * o.ap, maxAmp = 0;
@@ -53,7 +53,7 @@ function fraesLauf(o) {
   var w = new PH.Werkzeug(DAT.fraeser(o.typ, o.d), rng);
   var sim = new PH.FraesSim({
     mat: DAT.werkstoffe[o.mat || 'S235'], wkz: w, masch: DAT.maschinen[o.masch || 'baz'],
-    param: { n: o.n, vf: o.vf, kss: 'emulsion', richtung: 1, auskragung: o.auskrag },
+    param: { n: o.n, vf: o.vf, kss: 'emulsion', richtung: 1, auskragung: o.auskrag, arcade: !!o.arcade },
     op: { wst: { L: 80, B: 40, H: 30 }, y: 20 }, rng: rng
   });
   var dt = 1 / 480, t = 0;
@@ -278,7 +278,7 @@ function cncLauf(o) {
   var T = { 1: wkz('CNMG120408-PM'), 2: wkz('CNMG120404-PF') };
   var K = DAT.drehKontur({ kontur: [{ d: 30, tol: 'h9', bis: 20 }, { d: 40, tol: 'h11', bis: 45 }], fase: 1 });
   var prog = o.prog || NC.erzeugen({ kontur: K, D0: 50, aufmassZ: 3, vc1: 220, f1: 0.3, ap1: 2.5, vc2: 260, f2: 0.12, smax: o.smax === undefined ? 3000 : o.smax, kss: true, mDir: o.mDir });
-  var sim = new PH.DrehSim({ mat: DAT.werkstoffe.C45, wkz: T[1], masch: DAT.maschinen.drehCNC, param: { kss: 'emulsion', zW: 60 },
+  var sim = new PH.DrehSim({ mat: DAT.werkstoffe.C45, wkz: T[1], masch: DAT.maschinen.drehCNC, param: { kss: 'emulsion', zW: 60, arcade: !!o.arcade },
     op: { wst: { D: 50, L: 63, spannL: 40, saege: true } }, rng: rng });
   sim.x = 100;
   sim.z = 210;
@@ -495,4 +495,101 @@ test('Belohnung: leere Versuche bringen nichts, Wiederholungen weniger, alte Sta
   var alt = { fortschritt: { M01: { punkte: 95, note: 1, bestanden: true } } };
   var p = BEL.profil(alt);
   assert.ok(p.xp > 0 && alt.fortschritt.M01.sterne === 2 && p.zaehler.bestanden_M01);
+});
+
+// ===================================================================== Arcade-Modus
+// Im Arcade-Modus bricht nichts und es gibt keinen Unfall – Ueberlast ruckelt nur und meldet sich.
+function typen(liste) { return liste.map(function (e) { return e.typ; }); }
+
+test('Arcade: zu hoher Vorschub beim Drehen ruckelt nur, die Platte bleibt ganz', function () {
+  var x = drehLauf({ D: 40, L: 70, ap: 2, f: 0.63, n: 1250, arcade: true });
+  var t = typen(x.sim.ev.liste);
+  assert.strictEqual(x.sim.w.gebrochen, false);
+  assert.ok(t.indexOf('ueberlast') >= 0, 'kein Ueberlast-Ereignis');
+  assert.ok(t.indexOf('bruch') < 0, 'Bruch-Ereignis im Arcade-Modus');
+  // Meldungen hoechstens alle 1,2 s, sonst nervt es
+  var ue = x.sim.ev.liste.filter(function (e) { return e.typ === 'ueberlast'; });
+  for (var i = 1; i < ue.length; i++) { assert.ok(ue[i].zeit - ue[i - 1].zeit >= 1.19, 'Ueberlast zu oft'); }
+});
+
+test('Arcade: HSS-Fräser in der Vollnut überlebt, die Nut wird trotzdem gefräst', function () {
+  var x = fraesLauf({ typ: 'HSSZ4', d: 10, n: 1000, vf: 400, ap: 10, masch: 'fraesKonv', arcade: true });
+  assert.strictEqual(x.sim.w.gebrochen, false);
+  assert.ok(typen(x.sim.ev.liste).indexOf('ueberlast') >= 0);
+  assert.ok(x.q.tiefe > 5, 'Nut nicht gefräst: ' + x.q.tiefe);
+});
+
+test('Arcade: Bohrer mit voller Hebelkraft bricht nicht, Handhalten ist kein Unfall', function () {
+  var sim = H.bohrSim({ def: DAT.bohrer('HSS', 3), mat: 'S235', param: { n: 2800, arcade: true } });
+  var r = H.handBohren(sim, { f: 0.06, tiefe: 13, konstantKraft: 1.0 });
+  assert.strictEqual(r.gebrochen, false);
+  assert.ok(typen(r.log).indexOf('ueberlast') >= 0);
+  var sim2 = H.bohrSim({ def: DAT.bohrer('HSS', 8), mat: 'CuZn39Pb3', param: { n: 2000, spann: 'hand', arcade: true } });
+  var r2 = H.handBohren(sim2, { f: 0.15, tiefe: 14, konstantKraft: 0.3 });
+  assert.ok(!r2.unfall, 'Unfall im Arcade-Modus');
+  assert.ok(typen(r2.log).indexOf('schreck') >= 0);
+});
+
+test('Arcade: CNC mit M3 bricht die Platte nicht', function () {
+  var r = cncLauf({ mDir: 'M3', arcade: true });
+  assert.strictEqual(r.sim.w.gebrochen, false);
+});
+
+// ===================================================================== Drechselbank
+require('../js/holz.js');
+var HZ = globalThis.ZM.holz;
+
+function drechseln(o) {
+  var d = new HZ.Drechsel({ holz: o.holz || 'buche', L: o.L || 200, a: o.a || 30, seed: 3, vorlage: o.vorlage });
+  d.n = o.n || 2400;
+  var dt = 1 / 120, t;
+  for (t = 0; t < 2; t += dt) { d.step(dt); }
+  return d;
+}
+function fuehren(d, wz, pfad, sek) {
+  d.werkzeug(wz);
+  d.halten = true;
+  var dt = 1 / 120, t = 0, k = 0;
+  while (t < sek) {
+    var p = pfad(t / sek);
+    d.ziel.z = p.z; d.ziel.h = p.h;
+    d.step(dt);
+    t += dt; k++;
+  }
+  d.halten = false;
+  for (t = 0; t < 0.5; t += dt) { d.step(dt); }
+}
+
+test('Drechseln: beliebig viel Abtrag ohne Absturz, ein dünner Kern bleibt stehen', function () {
+  var d = drechseln({ holz: 'eiche' });
+  // Zehnmal mit dem Schruppröhre bis "unter die Achse" hin und her
+  for (var r = 0; r < 10; r++) {
+    fuehren(d, 'schrupp', function (u) { return { z: 5 + 190 * (r % 2 ? 1 - u : u), h: -20 }; }, 3);
+  }
+  var i, ok = true;
+  for (i = 0; i < d.N; i++) { if (!(d.r[i] >= HZ.RMIN - 1e-3) || !isFinite(d.r[i])) { ok = false; } }
+  assert.ok(ok, 'Kern unter RMIN oder NaN');
+  assert.ok(!d.abgestochen, 'ohne Abstechstahl abgestochen');
+  assert.ok(d.abtrag > 50000, 'zu wenig Abtrag ' + d.abtrag);
+  assert.ok(isFinite(d.spitze.z) && isFinite(d.spitze.h));
+});
+
+test('Drechseln: der Abstechstahl geht durch und macht das Stück fertig', function () {
+  var d = drechseln({});
+  fuehren(d, 'schrupp', function (u) { return { z: 20 + 160 * u, h: 12 }; }, 4);
+  fuehren(d, 'abstech', function (u) { return { z: 150, h: 12 - 20 * u }; }, 6);
+  assert.ok(d.abgestochen, 'nicht abgestochen');
+  var st = d.stueck();
+  assert.ok(st.L > 50 && st.prof.length > 50, 'Stück zu kurz ' + st.L);
+  assert.ok(st.prof.every(function (v) { return isFinite(v) && v > 0; }));
+});
+
+test('Drechseln: Rückgängig stellt die Form wieder her', function () {
+  var d = drechseln({});
+  var vorher = Array.prototype.slice.call(d.r);
+  d.merken();
+  fuehren(d, 'roehre', function (u) { return { z: 100, h: 10 - 4 * u }; }, 2);
+  assert.ok(d.radius(100) < vorher[d.zelle(100)] - 5, 'nichts abgetragen');
+  d.rueckgaengig();
+  assert.ok(Math.abs(d.radius(100) - vorher[d.zelle(100)]) < 1e-4, 'nicht zurückgesetzt');
 });

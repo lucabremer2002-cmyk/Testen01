@@ -18,6 +18,7 @@
       <span class="marke__zusatz">Zerspanungsmechaniker-Simulator</span>
     </button>
     <nav class="nav" aria-label="Hauptmenü">
+      <button type="button" data-nav="drechseln" class="nav__neu">Drechseln</button>
       <button type="button" data-nav="karriere">Karriere</button>
       <button type="button" data-nav="werkstatt">Freie Werkstatt</button>
       <button type="button" data-nav="tabellenbuch">Tabellenbuch</button>
@@ -36,6 +37,7 @@
       <span class="hudchip hudchip--serie" id="hud-serie" hidden>🔥 0</span>
       <span class="hudchip hudchip--stern" id="hud-sterne" title="Sterne in der Karriere">★ 0</span>
       <span class="hudchip hudchip--geld" id="hud-geld" title="Kontostand aus Prämien">0 €</span>
+      <button type="button" id="modus-chip" class="chip chip--modus" title="Spielmodus umschalten">Arcade</button>
       <span id="stufe-chip" class="chip chip--stufe" title="Realismusstufe">Azubi</span>
       <button type="button" id="ton" class="knopf knopf--klein" aria-pressed="true">Ton an</button>
     </div>
@@ -149,6 +151,11 @@
       <div id="tabellenbuch" class="tabellenbuch"></div>
     </section>
 
+    <!-- ======================================================== Drechselbank -->
+    <section id="v-drechseln" class="ansicht ansicht--drechseln" hidden>
+      <div id="drechseln" class="dr"></div>
+    </section>
+
     <!-- ======================================================== Profil -->
     <section id="v-profil" class="ansicht" hidden>
       <div id="profil" class="profil"></div>
@@ -172,8 +179,11 @@
   <script src="js/szenen.js"></script>
   <script src="js/szene-dreh.js"></script>
   <script src="js/szene-fraes.js"></script>
+  <script src="js/holz.js"></script>
+  <script src="js/szene-holz.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/belohnung.js"></script>
+  <script src="js/drechseln.js"></script>
   <script src="js/ruesten.js"></script>
   <script src="js/bearbeiten.js"></script>
   <script src="js/pruefen.js"></script>
