@@ -24,6 +24,8 @@ sys.path.insert(0, HERE)
 from clubs import CLUBS, LEAGUES  # noqa: E402
 from profiles import PROFILES  # noqa: E402
 from amateurs import AMATEURS, CLUB_LV, CUP_DRAW_2026, LV  # noqa: E402
+import europe  # noqa: E402
+import euro_draw  # noqa: E402
 from ages import AGES  # noqa: E402
 
 # Gleichnamige, aber verschiedene Spieler (nicht deduplizieren)
@@ -203,6 +205,46 @@ def main():
         if c["league"] in ("bl", "bl2") and c["id"] not in drawn:
             raise SystemExit("Profiverein fehlt in der Pokalauslosung: " + c["id"])
 
+    # Europapokal: Auslandsvereine, Stars und Spielplaene der Ligaphasen 2026/27
+    eu_ids = set()
+    for c in europe.CLUBS:
+        if c["id"] in ids or c["id"] in am_ids or c["id"] in eu_ids:
+            raise SystemExit("Doppelte Vereins-ID " + c["id"])
+        if c["nat"] not in europe.LEAGUE or c["nat"] not in europe.COUNTRY:
+            raise SystemExit("Unbekannter Verband bei " + c["id"])
+        eu_ids.add(c["id"])
+    nat = {c["id"]: c["nat"] for c in europe.CLUBS}
+    draw = {}
+    for comp, pots in europe.POTS_2026.items():
+        flat = [t for pot in pots for t in pot]
+        if len(flat) != 36 or len(set(flat)) != 36:
+            raise SystemExit("Lostoepfe unvollstaendig: " + comp)
+        for t in flat:
+            if t in ids:
+                nat[t] = "GER"
+            elif t not in eu_ids:
+                raise SystemExit("Unbekannter Europapokal-Teilnehmer " + t)
+        real = europe.REAL_2026[comp]
+        fx = (euro_draw.solve_one_per_pot if comp == "ecl" else euro_draw.solve_two_per_pot)(pots, nat, real, 2026)
+        euro_draw.check(pots, nat, real, fx, 1 if comp == "ecl" else 2)
+        draw[comp] = [list(f) for f in fx]
+    for cid, stars in europe.STARS.items():
+        if cid not in eu_ids:
+            raise SystemExit("Stars fuer unbekannten Verein " + cid)
+        for st in stars:
+            if st[1].split("/")[0] not in ("GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST"):
+                raise SystemExit("Unbekannte Position bei " + st[0])
+    eu = {
+        "clubs": europe.CLUBS,
+        "league": europe.LEAGUE,
+        "country": europe.COUNTRY,
+        "stars": {k: [list(x) for x in v] for k, v in europe.STARS.items()},
+        "names": {k: [v[0], v[1]] for k, v in europe.NAMES.items()},
+        "natPool": europe.NAT_POOL,
+        "pots": europe.POTS_2026,
+        "draw": draw,
+    }
+
     data = {
         "season": "2026/27",
         "startYear": 2026,
@@ -213,6 +255,7 @@ def main():
         "lv": {k: {"name": v[0], "slots": v[1]} for k, v in LV.items()},
         "amateurs": AMATEURS,
         "cupDraw": [list(p) for p in CUP_DRAW_2026],
+        "eu": eu,
     }
     js = "/* Automatisch erzeugt von data-src/build_data.py - nicht von Hand bearbeiten. */\n"
     js += "window.FM_DATA = " + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n"
@@ -221,7 +264,7 @@ def main():
     with open(dst, "w", encoding="utf-8") as fh:
         fh.write(js)
     total = sum(len(v) for v in out_players.values())
-    print(f"{len(clubs_out)} Vereine, {total} Spieler, {len(AMATEURS)} Amateurvereine -> {os.path.relpath(dst)}")
+    print(f"{len(clubs_out)} Vereine, {total} Spieler, {len(AMATEURS)} Amateurvereine, {len(europe.CLUBS)} Auslandsvereine -> {os.path.relpath(dst)}")
     print("Quellen:", stats)
     for c in CLUBS:
         rows = out_players[c["id"]]
