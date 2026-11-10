@@ -131,6 +131,17 @@
     return ok ? d.cupDraw.map(function (p) { return p.slice(); }) : null;
   }
 
+  /* ---------- Pokalfight ----------
+     Heimbonus fuer den Unterklassigen; an Sensationstagen waechst er ueber sich hinaus. */
+  FM.cupFight = function (state, fx) {
+    if (fx.comp !== 'cup' || fx.neutral) return null;
+    var lh = FM.levelOf(state, fx.home), la = FM.levelOf(state, fx.away);
+    if (lh <= la) return null;
+    var t = FM.MATCH_TUNE.cup[lh >= 5 ? 'am' : lh === 4 ? 'rl' : lh === 3 ? 'l3' : 'bl2'];
+    var magic = R.chance(t[1]);
+    return { bonus: t[0] + (magic ? R.range(t[2], t[3]) : 0), magic: magic };
+  };
+
   /* ---------- 1. Hauptrunde ---------- */
   FM.drawCupRound1 = function (state) {
     FM.clearGuests(state);

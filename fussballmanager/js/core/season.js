@@ -172,8 +172,9 @@
     var opts = { neutral: !!fx.neutral, league: FM.MATCH_TUNE.league[fx.comp] ? fx.comp : state.clubs[fx.home].league, derby: FM.isDerby(state, fx.home, fx.away) };
     if (fx.comp === 'cup' || fx.comp === 'po1' || fx.comp === 'po2') opts.knockout = fx.comp === 'cup' || fx.leg === 2;
     if (fx.leg === 2 && fx.agg) opts.agg = fx.agg;
-    // DFB-Pokal: Amateure spielen zuhause das Spiel des Jahres, der Favorit rotiert
-    if (fx.comp === 'cup' && !fx.neutral && FM.levelOf(state, fx.home) >= 4 && FM.levelOf(state, fx.away) <= 2) opts.fight = [FM.MATCH_TUNE.cupFight, 0];
+    // DFB-Pokal: Der Unterklassige spielt zuhause das Spiel des Jahres, der Favorit rotiert
+    var cf = FM.cupFight(state, fx);
+    if (cf) { opts.fight = [cf.bonus, 0]; opts.cupMagic = cf.magic; }
     if (fx.home === uc || fx.away === uc) {
       var ep = expectedPoints(state, fx);
       fx.expPts = fx.home === uc ? ep.home : ep.away;
