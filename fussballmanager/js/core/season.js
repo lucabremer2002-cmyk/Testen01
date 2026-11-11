@@ -101,6 +101,8 @@
     FM.buildLeagueSchedules(state);
     FM.drawCupRound1(state);
     FM.euroStart(state);
+    FM.aiFinance(state);
+    FM.abroadRefresh(state);
     FM.computeExpectations(state);
     FM.setBudgets(state, state.clubs[state.user.club]);
     if (!first) FM.budgetNews(state, false);
@@ -438,7 +440,7 @@
     FM.transferDaily(state);
     if (FM.isWindowOpen(state)) {
       var deadline = FM.isDeadlineDay(state);
-      if (day % 3 === 0 || deadline) FM.aiTransferRound(state, (m === 1 ? 3 : 4) + (deadline ? 3 : 0));
+      if (day % 3 === 0 || deadline) { FM.aiTransferRound(state, (m === 1 ? 3 : 4) + (deadline ? 3 : 0)); FM.abroadRound(state); }
       FM.generateOffersForUser(state);
       if (FM.windowDaysLeft(state) === 1) {
         FM.addNews(state, { type: 'market', important: true, title: 'Deadline Day', body: 'Die letzten 48 Stunden des Transferfensters laufen. Vereine werden nervös: Verkäufer gehen mit ihren Forderungen runter, Interessenten bieten schneller – und mehr Geschäfte werden auf den letzten Drücker gemacht.' });
@@ -447,6 +449,8 @@
     if (m === 9 && day === 1) FM.addNews(state, { type: 'market', title: 'Transferfenster geschlossen', body: 'Das Sommer-Transferfenster ist geschlossen. Vereinslose Spieler können weiterhin verpflichtet werden.' });
     if (m === 1 && day === 1) {
       FM.ownerSupport(state);
+      FM.aiFinance(state);
+      FM.abroadRefresh(state);
       var expiring = FM.clubPlayers(state, state.user.club).filter(function (p) { return !p.loan && !p.pre && p.contract.until <= state.season.year + 1; });
       if (expiring.length) FM.addNews(state, { type: 'board', important: true, title: 'Vorverträge erlaubt', body: 'Ab sofort dürfen andere Vereine Spielern mit auslaufendem Vertrag Vorverträge anbieten. Bei dir betrifft das: ' + expiring.map(function (p) { return p.name; }).join(', ') + '. Umgekehrt kannst du jetzt selbst Spieler für die neue Saison ablösefrei verpflichten.' });
       FM.setBudgets(state, state.clubs[state.user.club], true);
@@ -797,6 +801,22 @@
       FM.endLoan(state, p);
       if (involved) returned.push(p.name + ' (' + (p.club ? state.clubs[p.club].short : 'vereinslos') + ')');
     });
+    // Dynamisches Potenzial: Einsatzzeit und Leistung der abgelaufenen Saison (Regionalliga wird nicht simuliert)
+    var potUp = [], potDown = [];
+    Object.keys(state.players).forEach(function (pid) {
+      var p = state.players[pid], c = p.club ? state.clubs[p.club] : null;
+      if (!c || c.guest || c.league === 'rl') return;
+      var mins = p.st.mins + (p.cst.apps + (p.est ? p.est.apps : 0)) * 70;
+      var d = FM.seasonPotential(p, mins, FM.avgGrade(p));
+      if (d && p.club === uc) (d > 0 ? potUp : potDown).push(p.name + ' (' + (d > 0 ? '+' : '−') + Math.abs(d) + ')');
+    });
+    if (potUp.length || potDown.length) {
+      FM.addNews(state, {
+        type: 'youth', title: 'Talente neu eingeschätzt',
+        body: (potUp.length ? 'Potenzial gestiegen: ' + potUp.join(', ') + '. ' : '') + (potDown.length ? 'Potenzial gesunken: ' + potDown.join(', ') + '. ' : '') +
+          'Wer regelmäßig spielt und überzeugt, wächst über sich hinaus – wer nur zuschaut, verliert den Anschluss. Eine Leihe bringt Spielpraxis.'
+      });
+    }
     Object.keys(state.players).forEach(function (pid) {
       var p = state.players[pid];
       p.mm = 0;
@@ -823,15 +843,19 @@
         } else {
           var mates = FM.clubPlayers(state, p.club).sort(function (a, b) { return b.ovr - a.ovr; });
           var rank = mates.indexOf(p) + 1;
-          var keep = rank <= 6 && p.age <= 34 ? 0.95 : p.age <= 30 ? (rank <= 18 ? 0.85 : 0.55) : p.age <= 33 ? (rank <= 14 ? 0.65 : 0.3) : 0.25;
+          var keep = rank <= 6 && p.age <= 34 ? 0.95 : p.age <= 30 ? (rank <= 18 ? 0.9 : 0.6) : p.age <= 33 ? (rank <= 11 ? 0.92 : rank <= 18 ? 0.82 : 0.4) : (rank <= 11 ? 0.8 : rank <= 18 ? 0.5 : 0.25);
+          // Mitlaeufer ohne Perspektive werden aussortiert und suchen sich einen Verein auf ihrem Niveau
+          if (rank > 18 && p.age >= 21 && mates[13] && p.ovr < mates[13].ovr - 5) keep = 0.2;
           if (club.guest) keep = 1;                               // Auslandsvereine verlaengern mit ihren Spielern
-          if (R.chance(keep)) p.contract = { until: y + 1 + R.int(1, p.age >= 31 ? 1 : 3), wage: FM.wageDemand(p, club.league) };
+          if (R.chance(keep)) p.contract = { until: y + 1 + R.int(1, p.age >= 33 ? 1 : p.age >= 30 ? 2 : 3), wage: FM.wageDemand(p, club.league) };
           else { removeFromClub(state, p); state.free.push(p.id); }
         }
       }
       // Alter & Karriereende
       p.age++;
-      var retire = (p.age >= 38) || (p.age >= 35 && R.chance(p.ovr >= 78 ? 0.25 : 0.5)) || (p.age >= 33 && p.ovr < 62 && R.chance(0.4)) || (!p.club && p.age >= 32 && p.ovr < 72 && R.chance(0.5));
+      var ra = p.age - (FM.isGK(p) ? 2 : 0);            // Torhueter spielen laenger
+      var retire = (ra >= 39) || (ra >= 35 && R.chance(p.ovr >= 78 ? 0.2 : 0.4)) || (ra >= 33 && p.ovr < 60 && R.chance(0.4)) || (!p.club && ra >= 32 && p.ovr < 70 && R.chance(0.5));
+      if (p.abroad && !p.real && ra >= 33) retire = true;   // ins Ausland gewechselte Spieler verschwinden frueher aus dem Blick
       if (retire) {
         if (p.club === uc) retired.push(p.name);
         if (p.club) removeFromClub(state, p);
@@ -840,6 +864,7 @@
       }
       p.st = FM.emptyStats(); p.cst = { apps: 0, goals: 0 };
       if (p.est) p.est = null;
+      if (p.hist.length > 6 && p.club !== uc) p.hist = p.hist.slice(-6);       // Spielstand schlank halten
       p.suspEu = 0;
       p.yel = 0; p.susp = 0; p.suspCup = 0; p.fit = 100; p.form = 0; p.minutesRecent = 0;
       if (p.injury && p.injury.days > 60) p.injury.days -= 40; else p.injury = null;
@@ -856,7 +881,21 @@
     Object.keys(state.clubs).forEach(function (cid) {
       var club = state.clubs[cid];
       if (club.guest) return;
-      var n = R.int(club.league === 'rl' ? 1 : 2, club.rep > 70 ? 4 : 3) + (FM.facLevel(club, 'youth') >= 4 ? 1 : 0);
+      // Jahrgang: ein bis zwei Talente, starke Akademien bringen mehr hervor
+      var yl = FM.facLevel(club, 'youth');
+      var n = club.league === 'rl' ? R.int(0, 1) : yl <= 2 ? 1 : yl === 3 ? R.int(1, 2) : yl === 4 ? 2 : R.int(2, 3);
+      if (cid !== uc) {
+        // Talente ohne Perspektive verlassen den Verein und versuchen es eine Liga tiefer
+        var ms = FM.clubPlayers(state, cid).sort(function (a, b) { return b.ovr - a.ovr; });
+        var bar = ms[13] ? ms[13].ovr - 1 : 0;
+        ms.forEach(function (q, qi) {
+          if (qi < 18 || q.age > 21 || q.age < 19 || q.loan || q.pre || q.pot > bar || club.squad.length <= 20 || !R.chance(0.6)) return;
+          removeFromClub(state, q);
+          q.contract = { until: y + 2, wage: FM.wageDemand(q, 'l3') };
+          state.free.push(q.id);
+        });
+        FM.aiSignFree(state, cid);
+      }
       for (var i = 0; i < n; i++) {
         var p = FM.makeYouth(club, state);
         state.players[p.id] = p;
@@ -873,6 +912,7 @@
     if (retired.length) FM.addNews(state, { type: 'info', title: 'Karriereende', body: retired.join(', ') + ' beende' + (retired.length > 1 ? 'n' : 't') + ' die Karriere.' });
     if (youthUser.length) FM.addNews(state, { type: 'youth', title: 'Neue Talente aus der Akademie', body: 'Der Nachwuchs rückt auf: ' + youthUser.join(', ') + '.' });
 
+    FM.abroadPrune(state);
     state.season.year = y + 1;
     state.date = D.iso(y + 1, 7, 1);
     var clubLineup = state.clubs[uc];

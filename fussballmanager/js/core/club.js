@@ -132,7 +132,7 @@
   FM.FACILITIES = {
     stadium: { name: 'Stadion', icon: 'stadium', text: 'Mehr Plätze bringen mehr Zuschauereinnahmen. Während des Ausbaus fehlen rund 8 % der Kapazität.' },
     training: { name: 'Trainingszentrum', icon: 'training', base: 6e6, upkeep: 0.8e6, text: 'Bessere Plätze und Geräte: Spieler entwickeln sich schneller, Trainingsverletzungen werden seltener.' },
-    youth: { name: 'Nachwuchsleistungszentrum', icon: 'youth', base: 5e6, upkeep: 0.6e6, text: 'Stärkere Talente mit höherem Potenzial; ab Stufe 4 ein zusätzlicher Jahrgangsspieler.' },
+    youth: { name: 'Nachwuchsleistungszentrum', icon: 'youth', base: 5e6, upkeep: 0.6e6, text: 'Stärkere Talente mit höherem Potenzial – und größere Jahrgänge: bis Stufe 2 ein Talent pro Jahr, ab Stufe 4 mindestens zwei.' },
     medical: { name: 'Medizinische Abteilung', icon: 'medic', base: 3e6, upkeep: 0.4e6, text: 'Verletzungen heilen schneller, Spieler erholen sich besser zwischen den Spielen.' },
     scouting: { name: 'Scoutingabteilung', icon: 'search', base: 2e6, upkeep: 0.3e6, text: 'Genauere Einschätzung des Potenzials fremder Spieler – auf Stufe 5 kennst du es exakt.' },
     commercial: { name: 'Marketing & Fanshop', icon: 'euro', base: 2.5e6, upkeep: 0.3e6, text: 'Jede neue Stufe erhöht die Sponsoring- und Merchandising-Einnahmen um 8 %.' }

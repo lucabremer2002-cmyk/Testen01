@@ -121,14 +121,15 @@
     if (p.club === uc) return p.loan || p.pre ? [] : ['renew'];
     if (p.pre) return [];
     if (!p.club) return ['free'];
-    if (p.loan || state.clubs[p.club].guest) return [];
+    var seller = state.clubs[p.club];
+    if (p.loan || (seller.guest && !(seller.eu && p.abroad))) return [];
     var out = [];
     if (FM.isWindowOpen(state)) {
       out.push('buy');
       if (FM.loanable(state, p)) out.push('loan');
       if (p.contract.clause) out.push('clause');
     }
-    if (FM.preContractOpen(state, p)) out.push('pre');
+    if (!seller.eu && FM.preContractOpen(state, p)) out.push('pre');
     return out;
   };
   FM.DEAL_LABEL = { buy: 'Kauf', loan: 'Leihe', clause: 'Klausel ziehen', pre: 'Vorvertrag', free: 'Verpflichten', renew: 'Verlängerung' };
@@ -172,7 +173,7 @@
     if (t.stage === 'club') {
       var seller = state.clubs[p.club], buyer = state.clubs[uc];
       var base = FM.askingPrice(state, p);
-      var star = FM.squadRank(state, p) <= 3 && seller.rep > buyer.rep + 12;
+      var star = !p.mkt && FM.squadRank(state, p) <= 3 && seller.rep > buyer.rep + 12;
       t.ask = FM.niceRound(base * (star ? 1.75 : 1));
       t.min = Math.round(base * (star ? 1.6 : R.range(0.86, 0.98)) * (FM.isDeadlineDay(state) ? 0.92 : 1));
       t.pat = t.max = p.listed || p.wants ? 5 : star ? 2 : seller.league === buyer.league ? 3 : 4;
@@ -265,7 +266,7 @@
     var b = FM.budget(state, buyer);
     if (now > b.transfer) return { status: 'error', msg: 'Das übersteigt dein Transferbudget: sofort fällig wären ' + FM.fmtMoney(now) + ' inklusive Beraterhonorar, verfügbar sind ' + FM.fmtMoney(b.transfer) + '.' };
     if (buyer.squad.length >= 34 && !swap) return { status: 'error', msg: 'Dein Kader ist voll (34 Spieler).' };
-    if (seller.squad.length <= 18 && !swap) {
+    if (!seller.eu && seller.squad.length <= 18 && !swap) {
       endTalk(state, t, 14);
       return { status: 'broken', msg: seller.short + ' hat zu wenige Spieler und gibt niemanden ab – außer im Tausch.' };
     }
@@ -547,7 +548,7 @@
   FM.scoutLabel = function (f) {
     var parts = [f.pos && f.pos !== 'all' ? FM.POS_NAME[f.pos] : f.grp && f.grp !== 'all' ? FM.GROUP_LABEL[f.grp] : 'Alle Positionen'];
     if (f.maxAge && f.maxAge < 40) parts.push('bis ' + f.maxAge + ' J.');
-    if (f.league && f.league !== 'all') parts.push(FM.COMP_NAME[f.league] || 'Regionalliga');
+    if (f.league && f.league !== 'all') parts.push(f.league === 'eu' ? 'Ausland' : FM.COMP_NAME[f.league] || 'Regionalliga');
     if (f.maxPrice) parts.push('bis ' + FM.fmtMoneyShort(f.maxPrice) + ' €');
     if (f.style === 'young') parts.push('Talente');
     if (f.style === 'cheap') parts.push('Schnäppchen');
@@ -570,7 +571,8 @@
       var p = state.players[pid];
       if (p.club === uc || p.loan || (p.pre && p.pre.club !== uc)) return;
       var c = p.club ? state.clubs[p.club] : null;
-      if (c && (c.reserve || c.guest)) return;
+      // Ausland: nur Spieler, die dort auf dem Markt sind
+      if (c && (c.reserve || (c.guest && !(c.eu && p.mkt)))) return;
       if (f.league && f.league !== 'all') { if (!c || c.league !== f.league) return; }
       if (f.pos && f.pos !== 'all') { if (p.pos.indexOf(f.pos) < 0) return; }
       else if (f.grp && f.grp !== 'all' && FM.mainGroup(p) !== f.grp) return;
@@ -633,6 +635,8 @@
         return cid !== uc && !c.reserve && !c.guest && c.league !== 'rl' && c.rep >= me.rep - 2 &&
           c.money - FM.cashReserve(state, c) >= clause * 1.05 && FM.interest(state, p, cid) >= 55 && ROLE_RANK[FM.expectedRole(state, p, cid)] <= 2;
       });
+      // Klubs aus dem Ausland zahlen Klauseln aus der Portokasse
+      if (FM.foreignBuyers && clause <= FM.marketValue(p) * 2.6) buyers = buyers.concat(FM.foreignBuyers(state, p, 2).filter(function (id) { return state.clubs[id].rep >= me.rep - 2 && FM.interest(state, p, id) >= 55; }));
       if (!buyers.length) return;
       var cid = R.pick(buyers), c = state.clubs[cid];
       FM.executeTransfer(state, p, cid, clause, FM.wageDemand(p, c.league), R.int(3, 5));

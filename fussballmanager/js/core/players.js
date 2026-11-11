@@ -17,7 +17,7 @@
     e: 'Geschätzt (echter Kaderspieler 2026/27, Wert nicht in der FC-27-Datenbank gefunden)',
     y: 'Nachwuchsspieler aus der Vereinsakademie (fiktiv)',
     a: 'Amateurspieler eines Pokalgegners (fiktiver Name, Stärke geschätzt)',
-    x: 'Ergänzungsspieler eines Auslandsvereins (fiktiver Name, Stärke geschätzt)'
+    x: 'Spieler aus dem Ausland (fiktiver Name, Stärke geschätzt)'
   };
 
   // Gehaltsniveau je Liga (abgeglichen mit geschaetzten Profi-Gehaeltern, Capology 2025/26 und 2026/27)
@@ -211,9 +211,11 @@
       st: FM.emptyStats(), cst: { apps: 0, goals: 0 }, hist: [], prog: 0, listed: false,
       joined: state.season.year, minutesRecent: 0, youth: true
     };
+    // Die meisten Talente werden solide Profis, wenige Stammspieler, ganz selten ein Ausnahmespieler
     var talent = R.next();
-    var potGain = (talent > 0.97 - yb * 0.01 ? R.int(26, 34) : talent > 0.85 - yb * 0.03 ? R.int(18, 26) : R.int(8, 20)) + yb;
+    var potGain = (talent > 0.975 - yb * 0.008 ? R.int(23, 31) : talent > 0.86 - yb * 0.03 ? R.int(14, 22) : R.int(4, 14)) + yb;
     p.pot = FM.clamp(p.ovr + potGain, p.ovr, 93);
+    if (potGain >= 23 + yb) p.gem = true;
     p.s = FM.deriveStats(pos, p.ovr, name);
     p.contract = { until: state.season.year + 3, wage: Math.max(20000, Math.round(FM.wageDemand(p, club.league) * 0.6 / 5000) * 5000) };
     return p;
@@ -240,20 +242,40 @@
   };
 
   /* Woechentliche Entwicklung (Training, Spielzeit, Alter) */
+  /* Leistungsabfall je Woche nach Alter; Torhueter halten ihr Niveau drei Jahre laenger */
+  var DECLINE = [0.012, 0.022, 0.035, 0.05, 0.07, 0.09];
   FM.developWeekly = function (p, trainingFactor) {
     var gap = p.pot - p.ovr, gain = 0;
-    var playFactor = p.minutesRecent > 200 ? 1.3 : p.minutesRecent > 60 ? 1.05 : 0.7;
+    // Spielpraxis entscheidet: Stammspieler reifen schnell, Bankdruecker treten auf der Stelle
+    var playFactor = p.minutesRecent > 120 ? 1.25 : p.minutesRecent > 40 ? 0.95 : 0.45;
     if (gap > 0) {
       var rate = p.age <= 20 ? 0.0075 : p.age <= 23 ? 0.0065 : p.age <= 27 ? 0.004 : 0.002;
       gain = gap * rate * playFactor * trainingFactor;
       gain = Math.max(gain, 0.004);
     }
-    var decline = 0;
-    if (p.age >= 31) decline = (p.age - 30) * 0.019 + (p.age >= 34 ? 0.03 : 0);
+    var decline = 0, da = p.age - (p.pos[0] === 'GK' ? 3 : 0);
+    if (da >= 31) decline = DECLINE[Math.min(DECLINE.length - 1, da - 31)];
     p.prog += gain - decline + (R.next() - 0.5) * 0.02;
     if (p.prog >= 1) { p.prog -= 1; FM.applyOvrChange(p, 1); if (p.ovr > p.pot) p.pot = p.ovr; return 1; }
     if (p.prog <= -1) { p.prog += 1; FM.applyOvrChange(p, -1); if (p.pot > p.ovr + 2 && p.age >= 30) p.pot = p.ovr + 1; return -1; }
     return 0;
+  };
+
+  /* Dynamisches Potenzial am Saisonende: Wer spielt und ueberzeugt, kann ueber sich hinauswachsen;
+     wer nur zuschaut, verliert den Anschluss. mins = Ligaminuten der abgelaufenen Saison. */
+  FM.seasonPotential = function (p, mins, avgGrade) {
+    if (p.age > 24 || p.pot <= p.ovr) return 0;
+    var d = 0;
+    if (mins >= 1500) {
+      if (avgGrade != null && avgGrade <= 2.9 && R.chance(0.3)) d = R.int(1, 2);
+      else if (p.age <= 21 && R.chance(0.02)) d = R.int(3, 5);                 // spaeter Durchbruch
+    } else if (mins < 450 && p.age >= 19) d = -R.int(1, p.age >= 22 ? 4 : 3);
+    else if (mins < 900 && p.age >= 21) d = -R.int(0, 2);
+    if (!d) return 0;
+    var np = FM.clamp(p.pot + d, p.ovr + (p.age <= 20 ? 2 : 0), 94);
+    d = np - p.pot;
+    p.pot = np;
+    return d;
   };
 
   FM.isGK = function (p) { return p.pos[0] === 'GK'; };

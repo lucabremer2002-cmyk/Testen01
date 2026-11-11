@@ -93,7 +93,7 @@
       var p = st.players[pid];
       if (p.club === uc) return;
       if (s.free && p.club) return;
-      if (p.club && st.clubs[p.club].guest) return;
+      if (p.club && st.clubs[p.club].guest && !(st.clubs[p.club].eu && p.abroad && s.league === 'eu')) return;
       if (p.club && st.clubs[p.club].league === 'rl' && s.league !== 'rl' && s.league !== 'all') return;
       if (s.league !== 'all' && (!p.club || st.clubs[p.club].league !== s.league)) return;
       if (s.grp !== 'all' && FM.mainGroup(p) !== s.grp) return;
@@ -116,7 +116,7 @@
     var filters = '<div class="card" style="margin-bottom:14px"><div class="card-b" style="padding-top:14px"><div class="filters" style="margin-bottom:10px">' +
       '<div class="field" style="min-width:200px;flex:1"><label for="t-q">Suche</label><input class="input" id="t-q" placeholder="Spieler oder Verein" value="' + esc(s.q) + '"></div>' +
       sel('Position', 'pos', posOpts, s.pos) +
-      sel('Liga', 'league', [['all', 'Alle Ligen'], ['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rl', 'Regionalliga']], s.league) +
+      sel('Liga', 'league', [['all', 'Alle deutschen Ligen'], ['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rl', 'Regionalliga'], ['eu', 'Ausland']], s.league) +
       sel('Stärke ab', 'minOvr', [[0, 'beliebig'], [60, '60+'], [65, '65+'], [70, '70+'], [75, '75+'], [80, '80+'], [85, '85+']], s.minOvr) +
       sel('Alter bis', 'maxAge', [[40, 'beliebig'], [19, '19'], [21, '21'], [23, '23'], [25, '25'], [28, '28'], [31, '31']], s.maxAge) +
       sel('Ablöse bis', 'maxPrice', [[0, 'beliebig'], [250000, '250 Tsd.'], [1000000, '1 Mio.'], [3000000, '3 Mio.'], [10000000, '10 Mio.'], [25000000, '25 Mio.'], [60000000, '60 Mio.']], s.maxPrice) +
@@ -147,7 +147,7 @@
       '<div class="card-b"><div class="filters" style="margin-bottom:0">' +
       '<div class="field"><label>Position</label>' + opt('sc-pos', posOpts, f.grp) + '</div>' +
       '<div class="field"><label>Alter bis</label>' + opt('sc-age', [[40, 'beliebig'], [19, '19'], [21, '21'], [23, '23'], [26, '26'], [29, '29']], f.maxAge) + '</div>' +
-      '<div class="field"><label>Liga</label>' + opt('sc-league', [['all', 'Alle Ligen'], ['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rl', 'Regionalliga']], f.league) + '</div>' +
+      '<div class="field"><label>Liga</label>' + opt('sc-league', [['all', 'Alle Ligen'], ['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rl', 'Regionalliga'], ['eu', 'Ausland']], f.league) + '</div>' +
       '<div class="field"><label>Ablöse bis</label>' + opt('sc-price', [[0, 'beliebig'], [500000, '500 Tsd.'], [2000000, '2 Mio.'], [5000000, '5 Mio.'], [10000000, '10 Mio.'], [25000000, '25 Mio.']], f.maxPrice) + '</div>' +
       '<div class="field"><label>Schwerpunkt</label>' + opt('sc-style', [['best', 'Beste Verstärkung'], ['young', 'Talente'], ['cheap', 'Schnäppchen']], f.style) + '</div>' +
       '<div class="field"><label>&nbsp;</label><button class="btn primary" data-action="scoutGo"' + (busy >= slots ? ' disabled' : '') + '>' + UI.icon('search') + ' Losschicken</button></div>' +

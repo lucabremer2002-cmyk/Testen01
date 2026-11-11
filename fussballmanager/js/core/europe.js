@@ -102,6 +102,8 @@
     return t;
   }
 
+  FM.euTaken = takenNames;
+
   /* Stars der groessten Auslandsvereine (FC-27-Werte) – einmalig beim Spielstart */
   FM.euInitStars = function (state) {
     var d = data(), taken = takenNames(state);
@@ -132,6 +134,7 @@
       var best = null;
       pool.forEach(function (p) {
         if (used[p.id] || FM.positionPenalty(p, pos) > 1) return;
+        if (i < 11 && p.ovr < club.str - 4) return;             // Talente und Reservisten gehoeren nicht in die erste Elf
         if (!best || p.ovr > best.ovr) best = p;
       });
       if (best) { used[best.id] = 1; filled[i] = best; }
