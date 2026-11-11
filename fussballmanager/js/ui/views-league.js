@@ -137,7 +137,7 @@
     var head = '<div class="modal-h">' + UI.badge(c, 44) + '<div class="grow"><h2>' + esc(c.name) + '</h2><div class="muted small">' + esc(FM.leagueName(st, c)) + (pos ? ' · Platz ' + pos : '') + ' · ' + esc(c.stadium) + ' (' + FM.fmtInt(c.cap) + ')</div></div>' +
       '<button class="btn ghost icon" data-action="closeModal" aria-label="Schließen">' + UI.icon('x') + '</button></div>';
     var body = '<div class="grid g4" style="gap:8px;margin-bottom:14px">' +
-      '<div class="card stat"><div class="label">Kaderstärke</div><div class="value">' + FM.teamStrength(st, cid).toFixed(1) + '</div></div>' +
+      '<div class="card stat"><div class="label">Kaderstärke</div><div class="value">' + FM.euStr(st, cid).toFixed(1) + '</div></div>' +
       '<div class="card stat"><div class="label">Reputation</div><div class="value">' + c.rep + '</div></div>' +
       '<div class="card stat"><div class="label">Marktwert</div><div class="value" style="font-size:18px">' + FM.fmtMoney(value) + '</div></div>' +
       '<div class="card stat"><div class="label">Formation</div><div class="value" style="font-size:18px">' + esc(c.formation || '–') + '</div></div></div>';
@@ -146,6 +146,7 @@
       var opp = f.home === cid ? f.away : f.home;
       return '<span class="tag" title="' + esc(UI.compLabel(f)) + '">' + (f.home === cid ? 'H' : 'A') + ' ' + esc(st.clubs[opp].short) + ' ' + resultTag(f, cid) + '</span>';
     }).join('') + '</div>';
+    if (c.eu && !players.some(function (p) { return p.gen; })) body += '<div class="note" style="margin-bottom:14px">' + (players.length ? 'Erfasst sind die bekanntesten Spieler.' : 'Zu diesem Verein sind noch keine Spieler erfasst.') + ' Der vollständige Kader wird beobachtet, sobald dein Verein auf ' + esc(c.short) + ' trifft.</div>';
     body += '<div class="tbl-wrap"><table class="tbl compact"><thead><tr><th>Pos</th><th>Name</th><th class="num">Alter</th><th class="num">Stärke</th><th class="num hide-xs">Tore</th><th class="num hide-xs">Marktwert</th></tr></thead><tbody>' +
       players.map(function (p) {
         return '<tr class="click" data-action="player" data-id="' + p.id + '"><td>' + UI.posTag(p.pos[0]) + '</td><td><span class="pname">' + esc(p.name) + '</span>' + UI.srcMark(p) + ' ' + UI.status(p) + '</td><td class="num">' + p.age + '</td><td class="num">' + UI.pill(p.ovr) + '</td><td class="num hide-xs">' + p.st.goals + '</td><td class="num hide-xs">' + FM.fmtMoney(FM.marketValue(p)) + '</td></tr>';

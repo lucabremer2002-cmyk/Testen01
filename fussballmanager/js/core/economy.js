@@ -62,6 +62,8 @@
     var tickets = FM.expectedTickets(club);
     var wages = FM.annualWages(state, club);
     var need = (wages + base.ops + (FM.facUpkeep ? FM.facUpkeep(club) : 0) + (FM.debtService ? FM.debtService(club) : 0)) * 1.03 - base.tv - tickets;
+    // Europapokalteilnehmer haben einen Teil der UEFA-Einnahmen fest verplant – ohne Europa wird es eng
+    if (FM.euExpectedIncome) need -= FM.euExpectedIncome(state, club) * 0.4;
     var min = MIN_COMMERCIAL[club.league] || 0.2e6;
     club.commercial = Math.round(Math.max(min, need));
     // Vereine geben aus, was sie einnehmen: Ueberschuesse aus TV und Tickets fliessen in den Betrieb
@@ -177,6 +179,13 @@
       var opp = fx.home === user.club ? fx.away : fx.home;
       var lowerOpp = FM.levelOf(state, opp) > FM.levelOf(state, user.club);
       delta = won ? 1.5 + fx.round * 0.6 : (lowerOpp ? -6 : -1.5);
+    } else if (FM.EU[fx.comp]) {
+      // Europapokal: Siege zaehlen, ein Weiterkommen erst recht – in der Champions League am meisten
+      var imp = fx.comp === 'cl' ? 1 : fx.comp === 'el' ? 0.8 : 0.6;
+      if (fx.euKo && (fx.leg === 2 || fx.euKo === 'f')) {
+        var adv = FM.fixtureWinner(fx) === user.club;
+        delta = (adv ? { po: 2, r16: 3, qf: 4, sf: 5, f: 12 }[fx.euKo] : fx.euKo === 'f' ? 1 : -1.5) * imp;
+      } else delta = (gf > ga ? 1.3 : gf === ga ? 0.2 : -0.8) * imp;
     }
     // Derbys zaehlen doppelt
     if (FM.isDerby(state, fx.home, fx.away)) delta += gf > ga ? 2 : gf < ga ? -2.5 : 0;

@@ -16,11 +16,12 @@
     f: 'EA SPORTS FC 26 – letzter verfügbarer Datenstand',
     e: 'Geschätzt (echter Kaderspieler 2026/27, Wert nicht in der FC-27-Datenbank gefunden)',
     y: 'Nachwuchsspieler aus der Vereinsakademie (fiktiv)',
-    a: 'Amateurspieler eines Pokalgegners (fiktiver Name, Stärke geschätzt)'
+    a: 'Amateurspieler eines Pokalgegners (fiktiver Name, Stärke geschätzt)',
+    x: 'Ergänzungsspieler eines Auslandsvereins (fiktiver Name, Stärke geschätzt)'
   };
 
   // Gehaltsniveau je Liga (abgeglichen mit geschaetzten Profi-Gehaeltern, Capology 2025/26 und 2026/27)
-  var LEAGUE_WAGE = { bl: 1, bl2: 0.9, l3: 0.75, rl: 0.45 };
+  var LEAGUE_WAGE = { bl: 1, bl2: 0.9, l3: 0.75, rl: 0.45, eu: 1.15 };
 
   /* Kartenwerte aus Position + Gesamtwert ableiten (gleiche Logik wie im Build-Skript) */
   FM.deriveStats = function (pos, ovr, seedName) {
@@ -105,8 +106,14 @@
 
   FM.seasonYear = function () { return FM.state ? FM.state.season.year : 2026; };
 
+  /* Fortlaufende Nummer im Spielstand – eindeutig auch ueber Sitzungen hinweg */
   var pid = 0;
-  FM.newPlayerId = function () { pid++; return 'p' + Date.now().toString(36).slice(-4) + pid.toString(36); };
+  FM.newPlayerId = function () {
+    var s = FM.state;
+    if (s) { s.pidSeq = (s.pidSeq || 0) + 1; return 'q' + s.pidSeq.toString(36); }
+    pid++;
+    return 'p' + Date.now().toString(36).slice(-4) + pid.toString(36);
+  };
 
   FM.makePlayer = function (row, clubId, leagueId, year, idPrefix, idx) {
     var name = row[0], pos = row[1].split('/'), ovr = row[2], stats = row[3].slice(), age = row[4];
@@ -159,12 +166,20 @@
     return r;
   };
 
-  /* Verfuegbarkeit; FM.matchComp bestimmt, welche Sperre gilt (Liga oder Pokal) */
+  /* Verfuegbarkeit; FM.matchComp bestimmt, welche Sperre gilt (Liga, Pokal, Europapokal; Testspiele: keine) */
   FM.matchComp = null;
+  FM.compKind = function (comp) {
+    if (comp === 'cup' || comp === 'po1' || comp === 'po2') return 'cup';
+    if (comp === 'cl' || comp === 'el' || comp === 'ecl') return 'eu';
+    if (comp === 'fr') return 'fr';
+    return 'league';
+  };
   FM.isAvailable = function (p, comp) {
     if (p.injury) return false;
     comp = comp || FM.matchComp;
+    if (comp === 'fr') return true;
     if (comp === 'cup') return !(p.suspCup > 0);
+    if (comp === 'eu') return !(p.suspEu > 0);
     return !(p.susp > 0);
   };
 

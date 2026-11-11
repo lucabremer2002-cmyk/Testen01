@@ -23,6 +23,7 @@
 
   /* Ligaangabe fuer Anzeigen; Pokalgaeste spielen in keiner Liga des Spiels */
   FM.leagueName = function (state, c, short) {
+    if (c.eu) return short ? FM.euCountry(c.nat) : c.div + ' (' + FM.euCountry(c.nat) + ')';
     if (c.guest) return short ? 'Amateure' : c.div;
     var l = state.leagues[c.league];
     return l ? (short ? l.short : l.name) : '';
@@ -38,13 +39,18 @@
   var GUEST_POS = ['GK', 'GK', 'CB', 'CB', 'CB', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'ST', 'ST'];
   var SPREAD = [5, 4, 3, 2, 2, 1, 1, 0, 0, -1, -1, -2, -2, -3, -4, -5, -6, -7];
 
-  /* Kader der Vorsaison loeschen; das Vereinsobjekt bleibt (Spielberichte, Historie) */
+  /* Kader der Vorsaison loeschen; das Vereinsobjekt bleibt (Spielberichte, Historie).
+     Bei Auslandsvereinen bleiben die dauerhaften Spieler (Stars, Zugaenge), nur die Ergaenzung wird neu erzeugt. */
   FM.clearGuests = function (state) {
     Object.keys(state.clubs).forEach(function (cid) {
       var c = state.clubs[cid];
       if (!c.guest) return;
-      c.squad.forEach(function (pid) { delete state.players[pid]; });
-      c.squad = [];
+      var keep = [];
+      c.squad.forEach(function (pid) {
+        var p = state.players[pid];
+        if (p && c.eu && p.abroad) keep.push(pid); else delete state.players[pid];
+      });
+      c.squad = keep;
       c.lineup = null;
     });
   };
@@ -70,7 +76,7 @@
         var ovr = FM.clamp(a.ovr + spread[i] + R.int(-1, 1), 38, 68), age = R.int(18, 33);
         var p = {
           id: FM.newPlayerId(), name: name, club: c.id, pos: [pos], ovr: ovr, s: FM.deriveStats(pos, ovr, name),
-          age: age, src: 'a', ageEst: false, pot: FM.initialPotential(name, age, ovr),
+          age: age, src: 'a', gen: true, ageEst: false, pot: FM.initialPotential(name, age, ovr),
           form: 0, fit: 100, mor: 75, contract: null, injury: null, susp: 0, yel: 0,
           st: FM.emptyStats(), cst: { apps: 0, goals: 0 }, hist: [], prog: 0, listed: false,
           joined: y, minutesRecent: 0

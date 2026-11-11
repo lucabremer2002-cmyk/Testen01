@@ -167,6 +167,7 @@
       html += newsCard();
       html += '</div><div class="stack">';
       html += miniTable(lid, uc);
+      html += euroCard();
       html += squadStatusCard(players);
       html += topPerformersCard(players);
       html += '</div></div>';
@@ -174,15 +175,36 @@
     }
   };
 
+  /* Europapokal auf einen Blick: Tabellenausschnitt oder aktuelles Duell */
+  function euroCard() {
+    var st = FM.state, uc = st.user.club;
+    var k = st.eu ? FM.euroCompOf(st, uc) : null;
+    if (!k) return '';
+    var c = st.eu.comps[k], E = FM.EU[k], body;
+    var last = c.ko[c.ko.length - 1];
+    var tie = last ? last.ties.filter(function (t) { return t.a === uc || t.b === uc; })[0] : null;
+    if (c.phase === 'league' || !tie) {
+      var t = FM.euroTable(st, k), i = t.findIndex(function (r) { return r.club === uc; });
+      var from = Math.max(0, Math.min(i - 2, t.length - 5));
+      body = '<table class="tbl compact"><tbody>' + t.slice(from, from + 5).map(function (r, j) {
+        var pos = from + j + 1;
+        return '<tr class="' + (r.club === uc ? 'me' : '') + '"><td class="zone ' + (pos <= 8 ? 'cl' : pos <= 24 ? 'po' : '') + '"></td><td class="num">' + pos + '</td><td>' + UI.clubLink(r.club) + '</td><td class="num">' + r.p + '</td><td class="num">' + (r.gd > 0 ? '+' : '') + r.gd + '</td><td class="num strong">' + r.pts + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    } else {
+      var opp = tie.a === uc ? tie.b : tie.a;
+      var legs = last.r === 'f' ? (tie.r1 ? tie.r1[0] + ':' + tie.r1[1] : 'am ' + D.fmt(last.date)) :
+        (tie.r1 ? 'Hinspiel ' + tie.r1[0] + ':' + tie.r1[1] : 'Hinspiel am ' + D.fmt(last.dates[0])) + (tie.r2 ? ' · Rückspiel ' + tie.r2[1] + ':' + tie.r2[0] : '');
+      body = '<div class="list"><div class="li">' + UI.badge(st.clubs[opp], 30) + '<div class="grow"><div class="strong">' + FM.EU_ROUNDS[last.r] + ' gegen ' + esc(st.clubs[opp].short) + '</div><div class="muted small">' + esc(legs) +
+        (tie.w ? ' · ' + (tie.w === uc ? 'weiter' : 'ausgeschieden') : '') + '</div></div></div></div>';
+    }
+    return '<div class="card"><div class="card-h"><h3>' + E.name + '</h3><button class="btn sm" data-action="go" data-view="europe">Öffnen</button></div><div class="card-b flush">' + body + '</div></div>';
+  }
+
   function tile(label, value, meta) {
     return '<div class="card stat"><div class="label">' + label + '</div><div class="value">' + value + '</div><div class="meta">' + meta + '</div></div>';
   }
 
-  UI.compLabel = function (fx) {
-    if (fx.comp === 'cup') return 'DFB-Pokal · ' + FM.CUP_ROUNDS[fx.round - 1];
-    if (fx.comp === 'po1' || fx.comp === 'po2') return 'Relegation · ' + (fx.leg === 1 ? 'Hinspiel' : 'Rückspiel');
-    return FM.COMP_NAME[fx.comp] + ' · ' + fx.round + '. Spieltag';
-  };
+  UI.compLabel = function (fx) { return FM.fixtureLabel(fx); };
 
   function nextMatchCard(fx) {
     var st = FM.state;
@@ -197,9 +219,9 @@
     }
     var days = D.diff(st.date, fx.date);
     var when = days === 0 ? 'Heute' : days === 1 ? 'Morgen' : 'in ' + days + ' Tagen';
-    var sh = FM.teamStrength(st, fx.home), sa = FM.teamStrength(st, fx.away);
+    var sh = FM.euStr(st, fx.home), sa = FM.euStr(st, fx.away);
     return '<div class="fixture"><div class="fixture-top"><span>' + esc(UI.compLabel(fx)) + '</span><span class="when">' + when + ' · ' + D.fmtLong(fx.date) + '</span></div>' +
-      '<div class="next-match">' + teamCol(h) + '<div class="vs"><div class="big">' + (fx.res ? FM.scoreText(fx) : 'VS') + '</div><div class="muted small">' + esc(fx.neutral ? 'Olympiastadion Berlin' : h.stadium) + '</div></div>' + teamCol(a) + '</div>' +
+      '<div class="next-match">' + teamCol(h) + '<div class="vs"><div class="big">' + (fx.res ? FM.scoreText(fx) : 'VS') + '</div><div class="muted small">' + esc(FM.fixtureVenue(st, fx)) + '</div></div>' + teamCol(a) + '</div>' +
       '<div class="match-meta"><span class="tag">' + (fx.home === uc ? 'Heimspiel' : fx.neutral ? 'Neutraler Ort' : 'Auswärtsspiel') + '</span>' +
       '<span class="tag">Stärke ' + sh.toFixed(1) + ' : ' + sa.toFixed(1) + '</span>' +
       (fx.agg ? '<span class="tag warn">Hinspiel ' + fx.agg[1] + ':' + fx.agg[0] + '</span>' : '') +

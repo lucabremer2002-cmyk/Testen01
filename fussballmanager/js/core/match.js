@@ -14,7 +14,7 @@
     /* DFB-Pokal: Heimbonus des Unterklassigen [Bonus, Chance auf einen Sensationstag, Zusatzbonus von, bis].
        am = Amateure aus dem Pokal-Pool, rl = Regionalligist, l3 = Drittligist, bl2 = Zweitligist gegen Bundesligist. */
     cup: { am: [7, 0.3, 8, 16], rl: [5, 0.25, 6, 12], l3: [2, 0.18, 5, 9], bl2: [2.5, 0.22, 4, 9] },
-    league: { bl: { goals: 1.04, cards: 1.12 }, bl2: { goals: 1.03, cards: 1.12 }, l3: { goals: 1.0, cards: 1.12 } }
+    league: { bl: { goals: 1.04, cards: 1.12 }, bl2: { goals: 1.03, cards: 1.12 }, l3: { goals: 1.0, cards: 1.12 }, eu: { goals: 1.02, cards: 1.0 }, fr: { goals: 1.08, cards: 0.5 } }
   };
   var T = FM.MATCH_TUNE;
   var SHOT_RATE = 0.128;        // Abschluesse pro Minute und Team bei gleicher Staerke
@@ -50,7 +50,7 @@
       tactics: Object.assign(FM.defaultTactics(), cfg.tactics || {}),
       onPitch: cfg.slots.map(function (s) { return { pid: s.pid, pos: s.pos }; }),
       bench: cfg.bench.slice(),
-      subsLeft: 5,
+      subsLeft: this.opts.friendly ? 11 : 5,
       ai: cfg.ai !== false,
       pr: {}
     };

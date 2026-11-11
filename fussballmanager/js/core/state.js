@@ -129,6 +129,7 @@
     FM.assignRoles(state, uc.id);
     uc.tactics = FM.defaultTactics();
 
+    FM.euInitStars(state);
     FM.startSeason(state, true);
     FM.addNews(state, {
       type: 'board', title: 'Willkommen beim ' + uc.name,

@@ -5,7 +5,8 @@
   var D = FM.date;
   var R = FM.rng;
 
-  FM.COMP_NAME = { bl: 'Bundesliga', bl2: '2. Bundesliga', l3: '3. Liga', cup: 'DFB-Pokal', po1: 'Relegation', po2: 'Relegation' };
+  FM.COMP_NAME = { bl: 'Bundesliga', bl2: '2. Bundesliga', l3: '3. Liga', cup: 'DFB-Pokal', po1: 'Relegation', po2: 'Relegation',
+    cl: 'Champions League', el: 'Europa League', ecl: 'Conference League', fr: 'Testspiel' };
   FM.CUP_ROUNDS = ['1. Runde', '2. Runde', 'Achtelfinale', 'Viertelfinale', 'Halbfinale', 'Finale'];
   /* DFB-Praemien 2025/26 (offizieller Verteilerschluessel): jeder Teilnehmer einer Runde erhaelt den
      Betrag dieser Runde; im Finale 4,32 Mio. fuer den Sieger und 2,88 Mio. fuer den Finalisten. */
@@ -131,8 +132,9 @@
 
   /* ---------- DFB-Pokal ---------- */
   function levelOf(state, cid) {
-    var l = state.clubs[cid].league;
-    return { bl: 1, bl2: 2, l3: 3, rl: 4 }[l] || 5;
+    var c = state.clubs[cid];
+    if (c.eu) return c.str >= 76 ? 1 : c.str >= 70 ? 2 : 3;      // Auslandsvereine nach Spielstaerke einordnen
+    return { bl: 1, bl2: 2, l3: 3, rl: 4 }[c.league] || 5;
   }
   FM.levelOf = levelOf;
 
@@ -153,7 +155,7 @@
       var amA = levelOf(state, a) >= 3, amB = levelOf(state, b) >= 3;
       var home = amB && !amA ? b : a, away = home === a ? b : a;
       var fx = { comp: 'cup', round: next, date: date, home: home, away: away };
-      if (next === 6) fx.neutral = true;
+      if (next === 6) { fx.neutral = true; fx.venue = 'Olympiastadion Berlin'; fx.cap = 74475; }
       fids.push(FM.newFixture(state, fx).id);
     }
     cup.round = next;

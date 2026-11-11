@@ -100,6 +100,7 @@
     Object.keys(state.players).forEach(function (pid) { state.players[pid].ovr0 = state.players[pid].ovr; });
     FM.buildLeagueSchedules(state);
     FM.drawCupRound1(state);
+    FM.euroStart(state);
     FM.computeExpectations(state);
     FM.setBudgets(state, state.clubs[state.user.club]);
     if (!first) FM.budgetNews(state, false);
@@ -165,12 +166,15 @@
   /* ---------- Match vorbereiten / austragen ---------- */
   FM.createMatch = function (state, fx) {
     var uc = state.user.club;
-    FM.matchComp = fx.comp === 'cup' ? 'cup' : 'league';
+    var kind = FM.compKind(fx.comp);
+    FM.matchComp = kind;
     var home = fx.home === uc ? FM.userLineup(state) : FM.aiLineup(state, fx.home);
     var away = fx.away === uc ? FM.userLineup(state) : FM.aiLineup(state, fx.away);
     FM.matchComp = null;
-    var opts = { neutral: !!fx.neutral, league: FM.MATCH_TUNE.league[fx.comp] ? fx.comp : state.clubs[fx.home].league, derby: FM.isDerby(state, fx.home, fx.away) };
+    var opts = { neutral: !!fx.neutral, league: kind === 'eu' || kind === 'fr' ? kind : FM.MATCH_TUNE.league[fx.comp] ? fx.comp : state.clubs[fx.home].league, derby: FM.isDerby(state, fx.home, fx.away) };
     if (fx.comp === 'cup' || fx.comp === 'po1' || fx.comp === 'po2') opts.knockout = fx.comp === 'cup' || fx.leg === 2;
+    if (fx.ko || (fx.euKo && fx.leg === 2)) opts.knockout = true;      // Europapokal: Rueckspiele und Finale
+    if (kind === 'fr') opts.friendly = true;
     if (fx.leg === 2 && fx.agg) opts.agg = fx.agg;
     // DFB-Pokal: Der Unterklassige spielt zuhause das Spiel des Jahres, der Favorit rotiert
     var cf = FM.cupFight(state, fx);
@@ -201,13 +205,14 @@
     FM.invalidateTables();
     var uc = state.user.club;
     var isUser = fx.home === uc || fx.away === uc;
-    var league = fx.comp === 'bl' || fx.comp === 'bl2' || fx.comp === 'l3';
+    var kind = FM.compKind(fx.comp);
+    var league = kind === 'league';
     var sides = [fx.home, fx.away];
 
-    if (isUser) state.user.mg = (state.user.mg || 0) + 1;
+    if (isUser && kind !== 'fr') state.user.mg = (state.user.mg || 0) + 1;
 
-    // Zuschauer & Einnahmen
-    var att = FM.attendance(state, fx.home, fx.away, fx.comp);
+    // Zuschauer & Einnahmen (Endspiele an neutralem Ort: Stadion des Finalorts)
+    var att = fx.neutral && fx.cap ? Math.round(fx.cap * R.range(0.97, 1)) : FM.attendance(state, fx.home, fx.away, fx.comp);
     res.att = att;
     if (!fx.neutral) {
       var hc = state.clubs[fx.home], ac = state.clubs[fx.away];
@@ -217,7 +222,9 @@
         price = Math.max(price, (FM.ticketPrice[ac.league] || 15) * 0.8);
         FM.book(hc, 'tickets', att * price * 0.45);
         FM.book(ac, 'tickets', att * price * 0.45);
-      } else FM.book(hc, 'tickets', att * price);
+      } else if (kind === 'eu') FM.book(hc, 'tickets', att * price * FM.EU[fx.comp].price);
+      else if (kind === 'fr') FM.book(hc, 'tickets', att * price * 0.5);
+      else FM.book(hc, 'tickets', att * price);
     } else {
       var share = att * 45 / 2;
       FM.book(state.clubs[fx.home], 'tickets', share);
@@ -246,15 +253,26 @@
           if (p.yel === 5 || p.yel === 10 || p.yel === 15) p.susp += 1;
         }
         if (r.rc) p.susp += r.yc >= 2 ? 1 : R.int(2, 3);
-      } else {
+      } else if (kind === 'eu') {
+        p.est = p.est || { apps: 0, goals: 0 };
+        p.est.apps++; p.est.goals += r.gl;
+        if (r.rc) p.suspEu = (p.suspEu || 0) + 1;
+      } else if (kind === 'cup') {
         p.cst.apps++; p.cst.goals += r.gl;
         if (r.rc) p.suspCup = (p.suspCup || 0) + 1;
       }
-      if (r.g != null) p.form = FM.clamp(p.form * 0.7 + (3.5 - r.g) * 0.55, -3, 3);
       var gd = r.s === 0 ? res.hg - res.ag : res.ag - res.hg;
-      p.mor = FM.clamp(p.mor + (gd > 0 ? 3 : gd < 0 ? -3 : 0) + (r.st ? 1 : 0), 5, 100);
+      if (kind === 'fr') {
+        // Testspiele: Spielpraxis ja, Druck nein
+        if (r.g != null) p.form = FM.clamp(p.form * 0.85 + (3.5 - r.g) * 0.2, -3, 3);
+        p.mor = FM.clamp(p.mor + (r.st ? 1 : 0.5), 5, 100);
+      } else {
+        if (r.g != null) p.form = FM.clamp(p.form * 0.7 + (3.5 - r.g) * 0.55, -3, 3);
+        p.mor = FM.clamp(p.mor + (gd > 0 ? 3 : gd < 0 ? -3 : 0) + (r.st ? 1 : 0), 5, 100);
+      }
       if (r.inj) {
         var inj = pickInjury(state.clubs[p.club]);
+        if (kind === 'fr') inj.days = Math.max(1, Math.ceil(inj.days * 0.6));
         p.injury = inj;
         if (p.club === uc) FM.addNews(state, { type: 'injury', title: p.name + ' verletzt', body: p.name + ' fällt mit ' + inj.type + ' voraussichtlich ' + FM.injuryDuration(inj.days) + ' aus.', important: inj.days > 14 });
       }
@@ -263,8 +281,9 @@
     sides.forEach(function (cid) {
       FM.clubPlayers(state, cid).forEach(function (p) {
         if (res.pl[p.id]) return;
-        if (league && p.susp > 0) p.susp--;
-        if (!league && p.suspCup > 0) p.suspCup--;
+        if (kind === 'league' && p.susp > 0) p.susp--;
+        if (kind === 'cup' && p.suspCup > 0) p.suspCup--;
+        if (kind === 'eu' && p.suspEu > 0) p.suspEu--;
       });
     });
 
@@ -281,7 +300,9 @@
       }
     }
 
-    // Relegation: Hinspiel -> Rueckspiel vorbereiten
+    if (kind === 'eu') FM.euroApplyResult(state, fx, res);
+
+    // Hinspiel -> Rueckspiel vorbereiten (Relegation, Europapokal)
     if (fx.leg === 1) {
       var second = Object.keys(state.fixtures).map(function (k) { return state.fixtures[k]; }).filter(function (f) { return f.first === fx.id; })[0];
       if (second) second.agg = [res.ag, res.hg];
@@ -290,7 +311,7 @@
     if (!isUser) delete res.pl;
     if (isUser) {
       var userSide = fx.home === uc ? 0 : 1;
-      FM.boardAfterMatch(state, fx, res, userSide);
+      if (kind !== 'fr') FM.boardAfterMatch(state, fx, res, userSide);
       FM.addNews(state, FM.matchReportNews(state, fx, res, userSide));
     }
   };
@@ -310,6 +331,22 @@
     return s;
   };
 
+  /* Bezeichnung einer Partie: Wettbewerb und Runde */
+  FM.fixtureLabel = function (fx, sep) {
+    sep = sep || ' · ';
+    if (fx.comp === 'cup') return 'DFB-Pokal' + sep + FM.CUP_ROUNDS[fx.round - 1];
+    if (fx.comp === 'po1' || fx.comp === 'po2') return 'Relegation' + sep + (fx.leg === 1 ? 'Hinspiel' : 'Rückspiel');
+    if (fx.comp === 'fr') return 'Testspiel';
+    if (FM.EU[fx.comp]) return FM.EU[fx.comp].name + sep + (fx.euKo ? FM.EU_ROUNDS[fx.euKo] + (fx.leg ? (fx.leg === 1 ? ', Hinspiel' : ', Rückspiel') : '') : fx.round + '. Spieltag');
+    return FM.COMP_NAME[fx.comp] + sep + fx.round + '. Spieltag';
+  };
+  FM.fixtureVenue = function (state, fx) {
+    return fx.venue || (fx.neutral ? 'Olympiastadion Berlin' : state.clubs[fx.home].stadium);
+  };
+  FM.isKnockout = function (fx) {
+    return fx.comp === 'cup' || !!fx.ko || ((fx.comp === 'po1' || fx.comp === 'po2' || !!fx.euKo) && fx.leg === 2);
+  };
+
   FM.matchReportNews = function (state, fx, res, userSide) {
     var uc = state.user.club, opp = userSide === 0 ? fx.away : fx.home;
     var gf = userSide === 0 ? res.hg : res.ag, ga = userSide === 0 ? res.ag : res.hg;
@@ -319,7 +356,7 @@
     var scorers = res.ev.filter(function (e) { return e.t === 'goal' && e.s === userSide; }).map(function (e) {
       var p = state.players[e.p]; return (p ? p.name.split(' ').slice(-1)[0] : '?') + ' ' + e.m + '.' + (e.og ? ' (ET)' : e.pen ? ' (FE)' : '');
     });
-    var comp = fx.comp === 'cup' ? 'DFB-Pokal, ' + FM.CUP_ROUNDS[fx.round - 1] : fx.comp === 'po1' || fx.comp === 'po2' ? 'Relegation' : FM.COMP_NAME[fx.comp] + ', ' + fx.round + '. Spieltag';
+    var comp = FM.fixtureLabel(fx, ', ');
     var motm = res.motm && state.players[res.motm] ? state.players[res.motm].name : null;
     return {
       type: 'match', quiet: true, title: outcome + ': ' + state.clubs[fx.home].short + ' ' + FM.scoreText(fx) + ' ' + state.clubs[fx.away].short,
@@ -366,6 +403,7 @@
       var p = state.players[pid];
       if (!p.club) { p.fit = 100; return; }
       var isUser = p.club === uc;
+      if (state.clubs[p.club].guest) p.minutesRecent = 240;      // Gastvereine spielen ihre eigene Saison
       var f = (isUser ? tr.dev * it.dev : 1) * FM.facTrainingDev(state.clubs[p.club]);
       var d = FM.developWeekly(p, f);
       if (isUser && d) changes.push({ p: p, d: d });
@@ -439,6 +477,7 @@
         }
       }
     }
+    FM.euroAfterDate(state, date);
     // Ligen abgeschlossen -> Relegation ansetzen
     ['bl', 'bl2', 'l3'].forEach(function (lid) {
       if (state.leagueDone[lid]) return;
@@ -486,6 +525,7 @@
     if (!state.leagueDone.bl || !state.leagueDone.bl2 || !state.leagueDone.l3) return false;
     if (!state.cup || !state.cup.winner) return false;
     if (!state.playoffs.po1 || !state.playoffs.po2) return false;
+    if (!FM.euroDone(state)) return false;
     return ['po1', 'po2'].every(function (c) { return state.playoffs[c].fx.every(function (fid) { return state.fixtures[fid].res; }); });
   }
   FM.seasonComplete = seasonComplete;
@@ -584,6 +624,7 @@
     FM.addNews(state, { type: 'board', title: 'Neuer Job: ' + club.name, body: 'Du bist neuer Cheftrainer von ' + club.name + '. ' + FM.expectationText(state, cid) });
     FM.assignRoles(state, cid);
     state.talks = {};
+    FM.euroUserFixtures(state);
     FM.setBudgets(state, club);
     FM.budgetNews(state, false);
   };
@@ -649,12 +690,18 @@
     // Europapokal-Praemien & Reputation
     // UEFA-Einnahmen (Zyklus 2024–27: CL-Startgeld 18,6 Mio., EL 4,3 Mio., ECL 3,2 Mio. plus
     // Leistungs- und Marktpool) – vereinfacht als Gesamtbetrag fuer die naechste Europapokalsaison
-    tBL.forEach(function (r, i) {
+    // Wird der Europapokal gespielt, fliessen die Praemien dort; nur alte Spielstaende ohne laufenden
+    // Wettbewerb erhalten noch einmal den Pauschalbetrag.
+    var euPlayed = state.eu && state.eu.year === y;
+    if (!euPlayed) tBL.forEach(function (r, i) {
       var c = state.clubs[r.club];
       if (i < 4) FM.book(c, 'prize', FM.niceRound(R.range(38e6, 62e6) + (i === 0 ? 12e6 : 0)));
       else if (i === 4) FM.book(c, 'prize', FM.niceRound(R.range(11e6, 19e6)));
       else if (i === 5) FM.book(c, 'prize', FM.niceRound(R.range(6e6, 10e6)));
     });
+    var userEu = euPlayed ? FM.euroCompOf(state, uc) : null;
+    var userEuReach = userEu ? FM.euroReached(state, userEu, uc) : null;
+    var euQual = FM.euroSeasonEnd(state, summary, tBL);
     Object.keys(state.clubs).forEach(function (cid) {
       var c = state.clubs[cid], ol = oldLeague[cid], nl = c.league;
       if (c.guest) return;
@@ -701,8 +748,11 @@
       if (summary.moves.down.indexOf(uc) >= 0) conf -= 30;
     }
     if (state.cup.winner === uc) conf += 15;
+    if (userEuReach === 'w') conf += userEu === 'cl' ? 25 : 15;
     conf = FM.clamp(conf, 0, 100);
     summary.user = { club: uc, league: ul, pos: upos, target: target, expect: state.clubs[uc].expect ? state.clubs[uc].expect.label : '', conf: conf, promoted: summary.moves.up.indexOf(uc) >= 0, relegated: summary.moves.down.indexOf(uc) >= 0, cupWinner: state.cup.winner === uc };
+    if (userEu) summary.user.eu = { comp: userEu, reached: userEuReach, pos: state.eu.comps[userEu].final ? state.eu.comps[userEu].final.indexOf(uc) + 1 : null };
+    FM.EU_COMPS.forEach(function (k) { if (euQual[k].indexOf(uc) >= 0) summary.user.euNext = k; });
     state.user.seasons.push({ y: y, club: uc, league: ul, pos: upos, target: target });
     state.user.conf = Math.max(conf, 35);
     if (conf < 18 || (state.clubs[uc].league === 'rl')) {
@@ -712,8 +762,10 @@
     // Spielerstatistiken archivieren
     Object.keys(state.players).forEach(function (pid) {
       var p = state.players[pid];
-      if (p.st.apps || p.cst.apps) {
-        p.hist.push({ y: y, club: p.club, apps: p.st.apps, goals: p.st.goals, assists: p.st.assists, avg: p.st.gn ? FM.round1(p.st.gsum / p.st.gn) : null, cup: p.cst.apps, ovr: p.ovr });
+      if (p.st.apps || p.cst.apps || (p.est && p.est.apps)) {
+        var hrow = { y: y, club: p.club, apps: p.st.apps, goals: p.st.goals, assists: p.st.assists, avg: p.st.gn ? FM.round1(p.st.gsum / p.st.gn) : null, cup: p.cst.apps, ovr: p.ovr };
+        if (p.est && p.est.apps) { hrow.eu = p.est.apps; hrow.eug = p.est.goals; }
+        p.hist.push(hrow);
       }
     });
 
@@ -772,6 +824,7 @@
           var mates = FM.clubPlayers(state, p.club).sort(function (a, b) { return b.ovr - a.ovr; });
           var rank = mates.indexOf(p) + 1;
           var keep = rank <= 6 && p.age <= 34 ? 0.95 : p.age <= 30 ? (rank <= 18 ? 0.85 : 0.55) : p.age <= 33 ? (rank <= 14 ? 0.65 : 0.3) : 0.25;
+          if (club.guest) keep = 1;                               // Auslandsvereine verlaengern mit ihren Spielern
           if (R.chance(keep)) p.contract = { until: y + 1 + R.int(1, p.age >= 31 ? 1 : 3), wage: FM.wageDemand(p, club.league) };
           else { removeFromClub(state, p); state.free.push(p.id); }
         }
@@ -786,6 +839,8 @@
         return;
       }
       p.st = FM.emptyStats(); p.cst = { apps: 0, goals: 0 };
+      if (p.est) p.est = null;
+      p.suspEu = 0;
       p.yel = 0; p.susp = 0; p.suspCup = 0; p.fit = 100; p.form = 0; p.minutesRecent = 0;
       if (p.injury && p.injury.days > 60) p.injury.days -= 40; else p.injury = null;
     });

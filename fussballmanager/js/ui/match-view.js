@@ -33,13 +33,13 @@
     var st = FM.state, pos = FM.playedRounds(st, c.league) ? FM.clubPosition(st, c.id) : null;
     var t = FM.ZONES[c.league] ? FM.table(st, c.league).filter(function (r) { return r.club === c.id; })[0] : null;
     return '<div class="team" style="' + (align === 'r' ? 'flex-direction:row-reverse;text-align:right' : '') + '">' + UI.badge(c, 48) +
-      '<div style="min-width:0"><div class="n ellipsis">' + esc(c.name) + '</div><div class="muted small">' + (pos ? pos + '. Platz · ' : '') + 'Stärke ' + FM.teamStrength(st, c.id).toFixed(1) + '</div>' + (t ? '<div style="margin-top:4px">' + UI.formDots(t.form) + '</div>' : '') + '</div></div>';
+      '<div style="min-width:0"><div class="n ellipsis">' + esc(c.name) + '</div><div class="muted small">' + (pos ? pos + '. Platz · ' : '') + 'Stärke ' + FM.euStr(st, c.id).toFixed(1) + '</div>' + (t ? '<div style="margin-top:4px">' + UI.formDots(t.form) + '</div>' : '') + '</div></div>';
   }
 
   function preHtml(fx) {
     var st = FM.state, uc = st.user.club;
     var h = st.clubs[fx.home], a = st.clubs[fx.away];
-    FM.matchComp = fx.comp === 'cup' ? 'cup' : 'league';
+    FM.matchComp = FM.compKind(fx.comp);
     var my = FM.userLineup(st);
     var oppId = fx.home === uc ? fx.away : fx.home;
     var opp = FM.aiLineup(st, oppId);
@@ -48,7 +48,7 @@
     var stored = UI.ensureLineup();
     var missing = stored.slots.filter(function (s) {
       var p = s.pid && st.players[s.pid];
-      return !p || !FM.isAvailable(p, fx.comp === 'cup' ? 'cup' : 'league');
+      return !p || !FM.isAvailable(p, FM.compKind(fx.comp));
     }).length;
     function xi(lu, mine) {
       return '<table class="tbl compact"><tbody>' + lu.slots.map(function (s) {
@@ -56,10 +56,10 @@
         return '<tr' + (mine ? '' : ' class="click" data-action="player" data-id="' + p.id + '"') + '><td>' + UI.posTag(s.pos) + '</td><td><span class="pname">' + esc(p.name) + '</span>' + (mine && FM.positionPenalty(p, s.pos) >= 4 ? ' <span class="tag warn" title="Nicht auf Stammposition">Pos.</span>' : '') + '</td><td>' + UI.fit(p.fit) + '</td><td class="num">' + UI.pill(Math.round(FM.effectiveRating(p, s.pos))) + '</td></tr>';
       }).join('') + '</tbody></table>';
     }
-    var stadium = fx.neutral ? 'Olympiastadion Berlin' : h.stadium;
+    var stadium = FM.fixtureVenue(st, fx);
     var html = '<div class="card"><div class="scoreboard">' + teamHead(h) + '<div class="score"><div class="muted small">' + esc(UI.compLabel(fx)) + '</div><div class="s" style="font-size:28px;margin:4px 0">vs</div><div class="muted small">' + D.fmtLong(fx.date) + '</div></div>' + teamHead(a, 'r') + '</div>' +
       '<div class="match-meta"><span class="tag">' + esc(stadium) + '</span>' + (FM.isDerby(st, fx.home, fx.away) ? '<span class="tag warn">Derby</span>' : '') + (fx.agg ? '<span class="tag warn">Hinspiel ' + fx.agg[1] + ':' + fx.agg[0] + ' (' + esc(a.short) + ' – ' + esc(h.short) + ')</span>' : '') +
-      (fx.comp === 'cup' || fx.leg === 2 ? '<span class="tag">K.-o.-Spiel: Verlängerung & Elfmeterschießen möglich</span>' : '') + '</div></div>';
+      (FM.isKnockout(fx) ? '<span class="tag">K.-o.-Spiel: Verlängerung & Elfmeterschießen möglich</span>' : fx.leg === 1 ? '<span class="tag">Hinspiel – die Entscheidung fällt im Rückspiel</span>' : '') + '</div></div>';
     if (missing) html += '<div class="note warn" style="margin-top:16px">' + missing + ' Spieler deiner gespeicherten Aufstellung fehlen (verletzt/gesperrt) und werden automatisch ersetzt. Prüfe die Aufstellung.</div>';
     html += '<div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-h"><h3>Deine Startelf · ' + esc(my.formation) + '</h3><button class="btn sm" data-action="go" data-view="tactics">' + UI.icon('tactics') + ' Ändern</button></div><div class="card-b flush">' + xi(my, true) + '</div></div>' +
       '<div class="card"><div class="card-h"><h3>Voraussichtlich: ' + esc(st.clubs[oppId].short) + ' · ' + esc(opp.formation) + '</h3></div><div class="card-b flush">' + xi(opp, false) + '</div></div></div>';
@@ -81,6 +81,7 @@
     var others = FM.fixturesOn(st, fx.date).filter(function (f) { return !f.res && f.id !== fx.id && f.comp === fx.comp; })
       .map(function (f) { return { fx: f, m: FM.createMatch(st, f), flash: 0 }; });
     L = { fid: fid, fx: fx, m: m, others: others, phase: 'live', paused: false, userSide: fx.home === st.user.club ? 0 : 1, shown: 0, timer: null, htPaused: false, etPaused: false };
+    L.euro = FM.EU[fx.comp] ? FM.euroLive(st, fx).slice(0, 9).map(function (x) { return { x: x, flash: 0, n: 0 }; }) : [];
     L.m._ev({ t: 'kickoff' });
   }
 
@@ -167,7 +168,7 @@
       '<button class="btn ghost" data-action="liveEnd">' + UI.icon('skip') + ' Zum Ende</button></div></div></div>';
     html += '<div class="match-grid" style="margin-top:16px"><div class="card"><div class="card-h"><h3>Liveticker</h3><span class="muted small" id="lv-subs">' + subsInfo() + '</span></div><div class="ticker" id="lv-ticker">' + tickerHtml(true) + '</div></div>' +
       '<div class="stack"><div class="card"><div class="card-h"><h3>Statistik</h3></div><div id="lv-stats">' + UI.statsBlock(m.result(true).stats) + '</div></div>' +
-      (L.others.length ? '<div class="card"><div class="card-h"><h3>Konferenz</h3><span class="muted small">' + esc(FM.COMP_NAME[fx.comp]) + '</span></div><div class="list konf" id="lv-konf">' + konfHtml() + '</div></div>' : '') +
+      (L.others.length || (L.euro && L.euro.length) ? '<div class="card"><div class="card-h"><h3>Konferenz</h3><span class="muted small">' + esc(FM.COMP_NAME[fx.comp]) + '</span></div><div class="list konf" id="lv-konf">' + konfHtml() + '</div></div>' : '') +
       '<div class="card"><div class="card-h"><h3>Deine Elf</h3></div><div class="card-b flush" id="lv-team">' + teamLiveHtml() + '</div></div></div></div>';
     L.shown = m.events.length;
     return html;
@@ -189,7 +190,7 @@
     var gk = e.gk && P[e.gk] ? P[e.gk].name : 'der Keeper';
     var txt, cls = '';
     switch (e.t) {
-      case 'kickoff': txt = 'Anpfiff' + (fx.neutral ? ' im Olympiastadion' : ' – ' + esc(st.clubs[fx.home].stadium)) + '. Los geht\'s!'; cls = 'phase'; break;
+      case 'kickoff': txt = 'Anpfiff – ' + esc(FM.fixtureVenue(st, fx)) + '. ' + (m.opts.cupMagic ? 'Das Stadion kocht, der Außenseiter wittert die Sensation!' : m.opts.fight ? 'Für den Außenseiter ist es das Spiel des Jahres.' : 'Los geht\'s!'); cls = 'phase'; break;
       case 'half': txt = 'Halbzeit. Es steht ' + m.goals[0] + ':' + m.goals[1] + '.'; cls = 'phase'; break;
       case 'ft90': txt = 'Ende der regulären Spielzeit – es geht in die Verlängerung!'; cls = 'phase'; break;
       case 'etHalf': txt = 'Seitenwechsel in der Verlängerung.'; cls = 'phase'; break;
@@ -211,6 +212,16 @@
 
   function konfHtml() {
     var st = FM.state;
+    if (L.euro && L.euro.length) {
+      // Europapokalabend: vorab berechnete Partien laufen nach Spielminute mit
+      var min = L.m.finished || L.m.period > 2 ? 90 : L.m.minute;
+      return L.euro.map(function (o) {
+        var sc = [0, 0];
+        o.x.g.forEach(function (g) { if (g[0] <= min) sc[g[1]]++; });
+        if (sc[0] + sc[1] > o.n) { o.flash = 1; o.n = sc[0] + sc[1]; }
+        return '<div class="li ' + (o.flash ? 'flash' : '') + '"><div class="grow row" style="justify-content:flex-end;text-align:right">' + UI.clubMini(o.x.h) + '</div><span class="sc">' + sc[0] + ':' + sc[1] + '</span><div class="grow row">' + UI.clubMini(o.x.a, true) + '</div><span class="muted tiny" style="width:34px;text-align:right">' + (min >= 90 ? 'Ende' : min + '\'') + '</span></div>';
+      }).join('');
+    }
     return L.others.map(function (o) {
       var f = o.fx, mm = o.m;
       return '<div class="li ' + (o.flash ? 'flash' : '') + '"><div class="grow row" style="justify-content:flex-end;text-align:right">' + UI.clubMini(f.home) + '</div><span class="sc">' + mm.goals[0] + ':' + mm.goals[1] + '</span><div class="grow row">' + UI.clubMini(f.away, true) + '</div><span class="muted tiny" style="width:34px;text-align:right">' + (mm.finished ? 'Ende' : mm.minute + '\'') + '</span></div>';
@@ -248,7 +259,7 @@
       document.getElementById('lv-stats').innerHTML = UI.statsBlock(m.result(true).stats);
     }
     var k = document.getElementById('lv-konf');
-    if (k) { k.innerHTML = konfHtml(); L.others.forEach(function (o) { o.flash = 0; }); }
+    if (k) { k.innerHTML = konfHtml(); L.others.forEach(function (o) { o.flash = 0; }); (L.euro || []).forEach(function (o) { o.flash = 0; }); }
   }
 
   function bindLive() { /* Steuerung laeuft ueber delegierte Aktionen */ }
@@ -354,7 +365,8 @@
       '<div class="modal-f"><button class="btn" data-action="matchReport" data-id="' + fx.id + '">Kompletter Spielbericht</button><button class="btn primary" data-action="postDone">Weiter ' + UI.icon('next') + '</button></div></div>';
     html += '<div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-h"><h3>Statistik</h3></div>' + UI.statsBlock(r.stats) + '</div>';
     var today = FM.fixturesOn(st, fx.date).filter(function (f) { return f.comp === fx.comp && f.id !== fx.id; });
-    html += '<div class="card"><div class="card-h"><h3>' + (fx.comp === 'cup' ? 'Weitere Pokalspiele' : 'Weitere Ergebnisse') + '</h3></div><div class="list konf">' + (today.length ? today.map(function (f) {
+    if (FM.EU[fx.comp]) html += '<div class="card"><div class="card-h"><h3>Weitere Ergebnisse</h3><button class="btn sm" data-action="go" data-view="europe">Zur Tabelle</button></div><div class="list konf">' + UI.euroDayHtml(fx) + '</div></div></div>';
+    else html += '<div class="card"><div class="card-h"><h3>' + (fx.comp === 'cup' ? 'Weitere Pokalspiele' : 'Weitere Ergebnisse') + '</h3></div><div class="list konf">' + (today.length ? today.map(function (f) {
       return '<div class="li"><div class="grow row" style="justify-content:flex-end;text-align:right">' + UI.clubMini(f.home) + '</div><span class="sc">' + (f.res ? esc(FM.scoreText(f)).replace(' i.E.', '').replace(' n.V.', '') : '–') + '</span><div class="grow row">' + UI.clubMini(f.away, true) + '</div></div>';
     }).join('') : '<div class="empty">Keine weiteren Spiele.</div>') + '</div></div></div>';
     if (r.pl) {

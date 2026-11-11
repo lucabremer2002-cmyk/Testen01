@@ -13,7 +13,8 @@
   function revenueEstimate(state, club) {
     var plan = FM.annualPlan(club);
     var tickets = FM.expectedTickets(club, FM.effectiveCap(club));
-    return { total: plan.tv + plan.sponsor + tickets, plan: plan, tickets: tickets };
+    var uefa = FM.euExpectedIncome ? FM.euExpectedIncome(state, club) * 0.8 : 0;
+    return { total: plan.tv + plan.sponsor + tickets + uefa, plan: plan, tickets: tickets, uefa: uefa };
   }
   FM.revenueEstimate = revenueEstimate;
 
