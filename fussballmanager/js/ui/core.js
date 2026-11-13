@@ -162,6 +162,9 @@
     var out = [];
     if (p.injury) out.push('<span class="tag bad" title="' + esc(p.injury.type) + '">' + UI.icon('medic', '') .replace('<svg', '<svg width="10" height="10"') + ' ' + p.injury.days + ' T</span>');
     if (p.susp > 0) out.push('<span class="tag warn" title="Gesperrt (Liga)">Sperre ' + p.susp + '</span>');
+    if (p.suspEu > 0) out.push('<span class="tag warn" title="Gesperrt im Europapokal">Sperre EC</span>');
+    if (p.promise) out.push('<span class="tag info" title="Du hast ihm Einsätze zugesagt: ' + (p.promise.got || 0) + ' von ' + p.promise.need + ' Minuten bis ' + FM.date.fmt(p.promise.until) + '">Zusage</span>');
+    if (p.club === FM.state.user.club && FM.state.clubs[p.club].captain === p.id) out.push('<span class="tag accent" title="Kapitän">C</span>');
     if (p.yel === 4 || p.yel === 9) out.push('<span class="tag warn" title="Nächste Gelbe Karte = Sperre">' + p.yel + '×G</span>');
     if (p.listed) out.push('<span class="tag info">Transferliste</span>');
     if (p.loanList) out.push('<span class="tag info">Leihliste</span>');
@@ -282,7 +285,7 @@
     document.getElementById('app').innerHTML =
       '<div class="shell" id="shell">' +
       '<aside class="sidebar">' +
-      '<div class="brand"><span class="brand-name">Matchplan</span><span class="brand-sub">26/27</span></div>' +
+      '<div class="brand"><span class="brand-name">Matchplan</span><span class="brand-sub">' + String(st.season.year).slice(2) + '/' + String(st.season.year + 1).slice(2) + '</span></div>' +
       '<div class="club-chip">' + UI.badge(club, 40) + '<div style="min-width:0"><div class="name">' + esc(club.name) + '</div><div class="sub">' + esc(league.name) + (pos ? ' · <b>' + pos + '.</b>' : '') + '</div></div></div>' +
       '<nav class="nav">' + nav + '</nav>' +
       '<div class="sidebar-foot nav"><button data-action="saveGame">' + UI.icon('save') + '<span>Speichern</span></button>' +

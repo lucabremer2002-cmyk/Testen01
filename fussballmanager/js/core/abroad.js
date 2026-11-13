@@ -169,10 +169,10 @@
     // Grosse Namen unter ihrem Anspruch und abgeschlagene Kellerkinder ruesten gezielt auf
     var stamp = state.season.year * 10 + (D.month(state.date) === 1 ? 2 : 1);
     cands.forEach(function (c) {
-      var str = FM.teamStrength(state, c.id), want = Math.max(FM.ambition(c) - 1.5, avg - 4.5);
-      if (str >= want || !R.chance(0.14)) return;
+      var str = FM.teamStrength(state, c.id), want = Math.max(FM.ambition(c) - 2.5, avg - 4.5);
+      if (str >= want || !R.chance(0.08)) return;
       // hoechstens ein solcher Transfer je Fenster – wer viel Geld hat, darf dreimal zugreifen
-      var b = FM.aiBudget(state, c), max = b > 60e6 ? 3 : b > 20e6 ? 2 : 1;
+      var b = FM.aiBudget(state, c), max = b > 60e6 ? 2 : 1;
       if (c.impW !== stamp) { c.impW = stamp; c.impN = 0; }
       if (c.impN >= max) return;
       if (FM.importPlayer(state, c.id, want + 3)) { c.impN++; done++; }

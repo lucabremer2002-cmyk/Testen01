@@ -49,8 +49,8 @@
     document.getElementById('app').innerHTML =
       '<div class="start">' +
       '<div class="hero"><div class="kicker">Saison 2026/27 · Anpfiff</div>' +
-      '<h1>Matchplan</h1><p>Der Fußballmanager für die drei Profiligen – mit den echten Kadern 2026/27, den Spielerwerten aus EA SPORTS FC 27, Vorstandsbudgets und eigener Infrastruktur.</p>' +
-      '<div class="leagues"><span>Bundesliga · 18</span><span>2. Bundesliga · 18</span><span>3. Liga · 20</span><span>DFB-Pokal</span></div></div>' +
+      '<h1>Matchplan</h1><p>Der Fußballmanager für die drei Profiligen – mit den echten Kadern 2026/27, den Spielerwerten aus EA SPORTS FC 27, Europapokal, Trainerkarriere und Entscheidungen, die deine Saison prägen.</p>' +
+      '<div class="leagues"><span>Bundesliga · 18</span><span>2. Bundesliga · 18</span><span>3. Liga · 20</span><span>DFB-Pokal</span><span>Champions League</span><span>Europa League</span><span>Conference League</span></div></div>' +
       (anySave || saves.some(function (x) { return x.info; }) ? '<div class="panel"><div class="row between" style="margin-bottom:10px"><h3>Spielstände</h3><label class="btn sm ghost">' + UI.icon('upload') + ' Datei importieren<input type="file" accept="application/json" id="import-file" hidden></label></div><div class="grid g3">' + saveHtml + '</div></div>' : '') +
       '<div class="panel card"><div class="card-h"><div><h2>Neues Spiel</h2><div class="muted small" style="margin-top:3px">Wähle deinen Verein – die Sterne zeigen die Kaderstärke innerhalb der Liga.</div></div>' +
       (anySave ? '' : '<label class="btn sm ghost">' + UI.icon('upload') + ' Spielstand importieren<input type="file" accept="application/json" id="import-file" hidden></label>') + '</div>' +

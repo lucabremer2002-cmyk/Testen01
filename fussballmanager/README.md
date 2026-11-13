@@ -2,8 +2,10 @@
 
 Ein Fußballmanager für den Browser mit **Bundesliga, 2. Bundesliga und 3. Liga**
 in der Zusammensetzung der Saison **2026/27**, mit den **echten Kadern** und den
-Spielerwerten aus **EA SPORTS FC 27**. Reines HTML, CSS und JavaScript – ohne
-Build-Schritt, ohne Server.
+Spielerwerten aus **EA SPORTS FC 27** – dazu DFB-Pokal, **Champions League,
+Europa League und Conference League**, eine Trainerkarriere mit Trainermarkt und
+Entscheidungen, die jede Saison anders verlaufen lassen. Reines HTML, CSS und
+JavaScript – ohne Build-Schritt, ohne Server.
 
 ## Starten
 
@@ -80,9 +82,88 @@ exportieren und wieder importieren.
 - **Infrastruktur** mit sechs Abteilungen zum Ausbauen (siehe unten)
 - **Vorstand** mit Saisonziel nach Kaderstärke, Vertrauensbarometer,
   Entlassung und Jobangeboten anderer Vereine
+- **Europapokal**, **Trainerkarriere**, **Ereignisse** und **Auslandsmarkt**
+  (siehe die folgenden Abschnitte)
 - Posteingang, Statistiken (Torjäger, Vorlagen, Noten, weiße Westen, Karten),
   Vereinsprofile aller Klubs
 - Helles und dunkles Design, läuft auf Desktop und Smartphone
+
+## Europapokal
+
+- **Champions League, Europa League und Conference League** im aktuellen Format:
+  Ligaphase mit 36 Teams (acht bzw. sechs Spiele), Play-offs der Plätze 9–24,
+  Achtelfinale bis Halbfinale mit Hin- und Rückspiel, Finale an neutralem Ort
+  (2027: Madrid, Frankfurt, Istanbul).
+- **2026/27 mit den echten Töpfen und den echten Gegnern der deutschen Klubs**
+  (Bayern: Bodø/Glimt, Viking, Arsenal, Atlético, Lille, Slavia, Manchester
+  United, Betis …). Der Rest des Spielplans ist eine regelkonforme Auslosung;
+  ab der zweiten Saison wird nach UEFA-Regeln neu gelost (kein Duell innerhalb
+  eines Verbands).
+- **133 Auslandsvereine** mit echten Namen, Stadien und geschätzter Stärke. Die
+  Stars von 23 Spitzenklubs stehen mit ihren FC-27-Werten im Spiel; der übrige
+  Kader eines Gegners wird erzeugt, sobald dein Verein auf ihn trifft (fiktive
+  Namen, als geschätzt markiert).
+- Eigene Spiele laufen über die Match-Engine, alle anderen Partien werden
+  berechnet – geeicht an der Engine, damit beide dieselben Kräfteverhältnisse
+  liefern. Am Europapokalabend läuft eine Konferenz mit.
+- **Prämien nach dem UEFA-Verteilerschlüssel 2024–27** (Champions League:
+  18,62 Mio. Startgeld, 2,1 Mio. je Sieg, 11 Mio. fürs Achtelfinale …).
+  Vereine im Europapokal planen einen Teil davon fest ein – wer die
+  Qualifikation verpasst, spürt das im Budget.
+- Qualifikation: Bundesliga-Plätze 1–4 Champions League, Platz 5 und
+  DFB-Pokalsieger Europa League, der nächste Platz Conference League; Sieger
+  von Champions und Europa League spielen im Jahr darauf Champions League.
+- Vereinfachungen: keine Qualifikationsrunden, Viertel- und Halbfinale werden
+  frei gelost, Gelbsperren gibt es im Europapokal nicht.
+
+## Karriere, Trainermarkt und Ereignisse
+
+- **Ruf als Trainer** (0–100): wächst mit übertroffenen Saisonzielen,
+  Aufstiegen, Titeln und Europapokalreisen, sinkt bei Abstieg und Entlassung.
+  Vom Ruf hängt ab, welche Vereine dir eine Stelle anbieten.
+- **Trainermarkt**: Jeder Verein hat einen Trainer. Wer weit hinter dem
+  Saisonziel liegt, wird entlassen – in der Saison und im Sommer. Passt dein
+  Ruf, bekommst du die Stelle angeboten; nach starken Saisons versuchen
+  größere Vereine, dich abzuwerben.
+- **Karriere-Ansicht** mit Stationen, Titeln, Rekorden, 25 Meilensteinen und
+  einer Ehrentafel aller Meister, Pokal- und Europapokalsieger.
+- **Ereignisse mit Entscheidung** im Posteingang, etwa 15 bis 20 pro Saison:
+  Pressekonferenz vor großen Spielen, Spieler fordern Einsatzzeit, Berater
+  pokern, Ärger in der Kabine, Fans fordern günstigere Tickets, Sponsor bietet
+  Sofortgeld oder Erfolgsprämie, Namensrechte am Stadion, Trainingslager,
+  Kapitänswahl, Zusatzziel des Vorstands, Fitspritzen vor dem Topspiel,
+  Geheimtipp aus dem Ausland … Ohne Antwort entscheidet nach einer Woche der
+  Co-Trainer.
+- **Versprechen** werden nachgehalten: Wer Einsätze zusagt und nicht liefert,
+  verliert das Vertrauen des Spielers – und ein Stück weit der Kabine.
+- **Fanstimmung** wirkt auf Zuschauerzahlen und das Vertrauen des Vorstands.
+- **Halbzeitansprache** im Live-Spiel: loben, ruhig bleiben oder wachrütteln –
+  je nach Spielstand kann das ein Spiel drehen oder kippen.
+- **Testspiele** in der Vorbereitung (auch gegen Auslandsvereine): Spielpraxis
+  ohne Druck, unbegrenzt wechseln, keine Sperren.
+
+## Spielwelt auf lange Sicht
+
+- **Spielpraxis entscheidet**: Stammspieler entwickeln sich schnell,
+  Bankdrücker kaum. Am Saisonende wird das **Potenzial** junger Spieler neu
+  eingeschätzt – wer spielt und überzeugt, wächst über sich hinaus, wer nur
+  zuschaut, verliert den Anschluss. Leihen lohnen sich.
+- Akademien bringen überwiegend solide Profis hervor, selten einen
+  Ausnahmespieler. Der Leistungsabfall beginnt mit 31 sanft, Torhüter halten
+  ihr Niveau drei Jahre länger.
+- **Auslandsmarkt**: Leistungsträger wechseln zu Auslandsvereinen (und
+  bleiben dort sichtbar – als Gegner im Europapokal), Vereine holen Ersatz und
+  Verstärkungen von dort. Du bekommst in jedem Transferfenster rund 30
+  Empfehlungen aus dem Ausland (Transfermarkt, Filter „Ausland"), kannst die
+  Stars der Spitzenklubs kaufen – und erhältst für deine eigenen Spieler
+  Angebote aus England, Spanien oder Italien.
+- Ein **Regler hält das Niveau der Ligen stabil**: Liegt eine Liga über ihrem
+  Ausgangsniveau, wandern mehr Spitzenspieler ab; liegt sie darunter, kommen
+  mehr Zugänge. In Testläufen über 15 Saisons bleibt die Bundesliga im Schnitt
+  bei 77 Punkten Mannschaftsstärke, mit Bayern und Dortmund an der Spitze.
+- **KI-Vereine wirtschaften**: Notverkäufe statt Dauerminus, Aufsteiger
+  investieren das TV-Geld, Talente ohne Perspektive wechseln eine Liga tiefer,
+  große Namen rüsten gezielt nach.
 
 ## Transferbudget
 
@@ -268,6 +349,8 @@ Jeder Spieler trägt deshalb eine Herkunftskennung, die im Spiel sichtbar ist:
 | ²⁶ | Letzter verfügbarer FC-26-Datenstand (Freiburg, Stuttgart, Hoffenheim, Wolfsburg; bekannte FC-27-Änderungen eingearbeitet) | 98 |
 | ≈ | Echter Spieler im Kader 2026/27, Wert geschätzt | 507 |
 | Akademie | Fiktive Nachwuchsspieler aus der Vereinsakademie | – |
+| – | Stars der Auslandsvereine: FC-27-Gesamtwert (Stand nach dem Sommer 2026), Kartenwerte abgeleitet | 183 |
+| ≈ | Übrige Spieler der Auslandsvereine und Zugänge aus dem Ausland: fiktive Namen, Stärke geschätzt | – |
 
 Nach Ligen: In der **Bundesliga** sind 405 von 492 Spielern direkt aus FC 27
 belegt (dazu 72 FC-26-Werte), in der 2. Bundesliga 242 von 432, in der
@@ -277,6 +360,12 @@ Gladbach, Köln, HSV, Schalke, Elversberg, Paderborn, St. Pauli, Hannover,
 Bochum, Dresden, Kiel, Braunschweig, Cottbus, Duisburg, Viktoria Köln,
 Rostock, Mannheim, Düsseldorf, Verl und Regensburg.
 Das Alter stammt überwiegend aus Kaderlisten und Geburtsdaten; wo es fehlte, ist es geschätzt (≈ im Profil).
+
+Die **Auslandsvereine** (`data-src/europe.py`) tragen echte Namen, Stadien und
+Farben; ihre Spielstärke ist eine Schätzung auf der FC-27-Skala (Schnitt der
+besten Elf), ebenso Kapazitäten und Farben kleinerer Klubs. Töpfe und Gegner
+der deutschen Klubs 2026/27 stammen aus den Veröffentlichungen von UEFA und
+Vereinen.
 
 Daten verbessern: Die Rohdaten liegen in `data-src/raw/*.md` (eine Datei pro
 Verein, Format in `data-src/build_data.py` beschrieben). Nach einer Änderung:
@@ -317,10 +406,16 @@ js/core/                Spiellogik ohne Oberfläche
   club.js               Vorstandsbudgets und Infrastruktur
   clubdata.js           echte Vereinsdaten: Fanbasis, TV-Geld, Schulden, Derbys
   cup.js                DFB-Pokal: Qualifikation, Landespokale, Amateurvereine, 1. Runde
+  europe.js             Champions/Europa/Conference League, Auslandsvereine, UEFA-Prämien
   transfer.js           Verhandlungen, Leihen, Klauseln, Vorverträge, Scouting, Rollen
+  abroad.js             Auslandsmarkt, Niveauregler der Ligen, Finanzplanung der KI-Vereine
+  career.js             Ruf, Titel, Meilensteine, Trainermarkt, Fanstimmung
+  events.js             Ereignisse mit Entscheidung, Versprechen, Halbzeitansprache, Testspiele
   season.js             Spieltage, Tabellen, Saisonende
-js/ui/                  Oberfläche (Übersicht, Kader, Taktik, Spieltag …)
+js/ui/                  Oberfläche (Übersicht, Kader, Taktik, Spieltag, Europapokal, Karriere …)
 js/vendor/              lz-string
-data-src/               Rohdaten, Vereinsprofile (profiles.py), Pokal-Amateure (amateurs.py), Build-Skript
+data-src/               Rohdaten, Vereinsprofile (profiles.py), Pokal-Amateure (amateurs.py),
+                        Auslandsvereine und Europapokal 2026/27 (europe.py), Spielplan-Löser
+                        für die Ligaphasen (euro_draw.py), Build-Skript
 tools/bundle.py         packt alles in eine einzelne HTML-Datei (dist/)
 ```
