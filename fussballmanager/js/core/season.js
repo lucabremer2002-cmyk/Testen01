@@ -103,6 +103,7 @@
     FM.euroStart(state);
     FM.aiFinance(state);
     FM.abroadRefresh(state);
+    FM.scheduleFriendlies(state);
     FM.computeExpectations(state);
     FM.setBudgets(state, state.clubs[state.user.club]);
     if (!first) FM.budgetNews(state, false);
@@ -226,7 +227,7 @@
         FM.book(ac, 'tickets', att * price * 0.45);
       } else if (kind === 'eu') FM.book(hc, 'tickets', att * price * FM.EU[fx.comp].price);
       else if (kind === 'fr') FM.book(hc, 'tickets', att * price * 0.5);
-      else FM.book(hc, 'tickets', att * price);
+      else FM.book(hc, 'tickets', att * price * (fx.home === uc && state.user.tix ? state.user.tix : 1));
     } else {
       var share = att * 45 / 2;
       FM.book(state.clubs[fx.home], 'tickets', share);
@@ -240,6 +241,7 @@
       var mins = r.mi || 0;
       p.minutesRecent += mins;
       if (p.club === uc) p.mm = (p.mm || 0) + mins;
+      if (p.promise && kind !== 'fr') p.promise.got = (p.promise.got || 0) + mins;
       p.fit = FM.clamp(r.fit != null ? r.fit : p.fit, 25, 100);
       if (league) {
         var s = p.st;
@@ -313,8 +315,17 @@
     if (!isUser) delete res.pl;
     if (isUser) {
       var userSide = fx.home === uc ? 0 : 1;
-      if (kind !== 'fr') FM.boardAfterMatch(state, fx, res, userSide);
+      if (kind !== 'fr') { FM.boardAfterMatch(state, fx, res, userSide); FM.careerAfterMatch(state, fx, res, userSide); }
       FM.addNews(state, FM.matchReportNews(state, fx, res, userSide));
+      // fitgespritzte Spieler: das Risiko zeigt sich nach dem Spiel
+      FM.clubPlayers(state, uc).forEach(function (p) {
+        if (p.risk !== fx.id) return;
+        delete p.risk;
+        if (!p.injury && res.pl && res.pl[p.id] && R.chance(0.35)) {
+          p.injury = { type: 'Muskelfaserriss', days: R.int(21, 35) };
+          FM.addNews(state, { type: 'injury', important: true, title: p.name + ': Verletzung aufgebrochen', body: 'Das Fitspritzen rächt sich. ' + p.name + ' fällt mit einem Muskelfaserriss ' + FM.injuryDuration(p.injury.days) + ' aus.' });
+        }
+      });
     }
   };
 
@@ -377,7 +388,7 @@
       var p = state.players[pid];
       if (!p.club) return;
       var isUser = p.club === uc;
-      var regen = (isUser ? tr.regen * it.regen : 1.05) * FM.facRegen(state.clubs[p.club]);
+      var regen = (isUser ? tr.regen * it.regen * (state.user.camp && state.user.camp >= state.date ? 1.1 : 1) : 1.05) * FM.facRegen(state.clubs[p.club]);
       p.fit = Math.min(100, p.fit + 5.5 * regen * (p.age >= 32 ? 0.85 : 1));
       if (p.injury) {
         p.injury.days--;
@@ -419,6 +430,7 @@
     });
     FM.payWeekly(state);
     FM.progressBuilds(state);
+    FM.coachCheck(state);
     var ucl = state.clubs[uc];
     ucl.bal = ucl.bal || [];
     ucl.bal.push([state.date, Math.round(ucl.money)]);
@@ -573,6 +585,7 @@
       if (state.date.slice(8, 10) === '01') { FM.payMonthly(state); FM.monthlyRoles(state); }
       FM.expireOffers(state);
       windowEvents(state);
+      FM.eventsDaily(state);
       if (state.user.conf < 10 && state.season.phase === 'season' && userLeagueGames(state) >= 6) {
         fireUser(state);
         return { stop: 'fired' };
@@ -599,6 +612,7 @@
   function fireUser(state) {
     state.user.fired = true;
     state.user.firedCount++;
+    state.user.rep = Math.max(0, (state.user.rep || 0) - 5);
     var c = state.clubs[state.user.club];
     FM.addNews(state, { type: 'board', important: true, title: 'Entlassen', body: 'Der Vorstand von ' + c.name + ' hat dich mit sofortiger Wirkung freigestellt. Das Vertrauen ist aufgebraucht.' });
   }
@@ -629,6 +643,7 @@
     FM.assignRoles(state, cid);
     state.talks = {};
     FM.euroUserFixtures(state);
+    if (D.month(state.date) === 7) FM.scheduleFriendlies(state);
     FM.setBudgets(state, club);
     FM.budgetNews(state, false);
   };
@@ -773,6 +788,8 @@
       }
     });
 
+    FM.careerSeasonEnd(state, summary);
+    FM.eventsSeasonEnd(state, summary);
     state.lastSummary = summary;
     FM.offseason(state, summary);
     if (summary.user.fired) {
@@ -780,6 +797,7 @@
       state.user.firedCount++;
       FM.addNews(state, { type: 'board', important: true, title: 'Entlassen', body: 'Nach dieser Saison trennt sich ' + state.clubs[uc].name + ' von dir.' });
     }
+    FM.careerSummer(state, summary);
     return summary;
   };
 

@@ -89,6 +89,7 @@
     var men = FM.MENTALITY[side.tactics.mentality + 2], pre = FM.PRESSING[side.tactics.pressing];
     var home = (si === 0 && !this.opts.neutral) ? T.home : 0;
     if (this.opts.fight && this.opts.fight[si]) home += this.opts.fight[si];   // Pokalfight des Aussenseiters
+    if (side.boost) home += side.boost;                                         // Halbzeitansprache
     var res = {
       att: att / wa * (1 + men.att) + home,
       mid: mid / wm * (1 + pre.mid) + home,

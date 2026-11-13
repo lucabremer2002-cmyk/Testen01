@@ -52,6 +52,7 @@
     var euro = FM.EU && FM.EU[comp];
     if (euro) f *= euro.pull;                                          // Europapokalabende sind Festtage
     else if (date && [2, 3].indexOf(D.weekday(date)) >= 0) f *= 0.92;  // Englische Woche
+    if (c.id === state.user.club && state.user.fans != null) f *= 0.94 + state.user.fans / 100 * 0.12;   // Fanstimmung
     if (comp === 'fr') f *= 0.3;                                       // Testspiele locken nur die Treuesten
     f *= R.range(0.95, 1.05);
     return Math.round(FM.clamp(demand * f, comp === 'fr' ? 150 : 300, cap));

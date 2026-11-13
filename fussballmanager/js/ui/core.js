@@ -259,7 +259,8 @@
     ['transfers', 'Transfermarkt', 'transfer'],
     ['finances', 'Finanzen & Budget', 'euro'],
     ['infra', 'Infrastruktur', 'build'],
-    ['club', 'Verein & Vorstand', 'board']
+    ['club', 'Verein & Vorstand', 'board'],
+    ['career', 'Karriere', 'trophy']
   ];
   var MOBILE = [['dashboard', 'Übersicht', 'home'], ['squad', 'Kader', 'users'], ['tactics', 'Taktik', 'tactics'], ['table', 'Tabelle', 'table'], ['transfers', 'Transfers', 'transfer']];
 

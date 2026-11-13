@@ -903,3 +903,22 @@ dl.cost dd.bad { color: var(--bad); }
 .kv.facts dd { text-align: right; }
 .kv.facts .rivals { display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: flex-end; }
 .kv.facts .rivals .club-cell { display: inline-flex; align-items: center; gap: 5px; }
+
+/* ---------- Entscheidungen, Meilensteine ---------- */
+.choices { display: grid; gap: 8px; }
+.choices.row3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.choice {
+  display: flex; flex-direction: column; gap: 3px; align-items: flex-start; text-align: left; width: 100%;
+  padding: 11px 14px; background: var(--surface-2); border: 1px solid var(--line); border-left: 4px solid var(--club);
+  border-radius: 2px; color: var(--text); font: inherit; cursor: pointer;
+}
+.choice:hover { background: var(--surface-3); border-color: var(--line-2, var(--line)); border-left-color: var(--club); }
+.choice:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.news-ico.event { background: var(--warn-soft); color: var(--warn); }
+.ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
+.ach { display: flex; gap: 12px; align-items: flex-start; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 2px; opacity: .62; }
+.ach.got { opacity: 1; border-left: 4px solid var(--club); }
+.ach-ico { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 2px; background: var(--surface-3); color: var(--text-3); }
+.ach.got .ach-ico { background: var(--accent-soft); color: var(--accent); }
+.ach-ico svg { width: 18px; height: 18px; }
+@media (max-width: 640px) { .choices.row3 { grid-template-columns: 1fr; } }

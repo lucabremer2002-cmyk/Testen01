@@ -231,7 +231,7 @@
       '</div></div>';
   }
 
-  var NEWS_ICON = { match: 'ball', transfer: 'transfer', offer: 'transfer', market: 'transfer', scout: 'search', injury: 'medic', board: 'board', cup: 'trophy', league: 'trophy', training: 'training', youth: 'youth', info: 'info' };
+  var NEWS_ICON = { event: 'whistle', match: 'ball', transfer: 'transfer', offer: 'transfer', market: 'transfer', scout: 'search', injury: 'medic', board: 'board', cup: 'trophy', league: 'trophy', training: 'training', youth: 'youth', info: 'info' };
   UI.newsIcon = function (n) { return '<div class="news-ico ' + n.type + '">' + UI.icon(NEWS_ICON[n.type] || 'info') + '</div>'; };
 
   function newsCard() {
@@ -287,7 +287,7 @@
     title: 'Posteingang',
     render: function () {
       var st = FM.state, s = UI.vs('inbox', { f: 'all', sel: null });
-      var groups = { all: null, match: ['match'], transfer: ['transfer', 'offer', 'market', 'scout'], club: ['board', 'youth', 'training', 'info', 'league', 'cup'], injury: ['injury'] };
+      var groups = { all: null, match: ['match'], transfer: ['transfer', 'offer', 'market', 'scout'], club: ['board', 'youth', 'training', 'info', 'league', 'cup', 'event'], injury: ['injury'] };
       var list = st.news.filter(function (n) { return !groups[s.f] || groups[s.f].indexOf(n.type) >= 0; });
       var sel = st.news.filter(function (n) { return n.id === s.sel; })[0] || list[0];
       if (sel && !sel.read) { sel.read = true; }
@@ -297,7 +297,7 @@
       html += '<div class="grid dash"><div class="card"><div class="list">' + (list.length ? list.slice(0, 120).map(function (n) {
         return '<div class="li click' + (sel && n.id === sel.id ? ' sel' : '') + '" data-action="openNews" data-id="' + n.id + '" style="' + (sel && n.id === sel.id ? 'background:var(--surface-2)' : '') + '">' + UI.newsIcon(n) +
           '<div class="grow"><div class="row between"><span class="' + (n.read ? '' : 'strong ') + 'ellipsis">' + esc(n.title) + '</span><span class="muted small nowrap">' + D.fmtShort(n.date) + '</span></div>' +
-          '<div class="muted small ellipsis">' + esc(n.body) + '</div></div>' + (n.read ? '' : '<span class="unread-dot"></span>') + '</div>';
+          '<div class="muted small ellipsis">' + esc(n.body) + '</div></div>' + (UI.newsOpen(n) ? '<span class="tag warn">Entscheidung</span>' : n.read ? '' : '<span class="unread-dot"></span>') + '</div>';
       }).join('') : '<div class="empty">Keine Nachrichten in dieser Kategorie.</div>') + '</div></div>';
       html += '<div class="card" style="position:sticky;top:76px">' + (sel ? newsDetail(sel) : '<div class="empty">Wähle eine Nachricht.</div>') + '</div></div>';
       return html;
@@ -317,6 +317,22 @@
         act = '<div class="card-b"><span class="tag">' + ({ accepted: 'Angenommen', declined: 'Abgelehnt', expired: 'Abgelaufen' }[o.status] || o.status) + '</span></div>';
       }
     }
+    if (n.action && n.action.kind === 'event') {
+      var a = n.action;
+      if (a.done == null) {
+        act = '<div class="card-b" style="padding-top:0"><div class="choices">' + FM.eventOptions(st, n).map(function (o, i) {
+          return '<button class="choice" data-action="eventChoose" data-id="' + n.id + '" data-i="' + i + '"><span class="strong">' + esc(o[0]) + '</span>' + (o[1] ? '<span class="muted small">' + esc(o[1]) + '</span>' : '') + '</button>';
+        }).join('') + '</div><div class="muted small" style="margin-top:10px">Ohne Antwort entscheidet am ' + D.fmt(a.until) + ' dein Co-Trainer.</div></div>';
+      } else {
+        act = '<div class="card-b" style="padding-top:0"><div class="note"><b>Deine Entscheidung: ' + esc(a.label || '') + '</b><br>' + esc(a.res || '') + '</div></div>';
+      }
+    }
+    if (n.action && n.action.kind === 'job') {
+      var j = FM.jobOf(st, n.action.id), jc = j ? st.clubs[j.club] : null;
+      act = j ? '<div class="card-b" style="padding-top:0"><div class="row" style="gap:10px;margin-bottom:12px">' + UI.badge(jc, 40) + '<div><div class="strong">' + esc(jc.name) + '</div><div class="muted small">' + esc(FM.leagueName(st, jc)) + ' · Stärke ' + FM.teamStrength(st, jc.id).toFixed(1) + ' · Konto ' + FM.fmtMoneyShort(jc.money) + ' €</div></div></div></div>' +
+        '<div class="modal-f"><button class="btn" data-action="jobDecline" data-id="' + j.id + '">Absagen</button><button class="btn ghost" data-action="club" data-id="' + jc.id + '">Verein ansehen</button><button class="btn primary" data-action="jobAccept" data-id="' + j.id + '">Angebot annehmen</button></div>' :
+        '<div class="card-b" style="padding-top:0"><span class="tag">Nicht mehr aktuell</span></div>';
+    }
     if (n.ref && st.fixtures[n.ref] && st.fixtures[n.ref].res && st.fixtures[n.ref].res.pl) {
       act = '<div class="modal-f"><button class="btn" data-action="matchReport" data-id="' + n.ref + '">Spielbericht ansehen</button></div>';
     }
@@ -332,6 +348,36 @@
     UI.vs('inbox').sel = id;
     UI.refresh();
   };
+  /* Wartet die Nachricht noch auf eine Entscheidung? */
+  UI.newsOpen = function (n) {
+    if (!n.action) return false;
+    if (n.action.kind === 'event') return n.action.done == null;
+    if (n.action.kind === 'job') return !!FM.jobOf(FM.state, n.action.id);
+    return false;
+  };
+  UI.actions.eventChoose = function (el) {
+    var res = FM.resolveEvent(FM.state, el.getAttribute('data-id'), +el.getAttribute('data-i'));
+    FM.save(UI.slot || 1);
+    if (res) UI.toast('Entscheidung getroffen.');
+    UI.refresh();
+  };
+  UI.actions.jobAccept = function (el) {
+    var id = el.getAttribute('data-id'), j = FM.jobOf(FM.state, id);
+    if (!j) { UI.toast('Das Angebot ist nicht mehr gültig.', 'bad'); UI.refresh(); return; }
+    var c = FM.state.clubs[j.club];
+    UI.confirm('Zu ' + c.name + ' wechseln?', 'Du verlässt ' + esc(FM.state.clubs[FM.state.user.club].name) + ' mit sofortiger Wirkung. Dein bisheriger Kader, das Budget und laufende Verhandlungen bleiben zurück.', 'Vertrag unterschreiben', function () {
+      var r = FM.acceptJob(FM.state, id);
+      FM.save(UI.slot || 1);
+      UI.go('dashboard');
+      UI.toast(r.msg, r.ok ? 'good' : 'bad');
+    });
+  };
+  UI.actions.jobDecline = function (el) {
+    FM.declineJob(FM.state, el.getAttribute('data-id'));
+    UI.toast('Angebot abgelehnt.');
+    UI.refresh();
+  };
+
   UI.actions.markAllRead = function () { FM.state.news.forEach(function (n) { n.read = true; }); UI.refresh(); };
   UI.actions.offerRespond = function (el) {
     var r = FM.respondOffer(FM.state, el.getAttribute('data-id'), el.getAttribute('data-ok') === '1');
@@ -353,11 +399,15 @@
         '<dl class="kv"><dt>Saisonziel</dt><dd>' + esc(e.label || '–') + '</dd><dt>Mindestens Platz</dt><dd>' + (e.target || '–') + '</dd><dt>Aktueller Platz</dt><dd>' + (pos || '–') + '</dd><dt>Stärke-Rang vor der Saison</dt><dd>' + (e.strengthRank || '–') + '</dd></dl>' +
         '<div style="margin-top:16px"><div class="row between small"><span class="muted">Vertrauen</span><b>' + FM.confLabel(conf) + ' (' + Math.round(conf) + ')</b></div>' +
         '<div class="meter ' + (conf >= 45 ? '' : conf >= 25 ? 'warn' : 'bad') + '" style="margin-top:6px"><i style="width:' + Math.round(conf) + '%"></i></div></div>' +
+        '<div style="margin-top:14px"><div class="row between small"><span class="muted">Stimmung der Fans</span><b>' + FM.fanLabel(FM.careerUser(st).fans) + ' (' + Math.round(st.user.fans) + ')</b></div>' +
+        '<div class="meter ' + (st.user.fans >= 45 ? '' : st.user.fans >= 28 ? 'warn' : 'bad') + '" style="margin-top:6px"><i style="width:' + Math.round(st.user.fans) + '%"></i></div></div>' +
+        (st.user.obj ? '<div class="note" style="margin-top:14px"><b>Zusatzziel:</b> ' + esc(st.user.obj.k === 'cup' ? 'im DFB-Pokal das ' + FM.CUP_ROUNDS[st.user.obj.t - 1] + ' erreichen' : st.user.obj.k === 'youth' ? st.user.obj.t + ' Ligaminuten für Eigengewächse bis 21 Jahre' : 'ein Spieler mit ' + st.user.obj.t + ' Ligatoren') + '</div>' : '') +
+        (st.user.bonus ? '<div class="note" style="margin-top:10px"><b>Erfolgsprämie des Sponsors:</b> ' + FM.fmtMoney(st.user.bonus.amt) + ' bei Platz ' + st.user.bonus.pos + ' oder besser</div>' : '') +
         '<p class="muted small" style="margin-top:12px">Das Vertrauen steigt mit Ergebnissen über den Erwartungen und sinkt bei Pleiten gegen schwächere Gegner. Derbys zählen doppelt. ' +
-        ((c.pat || 1) > 1.1 ? 'Das Umfeld hier ist ungeduldig – Rückschläge wiegen schwerer.' : (c.pat || 1) < 0.9 ? 'Das Umfeld hier ist geduldig – Rückschläge werden eher verziehen.' : '') + ' Fällt das Vertrauen zu tief, wirst du entlassen.</p></div></div>';
+        ((c.pat || 1) > 1.1 ? 'Das Umfeld hier ist ungeduldig – Rückschläge wiegen schwerer.' : (c.pat || 1) < 0.9 ? 'Das Umfeld hier ist geduldig – Rückschläge werden eher verziehen.' : '') + ' Fällt das Vertrauen zu tief, wirst du entlassen. Zufriedene Fans füllen das Stadion und stärken dir beim Vorstand den Rücken.</p></div></div>';
       html += '<div class="card"><div class="card-h"><h3>Verein</h3></div><div class="card-b">' + UI.clubFacts(c) + '<dl class="kv" style="margin-top:12px">' +
         '<dt>Reputation</dt><dd>' + UI.stars(c.rep / 20) + ' ' + c.rep + '</dd>' +
-        '<dt>Kontostand</dt><dd>' + FM.fmtMoney(c.money) + '</dd><dt>Kader</dt><dd>' + c.squad.length + ' Spieler</dd><dt>Trainer</dt><dd>' + esc(st.user.name) + ' (seit ' + st.user.joined + ')</dd>' +
+        '<dt>Kontostand</dt><dd>' + FM.fmtMoney(c.money) + '</dd><dt>Kader</dt><dd>' + c.squad.length + ' Spieler</dd><dt>Trainer</dt><dd>' + esc(st.user.name) + ' (seit ' + st.user.joined + ')</dd>' + (c.captain && st.players[c.captain] && st.players[c.captain].club === uc ? '<dt>Kapitän</dt><dd>' + esc(st.players[c.captain].name) + '</dd>' : '') +
         FM.FAC_KEYS.filter(function (k) { return k !== 'stadium'; }).map(function (k) { return '<dt>' + FM.FACILITIES[k].name + '</dt><dd>Stufe ' + FM.facLevel(c, k) + '</dd>'; }).join('') + '</dl>' +
         '<button class="btn sm" style="margin-top:14px" data-action="go" data-view="infra">' + UI.icon('build') + ' Infrastruktur ausbauen</button></div></div></div>';
       var hist = c.hist.slice().reverse();
@@ -443,6 +493,10 @@
       '<div class="grid g3">' + tile('Abschlussplatz', (u.pos || '–') + '.', esc(FM.COMP_NAME[u.league] || '')) + tile('Saisonziel', 'Platz ' + u.target, esc(u.expect)) +
       tile('Bewertung', ok ? 'Ziel erreicht' : 'Ziel verfehlt', 'Vorstand: ' + FM.confLabel(u.conf)) + '</div>' + banner +
       (u.cupWinner ? '<div class="note good"><b>DFB-Pokalsieger!</b> Dein Team holt den Pott.</div>' : '') +
+      (u.eu ? '<div class="note' + (u.eu.reached === 'w' ? ' good' : '') + '"><b>' + FM.EU[u.eu.comp].name + ':</b> ' + (u.eu.reached === 'w' ? 'Titel gewonnen!' : u.eu.reached === 'league' ? 'Ligaphase, Platz ' + u.eu.pos : UI.EU_REACH[u.eu.reached] + ' erreicht') + '</div>' : '') +
+      (u.euNext ? '<div class="note good">Qualifiziert für die <b>' + FM.EU[u.euNext].name + '</b> der neuen Saison.</div>' : '') +
+      (u.rep != null ? '<div class="note">Dein Ruf als Trainer: <b>' + FM.REP_LABEL(u.rep) + '</b> (' + u.rep + ' von 100' + (u.repDelta ? ', ' + (u.repDelta > 0 ? '+' : '') + u.repDelta + ' in dieser Saison' : '') + ').' + (u.obj ? ' Zusatzziel des Vorstands ' + (u.obj.ok ? 'erreicht' : 'verfehlt') + '.' : '') + '</div>' : '') +
+      (sm.awards.eu ? '<div class="card"><div class="list">' + FM.EU_COMPS.map(function (k) { var w = sm.awards.eu[k]; return w && st.clubs[w.club] ? '<div class="li">' + UI.badge(st.clubs[w.club], 30) + '<div class="grow"><div class="strong">' + esc(w.name) + '</div><div class="muted small">Sieger ' + FM.EU[k].name + '</div></div></div>' : ''; }).join('') + '</div></div>' : '') +
       '<div class="card"><div class="list">' + champ('bl') + champ('bl2') + champ('l3') +
       '<div class="li">' + UI.badge(st.clubs[sm.awards.cup], 30) + '<div class="grow"><div class="strong">' + esc(st.clubs[sm.awards.cup].name) + '</div><div class="muted small">DFB-Pokalsieger</div></div></div></div></div>' +
       (sm.groups ? '<div class="grid g2">' +
@@ -458,7 +512,8 @@
 
   UI.firedModal = function () {
     var st = FM.state;
-    var offers = FM.jobOffers(st);
+    var offers = FM.jobsForFired(st);
+    if (!offers.length) offers = FM.jobOffers(st);
     var cards = offers.map(function (cid) {
       var c = st.clubs[cid];
       return '<button class="club-card" data-action="takeJob" data-id="' + cid + '">' + UI.badge(c, 38) + '<div><div class="n">' + esc(c.name) + '</div><div class="s">' + esc(st.leagues[c.league].name) + ' · ' + esc(c.expect ? c.expect.label : '') + '</div></div></button>';
@@ -469,7 +524,7 @@
       '<div class="modal-f"><button class="btn" data-action="toMenuNoSave">Neue Karriere</button></div>', { size: 'wide' });
   };
   UI.actions.takeJob = function (el) {
-    FM.takeJob(FM.state, el.getAttribute('data-id'));
+    FM.changeClub(FM.state, el.getAttribute('data-id'));
     FM.save(UI.slot || 1);
     UI.closeModal();
     UI.go('dashboard');

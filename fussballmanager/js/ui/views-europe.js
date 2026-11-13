@@ -162,7 +162,7 @@
           tile('Dein Stand', esc(c.phase === 'league' ? (c.md ? (i + 1) + '.' : '–') : REACH[FM.euroReached(st, k, uc)]), esc(UI.euroStatus(st, k, uc))) +
           tile('Bilanz Ligaphase', r.w + ' – ' + r.d + ' – ' + r.l, r.gf + ':' + r.ga + ' Tore · ' + r.pts + ' Punkte') +
           tile('UEFA-Prämien', FM.fmtMoneyShort((eu.money || {})[uc] || 0) + ' €', 'in dieser Saison') +
-          tile('Nächstes Spiel', next ? esc(st.clubs[next.home === uc ? next.away : next.home].short) : '–', next ? D.fmt(next.date) + ' · ' + (next.neutral ? 'Finale' : next.home === uc ? 'Heim' : 'Auswärts') : 'kein Spiel angesetzt') +
+          tile('Nächstes Spiel', next ? '<span style="font-size:21px;overflow-wrap:anywhere">' + esc(st.clubs[next.home === uc ? next.away : next.home].short) + '</span>' : '–', next ? D.fmt(next.date) + ' · ' + (next.neutral ? 'Finale' : next.home === uc ? 'Heim' : 'Auswärts') : 'kein Spiel angesetzt') +
           '</div>';
       } else if (!mine && k === s.k) {
         html += '<div class="note" style="margin-bottom:16px">Dein Verein spielt in dieser Saison nicht europäisch. Über die Bundesliga (Platz 1–4 Champions League, 5 Europa League, 6 Conference League) oder den DFB-Pokal führt der Weg nach Europa.</div>';

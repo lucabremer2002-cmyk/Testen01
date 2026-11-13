@@ -4,7 +4,7 @@
   var FM = window.FM;
 
   FM.SAVE_KEY = 'matchplan.save.';
-  FM.SAVE_VERSION = 7;
+  FM.SAVE_VERSION = 8;
 
   /* Spielstaende der Vorversion (ohne Budgets/Infrastruktur) weiterverwenden */
   FM.migrate = function (state) {
@@ -55,6 +55,24 @@
         c.commercial = Math.max(old, c.commercial);
       });
       state.v = 7;
+    }
+    if (state.v === 7) {
+      // Europapokal, Auslandsmarkt, Trainerkarriere, Ereignisse: Die europaeischen Wettbewerbe und die
+      // Testspiele beginnen mit der naechsten Saison, alles andere laeuft sofort.
+      var prev = FM.state;
+      FM.state = state;                                   // fuer fortlaufende Spieler-IDs
+      state.pidSeq = state.pidSeq || 0;
+      state.eu = null;
+      state.base = { bl: FM.WORLD_BASE.bl, bl2: FM.WORLD_BASE.bl2, l3: FM.WORLD_BASE.l3 };
+      Object.keys(state.players).forEach(function (pid) {
+        var p = state.players[pid], c = p.club ? state.clubs[p.club] : null;
+        if (c && c.guest) p.gen = true;                   // Pokalgaeste der laufenden Saison
+      });
+      if (!state.euStars) FM.euInitStars(state);
+      FM.careerInit(state);
+      state.ev = { cool: {} };
+      FM.state = prev;
+      state.v = 8;
     }
     return state;
   };
@@ -129,6 +147,7 @@
     FM.assignRoles(state, uc.id);
     uc.tactics = FM.defaultTactics();
 
+    FM.careerInit(state);
     FM.worldInit(state);
     FM.euInitStars(state);
     FM.startSeason(state, true);
@@ -214,7 +233,7 @@
     try {
       if (!localStorage.getItem(FM.SAVE_KEY + (slot || 1))) return null;
       var meta = JSON.parse(localStorage.getItem(FM.SAVE_KEY + 'meta.' + (slot || 1)) || 'null');
-      if (!meta || [3, 4, 5, 6, FM.SAVE_VERSION].indexOf(meta.v) < 0) return { incompatible: true };
+      if (!meta || [3, 4, 5, 6, 7, FM.SAVE_VERSION].indexOf(meta.v) < 0) return { incompatible: true };
       return meta;
     } catch (e) { return null; }
   };

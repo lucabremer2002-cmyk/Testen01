@@ -132,7 +132,7 @@
     });
     if (m.finished) { finish(); return; }
     updateLive();
-    if (before === 1 && m.period === 2 && !L.htPaused) { L.htPaused = true; pause('Halbzeit'); }
+    if (before === 1 && m.period === 2 && !L.htPaused) { L.htPaused = true; L.talk = 'open'; pause('Halbzeit'); }
     if (before === 2 && m.period === 3 && !L.etPaused) { L.etPaused = true; pause('Verlängerung'); }
   }
 
@@ -166,6 +166,13 @@
       '<div class="row"><button class="btn" data-action="liveSubs">' + UI.icon('swap') + ' Wechsel & Taktik</button>' +
       '<button class="btn" data-action="livePause">' + (L.paused ? UI.icon('play') + ' Weiter' : UI.icon('pause') + ' Pause') + '</button>' +
       '<button class="btn ghost" data-action="liveEnd">' + UI.icon('skip') + ' Zum Ende</button></div></div></div>';
+    if (L.talk === 'open' && L.paused) {
+      var gd = m.goals[L.userSide] - m.goals[1 - L.userSide];
+      html += '<div class="card talk" style="margin-top:16px"><div class="card-h"><h3>Halbzeit – deine Ansprache</h3><span class="muted small">' + (gd > 0 ? 'Ihr führt' : gd < 0 ? 'Ihr liegt zurück' : 'Es steht unentschieden') + '</span></div>' +
+        '<div class="card-b"><div class="choices row3">' + FM.TALKS.map(function (t) {
+          return '<button class="choice" data-action="teamTalk" data-k="' + t[0] + '"><span class="strong">' + t[1] + '</span><span class="muted small">' + t[2] + '</span></button>';
+        }).join('') + '</div><div class="muted small" style="margin-top:10px">Die richtigen Worte können ein Spiel drehen – die falschen auch. Ohne Ansprache geht es mit „Weiter" normal in die zweite Hälfte.</div></div></div>';
+    }
     html += '<div class="match-grid" style="margin-top:16px"><div class="card"><div class="card-h"><h3>Liveticker</h3><span class="muted small" id="lv-subs">' + subsInfo() + '</span></div><div class="ticker" id="lv-ticker">' + tickerHtml(true) + '</div></div>' +
       '<div class="stack"><div class="card"><div class="card-h"><h3>Statistik</h3></div><div id="lv-stats">' + UI.statsBlock(m.result(true).stats) + '</div></div>' +
       (L.others.length || (L.euro && L.euro.length) ? '<div class="card"><div class="card-h"><h3>Konferenz</h3><span class="muted small">' + esc(FM.COMP_NAME[fx.comp]) + '</span></div><div class="list konf" id="lv-konf">' + konfHtml() + '</div></div>' : '') +
@@ -199,6 +206,7 @@
       case 'penAwarded': txt = '<b>Elfmeter für ' + esc(team) + '!</b> ' + esc(p) + ' legt sich den Ball zurecht.'; break;
       case 'save': txt = e.big ? pickT(['Glanzparade! ' + esc(gk) + ' rettet gegen ' + esc(p) + '.', esc(gk) + ' ist im Eins-gegen-eins gegen ' + esc(p) + ' zur Stelle!']) : pickT([esc(p) + ' prüft ' + esc(gk) + ' – sicher gehalten.', 'Abschluss ' + esc(p) + ', aber ' + esc(gk) + ' packt zu.']); break;
       case 'miss': txt = e.big ? pickT(['Riesenchance für ' + esc(p) + ' – vorbei!', esc(p) + ' vergibt freistehend!', 'Was für eine Gelegenheit! ' + esc(p) + ' setzt den Ball neben das Tor.']) : pickT(['Schuss von ' + esc(p) + ' – drüber.', esc(p) + ' versucht es, knapp vorbei.']); break;
+      case 'talk': txt = '<b>Kabine:</b> ' + esc(e.txt); cls = 'phase'; break;
       default: txt = UI.eventText(e, P); if (e.t === 'goal') cls = 'goal';
     }
     if (!txt) return '';
@@ -264,8 +272,16 @@
 
   function bindLive() { /* Steuerung laeuft ueber delegierte Aktionen */ }
 
+  UI.actions.teamTalk = function (el) {
+    if (!L || L.talk !== 'open') return;
+    var r = FM.teamTalk(L.m, L.userSide, el.getAttribute('data-k'));
+    L.talk = 'done';
+    UI.toast(r.text, r.boost > 0 ? 'good' : r.boost < 0 ? 'bad' : '');
+    UI.render(true);
+  };
   UI.actions.livePause = function () {
     if (!L) return;
+    if (L.talk === 'open') L.talk = 'skip';
     if (L.paused) { L.paused = false; UI.render(true); startTimer(); }
     else pause();
   };
