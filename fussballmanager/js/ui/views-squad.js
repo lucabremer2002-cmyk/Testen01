@@ -106,6 +106,7 @@
     var interest = !own ? FM.interest(st, p, st.user.club) : null;
     var il = interest != null ? FM.interestLabel(interest) : null;
     var g = FM.avgGrade(p);
+    var upg = !own && FM.upgradeFor ? FM.upgradeFor(st, p) : null;
     var info = '<dl class="kv">' +
       '<dt>Verein</dt><dd>' + (club ? UI.clubLink(club.id) : 'vereinslos') + '</dd>' +
       '<dt>Alter</dt><dd>' + p.age + (p.ageEst ? ' <span class="muted" title="Alter geschätzt">≈</span>' : '') + '</dd>' +
@@ -123,6 +124,7 @@
       '<dt>Fitness</dt><dd>' + UI.fit(p.fit) + ' ' + Math.round(p.fit) + ' %</dd>' +
       (own ? '<dt>Moral</dt><dd>' + UI.morale(p.mor) + '</dd>' : '') +
       (il ? '<dt>Wechselbereitschaft</dt><dd><span class="tag ' + il.c + '">' + il.t + '</span></dd>' : '') +
+      (upg ? '<dt>Für deinen Kader</dt><dd><span class="tag ' + (upg.delta >= 1 ? 'good' : '') + '">' + (upg.delta > 0 ? '+' : '') + upg.delta + ' auf ' + FM.POS_LABEL[upg.pos] + '</span>' + (upg.starter ? ' <span class="muted small">statt ' + esc(upg.starter.name.split(' ').slice(-1)[0]) + '</span>' : '') + '</dd>' : '') +
       '</dl>';
     var seasonStats = '<div class="grid g4" style="gap:8px">' +
       mini('Spiele', p.st.apps) + mini('Tore', p.st.goals) + mini('Vorlagen', p.st.assists) + mini('Ø Note', g == null ? '–' : FM.fmtGrade(FM.round1(g))) + '</div>' +

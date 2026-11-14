@@ -620,7 +620,7 @@
       if (s.res || s.ready > state.date) return;
       s.res = FM.scoutSearch(state, s.f);
       s.res.forEach(function (pid) { know(state, pid); });
-      FM.addNews(state, { type: 'scout', title: 'Scoutbericht: ' + FM.scoutLabel(s.f), body: s.res.length ? 'Dein Scout empfiehlt ' + s.res.length + ' Spieler. Ihr Potenzial ist jetzt genau bekannt. Details im Transfermarkt unter „Scouting".' : 'Dein Scout hat niemanden gefunden, der zu den Vorgaben passt.' });
+      FM.addNews(state, { type: 'scout', title: 'Scoutbericht: ' + FM.scoutLabel(s.f), body: s.res.length ? 'Dein Scout empfiehlt ' + s.res.length + ' Spieler. Ihr Potenzial ist jetzt genau bekannt. Details im Transfermarkt unter „Merkliste & Scouting".' : 'Dein Scout hat niemanden gefunden, der zu den Vorgaben passt.' });
     });
   }
 
@@ -681,5 +681,152 @@
       if (!c || c.rep >= 88 || c.reserve || p.age > 29 || p.ovr < 70) return;
       if (R.chance(0.12)) p.contract.clause = FM.niceRound(FM.marketValue(p) * R.range(1.8, 3));
     });
+  };
+
+  /* ================= Kaderplaner und Empfehlungen ================= */
+  var SLOT_PRIO = { GK: 0, CB: 1, ST: 2, CDM: 3, LB: 4, RB: 4, CM: 5, CAM: 6, LW: 7, RW: 7, LM: 8, RM: 8 };
+
+  /* Besetzung der eigenen Formation: Stammspieler, Ersatz und Bedarf je Position.
+     Verletzte und Gesperrte zaehlen mit – geplant wird der Kader, nicht der naechste Spieltag. */
+  FM.squadNeeds = function (state) {
+    var uc = state.user.club, club = state.clubs[uc], y = state.season.year;
+    var f = (club.lineup && club.lineup.formation) || club.formation || '4-4-2';
+    var form = FM.FORMATIONS[f] || FM.FORMATIONS['4-4-2'];
+    var players = FM.clubPlayers(state, uc);
+    var eff = function (p, pos) { return p.ovr - FM.positionPenalty(p, pos); };
+    var order = form.map(function (s, i) { return i; }).sort(function (a, b) { return SLOT_PRIO[form[a][0]] - SLOT_PRIO[form[b][0]]; });
+    var used = {}, slots = form.map(function (s, i) { return { i: i, pos: s[0], x: s[1], y: s[2], starter: null, eff: 0, backup: null, beff: 0 }; });
+    var pick = function (pos, maxPen) {
+      var best = null, bv = -99;
+      players.forEach(function (p) {
+        if (used[p.id] || FM.positionPenalty(p, pos) > maxPen) return;
+        var v = eff(p, pos);
+        if (v > bv) { bv = v; best = p; }
+      });
+      if (best) used[best.id] = 1;
+      return best;
+    };
+    order.forEach(function (i) { var s = slots[i], p = pick(s.pos, 6); if (p) { s.starter = p; s.eff = eff(p, s.pos); } });
+    order.forEach(function (i) { var s = slots[i], p = pick(s.pos, 2); if (p) { s.backup = p; s.beff = eff(p, s.pos); } });
+    var ref = FM.ZONES[club.league] && FM.leagueStrength ? FM.leagueStrength(state, club.league) : FM.avg(slots, function (s) { return s.eff; });
+    slots.forEach(function (s) {
+      var st = s.starter, flags = [];
+      var need = st ? ref - s.eff : 12;
+      if (!st) flags.push('unbesetzt');
+      if (!s.backup) { need += 2.5; flags.push('kein Ersatz'); }
+      else if (s.eff - s.beff > 7) { need += 1; flags.push('Ersatz fällt stark ab'); }
+      if (st && st.age >= 32) { need += 1.5; flags.push(st.age + ' Jahre'); }
+      if (st && (st.pre || (!st.loan && st.contract.until <= y + 1))) { need += 1.2; flags.push(st.pre ? 'geht im Sommer' : 'Vertrag endet'); }
+      if (st && st.loan) { need += 0.8; flags.push('nur geliehen'); }
+      s.need = need;
+      s.flags = flags;
+      s.level = need >= 3.2 ? 'bad' : need >= 0.8 ? 'warn' : 'ok';
+    });
+    return { formation: f, ref: ref, slots: slots };
+  };
+
+  /* Wo und um wie viel waere der Spieler besser als die aktuelle Besetzung? */
+  FM.upgradeFor = function (state, p, needs) {
+    var best = null;
+    (needs || FM.squadNeeds(state)).slots.forEach(function (s) {
+      var pen = FM.positionPenalty(p, s.pos);
+      if (pen > 1) return;
+      var d = p.ovr - pen - (s.starter ? s.eff : 45);
+      if (!best || d > best.delta) best = { pos: s.pos, delta: d, starter: s.starter, slot: s };
+    });
+    return best;
+  };
+
+  /* Sichtbares Potenzial eines fremden Spielers (Spanne je nach Scoutingabteilung) */
+  FM.potView = function (state, p) {
+    var uc = state.user.club;
+    if (p.club === uc || p.age >= 27 || FM.isKnown(state, p)) return { lo: p.pot, hi: p.pot };
+    var spread = Math.round((p.age <= 20 ? 1 : 0.5) * FM.facScoutSpread(state.clubs[uc]));
+    var h = FM.hash(p.id + 'scout') % (spread + 1);
+    var lo = Math.max(p.ovr, p.pot - h);
+    return { lo: lo, hi: Math.min(95, lo + spread) };
+  };
+
+  /* Was ein Spieler den eigenen Verein kosten wuerde und ob das Budget reicht */
+  FM.affordOf = function (state, p, interest) {
+    var uc = state.user.club, club = state.clubs[uc], b = FM.budget(state, club);
+    var price = p.club ? FM.askingPrice(state, p) : 0;
+    var wage = FM.contractWageDemand(state, p, uc, interest != null ? interest : FM.interest(state, p, uc));
+    var cost = price + Math.round(price * FM.AGENT_FEE) + (p.club ? 0 : Math.round(wage * FM.SIGNING_BONUS));
+    var room = Math.max(0, FM.wageRoom(state, club));
+    var level = cost <= b.transfer && wage <= room ? 'ok' : cost <= b.transfer * 1.4 + 1 && wage <= room * 1.25 + 50000 ? 'near' : 'no';
+    return { price: price, wage: wage, cost: cost, level: level, why: cost > b.transfer ? 'fee' : wage > room ? 'wage' : '' };
+  };
+
+  /* Darf der Spieler ueberhaupt auf dem Markt erscheinen? */
+  FM.onMarket = function (state, p, abroad) {
+    var uc = state.user.club;
+    if (p.club === uc) return false;
+    var c = p.club ? state.clubs[p.club] : null;
+    if (c && c.guest) return !!(c.eu && p.abroad && (abroad || p.mkt));
+    return true;
+  };
+
+  /* Empfehlungen: die besten erreichbaren Verstaerkungen fuer die groessten Baustellen */
+  FM.marketPicks = function (state, n) {
+    var uc = state.user.club, needs = FM.squadNeeds(state), out = [];
+    Object.keys(state.players).forEach(function (pid) {
+      var p = state.players[pid];
+      if (!FM.onMarket(state, p, false) || p.loan || p.pre || p.injury) return;
+      var up = FM.upgradeFor(state, p, needs);
+      if (!up) return;
+      var pot = FM.potView(state, p);
+      var talent = p.age <= 21 && pot.lo >= (up.starter ? up.slot.eff : 50) + 3;
+      if (up.delta < 1 && !talent) return;
+      var interest = FM.interest(state, p, uc);
+      if (interest < 45) return;
+      var a = FM.affordOf(state, p, interest);
+      if (a.level === 'no') return;
+      var score = Math.min(8, up.delta) * 3 + up.slot.need * 1.6 + (p.listed || p.wants ? 2 : 0) + (p.club ? 0 : 2.5) + (talent ? (pot.lo - p.ovr) * 0.35 : 0) +
+        (a.level === 'ok' ? 3 : 0) + (interest - 50) / 12 - (p.age >= 31 ? (p.age - 30) * 1.2 : 0);
+      out.push({ p: p, up: up, score: score });
+    });
+    out.sort(function (a, b) { return b.score - a.score; });
+    var perPos = {}, res = [];
+    for (var i = 0; i < out.length && res.length < (n || 6); i++) {
+      var k = out[i].up.pos;
+      if ((perPos[k] || 0) >= 2) continue;
+      perPos[k] = (perPos[k] || 0) + 1;
+      res.push(out[i]);
+    }
+    return res;
+  };
+
+  /* Einschaetzung des Sportdirektors: Wie nah liegt das Angebot an dem, was der Verkaeufer akzeptiert?
+     Sie ist nie ganz genau – eine gute Scoutingabteilung macht sie verlaesslicher. */
+  FM.offerRead = function (state, pid, o) {
+    var t = FM.talkOf(state, pid), p = state.players[pid];
+    if (!t || !p || t.stage !== 'club' || t.kind !== 'buy') return null;
+    var swap = o.swap ? state.players[o.swap] : null;
+    var k = p.age <= 23 && p.pot - p.ovr >= 6 ? 0.9 : p.age <= 26 ? 0.5 : 0.25;
+    var required = t.min * (1 - (o.sellOn || 0) * k);
+    var value = (o.fee || 0) * INST_FACTOR[o.inst || 1] + (swap ? FM.swapValue(state, swap, p.club) : 0);
+    var spread = 0.015 + 0.01 * FM.facScoutSpread(state.clubs[state.user.club]);
+    var off = ((FM.hash(pid + '|read') % 2001) / 1000 - 1) * spread;
+    var ratio = value / Math.max(1, required * (1 + off));
+    return { ratio: ratio, band: ratio >= 1 ? 3 : ratio >= 0.9 ? 2 : ratio >= 0.7 ? 1 : 0, spread: spread };
+  };
+
+  /* Wie steht der Spieler zum Vertragsangebot? (seine Forderung liegt offen auf dem Tisch) */
+  FM.contractRead = function (state, pid, o) {
+    var t = FM.talkOf(state, pid);
+    if (!t || t.stage !== 'player') return null;
+    var dem = FM.playerDemand(state, t, o.role || t.expRole);
+    var need = dem.wage * (dem.clause && (!o.clause || o.clause > dem.clause) ? 1.08 : 1);
+    var eff = (o.wage || 0) + ((o.bonus || 0) - dem.bonus) * 0.8 / Math.max(1, o.years || 3);
+    var ratio = eff / Math.max(1, need * 0.97);
+    return { ratio: ratio, interest: dem.interest, band: dem.interest < 30 ? 0 : ratio >= 1 ? 3 : ratio >= 0.9 ? 2 : ratio >= 0.8 ? 1 : 0, dem: dem };
+  };
+
+  /* Rekordabloese eines Vereins: bisherige Bestmarke oder ein Richtwert nach Renommee */
+  FM.recordFee = function (club, key) {
+    var r = club[key];
+    var floor = FM.niceRound(0.25e6 * Math.pow(1.23, 46.5 + 0.396 * club.rep - 57) * 1.3);
+    return Math.max(r ? r.fee : 0, floor);
   };
 })();

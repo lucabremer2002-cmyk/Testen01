@@ -1,32 +1,149 @@
-/* Ansichten: Transfermarkt, Verhandlungen, Scouting, Leihen und Transferbilanz. */
+/* Transfermarkt: Zentrale (Kaderplaner, Empfehlungen, laufende Geschaefte), Markt (Spielerkarten),
+   Merkliste & Scouting, Abgeben (Verkauf, Leihen, Angebote), Bilanz & Ticker.
+   Der Verhandlungstisch steht in views-deal.js. */
 (function () {
   'use strict';
   var FM = window.FM, UI = FM.ui, esc = FM.esc, D = FM.date;
-  var PAGE = 40;
 
-  /* ================= Transfermarkt ================= */
+  var TABS = [['hub', 'Zentrale'], ['market', 'Markt'], ['watch', 'Merkliste & Scouting'], ['sell', 'Abgeben'], ['log', 'Bilanz & Ticker']];
+  var PRESETS = [['all', 'Alle'], ['up', 'Verstärkungen'], ['afford', 'Im Budget'], ['bargain', 'Schnäppchen'], ['free', 'Ablösefrei'], ['loan', 'Leihbar'], ['talent', 'Talente'], ['expiring', 'Vertrag läuft aus'], ['clause', 'Mit Klausel']];
+  var SORTS = [['best', 'Stärkste zuerst'], ['up', 'Größte Verstärkung'], ['cheap', 'Günstigste zuerst'], ['deal', 'Preis-Leistung'], ['young', 'Jüngste zuerst'], ['pot', 'Größtes Potenzial']];
+  var LEAGUES = [['de', 'Deutschland'], ['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rl', 'Regionalliga'], ['eu', 'Ausland']];
+  var DEF = { tab: 'hub', q: '', preset: 'all', pos: 'all', league: 'de', minOvr: 0, maxAge: 40, maxPrice: 0, sort: 'best', mode: 'cards', page: 0, log: 'all' };
+  var PAGE = 24;
+  var ROLE_ORDER = { squad: 0, prospect: 1, rot: 2, start: 3, key: 4 };
+
+  function last(name) { return name.split(' ').slice(-1)[0]; }
+  function state() { var s = UI.vs('transfers', DEF); if (!TABS.some(function (t) { return t[0] === s.tab; })) s.tab = 'hub'; return s; }
+
+  /* Rahmen einer Darstellung: Bedarf, Budget, Spielraum – einmal berechnet */
+  function ctx() {
+    var st = FM.state, club = st.clubs[st.user.club];
+    return { st: st, uc: club.id, club: club, y: st.season.year, needs: FM.squadNeeds(st), b: FM.budget(st, club), room: FM.wageRoom(st, club), open: FM.isWindowOpen(st) };
+  }
+  /* Alles, was eine Karte ueber einen Spieler wissen muss */
+  function info(c, p) {
+    var interest = FM.interest(c.st, p, c.uc);
+    var a = FM.affordOf(c.st, p, interest);
+    return { p: p, price: a.price, wage: a.wage, afford: a, interest: interest, up: FM.upgradeFor(c.st, p, c.needs), kinds: FM.dealKinds(c.st, p), pot: FM.potView(c.st, p) };
+  }
+  UI.tmInfo = function (p) { return info(ctx(), p); };
+
+  UI.starBtn = function (p) {
+    var on = FM.onShortlist(FM.state, p.id);
+    return '<button class="star-btn' + (on ? ' on' : '') + '" data-action="watch" data-id="' + p.id + '" title="' + (on ? 'Von der Merkliste nehmen' : 'Auf die Merkliste') + '" aria-label="Merken">★</button>';
+  };
+
+  function patience(cur, max) {
+    var s = '';
+    for (var i = 0; i < max; i++) s += '<i class="' + (i < cur ? 'on' : '') + '"></i>';
+    return '<span class="patience" title="Geduld ' + cur + ' von ' + max + '">' + s + '</span>';
+  }
+  UI.patience = patience;
+
+  /* ---------- Bausteine ---------- */
+  function priceText(x) {
+    var p = x.p;
+    if (p.loan) return 'verliehen';
+    if (p.pre) return 'Vorvertrag';
+    if (!p.club) return 'ablösefrei';
+    return FM.fmtMoney(x.price);
+  }
+
+  /* Kurze Gruende, warum der Spieler interessant ist */
+  function tags(c, x) {
+    var p = x.p, out = [];
+    if (x.up && x.up.delta >= 1) out.push('<span class="tag good" title="Stärker als ' + (x.up.starter ? esc(x.up.starter.name) : 'die aktuelle Besetzung') + '">+' + x.up.delta + ' auf ' + FM.POS_LABEL[x.up.pos] + '</span>');
+    else if (x.up && x.up.delta >= -2) out.push('<span class="tag" title="Etwa auf dem Niveau deiner Besetzung">Alternative ' + FM.POS_LABEL[x.up.pos] + '</span>');
+    if (p.age <= 21 && x.pot.lo - p.ovr >= 5) out.push('<span class="tag info" title="Entwicklungspotenzial">Talent bis ' + (x.pot.lo === x.pot.hi ? x.pot.lo : x.pot.lo + '–' + x.pot.hi) + '</span>');
+    if (p.wants) out.push('<span class="tag warn">will weg</span>');
+    else if (p.listed) out.push('<span class="tag info">Transferliste</span>');
+    if (p.club && !p.loan && !p.pre && p.contract.until <= c.y + 1) out.push('<span class="tag" title="Vorvertrag ab Januar möglich">Vertrag endet</span>');
+    if (p.club && p.contract.clause) out.push('<span class="tag info" title="Ausstiegsklausel">Klausel ' + FM.fmtMoneyShort(p.contract.clause) + '</span>');
+    if (FM.loanable(c.st, p)) out.push('<span class="tag">leihbar</span>');
+    if (p.injury) out.push('<span class="tag bad">verletzt</span>');
+    return out.join('');
+  }
+
+  function dealBtn(c, x, small) {
+    var p = x.p, t = FM.talkOf(c.st, p.id), blocked = FM.talkBlocked(c.st, p.id);
+    var cls = 'btn ' + (small === false ? '' : 'sm ');
+    if (t) return '<button class="' + cls + 'primary" data-action="negotiate" data-id="' + p.id + '">Fortsetzen</button>';
+    if (blocked) return '<span class="muted tiny">Gespräche ruhen bis ' + D.fmtShort(blocked) + '</span>';
+    if (!x.kinds.length) return '<span class="muted tiny">' + (p.loan ? 'verliehen' : p.pre ? 'Vorvertrag' : 'Fenster geschlossen') + '</span>';
+    var label = x.kinds[0] === 'free' ? 'Verpflichten' : x.kinds[0] === 'pre' ? 'Vorvertrag' : 'Verhandeln';
+    return '<button class="' + cls + 'primary" data-action="negotiate" data-id="' + p.id + '">' + label + '</button>';
+  }
+
+  var AFF = { ok: ['good', 'im Budget'], near: ['warn', 'knapp'], no: ['', 'zu teuer'] };
+
+  /* Spielerkarte */
+  function card(c, x, extra) {
+    var p = x.p, st = c.st, club = p.club ? st.clubs[p.club] : null;
+    var labels = FM.statLabels(p);
+    var top = p.s.map(function (v, i) { return [labels[i], v]; }).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 3)
+      .map(function (a) { return '<span><b>' + a[1] + '</b>' + a[0] + '</span>'; }).join('');
+    var il = FM.interestLabel(x.interest), af = AFF[x.afford.level];
+    return '<article class="pcard ' + x.afford.level + '" data-action="player" data-id="' + p.id + '">' +
+      '<div class="pcard-top"><div class="pcard-ovr ' + UI.tier(p.ovr) + '">' + p.ovr + '<span>' + FM.POS_LABEL[p.pos[0]] + '</span></div>' +
+      '<div class="pcard-id"><div class="pcard-name">' + esc(p.name) + '</div>' +
+      '<div class="pcard-club">' + (club ? UI.badge(club, 16) + '<span class="ellipsis">' + esc(club.short) + '</span>' : '<span>vereinslos</span>') + '<span class="sep">·</span><span>' + p.age + ' J.</span></div></div>' +
+      (extra || '') + UI.starBtn(p) + '</div>' +
+      '<div class="pcard-stats">' + top + '</div>' +
+      '<div class="pcard-tags">' + (tags(c, x) || '<span class="muted tiny">' + esc(il.t) + '</span>') + '</div>' +
+      '<div class="pcard-foot"><div><div class="pcard-price">' + priceText(x) + '</div>' +
+      '<div class="pcard-sub"><span class="dot ' + af[0] + '"></span>' + af[1] + ' · <span title="Wechselbereitschaft">' + esc(il.t) + '</span></div></div>' + dealBtn(c, x) + '</div></article>';
+  }
+
+  function cards(c, list, extraFn) {
+    return '<div class="pgrid">' + list.map(function (x) { return card(c, x, extraFn ? extraFn(x) : ''); }).join('') + '</div>';
+  }
+
+  /* Kompakte Liste fuer alle, die lieber Zeilen lesen */
+  function table(c, list) {
+    return '<div class="tbl-wrap"><table class="tbl"><thead><tr><th class="star-col"></th><th>Pos</th><th>Spieler</th><th class="hide-sm">Verein</th><th class="num">Alter</th><th class="num">Stärke</th><th class="num hide-xs">Pot.</th>' +
+      '<th class="num hide-xs" title="Unterschied zu deiner Besetzung">Δ</th><th class="num">Ablöse</th><th class="hide-sm">Budget</th><th></th></tr></thead><tbody>' +
+      (list.length ? list.map(function (x) {
+        var p = x.p, af = AFF[x.afford.level];
+        return '<tr class="click" data-action="player" data-id="' + p.id + '"><td class="star-col">' + UI.starBtn(p) + '</td><td>' + UI.posTag(p.pos[0]) + '</td>' +
+          '<td><span class="pname">' + esc(p.name) + '</span>' + UI.srcMark(p) + (p.wants ? ' <span class="tag warn">will weg</span>' : p.listed ? ' <span class="tag info">gelistet</span>' : '') + (p.injury ? ' <span class="tag bad">verletzt</span>' : '') +
+          '<div class="muted tiny show-sm">' + (p.club ? esc(c.st.clubs[p.club].short) : 'vereinslos') + '</div></td>' +
+          '<td class="hide-sm">' + (p.club ? UI.clubLink(p.club) : '<span class="tag">vereinslos</span>') + '</td><td class="num">' + p.age + '</td><td class="num">' + UI.pill(p.ovr) + '</td>' +
+          '<td class="num hide-xs">' + (x.pot.lo === x.pot.hi ? x.pot.lo : x.pot.lo + '–' + x.pot.hi) + '</td>' +
+          '<td class="num hide-xs ' + (x.up && x.up.delta >= 1 ? 'good strong' : 'muted') + '">' + (x.up ? (x.up.delta > 0 ? '+' : '') + x.up.delta : '–') + '</td>' +
+          '<td class="num strong">' + priceText(x) + '</td><td class="hide-sm"><span class="tag ' + af[0] + '">' + af[1] + '</span></td><td class="num">' + dealBtn(c, x) + '</td></tr>';
+      }).join('') : '<tr><td colspan="11"><div class="empty">Keine Spieler gefunden.</div></td></tr>') + '</tbody></table></div>';
+  }
+
+  function chip(k, v, label, cur, title) {
+    return '<button class="chip' + (String(cur) === String(v) ? ' on' : '') + '" data-action="setUi" data-k="' + k + '" data-v="' + v + '"' + (title ? ' title="' + esc(title) + '"' : '') + '>' + label + '</button>';
+  }
+  function sel(label, key, opts, cur) {
+    return '<div class="field"><label>' + label + '</label><select class="input" data-filter="' + key + '">' + opts.map(function (o) {
+      return '<option value="' + o[0] + '"' + (String(o[0]) === String(cur) ? ' selected' : '') + '>' + o[1] + '</option>';
+    }).join('') + '</select></div>';
+  }
+
+  /* ================= Rahmen ================= */
   UI.views.transfers = {
     title: 'Transfermarkt',
     render: function () {
-      var st = FM.state, uc = st.user.club, club = st.clubs[uc];
-      var s = UI.vs('transfers', { tab: 'search', q: '', grp: 'all', pos: 'all', league: 'all', minOvr: 0, maxAge: 40, maxPrice: 0, onlyListed: false, free: false, expiring: false, clause: false, loanable: false, sort: 'ovr', dir: -1, page: 0 });
+      var s = state(), c = ctx(), st = c.st;
       var left = FM.windowDaysLeft(st);
-      var chip = left == null ? '<span class="tag">Fenster geschlossen</span>' : left <= 1 ? '<span class="tag deadline">Deadline Day</span>' : '<span class="tag good">Fenster offen · noch ' + left + ' Tage</span>';
+      var chipW = left == null ? '<span class="tag">Fenster geschlossen</span>' : left <= 1 ? '<span class="tag deadline">Deadline Day</span>' : '<span class="tag good">Fenster offen · noch ' + left + ' Tage</span>';
       var nTalks = Object.keys(st.talks || {}).filter(function (k) { return FM.talkOf(st, k); }).length;
       var nOffers = st.offers.filter(function (o) { return o.status === 'open'; }).length;
-      var count = function (n) { return n ? ' <b>' + n + '</b>' : ''; };
+      var count = { hub: nTalks, watch: (st.shortlist || []).length, sell: nOffers };
       var html = '<div class="page-h"><div><div class="eyebrow">' + esc(FM.windowLabel(st)) + '</div><h1>Transfermarkt</h1>' +
-        '<div class="sub">' + chip + ' · Kader ' + club.squad.length + '/34 · Vereinslose jederzeit, Vorverträge ab Januar</div></div></div>' +
+        '<div class="sub">' + chipW + ' · Kader ' + c.club.squad.length + '/34' + (c.open ? '' : ' · Vereinslose kannst du jederzeit holen, Vorverträge ab Januar') + '</div></div></div>' +
         UI.budgetPanel() +
-        '<div class="tabs">' + [['search', 'Spielersuche'], ['watch', 'Beobachtung' + count((st.shortlist || []).length)], ['scout', 'Scouting'], ['talks', 'Verhandlungen' + count(nTalks)],
-          ['offers', 'Angebote' + count(nOffers)], ['loans', 'Leihen'], ['balance', 'Bilanz'], ['log', 'Ticker']].map(function (t) {
-          return '<button data-action="setUi" data-k="tab" data-v="' + t[0] + '" class="' + (s.tab === t[0] ? 'on' : '') + '">' + t[1] + '</button>';
+        '<div class="tabs">' + TABS.map(function (t) {
+          return '<button data-action="setUi" data-k="tab" data-v="' + t[0] + '" class="' + (s.tab === t[0] ? 'on' : '') + '">' + t[1] + (count[t[0]] ? ' <b>' + count[t[0]] + '</b>' : '') + '</button>';
         }).join('') + '</div>';
-      var body = { search: searchView, watch: watchView, scout: scoutView, talks: talksView, offers: offersView, loans: loansView, balance: balanceView, log: logView }[s.tab] || searchView;
-      return html + body(s);
+      return html + ({ hub: hubView, market: marketView, watch: watchView, sell: sellView, log: logView }[s.tab])(c, s);
     },
     mount: function (el) {
-      var s = UI.vs('transfers');
+      var s = state();
       var q = el.querySelector('#t-q');
       if (q) {
         var timer;
@@ -38,8 +155,7 @@
       el.querySelectorAll('[data-filter]').forEach(function (inp) {
         inp.addEventListener('change', function () {
           var k = inp.getAttribute('data-filter');
-          var numeric = { minOvr: 1, maxAge: 1, maxPrice: 1 };
-          s[k] = inp.type === 'checkbox' ? inp.checked : numeric[k] ? +inp.value : inp.value;
+          s[k] = { minOvr: 1, maxAge: 1, maxPrice: 1 }[k] ? +inp.value : inp.value;
           s.page = 0;
           UI.refresh();
         });
@@ -47,103 +163,153 @@
     }
   };
 
-  function sel(label, key, opts, cur) {
-    return '<div class="field"><label>' + label + '</label><select class="input" data-filter="' + key + '">' + opts.map(function (o) {
-      return '<option value="' + o[0] + '"' + (String(o[0]) === String(cur) ? ' selected' : '') + '>' + o[1] + '</option>';
-    }).join('') + '</select></div>';
-  }
-  function check(key, label, on) {
-    return '<label class="check"><input type="checkbox" data-filter="' + key + '"' + (on ? ' checked' : '') + '> ' + label + '</label>';
+  /* ================= Zentrale ================= */
+  function hubView(c) {
+    var st = c.st, n = c.needs, c1 = c.club.colors[0], ink = UI.ink(c1);
+    var slots = n.slots.map(function (x) {
+      var p = x.starter;
+      var tip = FM.POS_NAME[x.pos] + ': ' + (p ? p.name + ' (' + x.eff + ')' : 'unbesetzt') + (x.backup ? ', Ersatz ' + x.backup.name + ' (' + x.beff + ')' : ', kein Ersatz') + (x.flags.length ? ' – ' + x.flags.join(', ') : '');
+      return '<div class="slot ' + x.level + '" style="left:' + x.x + '%;bottom:' + x.y + '%" data-action="tmNeed" data-pos="' + x.pos + '" title="' + esc(tip) + '">' +
+        '<div class="shirt" style="background:' + c1 + ';color:' + ink + '">' + (p ? x.eff : '–') + '</div><div class="nm">' + (p ? esc(last(p.name)) : 'offen') + '</div><div class="lbl">' + FM.POS_LABEL[x.pos] + '</div></div>';
+    }).join('');
+    var worst = n.slots.filter(function (x) { return x.level !== 'ok'; }).sort(function (a, b) { return b.need - a.need; }).slice(0, 4);
+    var sites = worst.length ? worst.map(function (x) {
+      var p = x.starter, gap = p ? Math.round((n.ref - x.eff) * 10) / 10 : null;
+      return '<div class="li click" data-action="tmNeed" data-pos="' + x.pos + '">' + UI.posTag(x.pos) + '<div class="grow"><div class="strong">' + (p ? esc(p.name) + ' <span class="muted">(' + x.eff + ')</span>' : 'Position unbesetzt') + '</div>' +
+        '<div class="muted small">' + [gap != null && gap >= 0.5 ? gap.toFixed(1).replace('.', ',') + ' unter dem Liga-Schnitt' : ''].concat(x.flags).filter(Boolean).map(esc).join(' · ') + '</div></div>' +
+        '<span class="tag ' + (x.level === 'bad' ? 'bad' : 'warn') + '">' + (x.level === 'bad' ? 'Baustelle' : 'Im Auge behalten') + '</span>' + UI.icon('next').replace('<svg', '<svg width="16" height="16" class="muted"') + '</div>';
+    }).join('') : '<div class="empty">Auf jeder Position solide besetzt. Schau dich trotzdem um – ein Talent für morgen schadet nie.</div>';
+    var planner = '<div class="card"><div class="card-h"><h3>Kaderplaner</h3><span class="muted small">' + esc(n.formation) + ' · Liga-Schnitt ' + n.ref.toFixed(1).replace('.', ',') + '</span></div>' +
+      '<div class="planner"><div class="pitch tm-pitch">' + UI.pitchLines() + slots + '</div>' +
+      '<div class="planner-side"><div class="list">' + sites + '</div>' +
+      '<div class="planner-legend"><span><i class="ok"></i>gut besetzt</span><span><i class="warn"></i>im Auge behalten</span><span><i class="bad"></i>Baustelle</span></div>' +
+      '<p class="muted small" style="margin:0 16px 14px">Tipp auf eine Position – der Markt zeigt dir sofort alle Spieler, die dort stärker sind als deine Besetzung.</p></div></div></div>';
+
+    var picks = FM.marketPicks(st, 6).map(function (x) { return info(c, x.p); });
+    var picksHtml = '<div class="card"><div class="card-h"><h3>Für dich ausgesucht</h3><button class="btn sm" data-action="tmGo" data-preset="up">Alle Verstärkungen ' + UI.icon('next') + '</button></div>' +
+      (picks.length ? '<div class="card-b">' + cards(c, picks) + '</div>' : '<div class="empty">Gerade ist niemand zu haben, der dich weiterbringt und ins Budget passt. Verkäufe schaffen Spielraum – oder der Scout findet jemanden.</div>') + '</div>';
+
+    var shortcuts = '<div class="tm-short">' + [['bargain', 'Schnäppchen', 'Gelistete, Wechselwillige und Spieler unter Marktwert'], ['free', 'Ablösefrei', 'Vereinslose kosten nur Gehalt und Handgeld'], ['loan', 'Leihgaben', 'Spieler, die ihr Verein verleihen würde'], ['talent', 'Talente', 'Bis 21 Jahre mit Luft nach oben']].map(function (x) {
+      return '<button class="tm-shortcut" data-action="tmGo" data-preset="' + x[0] + '"><span class="strong">' + x[1] + '</span><span class="muted small">' + x[2] + '</span></button>';
+    }).join('') + '<button class="tm-shortcut" data-action="tmGo" data-league="eu"><span class="strong">Ausland</span><span class="muted small">Empfehlungen und Stars der Auslandsvereine</span></button></div>';
+
+    var talks = Object.keys(st.talks || {}).map(function (k) { return FM.talkOf(st, k); }).filter(Boolean);
+    var talksHtml = '<div class="card"><div class="card-h"><h3>Laufende Verhandlungen</h3></div><div class="list">' + (talks.length ? talks.map(function (t) {
+      var p = st.players[t.pid];
+      if (!p) return '';
+      var cl = t.stage === 'club';
+      return '<div class="li click" data-action="negotiate" data-id="' + p.id + '">' + UI.pill(p.ovr) + '<div class="grow"><div class="strong ellipsis">' + esc(p.name) + ' <span class="tag">' + FM.DEAL_LABEL[t.kind] + '</span></div>' +
+        '<div class="muted small ellipsis">' + (cl ? 'mit ' + esc(st.clubs[p.club].short) : 'mit dem Spieler') + ' · bis ' + D.fmtShort(t.expires) + '</div></div>' + patience(cl ? t.pat : t.ppat, cl ? t.max : t.pmax) + '</div>';
+    }).join('') : '<div class="empty">Kein Gespräch offen.</div>') + '</div></div>';
+
+    var open = st.offers.filter(function (o) { return o.status === 'open'; });
+    var offersHtml = '<div class="card"><div class="card-h"><h3>Angebote für deine Spieler</h3>' + (open.length ? '' : '<button class="btn sm" data-action="setUi" data-k="tab" data-v="sell">Spieler anbieten</button>') + '</div><div class="list">' +
+      (open.length ? open.map(function (o) { return offerRow(st, o, true); }).join('') : '<div class="empty">Keine offenen Angebote.</div>') + '</div></div>';
+
+    var news = st.transfers.filter(function (t) { return !t.loan && (t.fee >= 1e6 || t.to === c.uc || t.from === c.uc); }).slice(0, 6);
+    var ticker = '<div class="card"><div class="card-h"><h3>Zuletzt gewechselt</h3><button class="btn sm" data-action="setUi" data-k="tab" data-v="log">Ticker</button></div><div class="list">' +
+      (news.length ? news.map(function (t) { return tickerRow(st, t); }).join('') : '<div class="empty">Noch keine Transfers in diesem Fenster.</div>') + '</div></div>';
+
+    return planner + shortcuts + '<div class="grid dash" style="margin-top:16px"><div class="stack">' + picksHtml + '</div><div class="stack">' + talksHtml + offersHtml + ticker + '</div></div>';
   }
 
-  UI.starBtn = function (p) {
-    var on = FM.onShortlist(FM.state, p.id);
-    return '<button class="star-btn' + (on ? ' on' : '') + '" data-action="watch" data-id="' + p.id + '" title="' + (on ? 'Von der Beobachtungsliste nehmen' : 'Beobachten') + '" aria-label="Beobachten">★</button>';
+  function tickerRow(st, t) {
+    var to = st.clubs[t.to], from = t.from ? st.clubs[t.from] : null;
+    return '<div class="li"' + (t.to === st.user.club || t.from === st.user.club ? ' style="background:var(--accent-soft)"' : '') + '>' + UI.badge(to, 26) + '<div class="grow"><div class="ellipsis"><span class="strong">' + esc(t.name) + '</span> <span class="muted small">' + FM.POS_LABEL[t.pos] + ' · ' + t.ovr + '</span></div>' +
+      '<div class="muted small ellipsis">' + (from ? esc(from.short) : 'vereinslos') + ' → ' + esc(to ? to.short : '?') + ' · ' + D.fmtShort(t.date) + '</div></div>' +
+      '<span class="strong nowrap">' + (t.loan ? 'Leihe' : t.pre ? 'Vorvertrag' : t.fee ? FM.fmtMoneyShort(t.fee) + ' €' : 'frei') + '</span>' + (t.rec ? '<span class="tag accent" title="Rekordtransfer des Vereins">Rekord</span>' : '') + '</div>';
+  }
+
+  UI.actions.tmNeed = function (el) {
+    var s = state();
+    Object.assign(s, { tab: 'market', pos: el.getAttribute('data-pos'), preset: 'up', sort: 'up', page: 0, q: '', league: 'de' });
+    UI.refresh();
+    window.scrollTo(0, 0);
+  };
+  UI.actions.tmGo = function (el) {
+    var s = state();
+    Object.assign(s, { tab: 'market', pos: 'all', preset: el.getAttribute('data-preset') || 'all', league: el.getAttribute('data-league') || 'de', sort: el.getAttribute('data-preset') === 'up' ? 'up' : 'best', page: 0, q: '' });
+    UI.refresh();
+    window.scrollTo(0, 0);
+  };
+  UI.actions.tmReset = function () {
+    var s = state();
+    Object.assign(s, { q: '', preset: 'all', pos: 'all', league: 'de', minOvr: 0, maxAge: 40, maxPrice: 0, sort: 'best', page: 0 });
+    UI.refresh();
   };
 
-  function priceCell(st, p) {
-    if (p.loan) return '<span class="muted">verliehen</span>';
-    if (p.pre) return '<span class="muted">Vorvertrag</span>';
-    if (!p.club) return 'ablösefrei';
-    return FM.fmtMoney(FM.askingPrice(st, p)) + (p.contract.clause ? ' <span class="tag info" title="Ausstiegsklausel ' + FM.fmtMoney(p.contract.clause) + '">K</span>' : '');
-  }
-
-  function playerTable(list, s, scope, extraHead, extraCell) {
-    var st = FM.state, uc = st.user.club, y = st.season.year;
-    var th = function (k, l, cls) { return s ? UI.sortTh(scope, k, l, s.sort, s.dir, cls) : '<th class="' + (cls || '') + '">' + l + '</th>'; };
-    return '<div class="tbl-wrap"><table class="tbl"><thead><tr><th class="star-col"></th>' + (extraHead || '') + '<th>Pos</th>' + th('name', 'Spieler') + '<th class="hide-sm">Verein</th>' + th('age', 'Alter', 'num') +
-      th('ovr', 'Stärke', 'num') + th('pot', 'Pot.', 'num hide-xs') + '<th class="num hide-sm">Vertrag</th>' + th('value', 'Marktwert', 'num hide-sm') + th('price', 'Ablöse', 'num') + '<th class="hide-xs">Interesse</th></tr></thead><tbody>' +
-      (list.length ? list.map(function (p) {
-        var il = FM.interestLabel(FM.interest(st, p, uc));
-        var ending = p.club && p.contract.until <= y + 1;
-        return '<tr class="click" data-action="player" data-id="' + p.id + '"><td class="star-col">' + UI.starBtn(p) + '</td>' + (extraCell ? extraCell(p) : '') + '<td>' + UI.posTag(p.pos[0]) + '</td>' +
-          '<td><span class="pname">' + esc(p.name) + '</span>' + UI.srcMark(p) + (p.listed ? ' <span class="tag info">gelistet</span>' : '') + (p.wants ? ' <span class="tag warn">will weg</span>' : '') + (p.injury ? ' <span class="tag bad">verletzt</span>' : '') +
-          '<div class="muted tiny show-sm">' + (p.club ? esc(st.clubs[p.club].short) : 'vereinslos') + '</div></td>' +
-          '<td class="hide-sm">' + (p.club ? UI.clubLink(p.club) : '<span class="tag">vereinslos</span>') + '</td><td class="num">' + p.age + '</td><td class="num">' + UI.pill(p.ovr) + '</td><td class="num hide-xs">' + UI.potRange(p) + '</td>' +
-          '<td class="num hide-sm ' + (ending ? 'warn strong' : '') + '">' + (p.club ? p.contract.until : '–') + '</td>' +
-          '<td class="num hide-sm">' + FM.fmtMoney(FM.marketValue(p)) + '</td><td class="num strong">' + priceCell(st, p) + '</td><td class="hide-xs"><span class="tag ' + il.c + '">' + il.t + '</span></td></tr>';
-      }).join('') : '<tr><td colspan="11"><div class="empty">Keine Spieler gefunden.</div></td></tr>') + '</tbody></table></div>';
-  }
-
-  function searchView(s) {
-    var st = FM.state, uc = st.user.club, y = st.season.year;
+  /* ================= Markt ================= */
+  function marketView(c, s) {
+    var st = c.st, y = c.y;
     var q = (s.q || '').toLowerCase().trim();
     var list = [];
     Object.keys(st.players).forEach(function (pid) {
       var p = st.players[pid];
-      if (p.club === uc) return;
-      if (s.free && p.club) return;
-      if (p.club && st.clubs[p.club].guest && !(st.clubs[p.club].eu && p.abroad && s.league === 'eu')) return;
-      if (p.club && st.clubs[p.club].league === 'rl' && s.league !== 'rl' && s.league !== 'all') return;
-      if (s.league !== 'all' && (!p.club || st.clubs[p.club].league !== s.league)) return;
-      if (s.grp !== 'all' && FM.mainGroup(p) !== s.grp) return;
+      if (!FM.onMarket(st, p, s.league === 'eu')) return;
+      var cl = p.club ? st.clubs[p.club] : null;
+      if (s.league === 'eu') { if (!cl || !cl.eu) return; }
+      else if (s.league === 'de') { if (cl && cl.eu) return; }
+      else if (!cl || cl.league !== s.league) return;
       if (s.pos !== 'all' && p.pos.indexOf(s.pos) < 0) return;
       if (p.ovr < s.minOvr || p.age > s.maxAge) return;
-      if (s.onlyListed && !p.listed && !p.wants) return;
-      if (s.expiring && !(p.club && !p.loan && !p.pre && p.contract.until <= y + 1)) return;
-      if (s.clause && !(p.club && p.contract.clause)) return;
-      if (s.loanable && !FM.loanable(st, p)) return;
-      if (q && p.name.toLowerCase().indexOf(q) < 0 && !(p.club && st.clubs[p.club].name.toLowerCase().indexOf(q) >= 0)) return;
+      if (s.preset === 'free' && p.club) return;
+      if (s.preset === 'loan' && !FM.loanable(st, p)) return;
+      if (s.preset === 'expiring' && !(p.club && !p.loan && !p.pre && p.contract.until <= y + 1)) return;
+      if (s.preset === 'clause' && !(p.club && p.contract.clause)) return;
+      if (q && p.name.toLowerCase().indexOf(q) < 0 && !(cl && cl.name.toLowerCase().indexOf(q) >= 0)) return;
       list.push(p);
     });
-    var price = function (p) { return p.club ? FM.askingPrice(st, p) : 0; };
-    if (s.maxPrice) list = list.filter(function (p) { return price(p) <= s.maxPrice; });
-    var key = { ovr: function (p) { return p.ovr; }, pot: function (p) { return p.pot; }, age: function (p) { return p.age; }, value: function (p) { return FM.marketValue(p); }, price: price, name: function (p) { return p.name; } }[s.sort] || function (p) { return p.ovr; };
-    list.sort(function (a, b) { var x = key(a), z = key(b); return (x < z ? -1 : x > z ? 1 : 0) * (s.dir || -1) || b.ovr - a.ovr; });
-    var total = list.length, page = Math.min(s.page || 0, Math.max(0, Math.ceil(total / PAGE) - 1));
-    var rows = list.slice(page * PAGE, page * PAGE + PAGE);
-    var posOpts = [['all', 'Alle Positionen']].concat(FM.POS_ORDER.map(function (p) { return [p, FM.POS_NAME[p]]; }));
-    var filters = '<div class="card" style="margin-bottom:14px"><div class="card-b" style="padding-top:14px"><div class="filters" style="margin-bottom:10px">' +
-      '<div class="field" style="min-width:200px;flex:1"><label for="t-q">Suche</label><input class="input" id="t-q" placeholder="Spieler oder Verein" value="' + esc(s.q) + '"></div>' +
-      sel('Position', 'pos', posOpts, s.pos) +
-      sel('Liga', 'league', [['all', 'Alle deutschen Ligen'], ['bl', 'Bundesliga'], ['bl2', '2. Bundesliga'], ['l3', '3. Liga'], ['rl', 'Regionalliga'], ['eu', 'Ausland']], s.league) +
+    var rows = list.map(function (p) { return info(c, p); });
+    if (s.preset === 'up') rows = rows.filter(function (x) { return x.up && x.up.delta >= 1 && !x.p.loan && !x.p.pre; });
+    if (s.preset === 'afford') rows = rows.filter(function (x) { return x.afford.level === 'ok' && !x.p.loan && !x.p.pre; });
+    if (s.preset === 'bargain') rows = rows.filter(function (x) { return !x.p.loan && !x.p.pre && (x.p.listed || x.p.wants || !x.p.club || x.price <= FM.marketValue(x.p) * 1.02); });
+    if (s.preset === 'talent') rows = rows.filter(function (x) { return x.p.age <= 21 && x.pot.lo - x.p.ovr >= 5; });
+    if (s.maxPrice) rows = rows.filter(function (x) { return x.price <= s.maxPrice; });
+    var key = {
+      best: function (x) { return -x.p.ovr * 100 + x.p.age; },
+      up: function (x) { return -(x.up ? x.up.delta : -99) * 100 - x.p.ovr; },
+      cheap: function (x) { return x.price - x.p.ovr; },
+      deal: function (x) { return -(x.p.ovr - 5.5 * Math.log(Math.max(x.price, 60000)) / Math.LN10); },
+      young: function (x) { return x.p.age * 100 - x.p.ovr; },
+      pot: function (x) { return -x.pot.lo * 100 - x.p.ovr; }
+    }[s.sort] || function (x) { return -x.p.ovr; };
+    rows.sort(function (a, b) { return key(a) - key(b); });
+    var total = rows.length, shown = rows.slice(0, PAGE * ((s.page || 0) + 1));
+
+    var posChips = chip('pos', 'all', 'Alle', s.pos) + FM.POS_ORDER.map(function (p) { return chip('pos', p, FM.POS_LABEL[p], s.pos, FM.POS_NAME[p]); }).join('');
+    var active = s.preset !== 'all' || s.pos !== 'all' || s.league !== 'de' || s.minOvr || s.maxAge < 40 || s.maxPrice || q;
+    var filters = '<div class="card tm-filter"><div class="card-b">' +
+      '<div class="tm-search"><div class="field grow"><label for="t-q">Suche</label><input class="input" id="t-q" placeholder="Spieler oder Verein" value="' + esc(s.q) + '"></div>' +
+      sel('Sortierung', 'sort', SORTS, s.sort) +
+      '<div class="field"><label>Ansicht</label>' + UI.seg('mode', [['cards', 'Karten'], ['list', 'Liste']], s.mode) + '</div></div>' +
+      '<div class="tm-chiprow"><span class="tm-chiplabel">Schnellfilter</span><div class="chips">' + PRESETS.map(function (p) { return chip('preset', p[0], p[1], s.preset); }).join('') + '</div></div>' +
+      '<div class="tm-chiprow"><span class="tm-chiplabel">Position</span><div class="chips">' + posChips + '</div></div>' +
+      '<div class="filters" style="margin:12px 0 0">' + sel('Liga', 'league', LEAGUES, s.league) +
       sel('Stärke ab', 'minOvr', [[0, 'beliebig'], [60, '60+'], [65, '65+'], [70, '70+'], [75, '75+'], [80, '80+'], [85, '85+']], s.minOvr) +
       sel('Alter bis', 'maxAge', [[40, 'beliebig'], [19, '19'], [21, '21'], [23, '23'], [25, '25'], [28, '28'], [31, '31']], s.maxAge) +
       sel('Ablöse bis', 'maxPrice', [[0, 'beliebig'], [250000, '250 Tsd.'], [1000000, '1 Mio.'], [3000000, '3 Mio.'], [10000000, '10 Mio.'], [25000000, '25 Mio.'], [60000000, '60 Mio.']], s.maxPrice) +
-      '</div><div class="row wrap" style="gap:16px">' + check('onlyListed', 'Transferliste / Wechselwunsch', s.onlyListed) + check('free', 'Vereinslos', s.free) +
-      check('expiring', 'Vertrag läuft aus (Vorvertrag)', s.expiring) + check('clause', 'Ausstiegsklausel', s.clause) + check('loanable', 'Ausleihbar', s.loanable) + '</div>' +
-      '</div></div>';
-    return filters + '<div class="card">' + playerTable(rows, s, 'transfers') +
-      '<div class="modal-f" style="justify-content:space-between;align-items:center"><span class="muted small">' + FM.fmtInt(total) + ' Spieler · Seite ' + (page + 1) + ' von ' + Math.max(1, Math.ceil(total / PAGE)) + '</span><div class="row">' +
-      '<button class="btn sm" data-action="setUi" data-k="page" data-v="' + Math.max(0, page - 1) + '"' + (page === 0 ? ' disabled' : '') + '>' + UI.icon('back') + ' Zurück</button>' +
-      '<button class="btn sm" data-action="setUi" data-k="page" data-v="' + (page + 1) + '"' + ((page + 1) * PAGE >= total ? ' disabled' : '') + '>Weiter ' + UI.icon('next') + '</button></div></div></div>';
+      (active ? '<div class="field"><label>&nbsp;</label><button class="btn ghost" data-action="tmReset">' + UI.icon('x') + ' Filter zurücksetzen</button></div>' : '') + '</div></div></div>';
+
+    var head = '<div class="tm-result"><span><b>' + FM.fmtInt(total) + '</b> Spieler' + (s.pos !== 'all' ? ' · ' + esc(FM.POS_NAME[s.pos]) : '') + (s.preset !== 'all' ? ' · ' + PRESETS.filter(function (p) { return p[0] === s.preset; })[0][1] : '') + '</span>' +
+      '<span class="muted small">Karte antippen für das Profil, ★ merkt den Spieler vor</span></div>';
+    var body = !total ? '<div class="card"><div class="empty">Kein Spieler passt zu dieser Auswahl. ' + (active ? 'Lockere die Filter oder ' : '') + 'schicke einen Scout los.</div></div>' :
+      s.mode === 'list' ? '<div class="card">' + table(c, shown) + '</div>' : cards(c, shown);
+    var more = shown.length < total ? '<div class="tm-more"><button class="btn" data-action="setUi" data-k="page" data-v="' + ((s.page || 0) + 1) + '">Weitere ' + Math.min(PAGE, total - shown.length) + ' anzeigen</button><span class="muted small">' + shown.length + ' von ' + FM.fmtInt(total) + '</span></div>' : '';
+    return filters + head + body + more;
   }
 
-  function watchView() {
-    var st = FM.state;
-    var list = (st.shortlist || []).map(function (id) { return st.players[id]; }).filter(function (p) { return p && p.club !== st.user.club; });
-    return '<div class="card"><div class="card-h"><h3>Beobachtungsliste</h3><span class="muted small">Mit ★ in jeder Spielerliste hinzufügen</span></div>' +
-      (list.length ? playerTable(list, null) : '<div class="empty">Noch niemand auf der Liste. Markiere interessante Spieler mit dem Stern – hier siehst du dann Preis, Vertrag und Wechselbereitschaft auf einen Blick.</div>') + '</div>';
-  }
+  /* ================= Merkliste & Scouting ================= */
+  function watchView(c) {
+    var st = c.st, club = c.club;
+    var list = (st.shortlist || []).map(function (id) { return st.players[id]; }).filter(function (p) { return p && p.club !== c.uc; }).map(function (p) { return info(c, p); });
+    var html = '<div class="card"><div class="card-h"><h3>Merkliste</h3><span class="muted small">' + list.length + ' Spieler · mit ★ in jeder Liste vormerken</span></div>' +
+      (list.length ? '<div class="card-b">' + cards(c, list) + '</div>' : '<div class="empty">Noch niemand vorgemerkt. Der Stern auf jeder Spielerkarte setzt einen Spieler hierher – so hast du Preis, Vertrag und Wechselbereitschaft im Blick.</div>') + '</div>';
 
-  /* ---------- Scouting ---------- */
-  function scoutView() {
-    var st = FM.state, club = st.clubs[st.user.club];
     var f = UI.vs('scoutForm', { grp: 'all', maxAge: 40, league: 'all', maxPrice: 0, style: 'best' });
     var busy = (st.scouts || []).filter(function (x) { return !x.res; }).length, slots = FM.scoutSlots(club);
     var posOpts = [['all', 'Alle Positionen'], ['GK', 'Torhüter'], ['DEF', 'Abwehr'], ['MID', 'Mittelfeld'], ['ATT', 'Angriff']].concat(FM.POS_ORDER.map(function (p) { return ['p:' + p, FM.POS_NAME[p]]; }));
     var opt = function (id, opts, cur) { return '<select class="input" id="' + id + '">' + opts.map(function (o) { return '<option value="' + o[0] + '"' + (String(o[0]) === String(cur) ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>'; };
-    var form = '<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Scout losschicken</h3><span class="muted small">' + (slots - busy) + ' von ' + slots + ' Scouts frei · Bericht nach ' + FM.scoutDays(club) + ' Tagen</span></div>' +
+    html += '<div class="card"><div class="card-h"><h3>Scout losschicken</h3><span class="muted small">' + (slots - busy) + ' von ' + slots + ' Scouts frei · Bericht nach ' + FM.scoutDays(club) + ' Tagen</span></div>' +
       '<div class="card-b"><div class="filters" style="margin-bottom:0">' +
       '<div class="field"><label>Position</label>' + opt('sc-pos', posOpts, f.grp) + '</div>' +
       '<div class="field"><label>Alter bis</label>' + opt('sc-age', [[40, 'beliebig'], [19, '19'], [21, '21'], [23, '23'], [26, '26'], [29, '29']], f.maxAge) + '</div>' +
@@ -151,19 +317,19 @@
       '<div class="field"><label>Ablöse bis</label>' + opt('sc-price', [[0, 'beliebig'], [500000, '500 Tsd.'], [2000000, '2 Mio.'], [5000000, '5 Mio.'], [10000000, '10 Mio.'], [25000000, '25 Mio.']], f.maxPrice) + '</div>' +
       '<div class="field"><label>Schwerpunkt</label>' + opt('sc-style', [['best', 'Beste Verstärkung'], ['young', 'Talente'], ['cheap', 'Schnäppchen']], f.style) + '</div>' +
       '<div class="field"><label>&nbsp;</label><button class="btn primary" data-action="scoutGo"' + (busy >= slots ? ' disabled' : '') + '>' + UI.icon('search') + ' Losschicken</button></div>' +
-      '</div><p class="muted small" style="margin-top:10px">Scouts empfehlen bis zu acht Spieler, die zu den Vorgaben, deinem Budget und deinem Kader passen. Ihr Potenzial ist danach genau bekannt. Mehr Scouts und schnellere Berichte gibt es mit einer besseren <a href="#" data-action="go" data-view="infra">Scoutingabteilung</a>.</p></div></div>';
-    var reports = (st.scouts || []).map(function (x) {
-      var head = '<div class="card-h"><h3>' + esc(FM.scoutLabel(x.f)) + '</h3><div class="row">' +
-        (x.res ? '<span class="muted small">Bericht vom ' + D.fmt(x.ready) + '</span><button class="btn sm ghost icon" data-action="scoutDel" data-id="' + x.id + '" aria-label="Bericht löschen">' + UI.icon('trash') + '</button>' :
+      '</div><p class="muted small" style="margin-top:10px">Ein Scout empfiehlt bis zu acht Spieler, die zu Vorgaben, Budget und Kader passen – ihr Potenzial kennst du danach genau. Mehr Scouts und schnellere Berichte bringt eine bessere <a href="#" data-action="go" data-view="infra">Scoutingabteilung</a>.</p></div></div>';
+    html += (st.scouts || []).map(function (x) {
+      var head = '<div class="card-h"><h3>Scoutbericht: ' + esc(FM.scoutLabel(x.f)) + '</h3><div class="row">' +
+        (x.res ? '<span class="muted small">vom ' + D.fmt(x.ready) + '</span><button class="btn sm ghost icon" data-action="scoutDel" data-id="' + x.id + '" aria-label="Bericht löschen">' + UI.icon('trash') + '</button>' :
           '<span class="tag info">unterwegs · Bericht am ' + D.fmt(x.ready) + '</span>') + '</div></div>';
       if (!x.res) return '<div class="card">' + head + '</div>';
-      var list = x.res.map(function (id) { return st.players[id]; }).filter(Boolean);
-      return '<div class="card">' + head + (list.length ? playerTable(list, null, null, '<th>Note</th>', function (p) {
-        var r = FM.scoutReport(st, p);
-        return '<td><span class="grade-badge ' + r.grade + '" title="' + esc(r.tag) + '">' + r.grade + '</span> <span class="small dim hide-sm">' + esc(r.tag) + '</span></td>';
-      }) : '<div class="empty">Kein passender Spieler gefunden.</div>') + '</div>';
+      var found = x.res.map(function (id) { return st.players[id]; }).filter(function (p) { return p && p.club !== c.uc; }).map(function (p) { return info(c, p); });
+      return '<div class="card">' + head + (found.length ? '<div class="card-b">' + cards(c, found, function (r) {
+        var rep = FM.scoutReport(st, r.p);
+        return '<span class="grade-badge ' + rep.grade + '" title="' + esc(rep.tag) + '">' + rep.grade + '</span>';
+      }) + '</div>' : '<div class="empty">Kein passender Spieler gefunden.</div>') + '</div>';
     }).join('');
-    return form + (reports || '<div class="empty">Noch keine Scoutberichte.</div>');
+    return html;
   }
 
   UI.actions.scoutGo = function () {
@@ -185,75 +351,88 @@
     st.scouts = (st.scouts || []).filter(function (x) { return x.id !== id; });
     UI.refresh();
   };
-
   UI.actions.watch = function (el, e) {
     if (e) e.stopPropagation();
-    var on = FM.toggleShortlist(FM.state, el.getAttribute('data-id'));
-    UI.toast(on ? 'Auf die Beobachtungsliste gesetzt.' : 'Von der Beobachtungsliste genommen.');
-    if (UI.modalOpen) { var pid = el.getAttribute('data-id'); UI.refresh(); UI.playerModal(pid); } else UI.refresh();
+    var pid = el.getAttribute('data-id');
+    var on = FM.toggleShortlist(FM.state, pid);
+    UI.toast(on ? 'Auf der Merkliste.' : 'Von der Merkliste genommen.');
+    var keep = UI.modalOpen && !document.querySelector('.modal.deal');
+    UI.refresh();
+    if (keep) UI.playerModal(pid);
   };
 
-  /* ---------- Laufende Verhandlungen ---------- */
-  function patience(cur, max) {
-    var s = '';
-    for (var i = 0; i < max; i++) s += '<i class="' + (i < cur ? 'on' : '') + '"></i>';
-    return '<span class="patience" title="Geduld ' + cur + ' von ' + max + '">' + s + '</span>';
-  }
-  UI.patience = patience;
-
-  function talksView() {
-    var st = FM.state;
-    var list = Object.keys(st.talks || {}).map(function (k) { return FM.talkOf(st, k); }).filter(Boolean);
-    return '<div class="card"><div class="card-h"><h3>Laufende Verhandlungen</h3><span class="muted small">Gespräche verfallen nach zwei Wochen ohne Abschluss</span></div><div class="list">' +
-      (list.length ? list.map(function (t) {
-        var p = st.players[t.pid];
-        if (!p) return '';
-        var club = t.stage === 'club';
-        return '<div class="li click" data-action="negotiate" data-id="' + p.id + '">' + UI.pill(p.ovr) + '<div class="grow"><div class="strong">' + esc(p.name) + ' <span class="tag">' + FM.DEAL_LABEL[t.kind] + '</span></div>' +
-          '<div class="muted small">' + (club ? 'Verhandlung mit ' + esc(st.clubs[p.club].short) : 'Vertragsgespräch mit dem Spieler') + ' · läuft bis ' + D.fmt(t.expires) + '</div></div>' +
-          patience(club ? t.pat : t.ppat, club ? t.max : t.pmax) + '<button class="btn sm">Fortsetzen</button></div>';
-      }).join('') : '<div class="empty">Keine laufenden Gespräche. Öffne ein Spielerprofil und klicke auf „Verhandeln“.</div>') + '</div></div>';
+  /* ================= Abgeben: Angebote, eigener Kader, Leihen ================= */
+  function offerRow(st, o, act) {
+    var p = st.players[o.pid], cl = st.clubs[o.from];
+    var mv = p ? FM.marketValue(p) : 0;
+    var what = o.type === 'loan' ? 'Leihe · ' + Math.round(o.share * 100) + ' % Gehalt' + (o.option ? ' · Kaufoption ' + FM.fmtMoneyShort(o.option) + ' €' : '') : FM.fmtMoney(o.fee);
+    var cmp = o.type !== 'loan' && mv ? Math.round((o.fee / mv - 1) * 100) : null;
+    return '<div class="li offer">' + UI.badge(cl, 30) + '<div class="grow"><div class="strong">' + esc(cl.short) + ' → ' + (p ? UI.playerLink(p) : 'ehemaliger Spieler') + '</div>' +
+      '<div class="muted small">' + what + (cmp != null ? ' · <span class="' + (cmp >= 0 ? 'good' : 'bad') + '">' + (cmp >= 0 ? '+' : '') + cmp + ' % zum Marktwert</span>' : '') + ' · ' +
+      (act ? 'bis ' + D.fmtShort(o.expires) : ({ accepted: 'angenommen', declined: 'abgelehnt', expired: 'abgelaufen' }[o.status] || o.status)) + '</div></div>' +
+      (act ? '<div class="row wrap offer-act"><button class="btn sm" data-action="offerRespond" data-id="' + o.id + '" data-ok="0">Ablehnen</button>' +
+        (o.type !== 'loan' ? '<button class="btn sm" data-action="offerCounter" data-id="' + o.id + '">Mehr verlangen</button>' : '') +
+        '<button class="btn sm primary" data-action="offerRespond" data-id="' + o.id + '" data-ok="1">Annehmen</button></div>' : '') + '</div>';
   }
 
-  /* ---------- Angebote fuer eigene Spieler ---------- */
-  function offersView() {
-    var st = FM.state;
+  function sellView(c) {
+    var st = c.st, uc = c.uc, club = c.club;
     var open = st.offers.filter(function (o) { return o.status === 'open'; });
-    var past = st.offers.filter(function (o) { return o.status !== 'open'; }).slice(-15).reverse();
-    function row(o, act) {
-      var p = st.players[o.pid], c = st.clubs[o.from];
-      var what = o.type === 'loan' ? 'möchte ' + (p ? esc(p.name) : 'den Spieler') + ' ausleihen · ' + Math.round(o.share * 100) + ' % Gehalt' + (o.option ? ' · Kaufoption ' + FM.fmtMoney(o.option) : '') :
-        'bietet ' + FM.fmtMoney(o.fee);
-      return '<div class="li">' + UI.badge(c, 30) + '<div class="grow"><div class="strong">' + esc(c.name) + ' ' + what + '</div><div class="muted small">' +
-        (o.type === 'loan' ? 'Leihe bis Saisonende' : 'für ' + (p ? UI.playerLink(p) + ' (Marktwert ' + FM.fmtMoney(FM.marketValue(p)) + ')' : 'ehemaligen Spieler')) + ' · ' +
-        (act ? 'gültig bis ' + D.fmt(o.expires) : ({ accepted: 'angenommen', declined: 'abgelehnt', expired: 'abgelaufen' }[o.status])) + '</div></div>' +
-        (act ? '<div class="row wrap"><button class="btn sm" data-action="offerRespond" data-id="' + o.id + '" data-ok="0">Ablehnen</button>' +
-          (o.type !== 'loan' ? '<button class="btn sm" data-action="offerCounter" data-id="' + o.id + '">Mehr verlangen</button>' : '') +
-          '<button class="btn sm primary" data-action="offerRespond" data-id="' + o.id + '" data-ok="1">Annehmen</button></div>' : '') + '</div>';
-    }
-    return '<div class="card"><div class="card-h"><h3>Offene Angebote für deine Spieler</h3></div><div class="list">' + (open.length ? open.map(function (o) { return row(o, true); }).join('') :
-      '<div class="empty">Keine offenen Angebote. Setze Spieler auf die Transfer- oder Leihliste, um Interessenten anzulocken.</div>') + '</div></div>' +
-      (past.length ? '<div class="card"><div class="card-h"><h3>Frühere Angebote</h3></div><div class="list">' + past.map(function (o) { return row(o, false); }).join('') + '</div></div>' : '') +
-      myListView();
+    var past = st.offers.filter(function (o) { return o.status !== 'open'; }).slice(-10).reverse();
+    var html = '<div class="card"><div class="card-h"><h3>Angebote für deine Spieler</h3><span class="muted small">' + (c.open ? 'Angebote kommen vor allem für gelistete Spieler' : 'Angebote gibt es nur im Transferfenster') + '</span></div><div class="list">' +
+      (open.length ? open.map(function (o) { return offerRow(st, o, true); }).join('') : '<div class="empty">Keine offenen Angebote. Setze unten Spieler auf die Transfer- oder Leihliste, um Interessenten anzulocken.</div>') + '</div></div>';
+
+    var mine = FM.clubPlayers(st, uc).filter(function (p) { return !p.loan; });
+    var rank = function (p) { return (p.listed || p.wants || p.loanList ? -10 : 0) + (ROLE_ORDER[FM.roleOf(st, p)] || 0); };
+    mine.sort(function (a, b) { return rank(a) - rank(b) || FM.marketValue(b) - FM.marketValue(a); });
+    html += '<div class="card"><div class="card-h"><h3>Dein Kader auf dem Markt</h3><span class="muted small">Listen ein- und ausschalten – Ergänzungsspieler stehen oben</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Pos</th><th>Spieler</th><th class="num">Alter</th><th class="num">Stärke</th><th class="hide-sm">Rolle</th><th class="num">Marktwert</th><th class="num hide-xs">Gehalt</th><th class="num hide-sm">Vertrag</th><th>Markt</th></tr></thead><tbody>' +
+      mine.map(function (p) {
+        var ends = p.contract.until <= c.y + 1, loanOk = p.age <= 23 || FM.squadRank(st, p) > 14;
+        return '<tr class="click" data-action="player" data-id="' + p.id + '"><td>' + UI.posTag(p.pos[0]) + '</td><td><span class="pname">' + esc(p.name) + '</span>' + (p.wants ? ' <span class="tag warn">will weg</span>' : '') + (p.pre ? ' <span class="tag warn">Vorvertrag</span>' : '') + '</td>' +
+          '<td class="num">' + p.age + '</td><td class="num">' + UI.pill(p.ovr) + '</td><td class="hide-sm small dim">' + FM.ROLE_LABEL[FM.roleOf(st, p)] + '</td><td class="num">' + FM.fmtMoney(FM.marketValue(p)) + '</td>' +
+          '<td class="num hide-xs">' + FM.fmtMoneyShort(p.contract.wage) + '</td><td class="num hide-sm ' + (ends ? 'warn strong' : '') + '">' + p.contract.until + '</td>' +
+          '<td class="nowrap">' + (p.pre ? '<span class="muted tiny">geht im Sommer</span>' : '<button class="chip sm' + (p.listed ? ' on' : '') + '" data-action="tmList" data-id="' + p.id + '" data-k="sell" title="Transferliste">Verkauf</button>' +
+            (loanOk ? '<button class="chip sm' + (p.loanList ? ' on' : '') + '" data-action="tmList" data-id="' + p.id + '" data-k="loan" title="Leihliste">Leihe</button>' : '')) + '</td></tr>';
+      }).join('') + '</tbody></table></div></div>';
+
+    var inn = FM.clubPlayers(st, uc).filter(function (p) { return p.loan; });
+    var out = (club.loanedOut || []).map(function (id) { return st.players[id]; }).filter(function (p) { return p && p.loan; });
+    if (inn.length) html += '<div class="card"><div class="card-h"><h3>Bei dir ausgeliehen</h3><span class="muted small">Leihe endet zum Saisonende</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Spieler</th><th>Von</th><th class="num">Dein Gehaltsanteil</th><th class="num hide-xs">Einsätze</th><th class="num">Kaufoption</th><th></th></tr></thead><tbody>' +
+      inn.map(function (p) {
+        return '<tr><td>' + UI.posTag(p.pos[0]) + ' ' + UI.playerLink(p) + ' ' + UI.pill(p.ovr) + '</td><td>' + UI.clubLink(p.loan.from) + '</td><td class="num">' + Math.round(p.loan.share * 100) + ' % · ' + FM.fmtMoneyShort(p.contract.wage * p.loan.share) + '</td>' +
+          '<td class="num hide-xs">' + p.st.apps + '</td><td class="num">' + (p.loan.option ? FM.fmtMoney(p.loan.option) : '<span class="muted">keine</span>') + '</td>' +
+          '<td class="num">' + (p.loan.option ? '<button class="btn sm primary" data-action="exerciseOpt" data-id="' + p.id + '">Ziehen</button>' : '') + '</td></tr>';
+      }).join('') + '</tbody></table></div></div>';
+    if (out.length) html += '<div class="card"><div class="card-h"><h3>Verliehen</h3><span class="muted small">Spielpraxis bei anderen Vereinen</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Spieler</th><th>Bei</th><th class="num">Sp</th><th class="num hide-xs">Min</th><th class="num">Tore</th><th class="num">Stärke</th></tr></thead><tbody>' +
+      out.map(function (p) {
+        var d = p.ovr0 != null ? p.ovr - p.ovr0 : 0;
+        return '<tr><td>' + UI.posTag(p.pos[0]) + ' ' + UI.playerLink(p) + '</td><td>' + UI.clubLink(p.club) + '</td><td class="num">' + p.st.apps + '</td><td class="num hide-xs">' + p.st.mins + '</td><td class="num">' + p.st.goals + '</td>' +
+          '<td class="num">' + UI.pill(p.ovr) + (d ? ' <span class="tiny ' + (d > 0 ? 'good' : 'bad') + '">' + (d > 0 ? '+' : '') + d + '</span>' : '') + '</td></tr>';
+      }).join('') + '</tbody></table></div></div>';
+    if (past.length) html += '<div class="card"><div class="card-h"><h3>Frühere Angebote</h3></div><div class="list">' + past.map(function (o) { return offerRow(st, o, false); }).join('') + '</div></div>';
+    return html;
   }
 
-  function myListView() {
-    var st = FM.state;
-    var mine = FM.clubPlayers(st, st.user.club).filter(function (p) { return p.listed || p.wants; });
-    return '<div class="card"><div class="card-h"><h3>Transferliste & Wechselwünsche</h3></div><div class="list">' + (mine.length ? mine.map(function (p) {
-      return '<div class="li click" data-action="player" data-id="' + p.id + '">' + UI.posTag(p.pos[0]) + '<div class="grow"><div class="pname">' + esc(p.name) + (p.wants ? ' <span class="tag warn">will weg</span>' : '') + '</div><div class="muted small">' + p.age + ' Jahre · Marktwert ' + FM.fmtMoney(FM.marketValue(p)) + '</div></div>' + UI.pill(p.ovr) + '</div>';
-    }).join('') : '<div class="empty">Niemand gelistet. Im Spielerprofil kannst du Spieler auf die Transfer- oder Leihliste setzen.</div>') + '</div></div>';
-  }
+  UI.actions.tmList = function (el, e) {
+    if (e) e.stopPropagation();
+    var p = FM.state.players[el.getAttribute('data-id')];
+    if (!p) return;
+    if (el.getAttribute('data-k') === 'sell') { p.listed = !p.listed; if (p.listed) p.loanList = false; UI.toast(p.listed ? p.name + ' steht auf der Transferliste.' : p.name + ' ist nicht mehr gelistet.'); }
+    else { p.loanList = !p.loanList; if (p.loanList) p.listed = false; UI.toast(p.loanList ? p.name + ' steht auf der Leihliste.' : p.name + ' ist nicht mehr auf der Leihliste.'); }
+    UI.refresh();
+  };
 
   UI.actions.offerCounter = function (el) {
     var st = FM.state, o = st.offers.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0];
     if (!o) return;
-    var p = st.players[o.pid], c = st.clubs[o.from];
-    UI.modal(UI.modalHead('Mehr verlangen', esc(c.name) + ' bietet ' + FM.fmtMoney(o.fee) + ' für ' + esc(p.name)) +
-      '<div class="modal-b"><div class="stack"><p class="dim small">Nenne deinen Preis. Liegt er im Rahmen, nimmt ' + esc(c.short) + ' an und der Transfer ist sofort perfekt. Ist er zu hoch, bessert der Verein nach – oder zieht sein Angebot zurück.</p>' +
-      '<div class="field"><label>Deine Forderung (€)</label><input class="input" id="oc-fee" type="number" step="50000" value="' + FM.niceRound(o.fee * 1.2) + '"></div><div id="oc-msg"></div></div></div>' +
+    var p = st.players[o.pid], cl = st.clubs[o.from];
+    UI.modal(UI.modalHead('Mehr verlangen', esc(cl.name) + ' bietet ' + FM.fmtMoney(o.fee) + ' für ' + esc(p.name)) +
+      '<div class="modal-b"><div class="stack"><p class="dim small">Nenne deinen Preis. Liegt er im Rahmen, nimmt ' + esc(cl.short) + ' an und der Transfer ist sofort perfekt. Ist er zu hoch, bessert der Verein nach – oder zieht sein Angebot zurück.</p>' +
+      '<div class="field"><label>Deine Forderung (€)</label><input class="input" id="oc-fee" type="number" step="50000" value="' + FM.niceRound(o.fee * 1.2) + '"></div>' +
+      '<div class="row wrap" style="gap:6px">' + [10, 20, 35].map(function (x) { return '<button class="chip" type="button" data-v="' + FM.niceRound(o.fee * (1 + x / 100)) + '">+' + x + ' %</button>'; }).join('') + '<span class="muted small">Marktwert ' + FM.fmtMoney(FM.marketValue(p)) + '</span></div><div id="oc-msg"></div></div></div>' +
       '<div class="modal-f"><button class="btn" data-action="closeModal">Abbrechen</button><button class="btn primary" id="oc-ok">Forderung stellen</button></div>',
       { size: 'narrow', mount: function (m) {
+        m.querySelectorAll('[data-v]').forEach(function (b) { b.addEventListener('click', function () { m.querySelector('#oc-fee').value = b.getAttribute('data-v'); }); });
         m.querySelector('#oc-ok').addEventListener('click', function () {
           var r = FM.counterOffer(st, o.id, +m.querySelector('#oc-fee').value);
           FM.save(UI.slot || 1);
@@ -262,31 +441,6 @@
         });
       } });
   };
-
-  /* ---------- Leihen ---------- */
-  function loansView() {
-    var st = FM.state, uc = st.user.club, club = st.clubs[uc];
-    var inn = FM.clubPlayers(st, uc).filter(function (p) { return p.loan; });
-    var out = (club.loanedOut || []).map(function (id) { return st.players[id]; }).filter(function (p) { return p && p.loan; });
-    var listed = FM.clubPlayers(st, uc).filter(function (p) { return p.loanList; });
-    var card = function (title, sub, inner) { return '<div class="card"><div class="card-h"><h3>' + title + '</h3><span class="muted small">' + sub + '</span></div>' + inner + '</div>'; };
-    var inTbl = inn.length ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Spieler</th><th>Von</th><th class="num">Dein Gehaltsanteil</th><th class="num hide-xs">Einsätze</th><th class="num">Kaufoption</th><th></th></tr></thead><tbody>' +
-      inn.map(function (p) {
-        return '<tr><td>' + UI.posTag(p.pos[0]) + ' ' + UI.playerLink(p) + ' ' + UI.pill(p.ovr) + '</td><td>' + UI.clubLink(p.loan.from) + '</td><td class="num">' + Math.round(p.loan.share * 100) + ' % · ' + FM.fmtMoneyShort(p.contract.wage * p.loan.share) + '</td>' +
-          '<td class="num hide-xs">' + p.st.apps + '</td><td class="num">' + (p.loan.option ? FM.fmtMoney(p.loan.option) : '<span class="muted">keine</span>') + '</td>' +
-          '<td class="num">' + (p.loan.option ? '<button class="btn sm primary" data-action="exerciseOpt" data-id="' + p.id + '">Ziehen</button>' : '') + '</td></tr>';
-      }).join('') + '</tbody></table></div>' : '<div class="empty">Keine Leihspieler. Ausleihbare Spieler findest du in der Suche mit dem Filter „Ausleihbar“.</div>';
-    var outTbl = out.length ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Spieler</th><th>Bei</th><th class="num">Sp</th><th class="num hide-xs">Min</th><th class="num">Tore</th><th class="num">Stärke</th></tr></thead><tbody>' +
-      out.map(function (p) {
-        var d = p.ovr0 != null ? p.ovr - p.ovr0 : 0;
-        return '<tr><td>' + UI.posTag(p.pos[0]) + ' ' + UI.playerLink(p) + '</td><td>' + UI.clubLink(p.club) + '</td><td class="num">' + p.st.apps + '</td><td class="num hide-xs">' + p.st.mins + '</td><td class="num">' + p.st.goals + '</td>' +
-          '<td class="num">' + UI.pill(p.ovr) + (d ? ' <span class="tiny ' + (d > 0 ? 'good' : 'bad') + '">' + (d > 0 ? '+' : '') + d + '</span>' : '') + '</td></tr>';
-      }).join('') + '</tbody></table></div>' : '<div class="empty">Kein Spieler verliehen. Junge Spieler entwickeln sich mit Spielpraxis schneller – setze sie im Spielerprofil auf die Leihliste.</div>';
-    var listTbl = listed.length ? '<div class="list">' + listed.map(function (p) {
-      return '<div class="li click" data-action="player" data-id="' + p.id + '">' + UI.posTag(p.pos[0]) + '<div class="grow"><div class="pname">' + esc(p.name) + '</div><div class="muted small">' + p.age + ' Jahre · wartet auf Leihanfragen</div></div>' + UI.pill(p.ovr) + '</div>';
-    }).join('') + '</div>' : '<div class="empty">Niemand auf der Leihliste.</div>';
-    return '<div class="stack">' + card('Bei dir ausgeliehen', 'Leihe endet zum Saisonende', inTbl) + card('Verliehen', 'Spielpraxis bei anderen Vereinen', outTbl) + card('Leihliste', 'Andere Vereine fragen während des Transferfensters an', listTbl) + '</div>';
-  }
 
   UI.actions.exerciseOpt = function (el) {
     var st = FM.state, p = st.players[el.getAttribute('data-id')];
@@ -299,9 +453,9 @@
     });
   };
 
-  /* ---------- Bilanz ---------- */
-  function balanceView() {
-    var st = FM.state, uc = st.user.club, since = D.iso(st.season.year, 7, 1);
+  /* ================= Bilanz & Ticker ================= */
+  function logView(c, s) {
+    var st = c.st, uc = c.uc, since = D.iso(c.y, 7, 1);
     var mine = st.transfers.filter(function (t) { return t.date >= since && (t.to === uc || t.from === uc); });
     var ins = mine.filter(function (t) { return t.to === uc; }), outs = mine.filter(function (t) { return t.from === uc; });
     var spend = FM.sum(ins, function (t) { return t.fee; }), earn = FM.sum(outs, function (t) { return t.fee; });
@@ -313,210 +467,27 @@
       }).join('') + '</tbody></table></div>' : '<div class="empty">Keine.</div>';
     };
     var pays = (st.payments || []).filter(function (x) { return x.from === uc || x.to === uc; });
-    var paysHtml = pays.length ? '<div class="list">' + pays.map(function (x) {
+    var rin = c.club.recIn, rout = c.club.recOut;
+    var html = '<div class="grid g4" style="margin-bottom:16px">' +
+      '<div class="card stat"><div class="label">Ablösen bezahlt</div><div class="value">' + FM.fmtMoneyShort(spend) + ' €</div><div class="meta">' + ins.length + ' Zugänge</div></div>' +
+      '<div class="card stat"><div class="label">Ablösen erhalten</div><div class="value">' + FM.fmtMoneyShort(earn) + ' €</div><div class="meta">' + outs.length + ' Abgänge</div></div>' +
+      '<div class="card stat"><div class="label">Transfersaldo</div><div class="value ' + (earn - spend >= 0 ? 'good' : 'bad') + '">' + FM.fmtMoney(earn - spend, { sign: true }) + '</div><div class="meta">Saison ' + c.y + '/' + String(c.y + 1).slice(2) + '</div></div>' +
+      '<div class="card stat"><div class="label">Rekordtransfers</div><div class="value" style="font-size:20px">' + (rin ? FM.fmtMoneyShort(rin.fee) + ' €' : '–') + '</div><div class="meta">' + (rin ? 'Zugang: ' + esc(rin.name) : 'noch kein Rekordzugang') + (rout ? ' · Abgang: ' + esc(rout.name) + ' (' + FM.fmtMoneyShort(rout.fee) + ')' : '') + '</div></div></div>' +
+      '<div class="grid g2"><div class="card"><div class="card-h"><h3>Zugänge</h3></div>' + tbl(ins, 'from') + '</div><div class="card"><div class="card-h"><h3>Abgänge</h3></div>' + tbl(outs, 'to') + '</div></div>';
+    if (pays.length) html += '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Offene Raten</h3><span class="muted small">Fällige Raten erhöhen die Liquiditätsreserve</span></div><div class="list">' + pays.map(function (x) {
       return '<div class="li"><div class="grow"><div class="strong">' + esc(x.name) + '</div><div class="muted small">fällig am ' + D.fmt(x.due) + ' · ' + (x.from === uc ? 'an ' + esc(st.clubs[x.to].short) : 'von ' + esc(st.clubs[x.from].short)) + '</div></div><span class="strong ' + (x.from === uc ? 'bad' : 'good') + '">' + (x.from === uc ? '−' : '+') + FM.fmtMoney(x.amount) + '</span></div>';
-    }).join('') + '</div>' : '<div class="empty">Keine offenen Raten.</div>';
-    return '<div class="grid g3" style="margin-bottom:16px">' +
-      '<div class="card stat"><div class="label">Ablösen bezahlt</div><div class="value">' + FM.fmtMoney(spend) + '</div><div class="meta">' + ins.length + ' Zugänge</div></div>' +
-      '<div class="card stat"><div class="label">Ablösen erhalten</div><div class="value">' + FM.fmtMoney(earn) + '</div><div class="meta">' + outs.length + ' Abgänge</div></div>' +
-      '<div class="card stat"><div class="label">Transfersaldo</div><div class="value ' + (earn - spend >= 0 ? 'good' : 'bad') + '">' + FM.fmtMoney(earn - spend, { sign: true }) + '</div><div class="meta">Saison ' + st.season.year + '/' + String(st.season.year + 1).slice(2) + '</div></div></div>' +
-      '<div class="grid g2"><div class="card"><div class="card-h"><h3>Zugänge</h3></div>' + tbl(ins, 'from') + '</div><div class="card"><div class="card-h"><h3>Abgänge</h3></div>' + tbl(outs, 'to') + '</div></div>' +
-      '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Offene Raten</h3><span class="muted small">Fällige Raten erhöhen die Liquiditätsreserve</span></div>' + paysHtml + '</div>';
+    }).join('') + '</div></div>';
+
+    var ul = c.club.league;
+    var all = st.transfers.filter(function (t) {
+      if (s.log === 'mine') return t.to === uc || t.from === uc;
+      if (s.log === 'top') return t.fee >= 5e6;
+      if (s.log === 'league') return (st.clubs[t.to] && st.clubs[t.to].league === ul) || (t.from && st.clubs[t.from] && st.clubs[t.from].league === ul);
+      if (s.log === 'abroad') return (st.clubs[t.to] && st.clubs[t.to].eu) || (t.from && st.clubs[t.from] && st.clubs[t.from].eu);
+      return true;
+    }).slice(0, 60);
+    html += '<div class="card" style="margin-top:16px"><div class="card-h"><h3>Transferticker</h3>' + UI.seg('log', [['all', 'Alle'], ['league', 'Meine Liga'], ['top', 'Ab 5 Mio.'], ['abroad', 'Ausland'], ['mine', 'Mein Verein']], s.log) + '</div><div class="list">' +
+      (all.length ? all.map(function (t) { return tickerRow(st, t); }).join('') : '<div class="empty">Keine Transfers in dieser Auswahl.</div>') + '</div></div>';
+    return html;
   }
-
-  function logView() {
-    var st = FM.state;
-    var list = st.transfers.slice(0, 80);
-    return '<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Datum</th><th>Spieler</th><th class="hide-sm">Von</th><th>Nach</th><th class="num">Ablöse</th></tr></thead><tbody>' +
-      (list.length ? list.map(function (t) {
-        var p = st.players[t.pid];
-        return '<tr' + (t.to === st.user.club || t.from === st.user.club ? ' class="me"' : '') + '><td class="nowrap small">' + D.fmt(t.date) + '</td><td>' + (p ? UI.playerLink(p) : esc(t.name)) + ' <span class="muted small">' + FM.POS_LABEL[t.pos] + ' · ' + t.ovr + '</span></td>' +
-          '<td class="hide-sm">' + (t.from ? UI.clubLink(t.from) : '<span class="muted">vereinslos</span>') + '</td><td>' + UI.clubLink(t.to) + '</td><td class="num">' +
-          (t.loan ? '<span class="tag info">Leihe</span>' : t.pre ? '<span class="tag">Vorvertrag</span>' : t.fee ? FM.fmtMoney(t.fee) : '<span class="muted">ablösefrei</span>') + '</td></tr>';
-      }).join('') : '<tr><td colspan="5"><div class="empty">Noch keine Transfers.</div></td></tr>') + '</tbody></table></div></div>';
-  }
-
-  /* ================= Verhandlungsdialog ================= */
-  UI.actions.negotiate = function (el) { UI.negotiate(el.getAttribute('data-id'), el.getAttribute('data-k')); };
-  UI.actions.negKind = function (el) { UI.negotiate(el.getAttribute('data-id'), el.getAttribute('data-k')); };
-
-  UI.negotiate = function (pid, kind) {
-    var st = FM.state, p = st.players[pid];
-    if (!p) return;
-    var kinds = FM.dealKinds(st, p);
-    if (!kinds.length) { UI.toast('Mit diesem Spieler ist gerade kein Geschäft möglich.', 'bad'); return; }
-    var t = FM.talkOf(st, pid);
-    if (!kind || kinds.indexOf(kind) < 0) kind = t && kinds.indexOf(t.kind) >= 0 ? t.kind : kinds[0];
-    t = FM.startTalk(st, pid, kind);
-    if (t.error) { UI.toast(t.error, 'bad'); return; }
-    renderNeg(pid);
-  };
-
-  function kindSeg(st, p, t) {
-    var kinds = FM.dealKinds(st, p).filter(function (k) { return k !== 'renew'; });
-    if (kinds.length < 2 || (t.stage === 'player' && t.deal && t.kind !== 'clause')) return '';
-    return '<div class="seg" style="margin-bottom:14px">' + kinds.map(function (k) {
-      return '<button data-action="negKind" data-id="' + p.id + '" data-k="' + k + '" class="' + (t.kind === k ? 'on' : '') + '">' + FM.DEAL_LABEL[k] + '</button>';
-    }).join('') + '</div>';
-  }
-
-  function renderNeg(pid, msg) {
-    var st = FM.state, p = st.players[pid], t = FM.talkOf(st, pid), uc = st.user.club, club = st.clubs[uc];
-    if (!t) { UI.closeModal(); return; }
-    t.ui = t.ui || {};
-    var seller = p.club && p.club !== uc ? st.clubs[p.club] : null;
-    var clubStage = t.stage === 'club';
-    var steps = (t.kind === 'buy' || t.kind === 'loan') ? '<div class="steps"><span class="' + (clubStage ? 'on' : 'done') + '">1 · Verein</span>' + (t.kind === 'buy' ? '<span class="' + (clubStage ? '' : 'on') + '">2 · Spieler</span>' : '') + '</div>' : '';
-    var head = '<div class="modal-h"><div class="ph" style="flex:1;min-width:0">' + UI.pill(p.ovr, 'lg') + '<div class="info"><div class="eyebrow" style="margin:0">' + (t.kind === 'renew' ? 'Vertragsverlängerung' : 'Verhandlung · ' + FM.DEAL_LABEL[t.kind]) + '</div>' +
-      '<div class="name ellipsis" style="font-size:26px">' + esc(p.name) + '</div><div class="row wrap small dim" style="gap:6px;margin-top:2px">' + p.pos.map(UI.posTag).join(' ') + ' ' + p.age + ' J. · ' +
-      (seller ? UI.badge(seller, 16) + ' ' + esc(seller.short) : p.club === uc ? 'dein Spieler' : 'vereinslos') + ' · Marktwert ' + FM.fmtMoney(FM.marketValue(p)) + '</div></div></div>' +
-      '<button class="btn ghost icon" data-action="closeModal" aria-label="Schließen">' + UI.icon('x') + '</button></div>';
-    var form = clubStage ? (t.kind === 'loan' ? loanForm(st, p, t) : buyForm(st, p, t)) : playerForm(st, p, t);
-    var pat = clubStage ? patience(t.pat, t.max) : patience(t.ppat, t.pmax);
-    var who = clubStage ? seller.short : p.name.split(' ').slice(-1)[0];
-    var side = '<aside class="neg-side"><div class="row between"><span class="eyebrow" style="margin:0;color:var(--text-3)">Geduld ' + esc(who) + '</span>' + pat + '</div>' +
-      '<div class="neg-log">' + t.log.slice().reverse().map(function (l) { return '<div class="' + (l.me ? 'me' : 'them') + '"><b>' + (l.me ? 'Du' : '') + '</b>' + esc(l.text) + '</div>'; }).join('') + '</div></aside>';
-    var btn = clubStage ? (t.kind === 'loan' ? 'Leihe anfragen' : 'Angebot senden') : t.kind === 'renew' ? 'Vertrag anbieten' : t.kind === 'pre' ? 'Vorvertrag anbieten' : 'Vertrag anbieten';
-    UI.modal(head + '<div class="modal-b">' + steps + kindSeg(st, p, t) + '<div class="neg-grid"><div class="stack">' + form + '<div id="n-msg">' + (msg ? '<div class="note ' + msg.cls + '">' + esc(msg.text) + '</div>' : '') + '</div></div>' + side + '</div></div>' +
-      '<div class="modal-f"><button class="btn ghost danger" data-action="negCancel" data-id="' + pid + '" style="margin-right:auto">Gespräche beenden</button><button class="btn" data-action="closeModal">Später</button><button class="btn primary" id="n-go">' + btn + '</button></div>',
-      { size: 'wide', mount: function (m) { mountNeg(m, pid); } });
-  }
-
-  function buyForm(st, p, t) {
-    var uc = st.user.club, u = t.ui;
-    var fee = u.fee != null ? u.fee : t.counter || t.ask;
-    var swaps = FM.clubPlayers(st, uc).filter(function (x) { return !x.loan && !x.pre; }).sort(function (a, b) { return FM.marketValue(b) - FM.marketValue(a); });
-    var o = function (v, l, cur) { return '<option value="' + v + '"' + (String(v) === String(cur) ? ' selected' : '') + '>' + l + '</option>'; };
-    return (t.star ? '<div class="note warn">Leistungsträger: ' + esc(st.clubs[p.club].short) + ' verkauft nur für deutlich mehr als den Marktwert.</div>' : '') +
-      '<div class="field"><label>Ablöse (€)</label><div class="row"><input class="input" id="n-fee" type="number" step="50000" min="0" value="' + Math.round(fee) + '" style="flex:1">' +
-      '<button class="btn sm" data-fee="' + t.ask + '" type="button">Forderung</button>' + (t.counter ? '<button class="btn sm" data-fee="' + t.counter + '" type="button">Gegenangebot</button>' : '') + '</div>' +
-      '<div class="row wrap" style="gap:6px;margin-top:6px">' + [-20, -10, -5, 5, 10].map(function (x) { return '<button class="btn sm ghost" data-pct="' + x + '" type="button">' + (x > 0 ? '+' : '−') + Math.abs(x) + ' %</button>'; }).join('') + '</div></div>' +
-      '<div class="grid g2"><div class="field"><label>Zahlung</label><select class="input" id="n-inst">' + o(1, 'Sofort komplett', u.inst) + o(2, '2 Jahresraten', u.inst) + o(3, '3 Jahresraten', u.inst) + '</select></div>' +
-      '<div class="field"><label>Weiterverkaufsbeteiligung</label><select class="input" id="n-sell">' + o(0, 'keine', u.sellOn) + o(0.1, '10 % für den Verkäufer', u.sellOn) + o(0.2, '20 % für den Verkäufer', u.sellOn) + '</select></div></div>' +
-      '<div class="field"><label>Spieler im Tausch</label><select class="input" id="n-swap"><option value="">kein Tausch</option>' + swaps.map(function (x) {
-        return o(x.id, esc(x.name) + ' (' + FM.POS_LABEL[x.pos[0]] + ', ' + x.ovr + ') · MW ' + FM.fmtMoneyShort(FM.marketValue(x)), u.swap || '');
-      }).join('') + '</select></div>' +
-      '<p class="muted small">Raten und Weiterverkaufsbeteiligung senken, was du jetzt zahlen musst. Für junge Talente ist dem Verkäufer eine Beteiligung viel wert. Tauschspieler rechnet er nach seinem Bedarf an.</p>' +
-      '<dl class="cost" id="n-cost"></dl>';
-  }
-
-  function loanForm(st, p, t) {
-    var uc = st.user.club, u = t.ui;
-    var role = FM.expectedRole(st, p, uc);
-    var share = u.share != null ? u.share : t.counterShare != null ? t.counterShare : 0.5;
-    return '<div class="note">Leihe bis Saisonende. Bei dir wäre ' + esc(p.name) + ' <b>' + FM.ROLE_LABEL[role] + '</b>. Spieler ohne Einsatzchancen lehnen ab.</div>' +
-      '<div class="field"><label>Dein Anteil am Gehalt: <b id="n-share-l"></b></label><input type="range" id="n-share" min="0" max="100" step="10" value="' + Math.round(share * 100) + '"></div>' +
-      '<div class="field"><label>Kaufoption (€, 0 = keine)</label><input class="input" id="n-opt" type="number" step="50000" min="0" value="' + (u.option || 0) + '"><span class="muted small">Richtwert: ab etwa ' + FM.fmtMoney(FM.niceUp(FM.askingPrice(st, p) * 1.15)) + '</span></div>' +
-      '<dl class="cost" id="n-cost"></dl>';
-  }
-
-  function playerForm(st, p, t) {
-    var u = t.ui, uc = st.user.club;
-    var role = u.role || t.expRole;
-    var d = FM.playerDemand(st, t, role);
-    var mv = FM.marketValue(p);
-    var wage = u.wage != null ? u.wage : d.wage, bonus = u.bonus != null ? u.bonus : d.bonus;
-    var years = u.years || Math.min(d.maxYears, t.kind === 'renew' ? 2 : 3);
-    var clauseOpts = [[0, 'keine']].concat([1.5, 2, 2.5, 3].map(function (f) { var v = FM.niceRound(mv * f); return [v, FM.fmtMoney(v) + ' (' + String(f).replace('.', ',') + '× MW)']; }));
-    if (d.clause && !clauseOpts.some(function (c) { return c[0] === d.clause; })) clauseOpts.splice(1, 0, [d.clause, FM.fmtMoney(d.clause) + ' (Wunsch)']);
-    var clause = u.clause != null ? u.clause : 0;
-    var o = function (v, l, cur) { return '<option value="' + v + '"' + (String(v) === String(cur) ? ' selected' : '') + '>' + l + '</option>'; };
-    var note = '';
-    if (t.kind === 'clause') note = '<div class="note">Ausstiegsklausel: ' + esc(st.clubs[p.club].short) + ' muss ' + FM.fmtMoney(t.deal.fee) + ' akzeptieren. Jetzt entscheidet nur noch der Spieler.</div>';
-    if (t.kind === 'pre') note = '<div class="note">Vorvertrag: ' + esc(p.name) + ' wechselt zum 1. Juli ablösefrei. Das Handgeld wird sofort fällig.</div>';
-    if (t.kind === 'renew') note = '<div class="note">Aktueller Vertrag bis ' + p.contract.until + ', ' + FM.fmtMoney(p.contract.wage) + ' pro Jahr als ' + FM.ROLE_LABEL[FM.roleOf(st, p)] + '.' + (p.wants ? ' Er hat einen Wechselwunsch – mit einer größeren Rolle lässt er sich eher halten.' : '') + '</div>';
-    if (t.rival) note += '<div class="note warn">Auch ' + esc(st.clubs[t.rival].name) + ' wirbt um ' + esc(p.name) + ' – er verlangt mehr.</div>';
-    return note +
-      '<div class="grid g2"><div class="field"><label>Rolle im Kader</label><select class="input" id="n-role">' + FM.ROLES.filter(function (r) { return r !== 'prospect' || p.age <= 21; }).map(function (r) {
-        return o(r, FM.ROLE_LABEL[r] + (r === t.expRole ? ' – erwartet' : ''), role);
-      }).join('') + '</select></div>' +
-      '<div class="field"><label>Laufzeit</label><select class="input" id="n-years">' + [1, 2, 3, 4, 5].filter(function (y) { return y <= d.maxYears; }).map(function (y) { return o(y, y + ' Jahr' + (y > 1 ? 'e' : '') + ' (bis ' + (st.season.year + y + (t.kind === 'pre' ? 1 : 0)) + ')', years); }).join('') + '</select></div></div>' +
-      '<div class="grid g2"><div class="field"><label>Jahresgehalt (€)</label><input class="input" id="n-wage" type="number" step="10000" min="0" value="' + wage + '"></div>' +
-      '<div class="field"><label>Handgeld (€)</label><input class="input" id="n-bonus" type="number" step="10000" min="0" value="' + bonus + '"></div></div>' +
-      '<div class="field"><label>Ausstiegsklausel</label><select class="input" id="n-clause">' + clauseOpts.map(function (c) { return o(c[0], c[1], clause); }).join('') + '</select></div>' +
-      '<div class="small dim" id="n-demand"></div>' +
-      '<p class="muted small">Eine größere Rolle senkt die Gehaltsforderung, muss aber mit Einsatzzeit eingelöst werden – sonst wird er unzufrieden. Mehr Handgeld senkt das geforderte Gehalt. Eine Ausstiegsklausel macht ihn günstiger, erlaubt anderen Vereinen aber, ihn zu holen.</p>' +
-      '<dl class="cost" id="n-cost"></dl>';
-  }
-
-  function mountNeg(m, pid) {
-    var st = FM.state, p = st.players[pid], t = FM.talkOf(st, pid), uc = st.user.club, club = st.clubs[uc];
-    var b = FM.budget(st, club);
-    var $ = function (id) { return m.querySelector('#' + id); };
-    function readUi() {
-      if (t.stage === 'club' && t.kind === 'buy') {
-        t.ui.fee = +$('n-fee').value || 0; t.ui.inst = +$('n-inst').value; t.ui.sellOn = +$('n-sell').value; t.ui.swap = $('n-swap').value || null;
-      } else if (t.stage === 'club') {
-        t.ui.share = +$('n-share').value / 100; t.ui.option = +$('n-opt').value || 0;
-      } else {
-        t.ui.role = $('n-role').value; t.ui.years = +$('n-years').value; t.ui.wage = +$('n-wage').value || 0; t.ui.bonus = +$('n-bonus').value || 0; t.ui.clause = +$('n-clause').value || 0;
-      }
-    }
-    function cost() {
-      readUi();
-      var u = t.ui, c = $('n-cost'), html = '';
-      if (t.stage === 'club' && t.kind === 'buy') {
-        var now = FM.dealUpfront({ fee: u.fee, inst: u.inst }), agent = Math.round(u.fee * FM.AGENT_FEE);
-        html = '<dt>Jetzt fällig</dt><dd>' + FM.fmtMoney(now) + '</dd><dt>Beraterhonorar 10 %</dt><dd>' + FM.fmtMoney(agent) + '</dd>' +
-          (u.inst > 1 ? '<dt>Spätere Raten</dt><dd>' + FM.fmtMoney(u.fee - now) + '</dd>' : '') +
-          (u.swap && st.players[u.swap] ? '<dt>Tauschspieler (Marktwert)</dt><dd>' + FM.fmtMoney(FM.marketValue(st.players[u.swap])) + '</dd>' : '') +
-          '<dt class="sum">Belastet Transferbudget jetzt</dt><dd class="sum ' + (now + agent > b.transfer ? 'bad' : '') + '">' + FM.fmtMoney(now + agent) + ' / ' + FM.fmtMoney(b.transfer) + '</dd>';
-      } else if (t.stage === 'club') {
-        $('n-share-l').textContent = Math.round(u.share * 100) + ' %';
-        var w = p.contract.wage * u.share, room = FM.wageRoom(st, club);
-        html = '<dt>Gehalt des Spielers</dt><dd>' + FM.fmtMoney(p.contract.wage) + '</dd><dt class="sum">Davon zahlst du</dt><dd class="sum ' + (w > room ? 'bad' : '') + '">' + FM.fmtMoney(w) + ' / ' + FM.fmtMoney(Math.max(0, room)) + ' Spielraum</dd>' +
-          (u.option ? '<dt>Kaufoption</dt><dd>' + FM.fmtMoney(u.option) + ' (später, freiwillig)</dd>' : '');
-      } else {
-        var d = FM.playerDemand(st, t, u.role);
-        var clauseOk = !d.clause || (u.clause && u.clause <= d.clause);
-        $('n-demand').innerHTML = 'Erwartung als <b>' + FM.ROLE_LABEL[u.role] + '</b>: rund ' + FM.fmtMoney(Math.round(d.wage * (clauseOk ? 1 : 1.08))) + ' pro Jahr, ' + FM.fmtMoney(d.bonus) + ' Handgeld' +
-          (d.clause ? ', Klausel höchstens ' + FM.fmtMoney(d.clause) + (clauseOk ? ' ✓' : ' (sonst 8 % mehr Gehalt)') : '') + (d.interest < 30 ? ' – <span class="bad">in dieser Rolle sieht er keine Perspektive</span>' : '');
-        var deal = t.deal || { fee: 0, inst: 1 };
-        var upfront = FM.dealUpfront(deal) + Math.round((deal.fee || 0) * FM.AGENT_FEE) + u.bonus;
-        var roomP = t.kind === 'pre' ? FM.wageRoom(st, club) + FM.expiringWages(st, club) : FM.wageRoom(st, club) + (t.kind === 'renew' ? p.contract.wage : 0);
-        html = (deal.fee ? '<dt>Ablöse jetzt + Berater</dt><dd>' + FM.fmtMoney(FM.dealUpfront(deal) + Math.round(deal.fee * FM.AGENT_FEE)) + '</dd>' : '') +
-          '<dt>Handgeld</dt><dd>' + FM.fmtMoney(u.bonus) + '</dd><dt class="sum">Belastet Transferbudget</dt><dd class="sum ' + (upfront > b.transfer ? 'bad' : '') + '">' + FM.fmtMoney(upfront) + ' / ' + FM.fmtMoney(b.transfer) + '</dd>' +
-          '<dt>Gehalt vom Spielraum' + (t.kind === 'pre' ? ' (ab Juli)' : '') + '</dt><dd class="' + (u.wage > roomP ? 'bad' : '') + '">' + FM.fmtMoney(u.wage) + ' / ' + FM.fmtMoney(Math.max(0, roomP)) + '</dd>';
-      }
-      c.innerHTML = html;
-    }
-    m.querySelectorAll('input, select').forEach(function (i) { i.addEventListener('input', cost); i.addEventListener('change', cost); });
-    m.querySelectorAll('[data-fee]').forEach(function (bt) { bt.addEventListener('click', function () { $('n-fee').value = bt.getAttribute('data-fee'); cost(); }); });
-    m.querySelectorAll('[data-pct]').forEach(function (bt) { bt.addEventListener('click', function () { var f = +$('n-fee').value || t.ask; $('n-fee').value = FM.niceRound(f * (1 + +bt.getAttribute('data-pct') / 100)); cost(); }); });
-    var roleSel = $('n-role');
-    if (roleSel) roleSel.addEventListener('change', function () {
-      var d = FM.playerDemand(st, t, roleSel.value);
-      $('n-wage').value = d.wage; $('n-bonus').value = d.bonus;
-      cost();
-    });
-    cost();
-    $('n-go').addEventListener('click', function () {
-      readUi();
-      var u = t.ui, r;
-      if (t.stage === 'club') r = FM.clubOffer(st, pid, t.kind === 'loan' ? { wageShare: u.share, option: u.option } : { fee: u.fee, inst: u.inst, sellOn: u.sellOn, swap: u.swap });
-      else r = FM.playerOffer(st, pid, { role: u.role, years: u.years, wage: u.wage, bonus: u.bonus, clause: u.clause });
-      if (r.status === 'error') { $('n-msg').innerHTML = '<div class="note bad">' + esc(r.msg) + '</div>'; return; }
-      FM.save(UI.slot || 1);
-      if (r.status === 'done') { UI.closeModal(); UI.toast(r.msg, 'good'); UI.refresh(); return; }
-      if (r.status === 'broken') { UI.closeModal(); UI.toast(r.msg, 'bad'); UI.refresh(); return; }
-      if (r.status === 'counter') {
-        if (r.wage) t.ui.wage = r.wage;
-        if (r.share != null) t.counterShare = r.share;
-        if (r.option) t.ui.option = r.option;
-        renderNeg(pid, { cls: 'warn', text: r.msg });
-        return;
-      }
-      // Verein einverstanden -> Vertragsgespraech
-      t.ui = {};
-      renderNeg(pid, { cls: 'good', text: r.msg });
-    });
-  }
-
-  UI.actions.negCancel = function (el) {
-    var st = FM.state, pid = el.getAttribute('data-id');
-    FM.cancelTalk(st, pid);
-    UI.closeModal();
-    UI.toast('Gespräche beendet.');
-    UI.refresh();
-  };
 })();

@@ -336,6 +336,12 @@
     if (opts.clause) p.contract.clause = opts.clause;
     p.mor = Math.min(100, p.mor + 10);
     var rec = { date: state.date, pid: p.id, name: p.name, from: fromId, to: toId, fee: fee || 0, ovr: p.ovr, age: p.age, pos: p.pos[0] };
+    // Rekordtransfers der Vereine
+    if (fee && FM.recordFee) {
+      if (!to.guest && fee > FM.recordFee(to, 'recIn')) { to.recIn = { fee: fee, name: p.name, y: state.season.year }; rec.rec = 1; }
+      var fc = fromId ? state.clubs[fromId] : null;
+      if (fc && !fc.guest && fee > FM.recordFee(fc, 'recOut')) { fc.recOut = { fee: fee, name: p.name, y: state.season.year }; rec.recOut = 1; }
+    }
     // Tauschspieler geht zum abgebenden Verein
     if (opts.swap && fromId && state.players[opts.swap]) {
       var sw = state.players[opts.swap];
@@ -523,8 +529,10 @@
         if (R.chance(0.35) && aiLoan(state, cid, weak, allPlayers)) deals++;
         continue;
       }
+      var watched = FM.onShortlist && FM.onShortlist(state, best.p.id);
       var rec = FM.executeTransfer(state, best.p, cid, best.price, best.wage, R.int(2, 4));
       deals++;
+      if (watched) FM.addNews(state, { type: 'market', title: 'Weggeschnappt: ' + best.p.name, body: best.p.name + ' stand auf deiner Merkliste – jetzt hat ' + club.name + ' zugeschlagen' + (rec.fee ? ' (Ablöse ' + FM.fmtMoney(rec.fee) + ')' : '') + '. Wer zu lange zögert, schaut zu.' });
       FM.aiTrimSquad(state, cid);
       var ul = state.clubs[userClub].league;
       var touchesLeague = club.league === ul || (rec.from && state.clubs[rec.from].league === ul);
