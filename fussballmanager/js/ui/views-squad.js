@@ -102,7 +102,7 @@
       return '<div class="attr" title="' + esc(names[i]) + '"><span class="k">' + labels[i] + '</span><div class="bar"><i style="width:' + v + '%;background:' + c + '"></i></div><span class="v">' + v + '</span></div>';
     }).join('');
     var value = FM.marketValue(p);
-    var ask = p.club && !own && !p.loan ? FM.askingPrice(st, p) : null;
+    var ask = p.club && !own && !p.loan ? FM.dealAsk(st, p, st.user.club) : null;
     var interest = !own ? FM.interest(st, p, st.user.club) : null;
     var il = interest != null ? FM.interestLabel(interest) : null;
     var g = FM.avgGrade(p);

@@ -134,6 +134,18 @@
   };
   FM.DEAL_LABEL = { buy: 'Kauf', loan: 'Leihe', clause: 'Klausel ziehen', pre: 'Vorvertrag', free: 'Verpflichten', renew: 'Verlängerung' };
 
+  /* Leistungstraeger eines deutlich groesseren Vereins: Verkauf nur mit hohem Aufschlag */
+  FM.isStarFor = function (state, p, buyerId) {
+    var seller = p.club ? state.clubs[p.club] : null;
+    return !!seller && !p.mkt && FM.squadRank(state, p) <= 3 && seller.rep > state.clubs[buyerId].rep + 12;
+  };
+  /* Ablöseforderung gegenueber einem bestimmten Kaeufer – genau die Zahl, mit der die Verhandlung beginnt */
+  FM.dealAsk = function (state, p, buyerId) {
+    if (!p.club) return 0;
+    var base = FM.askingPrice(state, p);
+    return FM.isStarFor(state, p, buyerId) ? FM.niceRound(base * 1.75) : base;
+  };
+
   /* ================= Verhandlungen ================= */
   function talks(state) { state.talks = state.talks || {}; return state.talks; }
   FM.talkOf = function (state, pid) {
@@ -173,8 +185,8 @@
     if (t.stage === 'club') {
       var seller = state.clubs[p.club], buyer = state.clubs[uc];
       var base = FM.askingPrice(state, p);
-      var star = !p.mkt && FM.squadRank(state, p) <= 3 && seller.rep > buyer.rep + 12;
-      t.ask = FM.niceRound(base * (star ? 1.75 : 1));
+      var star = FM.isStarFor(state, p, uc);
+      t.ask = FM.dealAsk(state, p, uc);
       t.min = Math.round(base * (star ? 1.6 : R.range(0.86, 0.98)) * (FM.isDeadlineDay(state) ? 0.92 : 1));
       t.pat = t.max = p.listed || p.wants ? 5 : star ? 2 : seller.league === buyer.league ? 3 : 4;
       t.star = star;
@@ -750,12 +762,16 @@
   /* Was ein Spieler den eigenen Verein kosten wuerde und ob das Budget reicht */
   FM.affordOf = function (state, p, interest) {
     var uc = state.user.club, club = state.clubs[uc], b = FM.budget(state, club);
-    var price = p.club ? FM.askingPrice(state, p) : 0;
+    var price = FM.dealAsk(state, p, uc);
     var wage = FM.contractWageDemand(state, p, uc, interest != null ? interest : FM.interest(state, p, uc));
-    var cost = price + Math.round(price * FM.AGENT_FEE) + (p.club ? 0 : Math.round(wage * FM.SIGNING_BONUS));
+    // Handgeld wie am Verhandlungstisch: 10 % bei Kaeufen, 30 % bei Vereinslosen
+    var cost = price + Math.round(price * FM.AGENT_FEE) + FM.niceRound(wage * (p.club ? 0.1 : 0.3));
     var room = Math.max(0, FM.wageRoom(state, club));
-    var level = cost <= b.transfer && wage <= room ? 'ok' : cost <= b.transfer * 1.4 + 1 && wage <= room * 1.25 + 50000 ? 'near' : 'no';
-    return { price: price, wage: wage, cost: cost, level: level, why: cost > b.transfer ? 'fee' : wage > room ? 'wage' : '' };
+    // Am Tisch koennen Konkurrenz und Verhandlungsgeschick des Beraters das Gehalt um gut 15 % treiben –
+    // "im Budget" heisst deshalb: auch dann noch bezahlbar
+    var wageOk = wage * 1.15 <= room;
+    var level = cost <= b.transfer && wageOk ? 'ok' : cost <= b.transfer * 1.4 + 1 && wage <= room * 1.1 + 50000 ? 'near' : 'no';
+    return { price: price, wage: wage, cost: cost, level: level, why: cost > b.transfer ? 'fee' : !wageOk ? 'wage' : '' };
   };
 
   /* Darf der Spieler ueberhaupt auf dem Markt erscheinen? */

@@ -136,7 +136,7 @@
       '<div class="offer-box"><div class="offer-head"><span class="eyebrow">Jahresgehalt</span><div class="offer-num" id="n-big"></div></div>' +
       '<div class="track"><div class="track-rail"><i class="tick ask" id="n-wtick"></i><i class="zone" id="n-zone"></i></div>' +
       '<input type="range" id="n-wage-r" min="' + lo + '" max="' + hi + '" step="' + stepOf(hi) + '" value="' + FM.clamp(wage, lo, hi) + '" aria-label="Jahresgehalt"></div>' +
-      '<div class="chips quick"><button type="button" class="chip sm" id="n-wdem" data-for="wage" data-set="' + d.wage + '"><i class="lg ask"></i>Forderung <span id="n-wdem-l">' + FM.fmtMoneyShort(d.wage) + '</span></button>' +
+      '<div class="chips quick"><button type="button" class="chip sm" id="n-wdem" data-for="wage" data-set="' + d.wage + '"><i class="lg ask"></i>Forderung&nbsp;<span id="n-wdem-l">' + FM.fmtMoneyShort(d.wage) + '</span></button>' +
       (t.kind === 'renew' ? setChip('wage', p.contract.wage, 'Aktuell ' + FM.fmtMoneyShort(p.contract.wage)) : '') + pctChip('wage', -10) + pctChip('wage', -5) + pctChip('wage', 5) + pctChip('wage', 10) + '</div>' +
       '<div class="field exact"><label for="n-wage">Betrag genau (€)</label><input class="input" id="n-wage" type="number" step="10000" min="0" value="' + wage + '"></div></div>' +
       readBox() +

@@ -314,10 +314,10 @@ b, strong { font-weight: 650; }
   box-shadow: var(--shadow); min-width: 0;
 }
 .card-h {
-  display: flex; align-items: center; gap: 10px; justify-content: space-between;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; justify-content: space-between;
   padding: 14px 16px 10px;
 }
-.card-h h3 { display: flex; align-items: center; gap: 9px; }
+.card-h h3 { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .card-h h3::before { content: ""; width: 4px; height: 15px; background: var(--club); border-radius: 1px; flex: none; }
 .card-b { padding: 0 16px 16px; }
 .card-b.flush { padding: 0; }
@@ -940,7 +940,7 @@ td .chip + .chip { margin-left: 4px; }
 .tm-filter .card-b { padding-top: 14px; }
 .tm-search { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 12px; }
 .tm-search .field.grow { flex: 1; min-width: 200px; }
-.tm-chiprow { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px 0; border-top: 1px solid var(--line); }
+.tm-chiprow { display: grid; grid-template-columns: 124px minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px 0; border-top: 1px solid var(--line); }
 .tm-chiplabel { font-family: var(--font-cond); font-size: 12.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); padding-top: 8px; }
 .tm-result { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0 2px 10px; }
 .tm-more { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 16px; }
@@ -980,7 +980,8 @@ td .chip + .chip { margin-left: 4px; }
 .pcard-stats b { font-family: var(--font-display); font-size: 17px; font-weight: 800; color: var(--text); margin-right: 4px; font-variant-numeric: tabular-nums; }
 .pcard-tags { display: flex; flex-wrap: wrap; gap: 4px; min-height: 21px; align-items: center; }
 .pcard-foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; padding-top: 9px; border-top: 1px dashed var(--line-strong); margin-top: auto; }
-.pcard-price { font-family: var(--font-display); font-weight: 800; font-size: 21px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.pcard-price { font-family: var(--font-display); font-weight: 800; font-size: 21px; line-height: 1.05; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pcard-foot > div:first-child { min-width: 0; }
 .pcard-sub { font-size: 12px; color: var(--text-3); margin-top: 3px; }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); margin-right: 5px; }
 .dot.good { background: var(--good); }
@@ -1012,6 +1013,7 @@ td .chip + .chip { margin-left: 4px; }
 .deal-top { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; margin-bottom: 16px; }
 .deal-player, .deal-cmp { background: var(--surface-2); border-radius: var(--r-sm); padding: 14px; min-width: 0; }
 .deal-player { display: flex; gap: 14px; align-items: flex-start; }
+.deal-player > .grow { flex: 1; min-width: 0; }
 .deal-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px 14px; margin: 12px 0 0; }
 .deal-facts dt { font-family: var(--font-cond); font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); }
 .deal-facts dd { margin: 1px 0 0; font-weight: 650; font-variant-numeric: tabular-nums; }
@@ -1060,6 +1062,7 @@ td .chip + .chip { margin-left: 4px; }
 .read.b3 { border-left-color: var(--good); }
 .read.b3 .read-bar i { background: var(--good); }
 .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 6px; }
+.role .strong { font-size: 14.5px; overflow-wrap: anywhere; hyphens: auto; }
 .role {
   display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 9px 11px; cursor: pointer; font: inherit; color: var(--text);
   background: transparent; border: 1.5px solid var(--line-strong); border-radius: var(--r-sm);
@@ -1127,6 +1130,12 @@ td .chip + .chip { margin-left: 4px; }
   .offer-num { font-size: 30px; }
   .li.offer { flex-wrap: wrap; }
   .li.offer .offer-act { width: 100%; }
-  .deal-player { flex-direction: column; }
+  .deal-player { padding: 12px; gap: 12px; }
+  .deal-player .pcard-ovr.big { width: 54px; height: 62px; font-size: 31px; }
+  .deal-player .pcard-ovr.big span { font-size: 12px; }
+  .deal-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; margin-top: 10px; }
+  .deal-cmp { padding: 12px; }
+  .deal-cmp .cmp-row { display: none; }
+  .cmp-head { margin-bottom: 0; }
   .field.exact { flex-wrap: wrap; }
 }
