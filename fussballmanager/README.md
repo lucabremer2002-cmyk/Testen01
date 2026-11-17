@@ -65,10 +65,14 @@ exportieren und wieder importieren.
   und Intensität – wirkt auf Erholung, Form, Verletzungsrisiko und Entwicklung
 - Spielerentwicklung nach Alter, Potenzial, Spielzeit und Training;
   ältere Spieler bauen ab, Karriereende, jährlicher Akademie-Nachwuchs
-- **Transfermarkt** mit Filtern über alle 1.400+ Spieler und echten
-  Verhandlungen (siehe unten): Kauf, Leihe, Ausstiegsklausel, Vorvertrag,
+- **Transfermarkt** in fünf Bereichen (siehe unten): Zentrale mit
+  Kaderplaner und Empfehlungen, Markt mit Spielerkarten und Schnellfiltern
+  über alle 1.400+ Spieler, Merkliste & Scouting, Abgeben, Bilanz & Ticker
+- **Verhandlungstisch** mit Schieberegler, Einschätzung des Sportdirektors und
+  Vorstellung des Neuzugangs: Kauf, Leihe, Ausstiegsklausel, Vorvertrag,
   Raten, Weiterverkaufsbeteiligung, Spielertausch
-- Beobachtungsliste, Scout-Aufträge mit Scoutberichten, Transferbilanz
+- Merkliste, Scout-Aufträge mit Scoutberichten, Transferbilanz mit
+  Rekordtransfers
 - Angebote anderer Vereine für deine Spieler mit Nachverhandeln und
   Bieterwettstreit, Transfer- und Leihliste, Vertragsauflösung mit Abfindung
 - Kaderrollen mit Einsatzversprechen, unzufriedene Spieler, Wechselwünsche
@@ -199,6 +203,45 @@ Was darauf angerechnet wird:
 Inspiriert von Football Manager, dem Karrieremodus von EA SPORTS FC, der
 Master League aus PES und Anstoss.
 
+**Der Transfermarkt in fünf Bereichen**
+- **Zentrale**: Der **Kaderplaner** zeigt deine Formation auf dem Platz. Jede
+  Position leuchtet grün (gut besetzt), gelb (im Auge behalten) oder rot
+  (Baustelle), gemessen am Liga-Schnitt, am Ersatz, am Alter, am Vertragsende
+  und an Leihen. Ein Tipp auf eine Position öffnet den Markt mit allen
+  Spielern, die dort stärker sind als deine Besetzung. Darunter stehen
+  Abkürzungen mit Trefferzahl (Schnäppchen, Ablösefrei, Leihgaben, Talente,
+  Ausland), sechs Empfehlungen für deine größten Baustellen, laufende
+  Verhandlungen, Angebote für deine Spieler und die letzten Wechsel.
+- **Markt**: Suche, Schnellfilter (Verstärkungen, im Budget, Schnäppchen,
+  ablösefrei, leihbar, Talente, Vertrag läuft aus, mit Klausel), Positions-,
+  Liga-, Stärke-, Alters- und Preisfilter, sechs Sortierungen und wahlweise
+  **Spielerkarten** oder eine kompakte Liste. Jede Karte zeigt Stärke, die drei
+  besten Werte, was der Spieler deiner Elf bringen würde („+8 auf RM“), die
+  Ablöseforderung, eine **Budget-Ampel** (im Budget, knapp, zu teuer; sie
+  rechnet mit Reserve fürs Gehalt) und die Wechselbereitschaft.
+- **Merkliste & Scouting**: vorgemerkte Spieler (★ auf jeder Karte) und
+  Scoutberichte.
+- **Abgeben**: Angebote für deine Spieler, dein Kader mit Schaltern für
+  Transfer- und Leihliste, Leihen in beide Richtungen.
+- **Bilanz & Ticker**: Ablösen, Saldo, **Rekordtransfers** des Vereins, offene
+  Raten und der Transferticker (alle, eigene Liga, ab 5 Mio., Ausland, eigener
+  Verein). Schnappt dir ein anderer Verein einen Spieler von der Merkliste weg,
+  meldet das der Posteingang.
+
+**Verhandlungstisch.** Oben stehen der Spieler und der Vergleich mit deinem
+bisherigen Stammspieler auf seiner Position, Wert für Wert. Dein Angebot
+stellst du mit einem Schieberegler ein. Er zeigt Marktwert, Forderung und
+Gegenangebot als Markierungen, schraffiert ist der Bereich, den dein Budget
+nicht mehr hergibt. Dein **Sportdirektor** schätzt jedes Angebot ein, von „Das
+wirkt wie eine Beleidigung“ bis „Das dürfte reichen“. Die Einschätzung ist nie
+ganz genau, mit besserer Scoutingabteilung aber verlässlicher. Die Forderung
+des Vereins und sein Gegenangebot zu denselben Bedingungen reichen immer. Beim
+Spieler wählst du die Rolle per Kachel und siehst sofort, was er dafür
+verlangt. Nach der Unterschrift wird der Neuzugang mit seiner Karte in
+Vereinsfarben **vorgestellt**: was er deiner Elf bringt, wie sich die beste
+Elf verändert und ob es ein Vereinsrekord ist. Große Namen heben die Stimmung
+der Fans.
+
 **Zwei Verhandlungsstufen.** Erst mit dem Verein über die Ablöse, dann mit
 dem Spieler über den Vertrag. Beide Seiten haben eine sichtbare **Geduld**
 (2 bis 5 Runden, je nach Verein und Lage). Jedes zu niedrige Angebot kostet
@@ -256,8 +299,7 @@ Schwerpunkt (beste Verstärkung, Talente, Schnäppchen). Nach 6 bis 14 Tagen
 kommen bis zu acht Empfehlungen mit Note A–D, Einordnung (z. B.
 „Sofortverstärkung“, „Toptalent“), Stärken und Schwäche, und das Potenzial ist
 dann genau bekannt. Die Zahl der Scouts und das Tempo hängen von der
-Scoutingabteilung ab. Dazu gibt es eine Beobachtungsliste (★) und eine
-Transferbilanz der Saison mit offenen Raten.
+Scoutingabteilung ab.
 
 ## Infrastruktur
 
@@ -407,12 +449,14 @@ js/core/                Spiellogik ohne Oberfläche
   clubdata.js           echte Vereinsdaten: Fanbasis, TV-Geld, Schulden, Derbys
   cup.js                DFB-Pokal: Qualifikation, Landespokale, Amateurvereine, 1. Runde
   europe.js             Champions/Europa/Conference League, Auslandsvereine, UEFA-Prämien
-  transfer.js           Verhandlungen, Leihen, Klauseln, Vorverträge, Scouting, Rollen
+  transfer.js           Verhandlungen, Leihen, Klauseln, Vorverträge, Scouting, Rollen,
+                        Kaderplaner, Empfehlungen, Budget-Ampel
   abroad.js             Auslandsmarkt, Niveauregler der Ligen, Finanzplanung der KI-Vereine
   career.js             Ruf, Titel, Meilensteine, Trainermarkt, Fanstimmung
   events.js             Ereignisse mit Entscheidung, Versprechen, Halbzeitansprache, Testspiele
   season.js             Spieltage, Tabellen, Saisonende
-js/ui/                  Oberfläche (Übersicht, Kader, Taktik, Spieltag, Europapokal, Karriere …)
+js/ui/                  Oberfläche (Übersicht, Kader, Taktik, Spieltag, Europapokal, Karriere …),
+                        Transfermarkt in views-transfer.js, Verhandlungstisch in views-deal.js
 js/vendor/              lz-string
 data-src/               Rohdaten, Vereinsprofile (profiles.py), Pokal-Amateure (amateurs.py),
                         Auslandsvereine und Europapokal 2026/27 (europe.py), Spielplan-Löser
