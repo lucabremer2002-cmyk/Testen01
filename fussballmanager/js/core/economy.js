@@ -261,7 +261,7 @@
   FM.interestLabel = function (v) {
     if (v >= 70) return { t: 'Sehr interessiert', c: 'good' };
     if (v >= 50) return { t: 'Offen', c: 'ok' };
-    if (v >= 35) return { t: 'Zögerlich', c: 'warn' };
+    if (v >= 30) return { t: 'Zögerlich', c: 'warn' };   // ab 30 unterschreibt er in der erwarteten Rolle
     return { t: 'Kein Interesse', c: 'bad' };
   };
 

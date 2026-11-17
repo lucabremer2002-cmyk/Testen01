@@ -1074,7 +1074,9 @@ td .chip + .chip { margin-left: 4px; }
 .deal-end { text-align: center; padding: 18px 8px 6px; }
 .deal-end-ico { width: 56px; height: 56px; margin: 0 auto 14px; display: grid; place-items: center; border-radius: 50%; background: var(--bad-soft); color: var(--bad); }
 .deal-end-ico svg { width: 28px; height: 28px; }
-.li.offer .offer-act { justify-content: flex-end; gap: 6px; }
+.li.offer { flex-wrap: wrap; }
+.li.offer .grow { flex: 1 1 210px; }
+.li.offer .offer-act { margin-left: auto; justify-content: flex-end; gap: 6px; }
 
 /* Vorstellung des Neuzugangs */
 .signed-grid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 26px; align-items: center; }
@@ -1130,14 +1132,13 @@ td .chip + .chip { margin-left: 4px; }
   .tm-chiprow { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .tm-chiplabel { padding-top: 0; }
   .offer-num { font-size: 30px; }
-  .li.offer { flex-wrap: wrap; }
-  .li.offer .offer-act { width: 100%; }
   .deal-player { padding: 12px; gap: 12px; }
   .deal-player .pcard-ovr.big { width: 54px; height: 62px; font-size: 31px; }
   .deal-player .pcard-ovr.big span { font-size: 12px; }
   .deal-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; margin-top: 10px; }
   .deal-cmp { padding: 12px; }
   .deal-cmp .cmp-row { display: none; }
+  .steps span { padding: 7px 6px; font-size: 12.5px; letter-spacing: .03em; text-align: center; }
   .cmp-head { margin-bottom: 0; }
   .field.exact { flex-wrap: wrap; }
 }
