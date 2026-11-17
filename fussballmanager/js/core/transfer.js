@@ -305,6 +305,7 @@
     var target = Math.max(required, Math.min(required * (1 + 0.05 * t.pat), t.ask * (1 - sellOn * k)));
     var counter = niceUp(Math.max(0, (target - swapVal) / INST_FACTOR[inst]));
     t.counter = counter;
+    t.cterms = { inst: inst, sellOn: sellOn, swap: swap ? swap.id : null };
     var mood = ratio < 0.7 ? 'Das ist kein ernsthaftes Angebot.' : ratio < 0.9 ? 'Das reicht nicht.' : 'Wir sind nah dran.';
     say(t, false, seller.short + ': „' + mood + ' Für ' + FM.fmtMoney(counter) + (inst > 1 || sellOn || swap ? ' zu diesen Bedingungen' : '') + ' machen wir es."');
     return { status: 'counter', counter: counter, msg: seller.short + ' will ' + FM.fmtMoney(counter) + '.' };
@@ -825,6 +826,11 @@
     var spread = 0.015 + 0.01 * FM.facScoutSpread(state.clubs[state.user.club]);
     var off = ((FM.hash(pid + '|read') % 2001) / 1000 - 1) * spread;
     var ratio = value / Math.max(1, required * (1 + off));
+    // Die eigene Forderung – oder das Gegenangebot zu denselben Bedingungen – nimmt der Verein immer an
+    var ct = t.cterms;
+    var sure = value >= t.ask * (1 - (o.sellOn || 0) * k) ||
+      (t.counter && ct && (o.fee || 0) >= t.counter && (o.inst || 1) === ct.inst && (o.sellOn || 0) === ct.sellOn && (o.swap || null) === ct.swap);
+    if (sure) ratio = Math.max(ratio, 1);
     return { ratio: ratio, band: ratio >= 1 ? 3 : ratio >= 0.9 ? 2 : ratio >= 0.7 ? 1 : 0, spread: spread };
   };
 

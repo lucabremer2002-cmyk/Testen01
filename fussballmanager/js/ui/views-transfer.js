@@ -189,9 +189,22 @@
     var picksHtml = '<div class="card"><div class="card-h"><h3>Für dich ausgesucht</h3><button class="btn sm" data-action="tmGo" data-preset="up">Alle Verstärkungen ' + UI.icon('next') + '</button></div>' +
       (picks.length ? '<div class="card-b">' + cards(c, picks) + '</div>' : '<div class="empty">Gerade ist niemand zu haben, der dich weiterbringt und ins Budget passt. Verkäufe schaffen Spielraum – oder der Scout findet jemanden.</div>') + '</div>';
 
+    // Wie viele Spieler stecken hinter jeder Abkuerzung?
+    var cnt = { bargain: 0, free: 0, loan: 0, talent: 0, eu: 0 };
+    Object.keys(st.players).forEach(function (pid) {
+      var p = st.players[pid], cl = p.club ? st.clubs[p.club] : null;
+      if (p.club === c.uc || p.loan || p.pre) return;
+      if (cl && cl.eu) { if (FM.onMarket(st, p, true)) cnt.eu++; return; }
+      if (!FM.onMarket(st, p, false)) return;
+      if (!p.club) cnt.free++;
+      if (FM.loanable(st, p)) cnt.loan++;
+      if (p.age <= 21) { var pv = FM.potView(st, p); if (pv.lo - p.ovr >= 5) cnt.talent++; }
+      if (p.listed || p.wants || !p.club || FM.dealAsk(st, p, c.uc) <= FM.marketValue(p) * 1.02) cnt.bargain++;
+    });
+    var count = function (n) { return '<span class="tm-count' + (n ? '' : ' none') + '">' + (n ? FM.fmtInt(n) + ' Spieler' : 'derzeit keiner') + '</span>'; };
     var shortcuts = '<div class="tm-short">' + [['bargain', 'Schnäppchen', 'Gelistete, Wechselwillige und Spieler unter Marktwert'], ['free', 'Ablösefrei', 'Vereinslose kosten nur Gehalt und Handgeld'], ['loan', 'Leihgaben', 'Spieler, die ihr Verein verleihen würde'], ['talent', 'Talente', 'Bis 21 Jahre mit Luft nach oben']].map(function (x) {
-      return '<button class="tm-shortcut" data-action="tmGo" data-preset="' + x[0] + '"><span class="strong">' + x[1] + '</span><span class="muted small">' + x[2] + '</span></button>';
-    }).join('') + '<button class="tm-shortcut" data-action="tmGo" data-league="eu"><span class="strong">Ausland</span><span class="muted small">Empfehlungen und Stars der Auslandsvereine</span></button></div>';
+      return '<button class="tm-shortcut" data-action="tmGo" data-preset="' + x[0] + '"><span class="strong">' + x[1] + '</span><span class="muted small">' + x[2] + '</span>' + count(cnt[x[0]]) + '</button>';
+    }).join('') + '<button class="tm-shortcut" data-action="tmGo" data-league="eu"><span class="strong">Ausland</span><span class="muted small">Empfehlungen und Stars der Auslandsvereine</span>' + count(cnt.eu) + '</button></div>';
 
     var talks = Object.keys(st.talks || {}).map(function (k) { return FM.talkOf(st, k); }).filter(Boolean);
     var talksHtml = '<div class="card"><div class="card-h"><h3>Laufende Verhandlungen</h3></div><div class="list">' + (talks.length ? talks.map(function (t) {
@@ -246,6 +259,8 @@
     Object.keys(st.players).forEach(function (pid) {
       var p = st.players[pid];
       if (!FM.onMarket(st, p, s.league === 'eu')) return;
+      // Ausgeliehene und schon anderweitig gebundene Spieler nur bei gezielter Suche zeigen
+      if ((p.loan || p.pre) && !q) return;
       var cl = p.club ? st.clubs[p.club] : null;
       if (s.league === 'eu') { if (!cl || !cl.eu) return; }
       else if (s.league === 'de') { if (cl && cl.eu) return; }
@@ -292,7 +307,9 @@
 
     var head = '<div class="tm-result"><span><b>' + FM.fmtInt(total) + '</b> Spieler' + (s.pos !== 'all' ? ' · ' + esc(FM.POS_NAME[s.pos]) : '') + (s.preset !== 'all' ? ' · ' + PRESETS.filter(function (p) { return p[0] === s.preset; })[0][1] : '') + '</span>' +
       '<span class="muted small">Karte antippen für das Profil, ★ merkt den Spieler vor</span></div>';
-    var body = !total ? '<div class="card"><div class="empty">Kein Spieler passt zu dieser Auswahl. ' + (active ? 'Lockere die Filter oder ' : '') + 'schicke einen Scout los.</div></div>' :
+    var none = s.preset === 'free' ? 'Gerade ist kein Spieler vereinslos. Ablösefreie Spieler gibt es vor allem, wenn im Sommer Verträge auslaufen oder Vereine aussortieren. Tipp: Ab Januar kannst du Spieler mit auslaufendem Vertrag per Vorvertrag ablösefrei für den Sommer sichern.' :
+      'Kein Spieler passt zu dieser Auswahl. ' + (active ? 'Lockere die Filter oder ' : '') + 'schicke einen Scout los.';
+    var body = !total ? '<div class="card"><div class="empty">' + none + '</div></div>' :
       s.mode === 'list' ? '<div class="card">' + table(c, shown) + '</div>' : cards(c, shown);
     var more = shown.length < total ? '<div class="tm-more"><button class="btn" data-action="setUi" data-k="page" data-v="' + ((s.page || 0) + 1) + '">Weitere ' + Math.min(PAGE, total - shown.length) + ' anzeigen</button><span class="muted small">' + shown.length + ' von ' + FM.fmtInt(total) + '</span></div>' : '';
     return filters + head + body + more;
